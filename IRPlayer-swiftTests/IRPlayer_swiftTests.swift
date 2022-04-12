@@ -3,7 +3,7 @@
 //  IRPlayer-swiftTests
 //
 //  Created by Phil Chang on 2022/4/11.
-//  Copyright © 2022 Yahoo. All rights reserved.
+//  Copyright © 2022 Phil. All rights reserved.
 //
 
 import XCTest

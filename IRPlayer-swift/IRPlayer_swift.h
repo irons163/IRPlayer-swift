@@ -3,7 +3,7 @@
 //  IRPlayer-swift
 //
 //  Created by Phil Chang on 2022/4/11.
-//  Copyright © 2022 Yahoo. All rights reserved.
+//  Copyright © 2022 Phil. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
@@ -16,4 +16,31 @@ FOUNDATION_EXPORT const unsigned char IRPlayer_swiftVersionString[];
 
 // In this header, you should import all the public headers of your framework using statements like #import <IRPlayer_swift/PublicHeader.h>
 
-
+//#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
+//#import <IRPlayer_swift/libavcodec/avcodec.h>
+//#import "libavcodec/avcodec.h"
+//#import "libavdevice/avdevice.h"
+//#import "libavfilter/avfilter.h"
+//#import "libavformat/avformat.h"
+//#import "libavutil/avutil.h"
+//#import "libswresample/swresample.h"
+//#import "libswscale/swscale.h"
+#import <IRPlayer_swift/IRSensor.h>
+#import <IRPlayer_swift/IRSmoothScrollController.h>
+#import "IRGLRenderModeFactory.h"
+#import "IRGLRenderMode.h"
+#import "IRFFVideoInput.h"
+#import "IRPlayerAction.h"
+#import "IRPLFView.h"
+#import "IRGLRenderMode.h"
+#import "IRPLFImage.h"
+#import "IRAVPlayer.h"
+#import "IRFFPlayer.h"
+#import "IRGLGestureController.h"
+#import "IRFFPlayer.h"
+#import "IRFFTools.h"
+#import "IRGLRenderMode2D.h"
+#import "IRGLRenderNV12.h"
+#import "IRFisheyeParameter.h"
+#import "IRAudioManager.h"
+#import <CoreMotion/CoreMotion.h>

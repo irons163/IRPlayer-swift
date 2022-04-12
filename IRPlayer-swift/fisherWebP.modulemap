@@ -1,0 +1,14 @@
+//
+//  fisherWebP
+//  IRPlayer-swift
+//
+//  Created by Phil Chang on 2022/4/28.
+//  Copyright © 2022 Phil. All rights reserved.
+//
+
+framework module IRPlayer_swift {
+  umbrella header "fisherWebP-umbrella.h"
+
+  export *
+  module * { export * }
+}
