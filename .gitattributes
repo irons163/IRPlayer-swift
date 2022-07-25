@@ -1,0 +1,3 @@
+*.swift linguist-detectable=true
+*.h linguist-detectable=false
+*.m linguist-detectable=false
