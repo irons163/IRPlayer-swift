@@ -10,8 +10,8 @@
 		D1216B7828340C5800804337 /* fisheye-demo.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = D1A2E74B2812B04C004296EA /* fisheye-demo.mp4 */; };
 		D1216B7928340C5800804337 /* google-help-vr.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = D1A2E7492812B04C004296EA /* google-help-vr.mp4 */; };
 		D1216B7A28340C5800804337 /* i-see-fire.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = D1A2E74A2812B04C004296EA /* i-see-fire.mp4 */; };
+		D16BA179288EF7B100920A7B /* PlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D16BA176288EF7B100920A7B /* PlayerViewController.swift */; };
 		D1A2E7482812B044004296EA /* PlayerViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = D1A2E7452812B044004296EA /* PlayerViewController.xib */; };
-		D1A2E74D2812B068004296EA /* PlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2E74C2812B068004296EA /* PlayerViewController.swift */; };
 		D1A2E74F2812B84C004296EA /* IRPlayer_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1B25EE0280437F600F79DCC /* IRPlayer_swift.framework */; };
 		D1A2E7502812B84C004296EA /* IRPlayer_swift.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D1B25EE0280437F600F79DCC /* IRPlayer_swift.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D1B25EC7280437DF00F79DCC /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1B25EC6280437DF00F79DCC /* AppDelegate.swift */; };
@@ -54,11 +54,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D16BA176288EF7B100920A7B /* PlayerViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PlayerViewController.swift; sourceTree = "<group>"; };
 		D1A2E7452812B044004296EA /* PlayerViewController.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = PlayerViewController.xib; sourceTree = "<group>"; };
 		D1A2E7492812B04C004296EA /* google-help-vr.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "google-help-vr.mp4"; sourceTree = "<group>"; };
 		D1A2E74A2812B04C004296EA /* i-see-fire.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "i-see-fire.mp4"; sourceTree = "<group>"; };
 		D1A2E74B2812B04C004296EA /* fisheye-demo.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "fisheye-demo.mp4"; sourceTree = "<group>"; };
-		D1A2E74C2812B068004296EA /* PlayerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlayerViewController.swift; path = ../../../../../Downloads/PlayerViewController.swift; sourceTree = "<group>"; };
 		D1A2E7582812C048004296EA /* demo-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "demo-Bridging-Header.h"; sourceTree = "<group>"; };
 		D1B25EC3280437DF00F79DCC /* demo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = demo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1B25EC6280437DF00F79DCC /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -117,7 +117,7 @@
 				D1B25EC6280437DF00F79DCC /* AppDelegate.swift */,
 				D1B25EC8280437DF00F79DCC /* SceneDelegate.swift */,
 				D1B25ECA280437DF00F79DCC /* ViewController.swift */,
-				D1A2E74C2812B068004296EA /* PlayerViewController.swift */,
+				D16BA176288EF7B100920A7B /* PlayerViewController.swift */,
 				D1A2E7452812B044004296EA /* PlayerViewController.xib */,
 				D1B25ECC280437DF00F79DCC /* Main.storyboard */,
 				D1B25ECF280437E000F79DCC /* Assets.xcassets */,
@@ -238,9 +238,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				D1B25ECB280437DF00F79DCC /* ViewController.swift in Sources */,
-				D1A2E74D2812B068004296EA /* PlayerViewController.swift in Sources */,
 				D1B25EC7280437DF00F79DCC /* AppDelegate.swift in Sources */,
 				D1B25EC9280437DF00F79DCC /* SceneDelegate.swift in Sources */,
+				D16BA179288EF7B100920A7B /* PlayerViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
