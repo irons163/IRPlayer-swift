@@ -32,7 +32,7 @@
 #import "IRGLRenderModeFactory.h"
 #import "IRGLRenderMode.h"
 #import "IRFFVideoInput.h"
-#import "IRPlayerAction.h"
+//#import "IRPlayerAction.h"
 #import "IRPLFView.h"
 #import "IRGLRenderMode.h"
 #import "IRPLFImage.h"

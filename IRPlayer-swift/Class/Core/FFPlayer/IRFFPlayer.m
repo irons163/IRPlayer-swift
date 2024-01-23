@@ -14,7 +14,7 @@
 #import "IRFFPlayer.h"
 #import "IRFFDecoder.h"
 #import "IRAudioManager.h"
-#import "IRPlayerNotification.h"
+//#import "IRPlayerNotification.h"
 #import "IRPlayerMacro.h"
 #import "IRPlayerImp+DisplayView.h"
 #import "IRFFTrack.h"

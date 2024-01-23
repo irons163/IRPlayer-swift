@@ -10,10 +10,10 @@
 #import "IRPlayerImp+DisplayView.h"
 #import "IRGLView.h"
 
-@interface IRPlayerImp (DisplayView)
+//@interface IRPlayerImp (DisplayView)
 
 //@property (nonatomic, strong, readonly) IRGLView * displayView;
-@end
+//@end
 
 @implementation IRPlayerImp (DisplayView)
 

@@ -10,10 +10,17 @@
 #import <AVFoundation/AVFoundation.h>
 @class IRPlayerImp;
 @class IRPlayerTrack;
+//@class IRPlayerState;
 //typedef NS_ENUM(NSInteger, IRPlayerState);
-//typedef NS_ENUM(NSInteger, IRPlayerState) {
-//    IRPlayerStateNone
-//};
+typedef NS_ENUM(NSInteger, IRPlayerState) {
+    IRPlayerStateNone = 0,          // none
+    IRPlayerStateBuffering = 1,     // buffering
+    IRPlayerStateReadyToPlay = 2,   // ready to play
+    IRPlayerStatePlaying = 3,       // playing
+    IRPlayerStateSuspend = 4,       // pause
+    IRPlayerStateFinished = 5,      // finished
+    IRPlayerStateFailed = 6,        // failed
+};
 #import <IRPlayer_swift/IRPLFImage.h>
 
 @interface IRAVPlayer : NSObject

@@ -12,6 +12,7 @@
 //#import "IRPlayerImp-Swift.h"
 @class IRPlayerImp;
 @class IRPlayerTrack;
+//@class IRPlayerState;
 //typedef NS_ENUM(NSInteger, IRPlayerState);
 
 NS_ASSUME_NONNULL_BEGIN

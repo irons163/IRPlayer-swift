@@ -42,6 +42,7 @@ class PlayerViewController: UIViewController {
         return IRPlayerImp.player()
     }()
     var modes: [IRGLRenderMode]?
+    var ir: IRPlayerNotification
 
     @IBOutlet weak var mainView: UIView!
     @IBOutlet weak var stateLabel: UILabel!

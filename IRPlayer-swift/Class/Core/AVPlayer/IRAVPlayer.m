@@ -10,7 +10,7 @@
 #import "IRAVPlayer.h"
 #import "IRPlayerImp+DisplayView.h"
 #import "IRPlayerMacro.h"
-#import "IRPlayerNotification.h"
+//#import "IRPlayerNotification.h"
 #import "IRFFCVYUVVideoFrame.h"
 #import <AVFoundation/AVFoundation.h>
 
