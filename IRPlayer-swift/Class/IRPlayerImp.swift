@@ -316,7 +316,7 @@ public class IRPlayerImp: NSObject {
     public func seekToTime(time: TimeInterval, completeHandler: ((Bool) -> Void)? = nil) {
         switch self.decoderType {
         case .avPlayer:
-            self.avPlayer.seek(toTime: time, completeHandler: completeHandler)
+            self.avPlayer.seek(to: time, completionHandler: completeHandler)
         case .ffmpeg:
             self.ffPlayer.seek(toTime: time, completeHandler: completeHandler)
         default:

@@ -13,3 +13,7 @@
 #import "libavutil/avutil.h"
 #import "libswresample/swresample.h"
 #import "libswscale/swscale.h"
+
+#import "IRFFCVYUVVideoFrame.h"
+#import "IRGLSupportPixelFormat.h"
+#import "IRPlayerMacro.h"

@@ -29,7 +29,7 @@
 #import "IRGLRenderModeFactory.h"
 #import <pthread.h>
 #include <sys/time.h>
-#import "IRAVPlayer.h"
+//#import "IRAVPlayer.h"
 
 @interface IRGLRenderMode(BuildIRGLProgram)
 

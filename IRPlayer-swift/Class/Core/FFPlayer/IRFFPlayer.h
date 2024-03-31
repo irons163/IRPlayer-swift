@@ -9,11 +9,20 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 //#import "IRPlayerImp.h"
-//#import "IRPlayerImp-Swift.h"
+//#import "IRPlayer_swift-Swift.h"
 @class IRPlayerImp;
 @class IRPlayerTrack;
 //@class IRPlayerState;
 //typedef NS_ENUM(NSInteger, IRPlayerState);
+typedef NS_ENUM(NSInteger, IRPlayerState) {
+    IRPlayerStateNone = 0,          // none
+    IRPlayerStateBuffering = 1,     // buffering
+    IRPlayerStateReadyToPlay = 2,   // ready to play
+    IRPlayerStatePlaying = 3,       // playing
+    IRPlayerStateSuspend = 4,       // pause
+    IRPlayerStateFinished = 5,      // finished
+    IRPlayerStateFailed = 6,        // failed
+};
 
 NS_ASSUME_NONNULL_BEGIN
 

@@ -36,7 +36,7 @@
 #import "IRPLFView.h"
 #import "IRGLRenderMode.h"
 #import "IRPLFImage.h"
-#import "IRAVPlayer.h"
+//#import "IRAVPlayer.h"
 #import "IRFFPlayer.h"
 #import "IRGLGestureController.h"
 #import "IRFFPlayer.h"
@@ -49,3 +49,4 @@
 #import "IRFisheyeParameter.h"
 #import "IRAudioManager.h"
 #import <CoreMotion/CoreMotion.h>
+#import "IRFFCVYUVVideoFrame.h"

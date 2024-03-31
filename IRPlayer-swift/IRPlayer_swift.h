@@ -34,7 +34,7 @@ FOUNDATION_EXPORT const unsigned char IRPlayer_swiftVersionString[];
 #import "IRPLFView.h"
 #import "IRGLRenderMode.h"
 #import "IRPLFImage.h"
-#import "IRAVPlayer.h"
+//#import "IRAVPlayer.h"
 #import "IRFFPlayer.h"
 #import "IRGLGestureController.h"
 #import "IRFFPlayer.h"

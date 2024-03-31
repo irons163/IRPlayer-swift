@@ -41,7 +41,7 @@ public let IRPlayerPlayableTotalKey: String = "total" // playable
 
 public class IRModel: NSObject {
 
-    static func state(fromUserInfo userInfo: [AnyHashable : Any]) -> IRState {
+    public static func state(fromUserInfo userInfo: [AnyHashable : Any]) -> IRState {
         let state = IRState()
         state.previous = IRPlayerState(rawValue: userInfo[IRPlayerStatePreviousKey] as? Int ?? 0) ?? .none
         state.current = IRPlayerState(rawValue: userInfo[IRPlayerStateCurrentKey] as? Int ?? 0) ?? .none
@@ -81,8 +81,8 @@ public class IRModel: NSObject {
 
 @objcMembers
 public class IRState: IRModel {
-    var previous: IRPlayerState = .none
-    var current: IRPlayerState = .none
+    public var previous: IRPlayerState = .none
+    public var current: IRPlayerState = .none
 }
 
 class IRProgress: IRModel {
