@@ -19,15 +19,15 @@ import UIKit
 }
 
 // player state
-//@objc public enum IRPlayerState: Int {
-//    case none // normal
-//    case buffering // virtual reality
-//    case readyToPlay
-//    case playing
-//    case suspend
-//    case finished
-//    case failed
-//}
+@objc public enum IRPlayerState: Int {
+    case none // normal
+    case buffering // virtual reality
+    case readyToPlay
+    case playing
+    case suspend
+    case finished
+    case failed
+}
 
 // display mode
 public enum IRDisplayMode {
@@ -318,14 +318,14 @@ public class IRPlayerImp: NSObject {
         case .avPlayer:
             self.avPlayer.seek(to: time, completionHandler: completeHandler)
         case .ffmpeg:
-            self.ffPlayer.seek(toTime: time, completeHandler: completeHandler)
+            self.ffPlayer.seek(to: time, completeHandler: completeHandler!)
         default:
             break
         }
     }
 
     func seekToTime(time: TimeInterval) {
-        self.seekToTime(time: time)
+//        self.seekToTime(time: time)
     }
 
     public func updateGraphicsViewFrame(frame: CGRect) {

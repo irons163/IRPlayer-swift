@@ -6,7 +6,7 @@
 //
 
 import AVFoundation
-import UIKit // If you are using UIKit's CADisplayLink
+import UIKit
 
 class IRAVPlayer: NSObject {
 
