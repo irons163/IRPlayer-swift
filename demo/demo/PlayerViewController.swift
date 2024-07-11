@@ -51,6 +51,10 @@ class PlayerViewController: UIViewController {
     @IBOutlet weak var totalTimeLabel: UILabel!
     @IBOutlet weak var modesButton: UIButton!
 
+    deinit {
+        player.removePlayerNotification(target: self)
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -142,11 +146,17 @@ class PlayerViewController: UIViewController {
     }
 
     @IBAction func modes(_ sender: Any) {
+        showRenderModeMenu()
     }
+
     @IBAction func play(_ sender: Any) {
+        player.play()
     }
+
     @IBAction func pause(_ sender: Any) {
+        player.pause()
     }
+
     @IBAction func progressTouchDown(_ sender: Any) {
         self.progressSilderTouching = true
     }
@@ -159,8 +169,45 @@ class PlayerViewController: UIViewController {
 extension PlayerViewController {
 
     @IBAction func back(_ sender: Any) {
+        self.navigationController?.popViewController(animated: true)
     }
-//    self.navigationController?.popViewController(animated: true)
+
+    func showRenderModeMenu() {
+        guard let aryModes = modes else { return }
+
+        if aryModes.count > 0 {
+            var aryStreamsTitle = [String]()
+            var aryStreamsCheckMark = [UITableViewCell.AccessoryType]()
+
+            let currentRenderMode = player.renderMode
+
+            let alertView = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+
+            for (index, mode) in aryModes.enumerated() {
+                if let tmpRenderMode = mode as? IRGLRenderMode {
+                    let renderModeStr = tmpRenderMode.name
+                    aryStreamsTitle.append(renderModeStr)
+
+                    if tmpRenderMode == currentRenderMode {
+                        aryStreamsCheckMark.append(.checkmark)
+                    } else {
+                        aryStreamsCheckMark.append(.none)
+                    }
+
+                    let itemAction = UIAlertAction(title: renderModeStr, style: .default) { [weak self] action in
+                        guard let self = self else { return }
+                        if let tmpRenderMode = aryModes[index] as? IRGLRenderMode {
+                            self.player.selectRenderMode(renderMode: tmpRenderMode)
+                        }
+                    }
+
+                    alertView.addAction(itemAction)
+                }
+            }
+
+            present(alertView, animated: true, completion: nil)
+        }
+    }
 }
 
 extension PlayerViewController {

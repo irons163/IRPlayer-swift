@@ -84,7 +84,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, assign, readonly) BOOL seekEnable;
 - (void)seekToTime:(NSTimeInterval)time;
-- (void)seekToTime:(NSTimeInterval)time completeHandler:(void (^)(BOOL finished))completeHandler;
+- (void)seekToTime:(NSTimeInterval)time completeHandler:(nullable void (^)(BOOL finished))completeHandler;
 
 - (void)open;
 - (void)closeFile;      // when release of active calls, or when called in dealloc might block the thread

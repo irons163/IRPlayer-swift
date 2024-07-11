@@ -82,7 +82,7 @@ public class IRPlayerImp: NSObject {
             self.displayView?.setRenderModes(newValue ?? [])
         }
     }
-    private(set) var renderMode: IRGLRenderMode?
+    public private(set) var renderMode: IRGLRenderMode?
     public var viewTapAction: ((_ player: IRPlayerImp, _ view: IRPLFView) -> Void)?
 
     // control
@@ -271,7 +271,7 @@ public class IRPlayerImp: NSObject {
         ])
     }
 
-    func selectRenderMode(renderMode: IRGLRenderMode) {
+    public func selectRenderMode(renderMode: IRGLRenderMode) {
         self.displayView?.choose(renderMode, withImmediatelyRenderOnce: true)
         self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
     }
@@ -318,7 +318,7 @@ public class IRPlayerImp: NSObject {
         case .avPlayer:
             self.avPlayer.seek(to: time, completionHandler: completeHandler)
         case .ffmpeg:
-            self.ffPlayer.seek(to: time, completeHandler: completeHandler!)
+            self.ffPlayer.seek(to: time, completeHandler: completeHandler)
         default:
             break
         }

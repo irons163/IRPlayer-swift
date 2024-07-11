@@ -11,12 +11,10 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface IRFFAudioFrame : IRFFFrame
-{
-@public
-    float * samples;
-    int length;
-    int output_offset;
-}
+
+@property (nonatomic, assign) float * samples;
+@property (nonatomic, assign) NSInteger length;
+@property (nonatomic, assign) NSInteger output_offset;
 
 - (void)setSamplesLength:(NSUInteger)samplesLength;
 

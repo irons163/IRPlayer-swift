@@ -36,7 +36,6 @@
 - (void)dealloc
 {
     if (self->_pixelBuffer) {
-        CVPixelBufferRelease(self->_pixelBuffer);
         self->_pixelBuffer = NULL;
     }
 }

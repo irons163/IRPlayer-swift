@@ -10,9 +10,12 @@ import UIKit
 
 class IRAVPlayer: NSObject {
 
+    static let pixelBufferRequestInterval: CGFloat = 0.03
+    static let avMediaSelectionOptionTrackIDKey = "MediaSelectionOptionsPersistentID"
+    static let AVAssetLoadKeys: [String] = ["tracks", "playable"]
+
     weak var abstractPlayer: IRPlayerImp!
-//    var state: IRPlayerState = .none
-//    var playableTime: TimeInterval = 0
+
     var seeking = false
 
     var playBackTimeObserver: Any?
@@ -22,8 +25,8 @@ class IRAVPlayer: NSObject {
     var avOutput: AVPlayerItemVideoOutput?
     var readyToPlayTime: TimeInterval = 0
 
-    var needPlay = false
-    var autoNeedPlay = false
+    var needPlay = false // seek and buffering use
+    var autoNeedPlay = false // background use
     var hasPixelBuffer = false
 
     var displayLink: CADisplayLink?
@@ -39,7 +42,8 @@ class IRAVPlayer: NSObject {
 
     var state: IRPlayerState = .none {
         didSet {
-            if state != oldValue {
+            if state != oldValue,
+               let abstractPlayer = abstractPlayer {
                 if state != .failed {
                     abstractPlayer.error = nil
                 }
@@ -50,27 +54,21 @@ class IRAVPlayer: NSObject {
 
     var playableTime: TimeInterval = 0 {
         didSet {
-            if playableTime != oldValue {
-                let duration = self.duration // Assuming 'duration' is calculated elsewhere
+            if playableTime != oldValue,
+               let abstractPlayer = abstractPlayer {
+                let duration = self.duration
                 IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: playableTime/duration as NSNumber, current: playableTime as NSNumber, total: duration as NSNumber)
             }
         }
     }
 
-    static let pixelBufferRequestInterval: CGFloat = 0.03
-    static let avMediaSelectionOptionTrackIDKey = "MediaSelectionOptionsPersistentID"
-    static let AVAssetLoadKeys: [String] = ["tracks", "playable"]
-
-    // Initializer
     init(abstractPlayer: IRPlayerImp) {
         self.abstractPlayer = abstractPlayer
         super.init()
         self.abstractPlayer.displayView?.avplayer = self
         self.abstractPlayer.displayView?.pixelFormat = IRPixelFormat.NV12_IRPixelFormat
 
-        self.displayLink = CADisplayLink(target: self, selector: #selector(displayLinkCallback))
-        self.displayLink?.add(to: .current, forMode: .default)
-        self.displayLink?.isPaused = false
+        setupDisplayLink()
     }
 
     deinit {
@@ -189,7 +187,7 @@ extension IRAVPlayer {
     }
 
     var bitrate: TimeInterval {
-        return 0 // Implement logic if needed
+        return 0
     }
 
 }
@@ -217,8 +215,8 @@ extension IRAVPlayer {
     }
 
     func snapshotAtCurrentTime() -> IRPLFImage? {
-        // Assuming IRPLFImage is a typealias for a platform-specific image class, e.g., UIImage or NSImage
-        guard let avAsset = avAsset else { return nil }
+        guard let avAsset = avAsset,
+              abstractPlayer.videoType == .normal else { return nil }
 
         let imageGenerator = AVAssetImageGenerator(asset: avAsset)
         imageGenerator.appliesPreferredTrackTransform = true
@@ -235,27 +233,33 @@ extension IRAVPlayer {
     }
 
     func pixelBufferAtCurrentTime() -> CVPixelBuffer? {
-        guard !seeking, let avOutput = avOutput,
+        guard !seeking else { return nil }
+        guard let avOutput = avOutput,
               avOutput.hasNewPixelBuffer(forItemTime: avPlayerItem.currentTime()) else {
-            if hasPixelBuffer { return nil }
+            return nil
+        }
+
+        guard let pixelBuffer = avOutput.copyPixelBuffer(forItemTime: avPlayerItem.currentTime(), itemTimeForDisplay: nil) else {
             trySetupOutput()
             return nil
         }
 
-        return avOutput.copyPixelBuffer(forItemTime: avPlayerItem.currentTime(), itemTimeForDisplay: nil)
+        hasPixelBuffer = true
+        return pixelBuffer
     }
-
 }
 
+
+// MARK: CADisplayLink
 extension IRAVPlayer {
 
     func setupDisplayLink() {
-        displayLink = CADisplayLink(target: self, selector: #selector(displayLinkCallback(_:)))
-        displayLink?.add(to: .main, forMode: .default)
+        self.displayLink = CADisplayLink(target: self, selector: #selector(displayLinkCallback))
+        self.displayLink?.add(to: .current, forMode: .default)
+        self.displayLink?.isPaused = false
     }
 
     @objc func displayLinkCallback(_ sender: CADisplayLink) {
-        // Assuming pixelBufferAtCurrentTime is a method that returns a CVPixelBuffer?
         guard let pixelBuffer = pixelBufferAtCurrentTime() else { return }
 
         let videoFrame = IRFFCVYUVVideoFrame(avPixelBuffer: pixelBuffer)
@@ -456,6 +460,8 @@ extension IRAVPlayer {
         avPlayerItem?.addObserver(self, forKeyPath: "playbackBufferEmpty", options: [.new], context: nil)
         avPlayerItem?.addObserver(self, forKeyPath: "loadedTimeRanges", options: [.new], context: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(avplayerItemDidPlayToEnd(_:)), name: .AVPlayerItemDidPlayToEndTime, object: avPlayerItem)
+
+        setupOutput()
     }
 
     func cleanAVPlayerItem() {
@@ -517,7 +523,7 @@ extension IRAVPlayer {
         seeking = false
         playableTime = 0
         readyToPlayTime = 0
-        abstractPlayer.displayView?.cleanEmptyBuffer()
+        abstractPlayer?.displayView?.cleanEmptyBuffer()
     }
 
     func setupTrackInfo() {

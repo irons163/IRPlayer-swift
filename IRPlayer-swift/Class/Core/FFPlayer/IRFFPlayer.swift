@@ -36,15 +36,11 @@ class IRFFPlayer: NSObject {
         }
     }
 
-    var progress: TimeInterval {
-        get {
-            return self.progress
-        }
-        set(newProgress) {
-            guard progress != newProgress else { return }
-            self.progress = newProgress
+    var progress: TimeInterval = 0 {
+        didSet {
+            guard progress != oldValue else { return }
+            
             var duration = self.duration
-
             if progress <= 0.000001 || progress == duration {
                 IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: progress / duration as NSNumber, current: progress as NSNumber, total: duration as NSNumber)
             } else {
@@ -93,6 +89,12 @@ class IRFFPlayer: NSObject {
         manager.registerAudioSession()
     }
 
+    deinit {
+        clean()
+        audioManager?.unregisterAudioSession()
+        print("IRFFPlayer release")
+    }
+
     static func player(with abstractPlayer: IRPlayerImp) -> IRFFPlayer {
         return IRFFPlayer(abstractPlayer: abstractPlayer)!
     }
@@ -131,38 +133,85 @@ class IRFFPlayer: NSObject {
         decoder?.seek(toTime: time)
     }
 
-    func seek(to time: TimeInterval, completeHandler: @escaping (Bool) -> Void) {
+    func seek(to time: TimeInterval, completeHandler: ((Bool) -> Void)? = nil) {
         decoder?.seek(toTime: time, completeHandler: completeHandler)
-    }
-
-    // Assuming a clean method exists to reset or clear the player's state
-    private func clean() {
-        // Implementation...
     }
 }
 
-// Assuming IRFFDecoderDelegate and IRFFDecoderAudioOutput are protocol names that have been translated or exposed to Swift.
-extension IRFFPlayer: IRFFDecoderDelegate, IRFFDecoderAudioOutput {
+// MARK: - Clean
+extension IRFFPlayer {
 
-    // Initialization within an extension isn't supported directly in Swift.
-    // You might need to initialize these properties elsewhere or use a different pattern.
+    private func clean() {
+        cleanDecoder()
+        cleanFrame()
+        cleanPlayer()
+    }
 
-    // Example function skeletons based on the protocol conformances and properties.
+    private func cleanPlayer() {
+        playing = false
+        state = .none
+        progress = 0
+        playableTime = 0
+        prepareToken = false
+        lastPostProgressTime = 0
+        lastPostPlayableTime = 0
+        abstractPlayer?.displayView?.cleanEmptyBuffer()
+    }
+
+    private func cleanFrame() {
+        currentAudioFrame?.stopPlaying()
+        currentAudioFrame = nil
+    }
+
+    private func cleanDecoder() {
+        if let decoder = decoder {
+            decoder.closeFile()
+            self.decoder = nil
+        }
+    }
+}
+
+extension IRFFPlayer: IRFFDecoderDelegate {
+
+    func decoderWillOpenInputStream(_ decoder: IRFFDecoder) {
+        self.state = .buffering
+    }
     func decoderDidPrepare(toDecodeFrames decoder: IRFFDecoder) {
-        // Implementation of protocol method
+        self.state = .readyToPlay
     }
-
     func decoderDidEnd(ofFile decoder: IRFFDecoder) {
-        // Implementation of protocol method
+        self.playableTime = self.duration
+    }
+    func decoderDidPlaybackFinished(_ decoder: IRFFDecoder) {
+        self.state = .finished
+    }
+    func decoder(_ decoder: IRFFDecoder, didError error: Error) {
+        errorHandler(error: error as NSError)
+    }
+    func decoder(_ decoder: IRFFDecoder, didChangeValueOfBuffering buffering: Bool) {
+        if buffering {
+            self.state = .buffering
+        } else {
+            if self.playing {
+                self.state = .playing
+            } else if !self.prepareToken {
+                self.state = .readyToPlay
+                self.prepareToken = true
+            } else {
+                self.state = .suspend
+            }
+        }
+    }
+    func decoder(_ decoder: IRFFDecoder, didChangeValueOfBufferedDuration bufferedDuration: TimeInterval) {
+        self.playableTime = self.progress + bufferedDuration
     }
 
-    // Additional functions for IRFFDecoderAudioOutput as needed
-    func numberOfChannels() -> UInt32 {
-        return 0
-    }
-
-    func samplingRate() -> Float64 {
-        return 0
+    func errorHandler(error: NSError) {
+        let obj = IRError()
+        obj.error = error
+        self.abstractPlayer?.error = obj
+        self.state = .failed
+        IRPlayerNotification.postPlayer(self.abstractPlayer, error: obj)
     }
 }
 
@@ -214,8 +263,58 @@ extension IRFFPlayer {
     }
 }
 
-extension IRFFPlayer: IRAudioManagerDelegate {
-    func audioManager(_ audioManager: IRAudioManager, outputData: UnsafeMutablePointer<Float>, numberOfFrames: UInt32, numberOfChannels: UInt32) {
+extension IRFFPlayer: IRFFDecoderAudioOutput {
 
+    func numberOfChannels() -> UInt32 {
+        return self.audioManager?.numberOfChannels ?? 0
     }
+
+    func samplingRate() -> Float64 {
+        return self.audioManager?.samplingRate ?? 0
+    }
+}
+
+extension IRFFPlayer: IRAudioManagerDelegate {
+    
+    func audioManager(_ audioManager: IRAudioManager, outputData: UnsafeMutablePointer<Float>, numberOfFrames: UInt32, numberOfChannels: UInt32) {
+        guard self.playing else {
+            memset(outputData, 0, Int(numberOfFrames * numberOfChannels * UInt32(MemoryLayout<Float>.size)))
+            return
+        }
+
+//        autoreleasepool {
+            var remainingFrames = numberOfFrames
+            var currentOutputData = outputData
+
+            while remainingFrames > 0 {
+                if self.currentAudioFrame == nil {
+                    self.currentAudioFrame = self.decoder?.fetchAudioFrame()
+                    self.currentAudioFrame?.startPlaying()
+                }
+
+                guard let currentAudioFrame = self.currentAudioFrame else {
+                    memset(currentOutputData, 0, Int(remainingFrames * numberOfChannels) * MemoryLayout<Float>.size)
+                    return
+                }
+
+                let bytes = UnsafeRawPointer(currentAudioFrame.samples).advanced(by: Int(currentAudioFrame.output_offset)).assumingMemoryBound(to: UInt8.self)
+                let bytesLeft = currentAudioFrame.length - currentAudioFrame.output_offset
+                let frameSizeOf = Int(numberOfChannels) * MemoryLayout<Float>.size
+                let bytesToCopy = min(Int(remainingFrames) * frameSizeOf, bytesLeft)
+                let framesToCopy = bytesToCopy / frameSizeOf
+
+                memcpy(currentOutputData, bytes, bytesToCopy)
+                remainingFrames -= UInt32(framesToCopy)
+                currentOutputData = currentOutputData.advanced(by: framesToCopy * Int(numberOfChannels))
+
+                if bytesToCopy < bytesLeft {
+                    currentAudioFrame.output_offset += bytesToCopy
+                } else {
+                    currentAudioFrame.stopPlaying()
+                    self.currentAudioFrame = nil
+                }
+            }
+//        }
+    }
+
 }

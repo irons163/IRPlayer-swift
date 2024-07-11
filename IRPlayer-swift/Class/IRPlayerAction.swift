@@ -43,8 +43,8 @@ public class IRModel: NSObject {
 
     public static func state(fromUserInfo userInfo: [AnyHashable : Any]) -> IRState {
         let state = IRState()
-        state.previous = IRPlayerState(rawValue: userInfo[IRPlayerStatePreviousKey] as? Int ?? 0) ?? .none
-        state.current = IRPlayerState(rawValue: userInfo[IRPlayerStateCurrentKey] as? Int ?? 0) ?? .none
+        state.previous = userInfo[IRPlayerStatePreviousKey] as? IRPlayerState ?? .none
+        state.current = userInfo[IRPlayerStateCurrentKey] as? IRPlayerState ?? .none
         return state
     }
 

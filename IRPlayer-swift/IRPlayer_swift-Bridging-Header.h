@@ -17,3 +17,4 @@
 #import "IRFFCVYUVVideoFrame.h"
 #import "IRGLSupportPixelFormat.h"
 #import "IRPlayerMacro.h"
+#import "IRFFAudioFrame.h"

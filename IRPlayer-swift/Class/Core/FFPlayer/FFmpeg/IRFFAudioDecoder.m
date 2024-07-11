@@ -181,15 +181,15 @@
     audioFrame.duration = av_frame_get_pkt_duration(_temp_frame) * _timebase;
     
     if (audioFrame.duration == 0) {
-        audioFrame.duration = audioFrame->length / (sizeof(float) * _channelCount * _samplingRate);
+        audioFrame.duration = audioFrame.length / (sizeof(float) * _channelCount * _samplingRate);
     }
     
     const NSUInteger numberOfElements = numberOfFrames * self->_channelCount;
     [audioFrame setSamplesLength:numberOfElements * sizeof(float)];
     
     float scale = 1.0 / (float)INT16_MAX ;
-    vDSP_vflt16((SInt16 *)audioDataBuffer, 1, audioFrame->samples, 1, numberOfElements);
-    vDSP_vsmul(audioFrame->samples, 1, &scale, audioFrame->samples, 1, numberOfElements);
+    vDSP_vflt16((SInt16 *)audioDataBuffer, 1, audioFrame.samples, 1, numberOfElements);
+    vDSP_vsmul(audioFrame.samples, 1, &scale, audioFrame.samples, 1, numberOfElements);
     
     return audioFrame;
 }
