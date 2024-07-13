@@ -8,6 +8,8 @@
 
 #import "IRFFVideoInput.h"
 #import "IRFFVideoInput+Private.h"
+#import "IRFFVideoDecoder.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @implementation IRFFVideoInput
 

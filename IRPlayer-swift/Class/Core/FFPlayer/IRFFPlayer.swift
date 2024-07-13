@@ -130,11 +130,11 @@ class IRFFPlayer: NSObject {
     }
 
     func seek(to time: TimeInterval) {
-        decoder?.seek(toTime: time)
+        decoder?.seek(to: time)
     }
 
     func seek(to time: TimeInterval, completeHandler: ((Bool) -> Void)? = nil) {
-        decoder?.seek(toTime: time, completeHandler: completeHandler)
+        decoder?.seek(to: time, completeHandler: completeHandler)
     }
 }
 
@@ -176,10 +176,10 @@ extension IRFFPlayer: IRFFDecoderDelegate {
     func decoderWillOpenInputStream(_ decoder: IRFFDecoder) {
         self.state = .buffering
     }
-    func decoderDidPrepare(toDecodeFrames decoder: IRFFDecoder) {
+    func decoderDidPrepareToDecodeFrames(_ decoder: IRFFDecoder) {
         self.state = .readyToPlay
     }
-    func decoderDidEnd(ofFile decoder: IRFFDecoder) {
+    func decoderDidEndOfFile(_ decoder: IRFFDecoder) {
         self.playableTime = self.duration
     }
     func decoderDidPlaybackFinished(_ decoder: IRFFDecoder) {
@@ -204,6 +204,9 @@ extension IRFFPlayer: IRFFDecoderDelegate {
     }
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBufferedDuration bufferedDuration: TimeInterval) {
         self.playableTime = self.progress + bufferedDuration
+    }
+    func decoder(_ decoder: IRFFDecoder, didChangeValueOfProgress progress: TimeInterval) {
+
     }
 
     func errorHandler(error: NSError) {
@@ -234,7 +237,7 @@ extension IRFFPlayer {
     }
 
     func reloadPlayableBufferInterval() {
-        decoder?.minBufferedDruation = abstractPlayer?.playableBufferInterval ?? 0
+        decoder?.minBufferedDuration = abstractPlayer?.playableBufferInterval ?? 0
     }
 
     func replaceVideo() {
@@ -264,13 +267,12 @@ extension IRFFPlayer {
 }
 
 extension IRFFPlayer: IRFFDecoderAudioOutput {
-
-    func numberOfChannels() -> UInt32 {
-        return self.audioManager?.numberOfChannels ?? 0
+    var samplingRate: Float64 {
+        return self.audioManager?.samplingRate ?? 0
     }
 
-    func samplingRate() -> Float64 {
-        return self.audioManager?.samplingRate ?? 0
+    var numberOfChannels: UInt32 {
+        return self.audioManager?.numberOfChannels ?? 0
     }
 }
 

@@ -7,7 +7,7 @@
 //
 
 #import "IRFFVideoInput.h"
-#import "IRFFDecoder.h"
+@protocol IRFFDecoderVideoOutput;
 
 NS_ASSUME_NONNULL_BEGIN
 

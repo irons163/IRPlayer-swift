@@ -51,3 +51,9 @@
 #import <CoreMotion/CoreMotion.h>
 #import "IRFFCVYUVVideoFrame.h"
 #import "IRGLSupportPixelFormat.h"
+
+#import "IRFFAudioFrame.h"
+#import "IRFFTrack.h"
+#import "IRFFAudioDecoder.h"
+#import "IRFFVideoDecoder.h"
+#import "IRFFFormatContext.h"

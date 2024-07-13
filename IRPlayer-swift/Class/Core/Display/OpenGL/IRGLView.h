@@ -9,7 +9,7 @@
 #import <UIKit/UIKit.h>
 #import "IRGLSupportPixelFormat.h"
 //#import "IRPlayerImp.h"
-#import "IRFFDecoder.h"
+//#import "IRFFDecoder.h"
 
 @class IRGLRenderMode;
 @class IRGLViewSimulateDeviceShiftController;
@@ -20,6 +20,7 @@
 @class IRAVPlayer;
 
 @class IRPlayerImp;
+@protocol IRFFDecoderVideoOutput;
 
 NS_ASSUME_NONNULL_BEGIN
 

@@ -7,7 +7,6 @@
 //
 
 #import "IRFFTools.h"
-#import "IRFFDecoder.h"
 
 #pragma mark - Util Function
 

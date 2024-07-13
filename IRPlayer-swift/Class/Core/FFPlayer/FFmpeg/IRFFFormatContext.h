@@ -8,8 +8,10 @@
 
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
-#import "IRFFMetadata.h"
+//#import "IRFFMetadata.h"
 #import "IRFFTrack.h"
+
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -23,12 +25,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface IRFFFormatContext : NSObject
 
-{
-@public
-    AVFormatContext * _format_context;
-    AVCodecContext * _video_codec_context;
-    AVCodecContext * _audio_codec_context;
-}
+@property (nonatomic, assign) AVFormatContext * format_context;
+@property (nonatomic, assign) AVCodecContext * video_codec_context;
+@property (nonatomic, assign) AVCodecContext * audio_codec_context;
 
 + (instancetype)formatContextWithContentURL:(NSURL *)contentURL delegate:(id <IRFFFormatContextDelegate>)delegate;
 
