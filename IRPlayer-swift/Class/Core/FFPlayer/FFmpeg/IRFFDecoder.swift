@@ -48,7 +48,21 @@ protocol IRFFDecoderDelegate: AnyObject {
     private(set) var error: Error?
     private(set) var contentURL: URL
     private(set) var progress: TimeInterval = 0
-    private(set) var bufferedDuration: TimeInterval = 0
+    private(set) var bufferedDuration: TimeInterval = 0 {
+        didSet {
+            guard bufferedDuration != oldValue else {
+                return
+            }
+            if (bufferedDuration <= 0.000001) {
+                bufferedDuration = 0
+            }
+            delegate?.decoder(self, didChangeValueOfBufferedDuration: bufferedDuration)
+            if bufferedDuration <= 0 && endOfFile {
+                playbackFinished = true
+            }
+            checkBufferingStatus()
+        }
+    }
     private(set) var buffering: Bool = false
     private(set) var playbackFinished: Bool = false
     private(set) var closed: Bool = false
@@ -269,9 +283,10 @@ protocol IRFFDecoderDelegate: AnyObject {
                 selectAudioTrackIndex = 0
                 continue
             }
-            let size = (audioDecoder?.size() ?? 0)
+            let size: Int = Int(audioDecoder?.size() ?? 0)
             let packetSize = (videoDecoder?.packetSize() ?? 0)
-            if size + packetSize >= 20 * 1024 * 1024 {
+            let max_packet_buffer_size = 20 * 1024 * 1024
+            if size + packetSize >= max_packet_buffer_size {
                 let interval = paused ? 0.5 : 0.1
                 print("read thread sleep: \(interval)")
                 Thread.sleep(forTimeInterval: interval)
@@ -288,7 +303,7 @@ protocol IRFFDecoderDelegate: AnyObject {
             }
             if packet.stream_index == formatContext?.videoTrack.index {
                 print("video: put packet")
-                videoDecoder?.put(packet)
+                videoDecoder?.putPacket(packet)
                 updateBufferedDurationByVideo()
             } else if packet.stream_index == formatContext?.audioTrack.index {
                 print("audio: put packet")
@@ -422,7 +437,7 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     func fetchAudioFrame() -> IRFFAudioFrame? {
-        if closed || seeking || buffering || paused || playbackFinished || !(formatContext?.audioEnable == true) {
+        if closed || seeking || buffering || paused || playbackFinished || formatContext?.audioEnable != true {
             return nil
         }
         if audioDecoder?.empty() ?? true {
@@ -567,16 +582,16 @@ extension IRFFDecoder: IRFFAudioDecoderDelegate {
     }
 }
 
-extension IRFFDecoder: IRFFVideoDecoderDlegate {
-    public func videoDecoderNeedUpdateBufferedDuration(_ videoDecoder: IRFFVideoDecoder) {
+extension IRFFDecoder: IRFFVideoDecoderDelegate {
+    func videoDecoderNeedUpdateBufferedDuration(_ videoDecoder: IRFFVideoDecoder) {
         updateBufferedDurationByVideo()
     }
 
-    public func videoDecoderNeedCheckBufferingStatus(_ videoDecoder: IRFFVideoDecoder) {
+    func videoDecoderNeedCheckBufferingStatus(_ videoDecoder: IRFFVideoDecoder) {
         checkBufferingStatus()
     }
 
-    public func videoDecoder(_ videoDecoder: IRFFVideoDecoder, didError error: Error) {
+    func videoDecoder(_ videoDecoder: IRFFVideoDecoder, didError error: Error) {
         self.error = error
         delegateErrorCallback()
     }

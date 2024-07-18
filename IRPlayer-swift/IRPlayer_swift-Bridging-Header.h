@@ -10,7 +10,7 @@
 #import "libavdevice/avdevice.h"
 #import "libavfilter/avfilter.h"
 #import "libavformat/avformat.h"
-#import "libavutil/avutil.h"
+//#import "libavutil/avutil.h"
 #import "libswresample/swresample.h"
 #import "libswscale/swscale.h"
 

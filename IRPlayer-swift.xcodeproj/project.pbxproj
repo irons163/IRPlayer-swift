@@ -11,6 +11,10 @@
 		B55748852BB9BECA009740A8 /* IRFFPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55748842BB9BECA009740A8 /* IRFFPlayer.swift */; };
 		B595FBBF2C40236B003002BE /* IRFFDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B595FBBE2C40236B003002BE /* IRFFDecoder.swift */; };
 		B595FBC12C4141D5003002BE /* IRFFFormatContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = B595FBC02C4141D5003002BE /* IRFFFormatContext.swift */; };
+		B595FBC32C42D51D003002BE /* IRFFVideoDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B595FBC22C42D51D003002BE /* IRFFVideoDecoder.swift */; };
+		B595FBC52C43CD0F003002BE /* IRFFMpegErrorUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = B595FBC42C43CD0F003002BE /* IRFFMpegErrorUtil.swift */; };
+		B595FBC72C43CDFE003002BE /* IRFFMpegErrorUtil.m in Sources */ = {isa = PBXBuildFile; fileRef = B595FBC62C43CDFE003002BE /* IRFFMpegErrorUtil.m */; };
+		B595FBC92C46B4AC003002BE /* IRFFMpegErrorUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = B595FBC82C43CE0B003002BE /* IRFFMpegErrorUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B5CD9CE92B5EA4470039A6C3 /* IRPlayerAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5CD9CE82B5EA4470039A6C3 /* IRPlayerAction.swift */; };
 		B5CD9CEB2B5EB87A0039A6C3 /* IRPlayerNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C185B12805A23C0081EBF5 /* IRPlayerNotification.swift */; };
 		D13D2E0E2809B2B800C19C4D /* IRFFMpeg.h in Headers */ = {isa = PBXBuildFile; fileRef = D13D2D712809B2B700C19C4D /* IRFFMpeg.h */; };
@@ -154,7 +158,6 @@
 		D1B25FB72804701800F79DCC /* IRYUVTools.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25EEE2804701600F79DCC /* IRYUVTools.m */; };
 		D1B25FB82804701800F79DCC /* IRScope.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25EEF2804701600F79DCC /* IRScope.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B25FBA2804701800F79DCC /* IRFFFormatContext.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25EF32804701600F79DCC /* IRFFFormatContext.m */; };
-		D1B25FBB2804701800F79DCC /* IRFFVideoDecoder.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25EF42804701600F79DCC /* IRFFVideoDecoder.m */; };
 		D1B25FBC2804701800F79DCC /* IRFFTools.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25EF52804701600F79DCC /* IRFFTools.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B25FBE2804701800F79DCC /* IRFFTrack.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25EF72804701600F79DCC /* IRFFTrack.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B25FBF2804701800F79DCC /* IRFFAudioDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25EF82804701600F79DCC /* IRFFAudioDecoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -180,7 +183,6 @@
 		D1B25FD32804701800F79DCC /* IRFFAudioFrame.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F0D2804701700F79DCC /* IRFFAudioFrame.m */; };
 		D1B25FD42804701800F79DCC /* IRFFTools.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F0E2804701700F79DCC /* IRFFTools.m */; };
 		D1B25FD52804701800F79DCC /* IRFFFormatContext.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F0F2804701700F79DCC /* IRFFFormatContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B25FD62804701800F79DCC /* IRFFVideoDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F102804701700F79DCC /* IRFFVideoDecoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B25FD72804701900F79DCC /* IRFFAudioDecoder.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F112804701700F79DCC /* IRFFAudioDecoder.m */; };
 		D1B25FD82804701900F79DCC /* IRFFTrack.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F122804701700F79DCC /* IRFFTrack.m */; };
 		D1B25FDA2804701900F79DCC /* IRFFVideoToolBox.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F142804701700F79DCC /* IRFFVideoToolBox.m */; };
@@ -339,6 +341,10 @@
 		B55748842BB9BECA009740A8 /* IRFFPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPlayer.swift; sourceTree = "<group>"; };
 		B595FBBE2C40236B003002BE /* IRFFDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoder.swift; sourceTree = "<group>"; };
 		B595FBC02C4141D5003002BE /* IRFFFormatContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFormatContext.swift; sourceTree = "<group>"; };
+		B595FBC22C42D51D003002BE /* IRFFVideoDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoDecoder.swift; sourceTree = "<group>"; };
+		B595FBC42C43CD0F003002BE /* IRFFMpegErrorUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFMpegErrorUtil.swift; sourceTree = "<group>"; };
+		B595FBC62C43CDFE003002BE /* IRFFMpegErrorUtil.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IRFFMpegErrorUtil.m; sourceTree = "<group>"; };
+		B595FBC82C43CE0B003002BE /* IRFFMpegErrorUtil.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IRFFMpegErrorUtil.h; sourceTree = "<group>"; };
 		B5CD9CE82B5EA4470039A6C3 /* IRPlayerAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerAction.swift; sourceTree = "<group>"; };
 		D13D2D712809B2B700C19C4D /* IRFFMpeg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRFFMpeg.h; sourceTree = "<group>"; };
 		D13D2D742809B2B700C19C4D /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
@@ -487,7 +493,6 @@
 		D1B25EEE2804701600F79DCC /* IRYUVTools.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRYUVTools.m; sourceTree = "<group>"; };
 		D1B25EEF2804701600F79DCC /* IRScope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRScope.h; sourceTree = "<group>"; };
 		D1B25EF32804701600F79DCC /* IRFFFormatContext.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRFFFormatContext.m; sourceTree = "<group>"; };
-		D1B25EF42804701600F79DCC /* IRFFVideoDecoder.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRFFVideoDecoder.m; sourceTree = "<group>"; };
 		D1B25EF52804701600F79DCC /* IRFFTools.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRFFTools.h; sourceTree = "<group>"; };
 		D1B25EF72804701600F79DCC /* IRFFTrack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRFFTrack.h; sourceTree = "<group>"; };
 		D1B25EF82804701600F79DCC /* IRFFAudioDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRFFAudioDecoder.h; sourceTree = "<group>"; };
@@ -513,7 +518,6 @@
 		D1B25F0D2804701700F79DCC /* IRFFAudioFrame.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRFFAudioFrame.m; sourceTree = "<group>"; };
 		D1B25F0E2804701700F79DCC /* IRFFTools.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRFFTools.m; sourceTree = "<group>"; };
 		D1B25F0F2804701700F79DCC /* IRFFFormatContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRFFFormatContext.h; sourceTree = "<group>"; };
-		D1B25F102804701700F79DCC /* IRFFVideoDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRFFVideoDecoder.h; sourceTree = "<group>"; };
 		D1B25F112804701700F79DCC /* IRFFAudioDecoder.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRFFAudioDecoder.m; sourceTree = "<group>"; };
 		D1B25F122804701700F79DCC /* IRFFTrack.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRFFTrack.m; sourceTree = "<group>"; };
 		D1B25F142804701700F79DCC /* IRFFVideoToolBox.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRFFVideoToolBox.m; sourceTree = "<group>"; };
@@ -985,6 +989,9 @@
 				D1B25EEC2804701600F79DCC /* IRPlayerImp+DisplayView.h */,
 				D1B25EED2804701600F79DCC /* IRPlayerImp+DisplayView.m */,
 				D1B25EEE2804701600F79DCC /* IRYUVTools.m */,
+				B595FBC42C43CD0F003002BE /* IRFFMpegErrorUtil.swift */,
+				B595FBC62C43CDFE003002BE /* IRFFMpegErrorUtil.m */,
+				B595FBC82C43CE0B003002BE /* IRFFMpegErrorUtil.h */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -1002,7 +1009,7 @@
 			isa = PBXGroup;
 			children = (
 				D1B25EF32804701600F79DCC /* IRFFFormatContext.m */,
-				D1B25EF42804701600F79DCC /* IRFFVideoDecoder.m */,
+				B595FBC22C42D51D003002BE /* IRFFVideoDecoder.swift */,
 				D1B25EF52804701600F79DCC /* IRFFTools.h */,
 				B595FBBE2C40236B003002BE /* IRFFDecoder.swift */,
 				D1B25EF72804701600F79DCC /* IRFFTrack.h */,
@@ -1015,7 +1022,6 @@
 				D1B25F0E2804701700F79DCC /* IRFFTools.m */,
 				D1B25F0F2804701700F79DCC /* IRFFFormatContext.h */,
 				B595FBC02C4141D5003002BE /* IRFFFormatContext.swift */,
-				D1B25F102804701700F79DCC /* IRFFVideoDecoder.h */,
 				D1B25F112804701700F79DCC /* IRFFAudioDecoder.m */,
 				D1B25F122804701700F79DCC /* IRFFTrack.m */,
 				D1B25F142804701700F79DCC /* IRFFVideoToolBox.m */,
@@ -1415,6 +1421,7 @@
 				D13D2E662809B2B800C19C4D /* avdevice.h in Headers */,
 				D163103B281ADB3D0071342E /* fisherWebP-umbrella.h in Headers */,
 				D1B260092804701900F79DCC /* IRGLMath.h in Headers */,
+				B595FBC92C46B4AC003002BE /* IRFFMpegErrorUtil.h in Headers */,
 				D13D2E1C2809B2B800C19C4D /* version.h in Headers */,
 				D13D2E562809B2B800C19C4D /* mem.h in Headers */,
 				D13D2E332809B2B800C19C4D /* tree.h in Headers */,
@@ -1509,7 +1516,6 @@
 				D1B25FC42804701800F79DCC /* IRFFFramePool.h in Headers */,
 				D1B260692804702500F79DCC /* IRPLFImage.h in Headers */,
 				D1B25FD22804701800F79DCC /* IRFFFrame.h in Headers */,
-				D1B25FD62804701800F79DCC /* IRFFVideoDecoder.h in Headers */,
 				D1B2605F2804701900F79DCC /* IRGLProjection.h in Headers */,
 				D13D2E4C2809B2B800C19C4D /* rc4.h in Headers */,
 				D13D2E432809B2B800C19C4D /* eval.h in Headers */,
@@ -1717,7 +1723,6 @@
 				D1B25FC12804701800F79DCC /* IRFFVideoInput.m in Sources */,
 				D1B260582804701900F79DCC /* IRGLProjectionEquirectangular.m in Sources */,
 				D1B260462804701900F79DCC /* IRGLProgramFactory.m in Sources */,
-				D1B25FBB2804701800F79DCC /* IRFFVideoDecoder.m in Sources */,
 				D1B25FF82804701900F79DCC /* IRGLView.m in Sources */,
 				D1B25EE8280462D300F79DCC /* IRPlayerDecoder.swift in Sources */,
 				D1B25FF92804701900F79DCC /* IRGLRenderMode2D.m in Sources */,
@@ -1743,6 +1748,7 @@
 				D1B25FD42804701800F79DCC /* IRFFTools.m in Sources */,
 				D1B260512804701900F79DCC /* IRGLTransformController2D.m in Sources */,
 				D1B25FF22804701900F79DCC /* IRBounceController.m in Sources */,
+				B595FBC52C43CD0F003002BE /* IRFFMpegErrorUtil.swift in Sources */,
 				D1B260212804701900F79DCC /* IRGLFragmentFish2PerspShaderGLSL.m in Sources */,
 				D1B25FD72804701900F79DCC /* IRFFAudioDecoder.m in Sources */,
 				D1B2600A2804701900F79DCC /* IRGLRenderBase.m in Sources */,
@@ -1775,6 +1781,7 @@
 				D1B2604C2804701900F79DCC /* IRGLVertexShaderGLSL.m in Sources */,
 				D1B25FE82804701900F79DCC /* IRSmoothScrollController.m in Sources */,
 				D1C185AC28059F010081EBF5 /* IRPlayerTrack.swift in Sources */,
+				B595FBC32C42D51D003002BE /* IRFFVideoDecoder.swift in Sources */,
 				D1B260032804701900F79DCC /* IRGLRenderMode2DFisheye2Pano.m in Sources */,
 				D1B260622804701900F79DCC /* IRSensor.m in Sources */,
 				D1B260162804701900F79DCC /* IRGLScope3D.m in Sources */,
@@ -1784,6 +1791,7 @@
 				B5CD9CEB2B5EB87A0039A6C3 /* IRPlayerNotification.swift in Sources */,
 				D1B260152804701900F79DCC /* IRGLScope2D.m in Sources */,
 				D1B260352804701900F79DCC /* IRGLProgramMulti.m in Sources */,
+				B595FBC72C43CDFE003002BE /* IRFFMpegErrorUtil.m in Sources */,
 				D1B25FB72804701800F79DCC /* IRYUVTools.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
