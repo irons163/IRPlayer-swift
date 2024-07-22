@@ -26,7 +26,7 @@
 //#import "libavfilter/avfilter.h"
 //#import "libavformat/avformat.h"
 //#import "libavutil/avutil.h"
-//#import "libswresample/swresh"
+#import "libswresample/swresample.h"
 #import <IRPlayer_swift/IRSensor.h>
 #import "IRSmoothScrollController.h"
 #import "IRGLRenderModeFactory.h"
@@ -54,7 +54,6 @@
 
 #import "IRFFAudioFrame.h"
 #import "IRFFTrack.h"
-#import "IRFFAudioDecoder.h"
 #import "IRFFFormatContext.h"
 #import "IRFFPacketQueue.h"
 #import "IRFFFrameQueue.h"

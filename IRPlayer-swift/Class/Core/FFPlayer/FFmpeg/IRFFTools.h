@@ -74,12 +74,6 @@ typedef NS_ENUM(NSUInteger, IRFFDecoderErrorCode) {
 #define IRFFDecodeLog(...)
 #endif
 
-#if IRFFErrorLogEnable
-#define IRFFErrorLog(...)        NSLog(__VA_ARGS__)
-#else
-#define IRFFErrorLog(...)
-#endif
-
 
 #pragma mark - Util Function
 

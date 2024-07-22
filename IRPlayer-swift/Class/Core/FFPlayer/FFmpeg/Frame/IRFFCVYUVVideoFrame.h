@@ -16,7 +16,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, assign, readonly) CVPixelBufferRef pixelBuffer;
 
-- (instancetype)initWithAVPixelBuffer:(CVPixelBufferRef)pixelBuffer;
+- (instancetype)initWithAVPixelBuffer:(CVPixelBufferRef)pixelBuffer shouldRelease:(BOOL)shouldRelease;
 
 @end
 

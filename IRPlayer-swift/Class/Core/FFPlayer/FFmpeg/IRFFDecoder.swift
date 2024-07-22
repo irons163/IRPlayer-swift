@@ -233,7 +233,7 @@ protocol IRFFDecoderDelegate: AnyObject {
             videoDecoder?.videoToolBoxEnable = hardwareDecoderEnable
         }
         if formatContext?.audioEnable == true {
-            audioDecoder = IRFFAudioDecoder(codecContext: formatContext!.audio_codec_context, timebase: formatContext!.audioTimebase, delegate: self)
+            audioDecoder = IRFFAudioDecoder.decoder(codecContext: formatContext!.audio_codec_context, timebase: formatContext!.audioTimebase, delegate: self)
         }
         setupReadPacketOperation()
     }
@@ -274,7 +274,7 @@ protocol IRFFDecoderDelegate: AnyObject {
             if selectAudioTrack {
                 if formatContext?.selectAudioTrackIndex(Int32(selectAudioTrackIndex)) == nil {
                     audioDecoder?.destroy()
-                    audioDecoder = IRFFAudioDecoder(codecContext: formatContext!.audio_codec_context, timebase: formatContext!.audioTimebase, delegate: self)
+                    audioDecoder = IRFFAudioDecoder.decoder(codecContext: formatContext!.audio_codec_context, timebase: formatContext!.audioTimebase, delegate: self)
                     if !playbackFinished {
                         seek(to: audioTimeClock)
                     }
@@ -307,7 +307,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 updateBufferedDurationByVideo()
             } else if packet.stream_index == formatContext?.audioTrack.index {
                 print("audio: put packet")
-                if (audioDecoder?.put(packet) ?? -1) < 0 {
+                if (audioDecoder?.putPacket(packet) ?? -1) < 0 {
                     error = IRFFCheckErrorCode(result!, IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
                     delegateErrorCallback()
                     continue
@@ -440,7 +440,7 @@ protocol IRFFDecoderDelegate: AnyObject {
         if closed || seeking || buffering || paused || playbackFinished || formatContext?.audioEnable != true {
             return nil
         }
-        if audioDecoder?.empty() ?? true {
+        if audioDecoder?.isEmpty() ?? true {
             updateBufferedDurationByAudio()
             return nil
         }
@@ -573,12 +573,12 @@ extension IRFFDecoder: IRFFFormatContextDelegate {
 }
 
 extension IRFFDecoder: IRFFAudioDecoderDelegate {
-    public func audioDecoder(_ audioDecoder: IRFFAudioDecoder, samplingRate: UnsafeMutablePointer<Float64>) {
-        samplingRate.pointee = audioOutput?.samplingRate ?? 0
+    func audioDecoder(_ audioDecoder: IRFFAudioDecoder, samplingRate: inout Float64) {
+        samplingRate = audioOutput?.samplingRate ?? 0
     }
-
-    public func audioDecoder(_ audioDecoder: IRFFAudioDecoder, channelCount: UnsafeMutablePointer<UInt32>) {
-        channelCount.pointee = audioOutput?.numberOfChannels ?? 0
+    
+    func audioDecoder(_ audioDecoder: IRFFAudioDecoder, channelCount: inout UInt32) {
+        channelCount = audioOutput?.numberOfChannels ?? 0
     }
 }
 

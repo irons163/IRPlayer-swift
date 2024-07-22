@@ -209,7 +209,7 @@ class IRFFVideoDecoder {
     private func videoFrameFromVideoToolBox(packet: AVPacket) -> IRFFVideoFrame? {
         let imageBuffer: CVPixelBuffer = videoToolBox.imageBuffer().takeUnretainedValue()
 
-        let videoFrame = IRFFCVYUVVideoFrame(avPixelBuffer: imageBuffer)
+        let videoFrame = IRFFCVYUVVideoFrame(avPixelBuffer: imageBuffer, shouldRelease: true)
         if packet.pts != IR_AV_NOPTS_VALUE {
             videoFrame.position = TimeInterval(packet.pts) * timebase
         } else {

@@ -8,17 +8,20 @@
 
 #import "IRFFCVYUVVideoFrame.h"
 
-@implementation IRFFCVYUVVideoFrame
+@implementation IRFFCVYUVVideoFrame {
+    BOOL shouldRelease;
+}
 
 - (IRFFFrameType)type
 {
     return IRFFFrameTypeCVYUVVideo;
 }
 
-- (instancetype)initWithAVPixelBuffer:(CVPixelBufferRef)pixelBuffer
+- (instancetype)initWithAVPixelBuffer:(CVPixelBufferRef)pixelBuffer shouldRelease:(BOOL)shouldRelease
 {
     if (self = [super init]) {
         self->_pixelBuffer = pixelBuffer;
+        self->shouldRelease = shouldRelease;
     }
     return self;
 }
@@ -36,7 +39,9 @@
 - (void)dealloc
 {
     if (self->_pixelBuffer) {
-        CVPixelBufferRelease(self->_pixelBuffer);
+        if (shouldRelease) {
+            CVPixelBufferRelease(self->_pixelBuffer);
+        }
         self->_pixelBuffer = NULL;
     }
 }
