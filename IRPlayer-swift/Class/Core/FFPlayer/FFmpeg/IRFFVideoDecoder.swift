@@ -154,7 +154,7 @@ class IRFFVideoDecoder {
             var videoFrame: IRFFVideoFrame?
             if videoToolBoxEnable && codecContext.pointee.codec_id == AV_CODEC_ID_H264 {
                 if videoToolBox.trySetupVTSession() {
-                    if videoToolBox.send(packet) {
+                    if videoToolBox.sendPacket(packet) {
                         videoFrame = videoFrameFromVideoToolBox(packet: packet)
                     }
                 }
@@ -207,7 +207,9 @@ class IRFFVideoDecoder {
     }
 
     private func videoFrameFromVideoToolBox(packet: AVPacket) -> IRFFVideoFrame? {
-        let imageBuffer: CVPixelBuffer = videoToolBox.imageBuffer().takeUnretainedValue()
+        guard let imageBuffer = videoToolBox.imageBuffer() else {
+            return nil
+        }
 
         let videoFrame = IRFFCVYUVVideoFrame(avPixelBuffer: imageBuffer, shouldRelease: true)
         if packet.pts != IR_AV_NOPTS_VALUE {

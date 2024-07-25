@@ -58,5 +58,4 @@
 #import "IRFFFrameQueue.h"
 #import "IRFFFramePool.h"
 #import "IRFFAVYUVVideoFrame.h"
-#import "IRFFVideoToolBox.h"
 #import "IRFFMpegErrorUtil.h"

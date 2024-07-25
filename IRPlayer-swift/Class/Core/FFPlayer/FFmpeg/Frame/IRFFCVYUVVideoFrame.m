@@ -21,6 +21,9 @@
 {
     if (self = [super init]) {
         self->_pixelBuffer = pixelBuffer;
+        if (shouldRelease) {
+            CVPixelBufferRetain(pixelBuffer);
+        }
         self->shouldRelease = shouldRelease;
     }
     return self;
