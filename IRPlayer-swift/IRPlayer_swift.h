@@ -44,6 +44,5 @@ FOUNDATION_EXPORT const unsigned char IRPlayer_swiftVersionString[];
 #import "IRFisheyeParameter.h"
 #import "IRAudioManager.h"
 #import <CoreMotion/CoreMotion.h>
-#import "IRFFFormatContext.h"
 //#import "libavutil/error.h"
 //#import "IRFFMpegErrorUtil.h"

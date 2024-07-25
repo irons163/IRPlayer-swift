@@ -219,7 +219,7 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     private func openFormatContext() {
         delegate?.decoderWillOpenInputStream(self)
-        formatContext = IRFFFormatContext(contentURL: contentURL, delegate: self)
+        formatContext = IRFFFormatContext.formatContext(with: contentURL, delegate: self)
         formatContext?.setupSync()
         if let formatError = formatContext?.error {
             error = formatError
@@ -229,11 +229,11 @@ protocol IRFFDecoderDelegate: AnyObject {
         prepareToDecode = true
         delegate?.decoderDidPrepareToDecodeFrames(self)
         if formatContext?.videoEnable == true {
-            videoDecoder = IRFFVideoDecoder(codecContext: formatContext!.video_codec_context, timebase: formatContext!.videoTimebase, fps: formatContext!.videoFPS, delegate: self)
+            videoDecoder = IRFFVideoDecoder(codecContext: (formatContext?.videoCodecContext)!, timebase: formatContext!.videoTimebase, fps: (formatContext?.videoFPS)!, delegate: self)
             videoDecoder?.videoToolBoxEnable = hardwareDecoderEnable
         }
         if formatContext?.audioEnable == true {
-            audioDecoder = IRFFAudioDecoder.decoder(codecContext: formatContext!.audio_codec_context, timebase: formatContext!.audioTimebase, delegate: self)
+            audioDecoder = IRFFAudioDecoder.decoder(codecContext: (formatContext?.audioCodecContext)!, timebase: formatContext!.audioTimebase, delegate: self)
         }
         setupReadPacketOperation()
     }
@@ -272,9 +272,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                 continue
             }
             if selectAudioTrack {
-                if formatContext?.selectAudioTrackIndex(Int32(selectAudioTrackIndex)) == nil {
+                if formatContext?.selectAudioTrackIndex(selectAudioTrackIndex) == nil {
                     audioDecoder?.destroy()
-                    audioDecoder = IRFFAudioDecoder.decoder(codecContext: formatContext!.audio_codec_context, timebase: formatContext!.audioTimebase, delegate: self)
+                    audioDecoder = IRFFAudioDecoder.decoder(codecContext: formatContext!.audioCodecContext!, timebase: formatContext!.audioTimebase, delegate: self)
                     if !playbackFinished {
                         seek(to: audioTimeClock)
                     }
@@ -301,11 +301,11 @@ protocol IRFFDecoderDelegate: AnyObject {
                 delegate?.decoderDidEndOfFile(self)
                 break
             }
-            if packet.stream_index == formatContext?.videoTrack.index {
+            if packet.stream_index == formatContext?.videoTrack?.index {
                 print("video: put packet")
                 videoDecoder?.putPacket(packet)
                 updateBufferedDurationByVideo()
-            } else if packet.stream_index == formatContext?.audioTrack.index {
+            } else if packet.stream_index == formatContext?.audioTrack?.index {
                 print("audio: put packet")
                 if (audioDecoder?.putPacket(packet) ?? -1) < 0 {
                     error = IRFFCheckErrorCode(result!, IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
