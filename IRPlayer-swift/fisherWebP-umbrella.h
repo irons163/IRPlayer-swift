@@ -47,7 +47,6 @@
 #import "IRGLRenderModeMulti4P.h"
 #import "IRGLRenderNV12.h"
 #import "IRFisheyeParameter.h"
-#import "IRAudioManager.h"
 #import <CoreMotion/CoreMotion.h>
 #import "IRFFCVYUVVideoFrame.h"
 #import "IRGLSupportPixelFormat.h"

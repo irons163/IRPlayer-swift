@@ -42,7 +42,6 @@ FOUNDATION_EXPORT const unsigned char IRPlayer_swiftVersionString[];
 #import "IRGLRenderMode2D.h"
 #import "IRGLRenderNV12.h"
 #import "IRFisheyeParameter.h"
-#import "IRAudioManager.h"
 #import <CoreMotion/CoreMotion.h>
 //#import "libavutil/error.h"
 //#import "IRFFMpegErrorUtil.h"

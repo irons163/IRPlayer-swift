@@ -25,7 +25,7 @@ class IRFFPlayer: NSObject {
                     abstractPlayer?.error = nil
                 }
                 if state == .playing {
-                    audioManager?.play(with: self)
+                    audioManager?.play(withDelegate: self)
                 } else {
                     audioManager?.pause()
                 }
