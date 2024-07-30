@@ -38,7 +38,7 @@ class IRFFAudioDecoder {
         self.timebase = timebase
         self.delegate = delegate
         self.frameQueue = IRFFFrameQueue()
-        self.framePool = IRFFFramePool.audio()
+        self.framePool = IRFFFramePool.audioPool()
         setup()
     }
 

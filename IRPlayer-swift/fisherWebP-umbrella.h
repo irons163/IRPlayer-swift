@@ -55,5 +55,4 @@
 #import "IRFFTrack.h"
 #import "IRFFPacketQueue.h"
 #import "IRFFFrameQueue.h"
-#import "IRFFFramePool.h"
 #import "IRFFMpegErrorUtil.h"
