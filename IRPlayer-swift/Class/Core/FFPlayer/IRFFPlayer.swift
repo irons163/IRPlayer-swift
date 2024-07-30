@@ -299,8 +299,8 @@ extension IRFFPlayer: IRAudioManagerDelegate {
                     return
                 }
 
-                let bytes = UnsafeRawPointer(currentAudioFrame.samples).advanced(by: Int(currentAudioFrame.output_offset)).assumingMemoryBound(to: UInt8.self)
-                let bytesLeft = currentAudioFrame.length - currentAudioFrame.output_offset
+                let bytes = UnsafeRawPointer(currentAudioFrame.samples!).advanced(by: Int(currentAudioFrame.outputOffset)).assumingMemoryBound(to: UInt8.self)
+                let bytesLeft = currentAudioFrame.size - currentAudioFrame.outputOffset
                 let frameSizeOf = Int(numberOfChannels) * MemoryLayout<Float>.size
                 let bytesToCopy = min(Int(remainingFrames) * frameSizeOf, bytesLeft)
                 let framesToCopy = bytesToCopy / frameSizeOf
@@ -310,7 +310,7 @@ extension IRFFPlayer: IRAudioManagerDelegate {
                 currentOutputData = currentOutputData.advanced(by: framesToCopy * Int(numberOfChannels))
 
                 if bytesToCopy < bytesLeft {
-                    currentAudioFrame.output_offset += bytesToCopy
+                    currentAudioFrame.outputOffset += bytesToCopy
                 } else {
                     currentAudioFrame.stopPlaying()
                     self.currentAudioFrame = nil

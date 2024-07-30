@@ -11,6 +11,7 @@
 #import "IRGLVertexShaderGLSL.h"
 #import "IRGLFragmentFish2PanoShaderGLSL.h"
 #import "IRFisheyeParameter.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @interface IRGLProgram2DFisheye2Pano(Protected)
 -(void)initShaderParams;

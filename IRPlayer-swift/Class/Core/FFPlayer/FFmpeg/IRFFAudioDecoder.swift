@@ -179,16 +179,16 @@ class IRFFAudioDecoder {
 
         if audioFrame.duration == 0 {
             let size = (Double(MemoryLayout<Float32>.size) * Double(channelCount) * samplingRate)
-            audioFrame.duration = Double(audioFrame.length) / size
+            audioFrame.duration = Double(audioFrame.size) / size
         }
 
         let numberOfElements = numberOfFrames * Int(channelCount)
-        audioFrame.setSamplesLength(UInt(numberOfElements * MemoryLayout<Float32>.size))
+        audioFrame.setSamplesLength(numberOfElements * MemoryLayout<Float32>.size)
 
         var scale: Float32 = 1.0 / Float32(Int16.max)
         let audioDataPointer = audioDataBuffer.bindMemory(to: Int16.self, capacity: numberOfElements)
-        vDSP_vflt16(audioDataPointer, 1, audioFrame.samples, 1, vDSP_Length(numberOfElements))
-        vDSP_vsmul(audioFrame.samples, 1, &scale, audioFrame.samples, 1, vDSP_Length(numberOfElements))
+        vDSP_vflt16(audioDataPointer, 1, audioFrame.samples!, 1, vDSP_Length(numberOfElements))
+        vDSP_vsmul(audioFrame.samples!, 1, &scale, audioFrame.samples!, 1, vDSP_Length(numberOfElements))
 
         return audioFrame
     }

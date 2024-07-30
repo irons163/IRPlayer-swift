@@ -7,7 +7,7 @@
 //
 
 #import <GLKit/GLKMatrix4.h>
-#import "IRFFVideoFrame.h"
+@class IRFFVideoFrame;
 
 @protocol IRGLRender
 - (BOOL)isValid;

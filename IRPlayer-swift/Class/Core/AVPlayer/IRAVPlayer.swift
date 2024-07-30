@@ -262,7 +262,7 @@ extension IRAVPlayer {
     @objc func displayLinkCallback(_ sender: CADisplayLink) {
         guard let pixelBuffer = pixelBufferAtCurrentTime() else { return }
 
-        let videoFrame = IRFFCVYUVVideoFrame(avPixelBuffer: pixelBuffer, shouldRelease: false)
+        let videoFrame = IRFFCVYUVVideoFrame(pixelBuffer: pixelBuffer)
 
         videoFrame.position = -1
         videoFrame.duration = -1

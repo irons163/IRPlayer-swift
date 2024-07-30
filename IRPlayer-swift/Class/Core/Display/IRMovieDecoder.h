@@ -10,11 +10,6 @@
 #import <UIKit/UIKit.h>
 #import <CoreGraphics/CoreGraphics.h>
 #include "avformat.h"
-#include "IRFFFrame.h"
-#include "IRFFVideoFrame.h"
-#include "IRFFAudioFrame.h"
-
-//@class IRFFFrame;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -42,12 +37,6 @@ typedef enum {
     IRFrameFormatNV12,
     
 } IRFrameFormat;
-
-@interface IRVideoFrameRGB : IRFFVideoFrame
-@property (readonly, nonatomic) NSUInteger linesize;
-@property (readonly, nonatomic, strong) NSData *rgb;
-- (UIImage *) asImage;
-@end
 
 @protocol IRMovieDecoderDelegate <NSObject>
 @optional

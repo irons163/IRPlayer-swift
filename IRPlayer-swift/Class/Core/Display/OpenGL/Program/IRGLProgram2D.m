@@ -15,6 +15,7 @@
 #import "IRGLRenderRGB.h"
 #import "IRGLRenderYUV.h"
 #import "IRGLRenderNV12.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @implementation IRGLProgram2D{
     IRGLShaderParams *shaderParams2D;

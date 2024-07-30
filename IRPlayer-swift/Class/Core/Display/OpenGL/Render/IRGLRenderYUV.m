@@ -7,18 +7,18 @@
 //
 
 #import "IRGLRenderYUV.h"
-#import "IRFFAVYUVVideoFrame.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 #define TextureMagFilter GL_NEAREST//GL_LINEAR
 
 enum
 {
-    UNIFORM_COLOR_CONVERSION_MATRIX,
-    NUM_PARAMS
+    YUV_UNIFORM_COLOR_CONVERSION_MATRIX,
+    YUV_NUM_PARAMS
 };
 
 @implementation IRGLRenderYUV {
-    GLint _uniformParams[NUM_PARAMS];
+    GLint _uniformParams[YUV_NUM_PARAMS];
     const GLfloat *_preferredConversion;
 }
 
@@ -45,7 +45,7 @@ enum
     _uniformSamplers[1] = glGetUniformLocation(program, "s_texture_u");
     _uniformSamplers[2] = glGetUniformLocation(program, "s_texture_v");
     
-    _uniformParams[UNIFORM_COLOR_CONVERSION_MATRIX] = glGetUniformLocation(program, "colorConversionMatrix");
+    _uniformParams[YUV_UNIFORM_COLOR_CONVERSION_MATRIX] = glGetUniformLocation(program, "colorConversionMatrix");
 }
 
 - (void) setVideoFrame: (IRFFVideoFrame *) frame
@@ -119,8 +119,8 @@ enum
         glUniform1i(_uniformSamplers[i], i);
     }
     
-    glUniformMatrix3fv(_uniformParams[UNIFORM_COLOR_CONVERSION_MATRIX], 1, GL_FALSE, _preferredConversion);
-    
+    glUniformMatrix3fv(_uniformParams[YUV_UNIFORM_COLOR_CONVERSION_MATRIX], 1, GL_FALSE, _preferredConversion);
+
     return YES;
 }
 

@@ -9,7 +9,7 @@
 #import "IRGLRenderNV12.h"
 #import <OpenGLES/ES2/glext.h>
 #import <OpenGLES/ES3/glext.h>
-#import "IRFFCVYUVVideoFrame.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @implementation IRGLRenderNV12 {
     CVOpenGLESTextureRef _lumaTexture;

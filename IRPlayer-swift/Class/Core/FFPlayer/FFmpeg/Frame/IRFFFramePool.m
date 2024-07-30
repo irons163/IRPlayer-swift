@@ -8,6 +8,7 @@
 
 #import "IRFFFramePool.h"
 #import "IRPlayerMacro.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @interface IRFFFramePool () <IRFFFrameDelegate>
 
@@ -28,7 +29,7 @@
 
 + (instancetype)audioPool
 {
-    return [self poolWithCapacity:500 frameClassName:NSClassFromString(@"IRFFAudioFrame")];
+    return [self poolWithCapacity:500 frameClassName:NSClassFromString(@"IRPlayer_swift.IRFFAudioFrame")];
 }
 
 + (instancetype)poolWithCapacity:(NSUInteger)number frameClassName:(Class)frameClassName

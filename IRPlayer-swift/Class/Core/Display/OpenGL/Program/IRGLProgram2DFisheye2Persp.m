@@ -10,6 +10,7 @@
 #import "IRGLFish2PerspShaderParams.h"
 #import "IRGLVertexShaderGLSL.h"
 #import "IRGLFragmentFish2PerspShaderGLSL.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @interface IRGLProgram2DFisheye2Persp(Protected)
 -(void)initShaderParams;

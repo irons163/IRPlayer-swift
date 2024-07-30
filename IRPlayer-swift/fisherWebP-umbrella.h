@@ -25,8 +25,10 @@
 //#import "libavdevice/avdevice.h"
 //#import "libavfilter/avfilter.h"
 //#import "libavformat/avformat.h"
-//#import "libavutil/avutil.h"
+#import "libavutil/avutil.h"
+#import "libavutil/imgutils.h"
 #import "libswresample/swresample.h"
+#import "libswscale/swscale.h"
 #import <IRPlayer_swift/IRSensor.h>
 #import "IRSmoothScrollController.h"
 #import "IRGLRenderModeFactory.h"
@@ -48,13 +50,10 @@
 #import "IRGLRenderNV12.h"
 #import "IRFisheyeParameter.h"
 #import <CoreMotion/CoreMotion.h>
-#import "IRFFCVYUVVideoFrame.h"
 #import "IRGLSupportPixelFormat.h"
 
-#import "IRFFAudioFrame.h"
 #import "IRFFTrack.h"
 #import "IRFFPacketQueue.h"
 #import "IRFFFrameQueue.h"
 #import "IRFFFramePool.h"
-#import "IRFFAVYUVVideoFrame.h"
 #import "IRFFMpegErrorUtil.h"

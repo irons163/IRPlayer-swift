@@ -12,10 +12,9 @@
 #include "libswscale/swscale.h"
 #include "libswresample/swresample.h"
 #include "libavutil/pixdesc.h"
-#import "IRFFAVYUVVideoFrame.h"
-#import "IRAudioManager.h"
 #import "signal.h"
 #include <pthread.h>
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 //#define CONFIG_FRAME_THREAD_ENCODER 0
 
@@ -282,46 +281,6 @@ static BOOL isNetworkPath (NSString *path)
 }
 
 static int interrupt_callback(void *ctx);
-
-@interface IRVideoFrameRGB ()
-@property (readwrite, nonatomic) NSUInteger linesize;
-@property (readwrite, nonatomic, strong) NSData *rgb;
-@end
-
-@implementation IRVideoFrameRGB
-- (IRFrameFormat) format { return IRFrameFormatRGB; }
-- (UIImage *) asImage
-{
-    UIImage *image = nil;
-    
-    CGDataProviderRef provider = CGDataProviderCreateWithCFData((__bridge CFDataRef)(_rgb));
-    if (provider) {
-        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-        if (colorSpace) {
-            CGImageRef imageRef = CGImageCreate(self.width,
-                                                self.height,
-                                                8,
-                                                24,
-                                                self.linesize,
-                                                colorSpace,
-                                                kCGBitmapByteOrderDefault,
-                                                provider,
-                                                NULL,
-                                                YES, // NO
-                                                kCGRenderingIntentDefault);
-            
-            if (imageRef) {
-                image = [UIImage imageWithCGImage:imageRef];
-                CGImageRelease(imageRef);
-            }
-            CGColorSpaceRelease(colorSpace);
-        }
-        CGDataProviderRelease(provider);
-    }
-    
-    return image;
-}
-@end
 
 @interface IRFFAVYUVVideoFrame()
 //@property (nonatomic, strong) NSData *luma;
@@ -1425,12 +1384,8 @@ int interruptCallBack(void *ctx){
                   _picture.data,
                   _picture.linesize);
         
-        
-        IRVideoFrameRGB *rgbFrame = [[IRVideoFrameRGB alloc] init];
-        
-        rgbFrame.linesize = _picture.linesize[0];
-        rgbFrame.rgb = [NSData dataWithBytes:_picture.data[0]
-                                      length:rgbFrame.linesize * _videoCodecCtx->height];
+        int linesize = _picture.linesize[0];
+        IRVideoFrameRGB *rgbFrame = [[IRVideoFrameRGB alloc] initWithLinesize:linesize rgb:[NSData dataWithBytes:_picture.data[0] length:linesize * _videoCodecCtx->height]];
         frame = rgbFrame;
     }
     
@@ -1556,7 +1511,7 @@ end:
     return frame;
 }
 
-- (IRFFSubtileFrame *) handleSubtitle: (AVSubtitle *)pSubtitle
+- (IRFFSubtitleFrame *) handleSubtitle: (AVSubtitle *)pSubtitle
 {
     NSMutableString *ms = [NSMutableString string];
     
@@ -1589,7 +1544,7 @@ end:
     if (!ms.length)
         return nil;
     
-    IRFFSubtileFrame *frame = [[IRFFSubtileFrame alloc] init];
+    IRFFSubtitleFrame *frame = [[IRFFSubtitleFrame alloc] init];
 //    frame.text = [ms copy];
     frame.position = pSubtitle->pts / AV_TIME_BASE + pSubtitle->start_display_time;
     frame.duration = (CGFloat)(pSubtitle->end_display_time - pSubtitle->start_display_time) / 1000.f;
@@ -1945,7 +1900,7 @@ static void stream_seek(int64_t pos, int64_t rel, int seek_by_bytes)
                 
                 if (gotsubtitle) {
                     
-                    IRFFSubtileFrame *frame = [self handleSubtitle: &subtitle];
+                    IRFFSubtitleFrame *frame = [self handleSubtitle: &subtitle];
                     if (frame) {
                         [result addObject:frame];
                     }

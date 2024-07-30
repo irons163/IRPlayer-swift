@@ -7,6 +7,7 @@
 //
 
 #import "IRFFFrameQueue.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @interface IRFFFrameQueue ()
 

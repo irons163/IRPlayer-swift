@@ -7,7 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "IRFFFrame.h"
+@class IRFFFrame;
 
 NS_ASSUME_NONNULL_BEGIN
 
