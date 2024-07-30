@@ -108,7 +108,7 @@ class IRFFAudioDecoder {
             }
             autoreleasepool {
                 if let frame = decode() {
-                    frameQueue.put(frame)
+                    frameQueue.putFrame(frame)
                 }
             }
         }
