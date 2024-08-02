@@ -72,25 +72,25 @@ class PlayerViewController: UIViewController {
 
         switch self.demoType {
         case .avPlayerNormal:
-            self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL)
+            self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL, videoType: .normal)
         case .avPlayerVR:
-            self.player.replaceVideoWithURL(contentURL: PlayerViewController.vrVideo as NSURL)
+            self.player.replaceVideoWithURL(contentURL: PlayerViewController.vrVideo as NSURL, videoType: .vr)
         case .avPlayerVRBox:
             self.player.displayMode = .box
-            self.player.replaceVideoWithURL(contentURL: PlayerViewController.vrVideo as NSURL)
+            self.player.replaceVideoWithURL(contentURL: PlayerViewController.vrVideo as NSURL, videoType: .vr)
         case .ffmpegNormal:
             self.player.decoder.mpeg4Format = .ffmpeg
             self.player.decoder.ffmpegHardwareDecoderEnable = false
-            self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL)
+            self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL, videoType: .normal)
         case .ffmpegNormalHardware:
             self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
-            self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL)
+            self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL, videoType: .normal)
         case .ffmpegFisheyeHardware:
             self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
-            self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL)
+            self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL, videoType: .fisheye)
         case .ffmpegPanoramaHardware:
             self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
-            self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL)
+            self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL, videoType: .pano)
         case .ffmpegMultiModesHardwareModesSelection:
             self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
             modes = self.createFisheyeModes(with: nil)
@@ -99,7 +99,7 @@ class PlayerViewController: UIViewController {
                 mode.renderer = sharedRender;
             }
             self.player.renderModes = modes
-            self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL)
+            self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL, videoType: .custom)
             self.modesButton.isHidden = false
         }
     }
