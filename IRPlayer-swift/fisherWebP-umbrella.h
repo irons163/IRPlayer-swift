@@ -53,5 +53,4 @@
 #import "IRGLSupportPixelFormat.h"
 
 #import "IRFFTrack.h"
-#import "IRFFPacketQueue.h"
 #import "IRFFMpegErrorUtil.h"

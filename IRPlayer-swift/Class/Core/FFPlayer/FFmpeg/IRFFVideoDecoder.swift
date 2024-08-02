@@ -99,7 +99,7 @@ class IRFFVideoDecoder {
         if packet.duration <= 0 && packet.size > 0 && packet.data != IRFFVideoDecoder.flushPacket.data {
             duration = 1.0 / fps
         }
-        packetQueue.put(packet, duration: duration)
+        packetQueue.putPacket(packet, duration: duration)
     }
 
     func flush() {
