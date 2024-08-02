@@ -12,8 +12,6 @@
 #import <QuartzCore/QuartzCore.h>
 #import <OpenGLES/EAGLDrawable.h>
 #import <OpenGLES/EAGL.h>
-#import "IRMovieDecoder.h"
-//#import "VideoDecoder.h"
 #import "IRGLTransformController2D.h"
 #import "IRGLTransformController3DFisheye.h"
 #import "IRGLProjectionOrthographic.h"
@@ -29,7 +27,6 @@
 #import "IRGLRenderModeFactory.h"
 #import <pthread.h>
 #include <sys/time.h>
-//#import "IRAVPlayer.h"
 
 @interface IRGLRenderMode(BuildIRGLProgram)
 
@@ -108,23 +105,11 @@
 }
 
 - (id)initWithFrame:(CGRect)frame
-             decoder:(IRMovieDecoder *)decoder {
-    self = [super initWithFrame:frame];
-    if (self) {
-        [self initDefaultValue];
-        [self initGLWithIRMovieDecoder:decoder];
-    }
-    
-    return self;
-}
-
-- (id)initWithFrame:(CGRect)frame
          withPlayer:(IRPlayerImp *)abstractPlayer {
     self = [super initWithFrame:frame];
     if (self) {
         self.abstractPlayer = abstractPlayer;
         [self initDefaultValue];
-//        [self initGLWithIRMovieDecoder:decoder];
         irPixelFormat = YUV_IRPixelFormat;
         [self initGLWithPixelFormat:irPixelFormat];
     }
@@ -134,16 +119,6 @@
 
 - (void)initDefaultValue {
     _modes = [NSArray array];
-}
-
-- (void)initGLWithIRMovieDecoder:(IRMovieDecoder *)decoder {
-    if ([decoder setupVideoFrameFormat:IRFrameFormatYUV]) {
-        irPixelFormat = YUV_IRPixelFormat;
-    } else {
-        irPixelFormat = RGB_IRPixelFormat;
-    }
-    
-    [self initGLWithPixelFormat:irPixelFormat];
 }
 
 - (EAGLContext *)setupContext {

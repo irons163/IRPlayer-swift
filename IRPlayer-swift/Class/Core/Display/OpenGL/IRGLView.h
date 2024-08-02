@@ -15,7 +15,6 @@
 @class IRGLViewSimulateDeviceShiftController;
 @class IRGLView;
 @class IRFFVideoFrame;
-@class IRMovieDecoder;
 @class VideoDecoder;
 @class IRAVPlayer;
 
@@ -52,8 +51,6 @@ typedef NS_ENUM(NSInteger, IRRenderMode){
 
 @interface IRGLView : UIView<IRFFDecoderVideoOutput>
 
-- (id)initWithFrame:(CGRect)frame
-            decoder:(IRMovieDecoder *) decoder;
 - (id)initWithFrame:(CGRect)frame
             withPlayer:(IRPlayerImp *)abstractPlayer;
 - (void)render:(nullable IRFFVideoFrame *) frame;

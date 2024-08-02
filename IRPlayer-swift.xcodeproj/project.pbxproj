@@ -198,8 +198,6 @@
 		D1B25FF02804701900F79DCC /* IRGLGestureController.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F302804701700F79DCC /* IRGLGestureController.m */; };
 		D1B25FF12804701900F79DCC /* IRBounceController.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F322804701700F79DCC /* IRBounceController.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B25FF22804701900F79DCC /* IRBounceController.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F332804701700F79DCC /* IRBounceController.m */; };
-		D1B25FF62804701900F79DCC /* IRMovieDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F392804701700F79DCC /* IRMovieDecoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B25FF72804701900F79DCC /* IRMovieDecoder.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F3A2804701700F79DCC /* IRMovieDecoder.m */; };
 		D1B25FF82804701900F79DCC /* IRGLView.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F3C2804701700F79DCC /* IRGLView.m */; };
 		D1B25FF92804701900F79DCC /* IRGLRenderMode2D.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F3E2804701700F79DCC /* IRGLRenderMode2D.m */; };
 		D1B25FFA2804701900F79DCC /* IRGLRenderMode3DFisheye.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F3F2804701700F79DCC /* IRGLRenderMode3DFisheye.m */; };
@@ -523,8 +521,6 @@
 		D1B25F302804701700F79DCC /* IRGLGestureController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLGestureController.m; sourceTree = "<group>"; };
 		D1B25F322804701700F79DCC /* IRBounceController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRBounceController.h; sourceTree = "<group>"; };
 		D1B25F332804701700F79DCC /* IRBounceController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRBounceController.m; sourceTree = "<group>"; };
-		D1B25F392804701700F79DCC /* IRMovieDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRMovieDecoder.h; sourceTree = "<group>"; };
-		D1B25F3A2804701700F79DCC /* IRMovieDecoder.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRMovieDecoder.m; sourceTree = "<group>"; };
 		D1B25F3C2804701700F79DCC /* IRGLView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLView.m; sourceTree = "<group>"; };
 		D1B25F3E2804701700F79DCC /* IRGLRenderMode2D.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLRenderMode2D.m; sourceTree = "<group>"; };
 		D1B25F3F2804701700F79DCC /* IRGLRenderMode3DFisheye.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLRenderMode3DFisheye.m; sourceTree = "<group>"; };
@@ -1108,8 +1104,6 @@
 		D1B25F382804701700F79DCC /* Display */ = {
 			isa = PBXGroup;
 			children = (
-				D1B25F392804701700F79DCC /* IRMovieDecoder.h */,
-				D1B25F3A2804701700F79DCC /* IRMovieDecoder.m */,
 				D1B25F3B2804701700F79DCC /* OpenGL */,
 			);
 			path = Display;
@@ -1446,7 +1440,6 @@
 				D1B25FE32804701900F79DCC /* IRMediaParameter.h in Headers */,
 				D13D2E2C2809B2B800C19C4D /* file.h in Headers */,
 				D1B25FE42804701900F79DCC /* IRMetamacros.h in Headers */,
-				D1B25FF62804701900F79DCC /* IRMovieDecoder.h in Headers */,
 				D1B25FBE2804701800F79DCC /* IRFFTrack.h in Headers */,
 				D1B25FB82804701800F79DCC /* IRScope.h in Headers */,
 				D1B260072804701900F79DCC /* IRGLRenderModeFactory.h in Headers */,
@@ -1692,7 +1685,6 @@
 				D1B260552804701900F79DCC /* IRGLTransformController3DFisheye.m in Sources */,
 				D1B25FFD2804701900F79DCC /* IRGLRenderModeVR.m in Sources */,
 				B5BD590B2C553C9D00FCC761 /* IRYUVTools.swift in Sources */,
-				D1B25FF72804701900F79DCC /* IRMovieDecoder.m in Sources */,
 				D1B25FEC2804701900F79DCC /* IRGestureController.m in Sources */,
 				D1B2602B2804701900F79DCC /* IRGLProgramVR.m in Sources */,
 				D1C185B02805A0D80081EBF5 /* IRBounceController.swift in Sources */,

@@ -7,7 +7,6 @@
 //
 
 #import "IRGLRenderBase.h"
-#import "IRMovieDecoder.h"
 
 @implementation IRGLRenderBase
 

@@ -7,7 +7,6 @@
 //
 
 #import "IRGLRenderRGB.h"
-#import "IRMovieDecoder.h"
 #import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 #define TextureMagFilter GL_NEAREST//GL_LINEAR
