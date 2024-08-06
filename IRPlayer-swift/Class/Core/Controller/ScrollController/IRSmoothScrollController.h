@@ -10,19 +10,9 @@
 #import <UIKit/UIKit.h>
 #import "IRGLView.h"
 #import "IRGLProgram2D.h"
+@protocol IRGLViewDelegate;
 
 NS_ASSUME_NONNULL_BEGIN
-
-@protocol IRGLViewDelegate
-
-@optional
-- (void)glViewWillBeginDragging:(IRGLView *)glView;
-- (void)glViewDidEndDragging:(IRGLView *)glView willDecelerate:(BOOL)decelerate;
-- (void)glViewDidEndDecelerating:(IRGLView *)glView;
-- (void)glViewDidScrollToBounds:(IRGLView *)glView;
-- (void)glViewWillBeginZooming:(IRGLView *)glView;
-- (void)glViewDidEndZooming:(IRGLView *)glView atScale:(CGFloat)scale;
-@end
 
 @interface IRSmoothScrollController : NSObject<IRGLProgramDelegate>
 

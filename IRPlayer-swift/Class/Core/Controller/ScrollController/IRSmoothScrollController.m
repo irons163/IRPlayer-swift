@@ -10,6 +10,7 @@
 #import "IRBounceController.h"
 #import "IRGLTransformController.h"
 #import "IRGLRenderMode.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @interface IRSmoothScrollController()
 

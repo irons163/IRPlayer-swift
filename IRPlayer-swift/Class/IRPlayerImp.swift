@@ -585,29 +585,29 @@ public extension IRPlayerImp {
 // Mark: - UIScrollViewDelegate
 extension IRPlayerImp: IRGLViewDelegate {
 
-    public func glViewWillBeginZooming(_ glView: IRGLView) {
+    public func glViewWillBeginZooming(_ glView: IRGLView?) {
         self.sensor?.stopMotionDetection()
     }
 
-    public func glViewDidEndZooming(_ glView: IRGLView, atScale scale: CGFloat) {
+    public func glViewDidEndZooming(_ glView: IRGLView?, atScale scale: CGFloat) {
         self.sensor?.resetUnit()
     }
 
-    public func glViewWillBeginDragging(_ glView: IRGLView) {
+    public func glViewWillBeginDragging(_ glView: IRGLView?) {
         self.sensor?.stopMotionDetection()
     }
 
-    public func glViewDidEndDragging(_ glView: IRGLView, willDecelerate decelerate: Bool) {
+    public func glViewDidEndDragging(_ glView: IRGLView?, willDecelerate decelerate: Bool) {
         if !decelerate {
             self.sensor?.resetUnit()
         }
     }
 
-    public func glViewDidEndDecelerating(_ glView: IRGLView) {
+    public func glViewDidEndDecelerating(_ glView: IRGLView?) {
 
     }
 
-    public func glViewDidScroll(toBounds glView: IRGLView) {
+    public func glViewDidScroll(toBounds glView: IRGLView?) {
         print("scroll to bounds")
     }
 }
