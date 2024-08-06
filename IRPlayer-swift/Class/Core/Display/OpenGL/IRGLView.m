@@ -543,14 +543,6 @@
     return imgRtn;
 }
 
-typedef NS_ENUM(NSInteger, IRScrollDirectionType){
-    None, //default
-    Left,
-    Right,
-    Up,
-    Down
-};
-
 - (void)cleanEmptyBuffer
 {
 //    [self cleanTexture];

@@ -7,7 +7,6 @@
 //
 
 #import "IRSmoothScrollController.h"
-#import "IRBounceController.h"
 #import "IRGLTransformController.h"
 #import "IRGLRenderMode.h"
 #import <IRPlayer_swift/IRPlayer_swift-Swift.h>
@@ -119,8 +118,8 @@
     CGFloat moveX = finalPoint.x - alreadyPoint.x;
     CGFloat moveY = finalPoint.y - alreadyPoint.y;
     
-    IRScrollDirectionType scrollDirectionType = None;
-    
+    IRScrollDirectionType scrollDirectionType = IRScrollDirectionTypeNone;
+
     switch (bounds) {
         case IRGLTransformControllerScrollToHorizontalBounds:
             moveY = 0;
@@ -139,22 +138,22 @@
     }
     
     if(moveX > 0)
-        scrollDirectionType = Right;
+        scrollDirectionType = IRScrollDirectionTypeRight;
     else if(moveX < 0)
-        scrollDirectionType = Left;
-    
-    if(!didHorizontalBoundsBonce && (scrollDirectionType == Left || scrollDirectionType == Right)){
-        [bounce removeAndAddAnimateWithScrollValue:moveX byScrollDirection:scrollDirectionType];
+        scrollDirectionType = IRScrollDirectionTypeLeft;
+
+    if(!didHorizontalBoundsBonce && (scrollDirectionType == IRScrollDirectionTypeLeft || scrollDirectionType == IRScrollDirectionTypeRight)){
+        [bounce removeAndAddAnimateWith:moveX byScrollDirection:scrollDirectionType];
         didHorizontalBoundsBonce = YES;
     }
     
     if(moveY > 0)
-        scrollDirectionType = Down;
+        scrollDirectionType = IRScrollDirectionTypeDown;
     else if(moveY < 0)
-        scrollDirectionType = Up;
-    
-    if(!didVerticalBoundsBonce && (scrollDirectionType == Up || scrollDirectionType == Down)){
-        [bounce removeAndAddAnimateWithScrollValue:moveY byScrollDirection:scrollDirectionType];
+        scrollDirectionType = IRScrollDirectionTypeUp;
+
+    if(!didVerticalBoundsBonce && (scrollDirectionType == IRScrollDirectionTypeUp || scrollDirectionType == IRScrollDirectionTypeDown)){
+        [bounce removeAndAddAnimateWith:moveY byScrollDirection:scrollDirectionType];
         didVerticalBoundsBonce = YES;
     }
     
