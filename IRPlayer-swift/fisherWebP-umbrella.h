@@ -30,7 +30,6 @@
 #import "libswresample/swresample.h"
 #import "libswscale/swscale.h"
 #import <IRPlayer_swift/IRSensor.h>
-#import "IRSmoothScrollController.h"
 #import "IRGLRenderModeFactory.h"
 #import "IRGLRenderMode.h"
 #import "IRFFVideoInput.h"
@@ -53,3 +52,5 @@
 
 #import "IRFFTrack.h"
 #import "IRFFMpegErrorUtil.h"
+#import "IRGLView.h"
+#import "IRGLProgram2D.h"

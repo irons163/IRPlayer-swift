@@ -76,7 +76,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
         case .ended:
             isTouchedInProgram = false
             let velocity = gr.velocity(in: targetView)
-            smoothScroll?.calculateSmoothScroll(velocity)
+            smoothScroll?.calculateSmoothScroll(velocity: velocity)
             delegate?.glViewDidEndDragging(targetGLView, willDecelerate: velocity == .zero)
 
         case .began:
@@ -89,8 +89,8 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
             guard isTouchedInProgram else { return }
             delegate?.glViewWillBeginDragging(targetGLView)
             let screenOffset = gr.translation(in: targetView)
-            smoothScroll?.scroll(byDx: Float(screenOffset.x) * Float(UIScreen.main.scale),
-                                     dy: Float(-1 * screenOffset.y) * Float(UIScreen.main.scale))
+            smoothScroll?.scrollBy(dx: Float(screenOffset.x * UIScreen.main.scale),
+                                   dy: Float(-1 * screenOffset.y * UIScreen.main.scale))
             gr.setTranslation(.zero, in: targetView)
         }
     }

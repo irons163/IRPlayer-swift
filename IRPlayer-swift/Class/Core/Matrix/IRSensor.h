@@ -8,9 +8,9 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
-#import "IRSmoothScrollController.h"
 
 @class IRGLView;
+@class IRSmoothScrollController;
 
 NS_ASSUME_NONNULL_BEGIN
 

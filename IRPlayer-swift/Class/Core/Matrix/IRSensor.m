@@ -9,6 +9,7 @@
 #import "IRSensor.h"
 #import <CoreMotion/CoreMotion.h>
 #import "IRGLView.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @interface IRSensor () {
     CMAttitude *referenceAttitude;

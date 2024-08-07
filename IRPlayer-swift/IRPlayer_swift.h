@@ -26,7 +26,6 @@ FOUNDATION_EXPORT const unsigned char IRPlayer_swiftVersionString[];
 //#import "libswresample/swresample.h"
 //#import "libswscale/swscale.h"
 #import <IRPlayer_swift/IRSensor.h>
-#import <IRPlayer_swift/IRSmoothScrollController.h>
 #import "IRGLRenderModeFactory.h"
 #import "IRGLRenderMode.h"
 #import "IRFFVideoInput.h"
@@ -44,3 +43,4 @@ FOUNDATION_EXPORT const unsigned char IRPlayer_swiftVersionString[];
 #import <CoreMotion/CoreMotion.h>
 //#import "libavutil/error.h"
 //#import "IRFFMpegErrorUtil.h"
+#import "IRGLProgram2D.h"
