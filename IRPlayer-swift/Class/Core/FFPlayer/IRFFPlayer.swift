@@ -251,15 +251,15 @@ extension IRFFPlayer {
         reloadPlayableBufferInterval()
 
         let pixelFormat: IRPixelFormat = decoder?.hardwareDecoderEnable == true ? .NV12_IRPixelFormat : .YUV_IRPixelFormat
-        abstractPlayer?.displayView?.pixelFormat = pixelFormat
+        abstractPlayer?.displayView?.irPixelFormat = pixelFormat
 
         switch abstractPlayer?.videoType {
         case .normal:
-            abstractPlayer?.displayView?.rendererType = .fFmpegPexelBuffer
+            abstractPlayer?.displayView?.rendererType = .FFmpegPixelBuffer
         case .vr:
-            abstractPlayer?.displayView?.rendererType = .fFmpegPexelBufferVR
+            abstractPlayer?.displayView?.rendererType = .FFmpegPixelBufferVR
         case .fisheye, .pano, .custom:
-            abstractPlayer?.displayView?.rendererType = .fFmpegPexelBuffer
+            abstractPlayer?.displayView?.rendererType = .FFmpegPixelBuffer
         case .none:
             break
         }

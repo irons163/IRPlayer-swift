@@ -12,7 +12,7 @@
 @implementation IRGLRenderModeDistortion
 
 -(void)initProgramFactory{
-    programFactory = [[IRGLProgramDistortionFactory alloc] init];
+    self.programFactory = [[IRGLProgramDistortionFactory alloc] init];
     self.shiftController.panAngle = 360;
     self.shiftController.tiltAngle = 180;
 }

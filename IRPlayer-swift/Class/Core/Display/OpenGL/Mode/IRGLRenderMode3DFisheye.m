@@ -12,7 +12,7 @@
 @implementation IRGLRenderMode3DFisheye
 
 -(void)initProgramFactory{
-    programFactory = [[IRGLProgram3DFisheyeFactory alloc] init];
+    self.programFactory = [[IRGLProgram3DFisheyeFactory alloc] init];
     self.shiftController.panAngle = 180;
     self.shiftController.tiltAngle = 360;
 }

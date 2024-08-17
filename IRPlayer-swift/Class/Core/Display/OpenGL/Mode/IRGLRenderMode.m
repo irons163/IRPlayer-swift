@@ -35,7 +35,7 @@
 }
 
 - (void)initProgramFactory {
-    programFactory = [[IRGLProgram2DFactory alloc] init];
+    self.programFactory = [[IRGLProgram2DFactory alloc] init];
 }
 
 - (void)setDefaultScale:(float)scale {

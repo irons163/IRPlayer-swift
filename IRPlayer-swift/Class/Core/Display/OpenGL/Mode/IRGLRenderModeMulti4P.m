@@ -12,7 +12,7 @@
 @implementation IRGLRenderModeMulti4P
 
 -(void)initProgramFactory{
-    programFactory = [[IRGLProgram3DFisheye4PFactory alloc] init];
+    self.programFactory = [[IRGLProgram3DFisheye4PFactory alloc] init];
     self.shiftController.panAngle = 360;
     self.shiftController.tiltAngle = 360;
 }

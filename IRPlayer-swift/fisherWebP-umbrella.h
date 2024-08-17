@@ -52,5 +52,5 @@
 
 #import "IRFFTrack.h"
 #import "IRFFMpegErrorUtil.h"
-#import "IRGLView.h"
 #import "IRGLProgram2D.h"
+#import "IRGLProgram2DFactory.h"

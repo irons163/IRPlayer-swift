@@ -272,7 +272,7 @@ public class IRPlayerImp: NSObject {
     }
 
     public func selectRenderMode(renderMode: IRGLRenderMode) {
-        self.displayView?.choose(renderMode, withImmediatelyRenderOnce: true)
+        _ = self.displayView?.choose(renderMode: renderMode, withImmediatelyRenderOnce: true)
         self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
     }
 
@@ -329,7 +329,7 @@ public class IRPlayerImp: NSObject {
     }
 
     public func updateGraphicsViewFrame(frame: CGRect) {
-        self.displayView?.updateFrame(fromParent: frame)
+        self.displayView?.update(frame: frame)
     }
 
     private func setVideoType(videoType: IRVideoType) {

@@ -28,11 +28,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)programDidCreate:(IRGLProgram2D *)program;
 @end
 
-@interface IRGLRenderMode : NSObject {
-@protected
-    IRGLProgram2D* _program;
-    IRGLProgram2DFactory* programFactory;
-}
+@interface IRGLRenderMode : NSObject
 
 @property (weak) id<IRGLRenderModeDelegate> delegate;
 @property IRePTZShiftController* shiftController;
@@ -45,8 +41,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) IRGLRenderContentMode contentMode;
 @property (nonatomic) IRMediaParameter* parameter;
 @property (nonatomic) NSString* name;
-@property (readonly) IRGLProgram2D* program;
+@property (nonatomic) IRGLProgram2D* program;
 @property (nonatomic) id<IRGLRender> renderer;
+@property (nonatomic) IRGLProgram2DFactory* programFactory;
 
 - (void)setting;
 - (void)update;

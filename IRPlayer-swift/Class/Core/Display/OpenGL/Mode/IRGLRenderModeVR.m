@@ -12,7 +12,7 @@
 @implementation IRGLRenderModeVR
 
 -(void)initProgramFactory{
-    programFactory = [[IRGLProgramVRFactory alloc] init];
+    self.programFactory = [[IRGLProgramVRFactory alloc] init];
     self.shiftController.panAngle = 360;
     self.shiftController.tiltAngle = 180;
 }

@@ -8,7 +8,6 @@
 
 #import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 #import "IRPlayerImp+DisplayView.h"
-#import "IRGLView.h"
 
 //@interface IRPlayerImp (DisplayView)
 

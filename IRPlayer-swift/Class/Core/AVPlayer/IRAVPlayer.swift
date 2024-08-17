@@ -65,8 +65,8 @@ class IRAVPlayer: NSObject {
     init(abstractPlayer: IRPlayerImp) {
         self.abstractPlayer = abstractPlayer
         super.init()
-        self.abstractPlayer.displayView?.avplayer = self
-        self.abstractPlayer.displayView?.pixelFormat = IRPixelFormat.NV12_IRPixelFormat
+//        self.abstractPlayer.displayView?.avplayer = self
+        self.abstractPlayer.displayView?.irPixelFormat = .NV12_IRPixelFormat
 
         setupDisplayLink()
     }
@@ -382,11 +382,11 @@ extension IRAVPlayer {
         case .normal:
             setupAVPlayerItem(autoLoadedAsset: true)
             setupAVPlayer()
-            abstractPlayer.displayView?.rendererType = .avPlayerLayer
+            abstractPlayer.displayView?.rendererType = .AVPlayerLayer
         case .vr:
             setupAVPlayerItem(autoLoadedAsset: false)
             setupAVPlayer()
-            abstractPlayer.displayView?.rendererType = .avPlayerPixelBufferVR
+            abstractPlayer.displayView?.rendererType = .AVPlayerPixelBufferVR
             avAsset?.loadValuesAsynchronously(forKeys: Self.AVAssetLoadKeys) { [weak self] in
                 DispatchQueue.main.async {
                     guard let self = self else { return }

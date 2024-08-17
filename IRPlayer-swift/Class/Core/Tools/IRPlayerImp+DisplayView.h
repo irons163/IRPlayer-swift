@@ -8,7 +8,6 @@
 
 //#import "IRPlayerImp.h"
 @class IRPlayerImp;
-#import "IRGLView.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

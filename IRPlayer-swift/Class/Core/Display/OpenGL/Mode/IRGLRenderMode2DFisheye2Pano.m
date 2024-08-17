@@ -12,7 +12,7 @@
 @implementation IRGLRenderMode2DFisheye2Pano
 
 -(void)initProgramFactory{
-    programFactory = [[IRGLProgram2DFisheye2PanoFactory alloc] init];
+    self.programFactory = [[IRGLProgram2DFisheye2PanoFactory alloc] init];
     self.shiftController.panAngle = 180;
     self.shiftController.tiltAngle = 360;
 }
