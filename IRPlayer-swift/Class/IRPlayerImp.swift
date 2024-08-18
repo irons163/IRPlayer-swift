@@ -341,7 +341,7 @@ public class IRPlayerImp: NSObject {
             guard let displayView = self.displayView else { return }
             if (self.displayMode == .normal) {
                 let mode = IRGLRenderModeFactory.createVRMode(with: nil)
-                mode.program.setDefaultScale(1.5)
+                mode.program?.setDefaultScale(1.5)
                 mode.aspect = 16.0 / 9.0
                 self.displayView?.setRenderModes([mode])
             } else if self.displayMode == .normal {

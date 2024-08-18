@@ -7,7 +7,6 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "IRGLRenderMode.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

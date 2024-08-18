@@ -83,7 +83,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
             let touchedPoint = gr.location(in: targetView)
             let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
                                       y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
-            isTouchedInProgram = currentMode?.program.touched(inProgram: scaledPoint) ?? false
+            isTouchedInProgram = currentMode?.program?.touched(inProgram: scaledPoint) ?? false
 
         default:
             guard isTouchedInProgram else { return }
@@ -108,7 +108,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
             let touchedPoint = sender.location(in: targetView)
             let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
                                       y: (targetView?.frame.size.height ?? 0) - touchedPoint.y * UIScreen.main.scale)
-            isTouchedInProgram = currentMode?.program.touched(inProgram: scaledPoint) ?? false
+            isTouchedInProgram = currentMode?.program?.touched(inProgram: scaledPoint) ?? false
 
         default:
             guard isTouchedInProgram, sender.numberOfTouches >= 2 else { return }
@@ -136,7 +136,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
             let touchedPoint = gr.location(in: targetView)
             let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
                                       y: (targetView?.frame.size.height ?? 0) - touchedPoint.y * UIScreen.main.scale)
-            isTouchedInProgram = currentMode?.program.touched(inProgram: scaledPoint) ?? false
+            isTouchedInProgram = currentMode?.program?.touched(inProgram: scaledPoint) ?? false
 
         default:
             guard isTouchedInProgram else { return }
@@ -150,7 +150,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
     }
 
     func updateRotation(_ rotateRadians: Float) {
-        currentMode?.program.didRotate(-rotateRadians)
+        currentMode?.program?.didRotate(-rotateRadians)
         targetGLView?.render(nil)
     }
 
@@ -163,24 +163,24 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
         let touchedPoint = gr.location(in: targetView)
         let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
                                   y: (targetView?.frame.size.height ?? 0) - touchedPoint.y * UIScreen.main.scale)
-        isTouchedInProgram = currentMode?.program.touched(inProgram: scaledPoint) ?? false
+        isTouchedInProgram = currentMode?.program?.touched(inProgram: scaledPoint) ?? false
 
         guard isTouchedInProgram else { return }
 
-        currentMode?.program.doResetToDefaultScaleBlock = { program in
+        currentMode?.program?.doResetToDefaultScaleBlock = { program in
             guard !program.getCurrentScale().equalTo(CGPoint(x: 1.0, y: 1.0)) else { return false }
             program.setDefaultScale(1.0)
             return true
         }
 
-        currentMode?.program.didDoubleTap()
+        currentMode?.program?.didDoubleTap()
         currentMode?.update()
         targetGLView?.render(nil)
     }
 
     // Not considering Multi program status yet.
     func isProgramZooming() -> Bool {
-        guard let scale = currentMode?.program.getCurrentScale() else { return false }
+        guard let scale = currentMode?.program?.getCurrentScale() else { return false }
         return scale != CGPoint(x: 1.0, y: 1.0)
     }
 

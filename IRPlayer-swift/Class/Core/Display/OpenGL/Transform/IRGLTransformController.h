@@ -77,8 +77,8 @@ typedef NS_ENUM(NSUInteger, IRGLTransformControllerScrollToBounds) {
 }
 
 @property (weak) id<IRGLTransformControllerDelegate> delegate;
-@property (nonatomic) IRGLScopeRange* scopeRange;
-@property (nonatomic) IRGLScaleRange* scaleRange;
+@property (nonatomic, nullable) IRGLScopeRange* scopeRange;
+@property (nonatomic, nullable) IRGLScaleRange* scaleRange;
 
 -(IRGLScope2D*) getScope;
 -(GLKMatrix4) getModelViewProjectionMatrix;

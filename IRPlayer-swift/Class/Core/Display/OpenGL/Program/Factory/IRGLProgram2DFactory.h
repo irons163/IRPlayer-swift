@@ -13,7 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface IRGLProgram2DFactory : NSObject
 
--(IRGLProgram2D*)createIRGLProgramWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter;
+-(IRGLProgram2D*)createIRGLProgramWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(nullable IRMediaParameter*)parameter;
 
 @end
 

@@ -287,7 +287,9 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
         for mode in modes {
             mode.buildIRGLProgram(pixelFormat: irPixelFormat, viewprotRange: viewprotRange, parameter: mode.parameter)
-            array.append(mode.program)
+            if let program = mode.program {
+                array.append(program)
+            }
         }
 
         programs = array
@@ -503,13 +505,13 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
 extension IRGLRenderMode {
     
-    func buildIRGLProgram(pixelFormat: IRPixelFormat, viewprotRange: CGRect, parameter: IRMediaParameter) {
-        program = programFactory.createIRGLProgram(with: pixelFormat, withViewprotRange: viewprotRange, with: parameter)
-        self.shiftController.setProgram(self.program)
-        self.defaultScale = self.defaultScale
-        self.contentMode = self.contentMode
+    func buildIRGLProgram(pixelFormat: IRPixelFormat, viewprotRange: CGRect, parameter: IRMediaParameter?) {
+        let program = programFactory.createIRGLProgram(with: pixelFormat, withViewprotRange: viewprotRange, with: parameter)
+        self.program = program
+        self.shiftController.setProgram(program)
+//        self.defaultScale = self.defaultScale
+//        self.contentMode = self.contentMode
         self.setting()
-
-        self.delegate?.programDidCreate?(self.program)
+        self.delegate?.programDidCreate(program)
     }
 }
