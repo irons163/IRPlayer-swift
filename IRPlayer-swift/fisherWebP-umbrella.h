@@ -38,7 +38,6 @@
 //#import "IRFFPlayer.h"
 //#import "IRFFPlayer.h"
 #import "IRFFTools.h"
-#import "IRGLRenderNV12.h"
 #import "IRFisheyeParameter.h"
 #import <CoreMotion/CoreMotion.h>
 #import "IRGLSupportPixelFormat.h"

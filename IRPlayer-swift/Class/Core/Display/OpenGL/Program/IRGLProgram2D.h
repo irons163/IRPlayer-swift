@@ -8,7 +8,6 @@
 
 #import <Foundation/Foundation.h>
 #import "IRGLShaderParams.h"
-#import "IRGLRenderBase.h"
 #import "IRGLTransformController.h"
 #import "IRGLProjection.h"
 #import "IRMediaParameter.h"
@@ -18,6 +17,8 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class IRGLProgram2D;
+@class IRFFVideoFrame;
+@protocol IRGLRender;
 
 typedef BOOL (^IRGLProgram2DResetScaleBlock)(IRGLProgram2D *program);
 
@@ -33,7 +34,7 @@ typedef BOOL (^IRGLProgram2DResetScaleBlock)(IRGLProgram2D *program);
     NSString* vertexShaderString;
     NSString* fragmentShaderString;
     IRPixelFormat _pixelFormat;
-    id<IRGLRender> _renderer;
+//    id<IRGLRender> _renderer;
 }
 
 @property (nullable, readonly) IRMediaParameter *parameter;
