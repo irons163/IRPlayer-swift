@@ -83,7 +83,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
             let touchedPoint = gr.location(in: targetView)
             let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
                                       y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
-            isTouchedInProgram = currentMode?.program?.touched(inProgram: scaledPoint) ?? false
+            isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         default:
             guard isTouchedInProgram else { return }
@@ -108,7 +108,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
             let touchedPoint = sender.location(in: targetView)
             let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
                                       y: (targetView?.frame.size.height ?? 0) - touchedPoint.y * UIScreen.main.scale)
-            isTouchedInProgram = currentMode?.program?.touched(inProgram: scaledPoint) ?? false
+            isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         default:
             guard isTouchedInProgram, sender.numberOfTouches >= 2 else { return }
@@ -136,7 +136,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
             let touchedPoint = gr.location(in: targetView)
             let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
                                       y: (targetView?.frame.size.height ?? 0) - touchedPoint.y * UIScreen.main.scale)
-            isTouchedInProgram = currentMode?.program?.touched(inProgram: scaledPoint) ?? false
+            isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         default:
             guard isTouchedInProgram else { return }
@@ -163,7 +163,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
         let touchedPoint = gr.location(in: targetView)
         let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
                                   y: (targetView?.frame.size.height ?? 0) - touchedPoint.y * UIScreen.main.scale)
-        isTouchedInProgram = currentMode?.program?.touched(inProgram: scaledPoint) ?? false
+        isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         guard isTouchedInProgram else { return }
 

@@ -16,11 +16,12 @@
 #import "IRGLProjectionVR.h"
 #import "IRGLProjectionDistortion.h"
 #import "IRFisheyeParameter.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @implementation IRGLProgramFactory
 
 +(IRGLProgram2D*) createIRGLProgram2DWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter{
-    IRGLProgram2D* program = [[IRGLProgram2D alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    IRGLProgram2D* program = [[IRGLProgram2D alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
     if(!program.tramsformController){
         program.tramsformController = [[IRGLTransformController2D alloc] initWithViewportWidth:viewprotRange.size.width viewportHeight:viewprotRange.size.height];
         program.tramsformController.delegate = program;
@@ -30,7 +31,7 @@
 }
 
 +(IRGLProgram2DFisheye2Pano*) createIRGLProgram2DFisheye2PanoWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter{
-    IRGLProgram2DFisheye2Pano* program = [[IRGLProgram2DFisheye2Pano alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    IRGLProgram2DFisheye2Pano* program = [[IRGLProgram2DFisheye2Pano alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
     if(!program.tramsformController){
         program.tramsformController = [[IRGLTransformController2D alloc] initWithViewportWidth:viewprotRange.size.width viewportHeight:viewprotRange.size.height];
         program.tramsformController.delegate = program;
@@ -44,7 +45,7 @@
 }
 
 +(IRGLProgram2DFisheye2Persp*) createIRGLProgram2DFisheye2PerspWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter{
-    IRGLProgram2DFisheye2Persp* program = [[IRGLProgram2DFisheye2Persp alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    IRGLProgram2DFisheye2Persp* program = [[IRGLProgram2DFisheye2Persp alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
     if(!program.tramsformController){
         program.tramsformController = [[IRGLTransformController2D alloc] initWithViewportWidth:viewprotRange.size.width viewportHeight:viewprotRange.size.height];
         program.tramsformController.delegate = program;
@@ -63,7 +64,7 @@
     
     IRFisheyeParameter* fp = (IRFisheyeParameter*)parameter;
     
-    IRGLProgram3DFisheye* program = [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    IRGLProgram3DFisheye* program = [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
     if(!program.tramsformController){
         program.tramsformController = [[IRGLTransformController3DFisheye alloc] initWithViewportWidth:viewprotRange.size.width viewportHeight:viewprotRange.size.height tileType:TILT_BACKWARD];
         program.tramsformController.delegate = program;
@@ -92,7 +93,7 @@
                              [IRGLProgramFactory createIRGLProgram2DFisheye2PerspWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter],
                              [IRGLProgramFactory createIRGLProgram2DFisheye2PerspWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter]
                              ];
-    IRGLProgramMulti4P* program = [[IRGLProgramMulti4P alloc] initWithPrograms:programs_4p withViewprotRange:viewprotRange];
+    IRGLProgramMulti4P* program = [[IRGLProgramMulti4P alloc] initWithPrograms:programs_4p viewprotRange:viewprotRange];
     if(!program.tramsformController){
         program.tramsformController = [[IRGLTransformController2D alloc] initWithViewportWidth:viewprotRange.size.width viewportHeight:viewprotRange.size.height];
         program.tramsformController.delegate = program;
@@ -101,13 +102,13 @@
     for(int i = 0; i < [programs_4p count]; i++){
         IRGLProgram2DFisheye2Persp* program = programs_4p[i];
         if(i==0)
-            [program setTransformX:0 Y:0];
+            [program setTransformWithX:0 y:0];
         else if(i==1)
-            [program setTransformX:45 Y:-45];
+            [program setTransformWithX:45 y:-45];
         else if(i==2)
-            [program setTransformX:45 Y:180];
+            [program setTransformWithX:45 y:180];
         else if(i==3)
-            [program setTransformX:45 Y:-90];
+            [program setTransformWithX:45 y:-90];
     }
     
     return program;
@@ -124,13 +125,13 @@
     IRFisheyeParameter* fp = (IRFisheyeParameter*)parameter;
     
     NSArray* programs_4p = @[
-                             [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter],
-                             [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter],
-                             [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter],
-                             [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter],
+                             [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter],
+                             [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter],
+                             [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter],
+                             [[IRGLProgram3DFisheye alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter],
                              ];
     
-    IRGLProgramMulti4P* program = [[IRGLProgramMulti4P alloc] initWithPrograms:programs_4p withViewprotRange:viewprotRange];
+    IRGLProgramMulti4P* program = [[IRGLProgramMulti4P alloc] initWithPrograms:programs_4p viewprotRange:viewprotRange];
     if(!program.tramsformController){
         program.tramsformController = [[IRGLTransformController2D alloc] initWithViewportWidth:viewprotRange.size.width viewportHeight:viewprotRange.size.height];
         program.tramsformController.delegate = program;
@@ -175,7 +176,7 @@
 }
 
 +(IRGLProgramVR*) createIRGLProgramVRWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter{
-    IRGLProgramVR* program = [[IRGLProgramVR alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    IRGLProgramVR* program = [[IRGLProgramVR alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
     if(!program.tramsformController){
         IRGLTransformControllerVR *transformController = [[IRGLTransformControllerVR alloc] initWithViewportWidth:viewprotRange.size.width viewportHeight:viewprotRange.size.height tileType:TILT_UP];
         transformController.rc = 1;
@@ -206,7 +207,7 @@
 }
 
 +(IRGLProgramDistortion*) createIRGLProgramDistortionWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter{
-    IRGLProgramDistortion* program = [[IRGLProgramDistortion alloc] initWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    IRGLProgramDistortion* program = [[IRGLProgramDistortion alloc] initWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
     if(!program.tramsformController){
         IRGLTransformControllerDistortion *transformController = [[IRGLTransformControllerDistortion alloc] initWithViewportWidth:viewprotRange.size.width viewportHeight:viewprotRange.size.height tileType:TILT_UP];
         transformController.rc = 1;

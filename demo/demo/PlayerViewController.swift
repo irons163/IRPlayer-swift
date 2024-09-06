@@ -122,11 +122,11 @@ class PlayerViewController: UIViewController {
         ]
 
         normal.shiftController.enabled = false
-        fisheye2Pano.contentMode = .scaleAspectFit
+        fisheye2Pano.contentMode = .scaleAspectFill
         fisheye2Pano.wideDegreeX = 360
         fisheye2Pano.wideDegreeY = 20
         fisheye4P.parameter = IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 80)
-        fisheye.parameter = fisheye4P.parameter
+        fisheye.parameter = IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 80)
         fisheye4P.aspect = 16.0 / 9.0
         fisheye.aspect = fisheye4P.aspect
 

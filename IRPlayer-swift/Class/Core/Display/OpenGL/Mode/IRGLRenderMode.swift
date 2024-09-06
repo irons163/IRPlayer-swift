@@ -105,18 +105,18 @@ public class IRGLRenderMode: NSObject {
 
     private func settingScaleRange(_ key: String) {
         guard key == IRGLRenderModeConfigurationKey.setScaleRange.rawValue else { return }
-        program?.tramsformController.scaleRange = scaleRange
+        program?.tramsformController?.scaleRange = scaleRange
     }
 
     private func settingScopeRange(_ key: String) {
         guard key == IRGLRenderModeConfigurationKey.setScopeRange.rawValue else { return }
-        program?.tramsformController.scopeRange = scopeRange
+        program?.tramsformController?.scopeRange = scopeRange
     }
 
     private func settingRenderer(_ key: String) {
         guard key == IRGLRenderModeConfigurationKey.setRenderer.rawValue,
               let renderer = renderer else { return }
-        program?.setRenderer(renderer)
+        program?.renderer = renderer
     }
 
     func update() {

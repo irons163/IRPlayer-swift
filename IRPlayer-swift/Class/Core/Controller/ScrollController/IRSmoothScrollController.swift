@@ -105,8 +105,8 @@ import UIKit
 }
 
 extension IRSmoothScrollController: IRGLProgramDelegate {
-    
-    public func didScroll(_ bounds: IRGLTransformControllerScrollToBounds, with program: IRGLProgram2D) {
+
+    func didScrollToBounds(_ bounds: IRGLTransformControllerScrollToBounds, withProgram program: IRGLProgram2D) {
         var moveX = finalPoint.x - alreadyPoint.x
         var moveY = finalPoint.y - alreadyPoint.y
         var scrollDirectionType = IRScrollDirectionType.none

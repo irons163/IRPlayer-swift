@@ -161,7 +161,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         }
 
         for program in programs {
-            program.release()
+            program.releaseProgram()
         }
         programs = []
 
@@ -233,7 +233,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         viewprotRange = CGRect(x: 0, y: 0, width: Int(w), height: Int(h))
 
         for program in programs {
-            program.setViewprotRange(CGRect(x: 0, y: 0, width: Int(w), height: Int(h)), resetTransform: false)
+            program.setViewportRange(CGRect(x: 0, y: 0, width: Int(w), height: Int(h)), resetTransform: false)
         }
         render(nil)
     }
@@ -249,7 +249,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func scroll(byDegreeX degreeX: Float, degreeY: Float) {
-        currentProgram?.didPan(byDegreeX: degreeX, degreey: degreeY)
+        currentProgram?.didPanByDegreeX(degreeX, degreeY: degreeY)
         render(nil)
     }
 

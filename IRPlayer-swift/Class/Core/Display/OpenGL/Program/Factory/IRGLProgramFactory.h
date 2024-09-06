@@ -7,15 +7,18 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "IRGLProgram2D.h"
-#import "IRGLProgram2DFisheye2Pano.h"
-#import "IRGLProgram2DFisheye2Persp.h"
-#import "IRGLProgram3DFisheye.h"
-#import "IRGLProgramMulti4P.h"
-#import "IRGLProgramVR.h"
-#import "IRGLProgramDistortion.h"
+#import "IRGLSupportPixelFormat.h"
+#import "IRMediaParameter.h"
 
 NS_ASSUME_NONNULL_BEGIN
+
+@class IRGLProgram2D;
+@class IRGLProgram2DFisheye2Pano;
+@class IRGLProgram2DFisheye2Persp;
+@class IRGLProgram3DFisheye;
+@class IRGLProgramMulti4P;
+@class IRGLProgramVR;
+@class IRGLProgramDistortion;
 
 @interface IRGLProgramFactory : NSObject
 

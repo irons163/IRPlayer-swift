@@ -7,7 +7,7 @@
 //
 
 #import "IRePTZShiftController.h"
-#import "IRGLProgram2D.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @implementation IRePTZShiftController{
     IRGLProgram2D* _program;
@@ -50,7 +50,7 @@
         degreeY = degreeY * self.tiltFactor * 360 / self.tiltAngle;
     }
     
-    [_program didPanByDegreeX:degreeX degreey:degreeY];
+    [_program didPanByDegreeX:degreeX degreeY:degreeY];
 }
 
 @end

@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B5095A0F2C787E6F00B5C44B /* IRGLProgram2D.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5095A0E2C787E6F00B5C44B /* IRGLProgram2D.swift */; };
+		B5095A112C78818D00B5C44B /* IRGLProgram2DFisheye2Pano.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5095A102C78818D00B5C44B /* IRGLProgram2DFisheye2Pano.swift */; };
+		B5095A132C7881E800B5C44B /* IRGLProgram2DFisheye2Persp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5095A122C7881E800B5C44B /* IRGLProgram2DFisheye2Persp.swift */; };
+		B5095A152C78832C00B5C44B /* IRGLProgram3DFisheye.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5095A142C78832C00B5C44B /* IRGLProgram3DFisheye.swift */; };
+		B5095A172C78836300B5C44B /* IRGLProgramMulti.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5095A162C78836300B5C44B /* IRGLProgramMulti.swift */; };
+		B5095A192C78836D00B5C44B /* IRGLProgramMulti4P.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5095A182C78836D00B5C44B /* IRGLProgramMulti4P.swift */; };
+		B5095A1B2C79782200B5C44B /* IRGLProgramDistortion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5095A1A2C79782200B5C44B /* IRGLProgramDistortion.swift */; };
+		B5095A1D2C7CAACA00B5C44B /* IRGLProgramVR.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5095A1C2C7CAAC900B5C44B /* IRGLProgramVR.swift */; };
 		B534AAEA2C58FECD0002CE5C /* IRFFFramePool.swift in Sources */ = {isa = PBXBuildFile; fileRef = B534AAE92C58FECD0002CE5C /* IRFFFramePool.swift */; };
 		B534AAEC2C5902ED0002CE5C /* IRFFFrameQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B534AAEB2C5902ED0002CE5C /* IRFFFrameQueue.swift */; };
 		B534AAEE2C5904AD0002CE5C /* IRFFPacketQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B534AAED2C5904AD0002CE5C /* IRFFPacketQueue.swift */; };
@@ -228,22 +236,6 @@
 		D1B260272804701900F79DCC /* IRGLFish2PerspShaderParams.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F702804701700F79DCC /* IRGLFish2PerspShaderParams.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B260282804701900F79DCC /* IRGLFish2PanoShaderParams.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F712804701700F79DCC /* IRGLFish2PanoShaderParams.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B260292804701900F79DCC /* IRGLShaderParams.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F722804701700F79DCC /* IRGLShaderParams.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2602A2804701900F79DCC /* IRGLProgramVR.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F752804701700F79DCC /* IRGLProgramVR.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2602B2804701900F79DCC /* IRGLProgramVR.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F762804701700F79DCC /* IRGLProgramVR.m */; };
-		D1B2602C2804701900F79DCC /* IRGLProgramMulti.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F772804701700F79DCC /* IRGLProgramMulti.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2602D2804701900F79DCC /* IRGLProgram2DFisheye2Pano.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F782804701700F79DCC /* IRGLProgram2DFisheye2Pano.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2602E2804701900F79DCC /* IRGLProgramDistortion.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F7A2804701800F79DCC /* IRGLProgramDistortion.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2602F2804701900F79DCC /* IRGLProgramDistortion.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F7B2804701800F79DCC /* IRGLProgramDistortion.m */; };
-		D1B260302804701900F79DCC /* IRGLProgram3DFisheye.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F7C2804701800F79DCC /* IRGLProgram3DFisheye.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B260312804701900F79DCC /* IRGLProgramMulti4P.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F7D2804701800F79DCC /* IRGLProgramMulti4P.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B260322804701900F79DCC /* IRGLProgram2DFisheye2Persp.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F7E2804701800F79DCC /* IRGLProgram2DFisheye2Persp.m */; };
-		D1B260332804701900F79DCC /* IRGLProgram2D.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F7F2804701800F79DCC /* IRGLProgram2D.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B260342804701900F79DCC /* IRGLProgram2DFisheye2Pano.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F802804701800F79DCC /* IRGLProgram2DFisheye2Pano.m */; };
-		D1B260352804701900F79DCC /* IRGLProgramMulti.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F812804701800F79DCC /* IRGLProgramMulti.m */; };
-		D1B260362804701900F79DCC /* IRGLProgram2DFisheye2Persp.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F822804701800F79DCC /* IRGLProgram2DFisheye2Persp.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B260372804701900F79DCC /* IRGLProgramMulti4P.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F832804701800F79DCC /* IRGLProgramMulti4P.m */; };
-		D1B260382804701900F79DCC /* IRGLProgram3DFisheye.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F842804701800F79DCC /* IRGLProgram3DFisheye.m */; };
-		D1B260392804701900F79DCC /* IRGLProgram2D.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F852804701800F79DCC /* IRGLProgram2D.m */; };
 		D1B2603A2804701900F79DCC /* IRGLRenderContentMode.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F862804701800F79DCC /* IRGLRenderContentMode.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B2603B2804701900F79DCC /* IRGLProgram3DFisheyeFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F882804701800F79DCC /* IRGLProgram3DFisheyeFactory.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B2603C2804701900F79DCC /* IRGLProgram2DFisheye2PanoFactory.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F892804701800F79DCC /* IRGLProgram2DFisheye2PanoFactory.m */; };
@@ -304,6 +296,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B5095A0E2C787E6F00B5C44B /* IRGLProgram2D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgram2D.swift; sourceTree = "<group>"; };
+		B5095A102C78818D00B5C44B /* IRGLProgram2DFisheye2Pano.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgram2DFisheye2Pano.swift; sourceTree = "<group>"; };
+		B5095A122C7881E800B5C44B /* IRGLProgram2DFisheye2Persp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgram2DFisheye2Persp.swift; sourceTree = "<group>"; };
+		B5095A142C78832C00B5C44B /* IRGLProgram3DFisheye.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgram3DFisheye.swift; sourceTree = "<group>"; };
+		B5095A162C78836300B5C44B /* IRGLProgramMulti.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti.swift; sourceTree = "<group>"; };
+		B5095A182C78836D00B5C44B /* IRGLProgramMulti4P.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti4P.swift; sourceTree = "<group>"; };
+		B5095A1A2C79782200B5C44B /* IRGLProgramDistortion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramDistortion.swift; sourceTree = "<group>"; };
+		B5095A1C2C7CAAC900B5C44B /* IRGLProgramVR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramVR.swift; sourceTree = "<group>"; };
 		B534AAE92C58FECD0002CE5C /* IRFFFramePool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFramePool.swift; sourceTree = "<group>"; };
 		B534AAEB2C5902ED0002CE5C /* IRFFFrameQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueue.swift; sourceTree = "<group>"; };
 		B534AAED2C5904AD0002CE5C /* IRFFPacketQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueue.swift; sourceTree = "<group>"; };
@@ -530,22 +530,6 @@
 		D1B25F702804701700F79DCC /* IRGLFish2PerspShaderParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLFish2PerspShaderParams.h; sourceTree = "<group>"; };
 		D1B25F712804701700F79DCC /* IRGLFish2PanoShaderParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLFish2PanoShaderParams.h; sourceTree = "<group>"; };
 		D1B25F722804701700F79DCC /* IRGLShaderParams.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLShaderParams.h; sourceTree = "<group>"; };
-		D1B25F752804701700F79DCC /* IRGLProgramVR.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProgramVR.h; sourceTree = "<group>"; };
-		D1B25F762804701700F79DCC /* IRGLProgramVR.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProgramVR.m; sourceTree = "<group>"; };
-		D1B25F772804701700F79DCC /* IRGLProgramMulti.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProgramMulti.h; sourceTree = "<group>"; };
-		D1B25F782804701700F79DCC /* IRGLProgram2DFisheye2Pano.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProgram2DFisheye2Pano.h; sourceTree = "<group>"; };
-		D1B25F7A2804701800F79DCC /* IRGLProgramDistortion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProgramDistortion.h; sourceTree = "<group>"; };
-		D1B25F7B2804701800F79DCC /* IRGLProgramDistortion.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProgramDistortion.m; sourceTree = "<group>"; };
-		D1B25F7C2804701800F79DCC /* IRGLProgram3DFisheye.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProgram3DFisheye.h; sourceTree = "<group>"; };
-		D1B25F7D2804701800F79DCC /* IRGLProgramMulti4P.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProgramMulti4P.h; sourceTree = "<group>"; };
-		D1B25F7E2804701800F79DCC /* IRGLProgram2DFisheye2Persp.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProgram2DFisheye2Persp.m; sourceTree = "<group>"; };
-		D1B25F7F2804701800F79DCC /* IRGLProgram2D.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProgram2D.h; sourceTree = "<group>"; };
-		D1B25F802804701800F79DCC /* IRGLProgram2DFisheye2Pano.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProgram2DFisheye2Pano.m; sourceTree = "<group>"; };
-		D1B25F812804701800F79DCC /* IRGLProgramMulti.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProgramMulti.m; sourceTree = "<group>"; };
-		D1B25F822804701800F79DCC /* IRGLProgram2DFisheye2Persp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProgram2DFisheye2Persp.h; sourceTree = "<group>"; };
-		D1B25F832804701800F79DCC /* IRGLProgramMulti4P.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProgramMulti4P.m; sourceTree = "<group>"; };
-		D1B25F842804701800F79DCC /* IRGLProgram3DFisheye.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProgram3DFisheye.m; sourceTree = "<group>"; };
-		D1B25F852804701800F79DCC /* IRGLProgram2D.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProgram2D.m; sourceTree = "<group>"; };
 		D1B25F862804701800F79DCC /* IRGLRenderContentMode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLRenderContentMode.h; sourceTree = "<group>"; };
 		D1B25F882804701800F79DCC /* IRGLProgram3DFisheyeFactory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProgram3DFisheyeFactory.h; sourceTree = "<group>"; };
 		D1B25F892804701800F79DCC /* IRGLProgram2DFisheye2PanoFactory.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProgram2DFisheye2PanoFactory.m; sourceTree = "<group>"; };
@@ -1151,19 +1135,13 @@
 			isa = PBXGroup;
 			children = (
 				D1B25F742804701700F79DCC /* VR */,
-				D1B25F772804701700F79DCC /* IRGLProgramMulti.h */,
-				D1B25F782804701700F79DCC /* IRGLProgram2DFisheye2Pano.h */,
 				D1B25F792804701800F79DCC /* Distortion */,
-				D1B25F7C2804701800F79DCC /* IRGLProgram3DFisheye.h */,
-				D1B25F7D2804701800F79DCC /* IRGLProgramMulti4P.h */,
-				D1B25F7E2804701800F79DCC /* IRGLProgram2DFisheye2Persp.m */,
-				D1B25F7F2804701800F79DCC /* IRGLProgram2D.h */,
-				D1B25F802804701800F79DCC /* IRGLProgram2DFisheye2Pano.m */,
-				D1B25F812804701800F79DCC /* IRGLProgramMulti.m */,
-				D1B25F822804701800F79DCC /* IRGLProgram2DFisheye2Persp.h */,
-				D1B25F832804701800F79DCC /* IRGLProgramMulti4P.m */,
-				D1B25F842804701800F79DCC /* IRGLProgram3DFisheye.m */,
-				D1B25F852804701800F79DCC /* IRGLProgram2D.m */,
+				B5095A0E2C787E6F00B5C44B /* IRGLProgram2D.swift */,
+				B5095A102C78818D00B5C44B /* IRGLProgram2DFisheye2Pano.swift */,
+				B5095A122C7881E800B5C44B /* IRGLProgram2DFisheye2Persp.swift */,
+				B5095A142C78832C00B5C44B /* IRGLProgram3DFisheye.swift */,
+				B5095A162C78836300B5C44B /* IRGLProgramMulti.swift */,
+				B5095A182C78836D00B5C44B /* IRGLProgramMulti4P.swift */,
 				D1B25F862804701800F79DCC /* IRGLRenderContentMode.h */,
 				D1B25F872804701800F79DCC /* Factory */,
 			);
@@ -1173,8 +1151,7 @@
 		D1B25F742804701700F79DCC /* VR */ = {
 			isa = PBXGroup;
 			children = (
-				D1B25F752804701700F79DCC /* IRGLProgramVR.h */,
-				D1B25F762804701700F79DCC /* IRGLProgramVR.m */,
+				B5095A1C2C7CAAC900B5C44B /* IRGLProgramVR.swift */,
 			);
 			path = VR;
 			sourceTree = "<group>";
@@ -1182,8 +1159,7 @@
 		D1B25F792804701800F79DCC /* Distortion */ = {
 			isa = PBXGroup;
 			children = (
-				D1B25F7A2804701800F79DCC /* IRGLProgramDistortion.h */,
-				D1B25F7B2804701800F79DCC /* IRGLProgramDistortion.m */,
+				B5095A1A2C79782200B5C44B /* IRGLProgramDistortion.swift */,
 			);
 			path = Distortion;
 			sourceTree = "<group>";
@@ -1305,7 +1281,6 @@
 				D1B2604A2804701900F79DCC /* IRGLVertexShaderGLSL.h in Headers */,
 				D1B2601B2804701900F79DCC /* IRGLFragmentFish2PanoShaderGLSL.h in Headers */,
 				D13D2E7C2809B2B800C19C4D /* dxva2.h in Headers */,
-				D1B2602A2804701900F79DCC /* IRGLProgramVR.h in Headers */,
 				D13D2E402809B2B800C19C4D /* hwcontext_drm.h in Headers */,
 				D13D2E382809B2B800C19C4D /* timecode.h in Headers */,
 				D1B260142804701900F79DCC /* IRGLScope3D.h in Headers */,
@@ -1320,7 +1295,6 @@
 				D13D2E562809B2B800C19C4D /* mem.h in Headers */,
 				D13D2E332809B2B800C19C4D /* tree.h in Headers */,
 				D13D2E6A2809B2B800C19C4D /* version.h in Headers */,
-				D1B260362804701900F79DCC /* IRGLProgram2DFisheye2Persp.h in Headers */,
 				D13D2E552809B2B800C19C4D /* hwcontext_videotoolbox.h in Headers */,
 				D13D2E622809B2B800C19C4D /* mathematics.h in Headers */,
 				D1B260542804701900F79DCC /* IRGLTransformControllerDistortion.h in Headers */,
@@ -1335,7 +1309,6 @@
 				D1B25FBC2804701800F79DCC /* IRFFTools.h in Headers */,
 				D13D2E162809B2B800C19C4D /* intfloat.h in Headers */,
 				D1B260422804701900F79DCC /* IRGLProgram2DFisheye2PanoFactory.h in Headers */,
-				D1B2602E2804701900F79DCC /* IRGLProgramDistortion.h in Headers */,
 				D13D2E492809B2B800C19C4D /* aes.h in Headers */,
 				D1B260592804701900F79DCC /* IRGLProjectionVR.h in Headers */,
 				D13D2E7A2809B2B800C19C4D /* ac3_parser.h in Headers */,
@@ -1390,7 +1363,6 @@
 				D13D2E1D2809B2B800C19C4D /* murmur3.h in Headers */,
 				D1B2603B2804701900F79DCC /* IRGLProgram3DFisheyeFactory.h in Headers */,
 				D13D2E192809B2B800C19C4D /* blowfish.h in Headers */,
-				D1B2602C2804701900F79DCC /* IRGLProgramMulti.h in Headers */,
 				D13D2E252809B2B800C19C4D /* avconfig.h in Headers */,
 				D13D2E5C2809B2B800C19C4D /* pixfmt.h in Headers */,
 				D1B260692804702500F79DCC /* IRPLFImage.h in Headers */,
@@ -1412,7 +1384,6 @@
 				D13D2E2E2809B2B800C19C4D /* cast5.h in Headers */,
 				D13D2E4E2809B2B800C19C4D /* cpu.h in Headers */,
 				D13D2E242809B2B800C19C4D /* motion_vector.h in Headers */,
-				D1B260312804701900F79DCC /* IRGLProgramMulti4P.h in Headers */,
 				D13D2E292809B2B800C19C4D /* crc.h in Headers */,
 				D1B260502804701900F79DCC /* IRGLTransformController.h in Headers */,
 				D13D2E482809B2B800C19C4D /* log.h in Headers */,
@@ -1423,11 +1394,8 @@
 				D1B2605C2804701900F79DCC /* IRGLProjectionOrthographic.h in Headers */,
 				D13D2E712809B2B800C19C4D /* vaapi.h in Headers */,
 				D13D2E412809B2B800C19C4D /* common.h in Headers */,
-				D1B260302804701900F79DCC /* IRGLProgram3DFisheye.h in Headers */,
 				D13D2E602809B2B800C19C4D /* avassert.h in Headers */,
 				D13D2E772809B2B800C19C4D /* jni.h in Headers */,
-				D1B260332804701900F79DCC /* IRGLProgram2D.h in Headers */,
-				D1B2602D2804701900F79DCC /* IRGLProgram2DFisheye2Pano.h in Headers */,
 				D13D2E632809B2B800C19C4D /* intreadwrite.h in Headers */,
 				D1B25FE12804701900F79DCC /* IRMetadataDefine.h in Headers */,
 				D13D2E522809B2B800C19C4D /* encryption_info.h in Headers */,
@@ -1576,22 +1544,20 @@
 				D1B2606A2804702500F79DCC /* IRPLFView.m in Sources */,
 				B57976C42C70E9940033817C /* IRGLRenderModeVR.swift in Sources */,
 				D1B25FC22804701800F79DCC /* IRFFMetadata.m in Sources */,
-				D1B260372804701900F79DCC /* IRGLProgramMulti4P.m in Sources */,
 				D1B2603F2804701900F79DCC /* IRGLProgram2DFactory.m in Sources */,
 				B534AAF22C5FBAC30002CE5C /* IRGestureController.swift in Sources */,
-				D1B260342804701900F79DCC /* IRGLProgram2DFisheye2Pano.m in Sources */,
 				D1B260202804701900F79DCC /* IRGLFragmentNV12ShaderGLSL.m in Sources */,
 				B534AAEA2C58FECD0002CE5C /* IRFFFramePool.swift in Sources */,
 				D1B260242804701900F79DCC /* IRGLFish2PerspShaderParams.m in Sources */,
 				D1B2604B2804701900F79DCC /* IRGLVertex3DShaderGLSL.m in Sources */,
 				D13D2E932809B2B800C19C4D /* IRFFMpeg.m in Sources */,
-				D1B2602F2804701900F79DCC /* IRGLProgramDistortion.m in Sources */,
 				D1B260452804701900F79DCC /* IRGLProgramVRFactory.m in Sources */,
 				D1B25FC12804701800F79DCC /* IRFFVideoInput.m in Sources */,
 				B57976CE2C71C2BC0033817C /* IRGLRenderRGB.swift in Sources */,
 				D1B260582804701900F79DCC /* IRGLProjectionEquirectangular.m in Sources */,
 				D1B260462804701900F79DCC /* IRGLProgramFactory.m in Sources */,
 				D1B25EE8280462D300F79DCC /* IRPlayerDecoder.swift in Sources */,
+				B5095A1D2C7CAACA00B5C44B /* IRGLProgramVR.swift in Sources */,
 				D1B2604E2804701900F79DCC /* IRGLTransformControllerDistortion.m in Sources */,
 				B57976C22C70E80D0033817C /* IRGLRenderMode3DFisheye.swift in Sources */,
 				D1B25EE628043BA000F79DCC /* IRPlayerImp.swift in Sources */,
@@ -1600,7 +1566,6 @@
 				B595FBCB2C4897AF003002BE /* IRFFAudioDecoder.swift in Sources */,
 				D1B260552804701900F79DCC /* IRGLTransformController3DFisheye.m in Sources */,
 				B5BD590B2C553C9D00FCC761 /* IRYUVTools.swift in Sources */,
-				D1B2602B2804701900F79DCC /* IRGLProgramVR.m in Sources */,
 				B534AAF42C5FC14E0002CE5C /* IRGLGestureController.swift in Sources */,
 				B5BD59062C53E11900FCC761 /* IRVideoFrameRGB.swift in Sources */,
 				D1B2603C2804701900F79DCC /* IRGLProgram2DFisheye2PanoFactory.m in Sources */,
@@ -1608,10 +1573,13 @@
 				B57976D22C71C2D90033817C /* IRGLRenderNV12.swift in Sources */,
 				D1B260432804701900F79DCC /* IRGLProgram3DFisheyeFactory.m in Sources */,
 				D1B2606B2804702500F79DCC /* IRPLFImage.m in Sources */,
+				B5095A192C78836D00B5C44B /* IRGLProgramMulti4P.swift in Sources */,
+				B5095A112C78818D00B5C44B /* IRGLProgram2DFisheye2Pano.swift in Sources */,
 				B57976C02C70E5850033817C /* IRGLRenderMode2DFisheye2Pano.swift in Sources */,
 				D1B2605D2804701900F79DCC /* IRGLProjectionVR.m in Sources */,
 				D1B2601F2804701900F79DCC /* IRGLFragmentFish2PanoShaderGLSL.m in Sources */,
 				B57976C62C70EA8E0033817C /* IRGLRenderModeDistortion.swift in Sources */,
+				B5095A0F2C787E6F00B5C44B /* IRGLProgram2D.swift in Sources */,
 				D1B25FD42804701800F79DCC /* IRFFTools.m in Sources */,
 				D1B260512804701900F79DCC /* IRGLTransformController2D.m in Sources */,
 				B595FBC52C43CD0F003002BE /* IRFFMpegErrorUtil.swift in Sources */,
@@ -1619,6 +1587,7 @@
 				B5BD59002C53D63900FCC761 /* IRFFAudioFrame.swift in Sources */,
 				D1B260212804701900F79DCC /* IRGLFragmentFish2PerspShaderGLSL.m in Sources */,
 				B57976D02C71C2CB0033817C /* IRGLRenderYUV.swift in Sources */,
+				B5095A1B2C79782200B5C44B /* IRGLProgramDistortion.swift in Sources */,
 				B57976BE2C709CAE0033817C /* IRGLRenderMode2D.swift in Sources */,
 				B543184B2C526444006D8F4A /* IRFFVideoToolBox.swift in Sources */,
 				B5BD58FA2C53C0FB00FCC761 /* IRAudioManager.swift in Sources */,
@@ -1626,9 +1595,10 @@
 				B534AAEC2C5902ED0002CE5C /* IRFFFrameQueue.swift in Sources */,
 				B5BD58FE2C53D5E000FCC761 /* IRFFVideoFrame.swift in Sources */,
 				B5BD59022C53D71600FCC761 /* IRFFCVYUVVideoFrame.swift in Sources */,
+				B5095A152C78832C00B5C44B /* IRGLProgram3DFisheye.swift in Sources */,
 				D1B25FE92804701900F79DCC /* IRePTZShiftController.m in Sources */,
+				B5095A132C7881E800B5C44B /* IRGLProgram2DFisheye2Persp.swift in Sources */,
 				D1B260232804701900F79DCC /* IRGLFragmentRGBShaderGLSL.m in Sources */,
-				D1B260322804701900F79DCC /* IRGLProgram2DFisheye2Persp.m in Sources */,
 				B57976CA2C70EB9D0033817C /* IRGLRenderModeFactory.swift in Sources */,
 				D1B25FB62804701800F79DCC /* IRPlayerImp+DisplayView.m in Sources */,
 				D1B260222804701900F79DCC /* IRGLFragmentYUVShaderGLSL.m in Sources */,
@@ -1642,10 +1612,9 @@
 				D1B25FE02804701900F79DCC /* IRMediaParameter.m in Sources */,
 				D1B260262804701900F79DCC /* IRGLShaderParams.m in Sources */,
 				B5CD9CE92B5EA4470039A6C3 /* IRPlayerAction.swift in Sources */,
-				D1B260392804701900F79DCC /* IRGLProgram2D.m in Sources */,
-				D1B260382804701900F79DCC /* IRGLProgram3DFisheye.m in Sources */,
 				D1B2604C2804701900F79DCC /* IRGLVertexShaderGLSL.m in Sources */,
 				D1C185AC28059F010081EBF5 /* IRPlayerTrack.swift in Sources */,
+				B5095A172C78836300B5C44B /* IRGLProgramMulti.swift in Sources */,
 				B57976BA2C63DB6C0033817C /* IRGLView.swift in Sources */,
 				B595FBC32C42D51D003002BE /* IRFFVideoDecoder.swift in Sources */,
 				D1B260622804701900F79DCC /* IRSensor.m in Sources */,
@@ -1656,7 +1625,6 @@
 				B5CD9CEB2B5EB87A0039A6C3 /* IRPlayerNotification.swift in Sources */,
 				D1B260152804701900F79DCC /* IRGLScope2D.m in Sources */,
 				B5BD58FC2C53D48A00FCC761 /* IRFFFrame.swift in Sources */,
-				D1B260352804701900F79DCC /* IRGLProgramMulti.m in Sources */,
 				B595FBC72C43CDFE003002BE /* IRFFMpegErrorUtil.m in Sources */,
 				B534AAEE2C5904AD0002CE5C /* IRFFPacketQueue.swift in Sources */,
 				D1B25FB72804701800F79DCC /* IRYUVTools.m in Sources */,
