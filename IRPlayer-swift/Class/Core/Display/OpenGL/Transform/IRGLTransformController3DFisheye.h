@@ -7,7 +7,6 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "IRGLTransformController.h"
 #import "IRGLScope3D.h"
 
 NS_ASSUME_NONNULL_BEGIN

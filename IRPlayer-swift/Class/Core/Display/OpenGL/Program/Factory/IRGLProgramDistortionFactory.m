@@ -7,11 +7,12 @@
 //
 
 #import "IRGLProgramDistortionFactory.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @implementation IRGLProgramDistortionFactory
 
 -(IRGLProgram2D*)createIRGLProgramWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter{
-    return [IRGLProgramFactory createIRGLProgramDistortionWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    return [IRGLProgramFactory createIRGLProgramDistortionWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
 }
 
 @end

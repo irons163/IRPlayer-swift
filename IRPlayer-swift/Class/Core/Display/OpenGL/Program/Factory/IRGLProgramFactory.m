@@ -7,10 +7,6 @@
 //
 
 #import "IRGLProgramFactory.h"
-#import "IRGLTransformController2D.h"
-#import "IRGLTransformController3DFisheye.h"
-#import "IRGLTransformControllerVR.h"
-#import "IRGLTransformControllerDistortion.h"
 #import "IRGLProjectionOrthographic.h"
 #import "IRGLProjectionEquirectangular.h"
 #import "IRGLProjectionVR.h"

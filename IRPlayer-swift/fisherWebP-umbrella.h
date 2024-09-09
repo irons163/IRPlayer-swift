@@ -60,12 +60,13 @@
 #import "IRGLFragmentFish2PanoShaderGLSL.h"
 #import "IRGLFish2PerspShaderParams.h"
 
-#import "IRGLTransformController.h"
 #import "IRGLShaderParams.h"
 #import "IRGLProjection.h"
 #import "IRGLProjectionDistortion.h"
 #import "IRGLRenderContentMode.h"
 #import "IRGLFish2PanoShaderParams.h"
-#import "IRGLTransformController3DFisheye.h"
-#import "IRGLTransformControllerVR.h"
-#import "IRGLTransformControllerDistortion.h"
+#import "IRGLScope2D.h"
+#import "IRGLScope3D.h"
+
+#import "IRGLProjectionOrthographic.h"
+#import "IRGLProjectionEquirectangular.h"

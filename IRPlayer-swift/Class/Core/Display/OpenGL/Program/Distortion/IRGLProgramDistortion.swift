@@ -109,7 +109,7 @@ import OpenGLES
 
     override func setViewportRange(_ viewportRange: CGRect, resetTransform: Bool) {
         super.setViewportRange(viewportRange, resetTransform: resetTransform)
-        transformControllerDistortion?.resetViewport(Int32(viewportRange.size.width) / 2, Int32(viewportRange.size.height), resetTransform: false)
+        transformControllerDistortion?.resetViewport(width: Int(viewportRange.size.width) / 2, height: Int(viewportRange.size.height), resetTransform: false)
         viewportSize = viewportRange.size
     }
 
@@ -148,7 +148,7 @@ import OpenGLES
 
         glViewport(GLint(viewport.origin.x), GLint(viewport.origin.y), GLsizei(viewport.size.width / 2), GLsizei(viewport.size.height))
         mapProjection?.updateVertex()
-        transformControllerDistortion?.resetViewport(Int32(viewport.size.width) / 2, Int32(viewport.size.height), resetTransform: false)
+        transformControllerDistortion?.resetViewport(width: Int(viewport.size.width) / 2, height: Int(viewport.size.height), resetTransform: false)
         if let transformController = transformController {
             setModelviewProj(transformController.getModelViewProjectionMatrix())
         }
@@ -158,7 +158,7 @@ import OpenGLES
         }
 
         glViewport(GLint(viewport.origin.x + viewport.size.width / 2), GLint(viewport.origin.y), GLsizei(viewport.size.width / 2), GLsizei(viewport.size.height))
-        transformControllerDistortion?.resetViewport(Int32(viewport.size.width) / 2, Int32(viewport.size.height), resetTransform: false)
+        transformControllerDistortion?.resetViewport(width: Int(viewport.size.width) / 2, height: Int(viewport.size.height), resetTransform: false)
         if let transformControllerDistortion = transformControllerDistortion {
             setModelviewProj(transformControllerDistortion.getModelViewProjectionMatrix2())
         }
@@ -170,7 +170,7 @@ import OpenGLES
         drawBox()
     }
 
-    func doScrollVertical(status: IRGLTransformControllerScrollStatus, transformController: IRGLTransformController) -> Bool {
+    public override func doScrollVertical(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
         if status.contains(.toMaxY) || status.contains(.toMinY) {
             return false
         }

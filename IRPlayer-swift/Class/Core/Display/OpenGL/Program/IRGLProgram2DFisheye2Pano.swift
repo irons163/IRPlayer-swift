@@ -79,15 +79,20 @@ import Foundation
         return false
     }
 
-    override public func willScroll(byDx dx: Float, dy: Float, withTramsformController tramsformController: IRGLTransformController) {
+    override public func willScroll(dx: Float, dy: Float, transformController: IRGLTransformController) {
         willScrollX = dx
         willScrollY = dy
     }
 
-    override public func doScrollHorizontal(with status: IRGLTransformControllerScrollStatus, withTramsformController tramsformController: IRGLTransformController) -> Bool {
+    override public func doScrollHorizontal(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
         if status.contains(.toMaxX) || status.contains(.toMinX) {
-            let width = Float(fish2Pano.outputWidth) / Float(tramsformController.getScope().w)
-            fish2Pano.offsetX -= (willScrollX / tramsformController.getScope().scaleX * width)
+            guard let transformController = tramsformController,
+                  transformController.getScope().w != 0,
+                  transformController.getScope().scaleX != 0 else {
+                return false
+            }
+            let width = Float(fish2Pano.outputWidth) / Float(transformController.getScope().w)
+            fish2Pano.offsetX -= (willScrollX / transformController.getScope().scaleX * width)
             while Int32(fish2Pano.offsetX) > fish2Pano.outputWidth || fish2Pano.offsetX < -Float(fish2Pano.outputWidth) {
                 if fish2Pano.offsetX > Float(fish2Pano.outputWidth) {
                     fish2Pano.offsetX -= Float(fish2Pano.outputWidth)

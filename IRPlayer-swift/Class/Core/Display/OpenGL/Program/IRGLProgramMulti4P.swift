@@ -67,13 +67,13 @@ enum IRGLProgramMultiMode {
         guard let program = touchedProgram else { return }
 
         if displayMode == .singleDisplay {
-            program.tramsformController?.scroll(byDegreeX: degreeX, degreey: degreeY)
+            program.tramsformController?.scroll(degreeX: degreeX, degreeY: degreeY)
         }
     }
 
     public override func didPanBydx(_ dx: Float, dy: Float) {
         guard let program = touchedProgram else { return }
-        program.tramsformController?.scroll(byDx: dx, dy: dy)
+        program.tramsformController?.scroll(dx: dx, dy: dy)
     }
 
     override func didPinchByfx(_ fx: Float, fy: Float, dsx: Float, dsy: Float) {

@@ -7,11 +7,12 @@
 //
 
 #import "IRGLProgram2DFisheye2PanoFactory.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @implementation IRGLProgram2DFisheye2PanoFactory
 
 -(IRGLProgram2D*)createIRGLProgramWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter{
-    return [IRGLProgramFactory createIRGLProgram2DFisheye2PanoWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    return [IRGLProgramFactory createIRGLProgram2DFisheye2PanoWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
 }
 
 @end

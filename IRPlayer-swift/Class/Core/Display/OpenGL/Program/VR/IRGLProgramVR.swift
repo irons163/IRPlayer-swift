@@ -34,7 +34,7 @@ import GLKit
         return fragmentShaderString
     }
 
-    func doScrollVertical(with status: IRGLTransformControllerScrollStatus, transformController: IRGLTransformController) -> Bool {
+    public override func doScrollVertical(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
         if status.contains(.toMaxY) || status.contains(.toMinY) {
             return false
         }

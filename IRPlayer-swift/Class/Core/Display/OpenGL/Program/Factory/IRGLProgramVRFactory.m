@@ -7,11 +7,12 @@
 //
 
 #import "IRGLProgramVRFactory.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @implementation IRGLProgramVRFactory
 
 -(IRGLProgram2D*)createIRGLProgramWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter{
-    return [IRGLProgramFactory createIRGLProgramVRWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    return [IRGLProgramFactory createIRGLProgramVRWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
 }
 
 @end

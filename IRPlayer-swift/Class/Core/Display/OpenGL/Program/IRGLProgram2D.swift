@@ -9,12 +9,12 @@ import Foundation
 import GLKit
 
 protocol IRGLProgramDelegate: AnyObject {
-    func didScrollToBounds(_ bounds: IRGLTransformControllerScrollToBounds, withProgram program: IRGLProgram2D)
+    func didScrollToBounds(_ bounds: IRGLTransformController.ScrollToBounds, withProgram program: IRGLProgram2D)
 }
 
 typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
 
-@objcMembers public class IRGLProgram2D: NSObject {
+@objcMembers public class IRGLProgram2D: NSObject, IRGLTransformControllerDelegate {
 
     var program: GLuint = 0
     var vertexShaderString: String?
@@ -89,7 +89,7 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
 
     func setViewportRange(_ viewportRange: CGRect, resetTransform: Bool = true) {
         self.viewprotRange = viewportRange
-        transformController?.resetViewport(Int32(viewportRange.width), Int32(viewportRange.height), resetTransform: resetTransform)
+        transformController?.resetViewport(width: Int(viewportRange.width), height: Int(viewportRange.height), resetTransform: resetTransform)
     }
 
     func setDefaultScale(_ scale: Float) {
@@ -233,12 +233,12 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
     }
 
     public func didPanBydx(_ dx: Float, dy: Float) {
-        transformController?.scroll(byDx: dx, dy: dy)
+        transformController?.scroll(dx: dx, dy: dy)
     }
 
     func didPinchByfx(_ fx: Float, fy: Float, sx: Float, sy: Float) {
         guard let scale = transformController?.getScope() else { return }
-        transformController?.update(byFx: (Float(scale.w) - (fx * Float(UIScreen.main.scale))), fy: fy * Float(UIScreen.main.scale), sx: sx, sy: sy)
+        transformController?.update(fx: (Float(scale.w) - (fx * Float(UIScreen.main.scale))), fy: fy * Float(UIScreen.main.scale), sx: sx, sy: sy)
     }
 
     func didPinchByfx(_ fx: Float, fy: Float, dsx: Float, dsy: Float) {
@@ -250,11 +250,11 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
     }
 
     public func didPanByDegreeX(_ degreeX: Float, degreeY: Float) {
-        transformController?.scroll(byDegreeX: degreeX, degreey: degreeY)
+        transformController?.scroll(degreeX: degreeX, degreeY: degreeY)
     }
 
     func didRotate(_ rotateRadians: Float) {
-        transformController?.rotate(rotateRadians * 180 / .pi)
+        transformController?.rotate(degree: rotateRadians * 180 / .pi)
     }
 
     static func validateProgram(_ prog: GLuint) -> Bool {
@@ -344,6 +344,41 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
         }
         return fragmentShaderString!
     }
+
+    public func willScroll(dx: Float, dy: Float, transformController: IRGLTransformController) {
+        // No implementation needed
+    }
+
+    public func doScrollHorizontal(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
+        return true
+    }
+
+    public func doScrollVertical(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
+        return true
+    }
+
+    public func didScroll(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) {
+        var didScrollToBoundsHorizontal = false
+        var didScrollToBoundsVertical = false
+        var scrollToBounds: IRGLTransformController.ScrollToBounds = .none
+
+        if status.contains(.toMaxX) || status.contains(.toMinX) {
+            didScrollToBoundsHorizontal = true
+            scrollToBounds = .horizontal
+        }
+        if status.contains(.toMaxY) || status.contains(.toMinY) {
+            didScrollToBoundsVertical = true
+            scrollToBounds = .vertical
+        }
+
+        if didScrollToBoundsHorizontal && didScrollToBoundsVertical {
+            scrollToBounds = .both
+        }
+
+        if let delegate = delegate, scrollToBounds != .none {
+            delegate.didScrollToBounds(scrollToBounds, withProgram: self)
+        }
+    }
 }
 
 extension IRGLProgram2D: IRGLShaderParamsDelegate {
@@ -371,50 +406,12 @@ extension IRGLProgram2D: IRGLShaderParamsDelegate {
                 let sy = height * dd / Double(transformController.getScope().h)
                 let sx = width * dd / Double(transformController.getScope().w)
 
-                transformController.setupDefaultTransformScaleX(Float(sx), transformScaleY: Float(sy))
+                transformController.setupDefaultTransform(scaleX: Float(sx), scaleY: Float(sy))
 
                 if (dH != 1 || dW != 1) && shouldUpdateToDefaultWhenOutputSizeChanged {
                     transformController.updateToDefault()
                 }
             }
-        }
-    }
-}
-
-extension IRGLProgram2D: IRGLTransformControllerDelegate {
-
-    public func willScroll(byDx dx: Float, dy: Float, withTramsformController tramsformController: IRGLTransformController) {
-        // No implementation needed
-    }
-
-    public func doScrollHorizontal(with status: IRGLTransformControllerScrollStatus, withTramsformController tramsformController: IRGLTransformController) -> Bool {
-        return true
-    }
-
-    public func doScrollVertical(with status: IRGLTransformControllerScrollStatus, withTramsformController tramsformController: IRGLTransformController) -> Bool {
-        return true
-    }
-
-    public func didScroll(with status: IRGLTransformControllerScrollStatus, withTramsformController tramsformController: IRGLTransformController) {
-        var didScrollToBoundsHorizontal = false
-        var didScrollToBoundsVertical = false
-        var scrollToBounds: IRGLTransformControllerScrollToBounds = .boundsNone
-
-        if status.contains(.toMaxX) || status.contains(.toMinX) {
-            didScrollToBoundsHorizontal = true
-            scrollToBounds = .horizontalBounds
-        }
-        if status.contains(.toMaxY) || status.contains(.toMinY) {
-            didScrollToBoundsVertical = true
-            scrollToBounds = .verticalBounds
-        }
-
-        if didScrollToBoundsHorizontal && didScrollToBoundsVertical {
-            scrollToBounds = .horizontalandVerticalBounds
-        }
-
-        if let delegate = delegate, scrollToBounds != .boundsNone {
-            delegate.didScrollToBounds(scrollToBounds, withProgram: self)
         }
     }
 }

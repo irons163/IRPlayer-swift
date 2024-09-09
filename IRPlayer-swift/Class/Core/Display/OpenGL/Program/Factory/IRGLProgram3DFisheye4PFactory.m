@@ -7,11 +7,12 @@
 //
 
 #import "IRGLProgram3DFisheye4PFactory.h"
+#import <IRPlayer_swift/IRPlayer_swift-Swift.h>
 
 @implementation IRGLProgram3DFisheye4PFactory
 
 -(IRGLProgram2D*)createIRGLProgramWithPixelFormat:(IRPixelFormat)pixelFormat withViewprotRange:(CGRect)viewprotRange withParameter:(IRMediaParameter*)parameter{
-    return [IRGLProgramFactory createIRGLProgram3DFisheye4PWithPixelFormat:pixelFormat withViewprotRange:viewprotRange withParameter:(IRMediaParameter*)parameter];
+    return [IRGLProgramFactory createIRGLProgram3DFisheye4PWithPixelFormat:pixelFormat viewportRange:viewprotRange parameter:(IRMediaParameter*)parameter];
 }
 
 @end

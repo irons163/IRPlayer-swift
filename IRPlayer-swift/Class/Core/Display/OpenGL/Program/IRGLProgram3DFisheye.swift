@@ -42,7 +42,7 @@ import Foundation
         mapProjection?.update(with: parameter)
     }
 
-    override public func doScrollVertical(with status: IRGLTransformControllerScrollStatus, withTramsformController transformController: IRGLTransformController) -> Bool {
+    public override func doScrollVertical(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
         if status.contains(.toMaxY) || status.contains(.toMinY) {
             return false
         }

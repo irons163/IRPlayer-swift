@@ -114,13 +114,13 @@ import GLKit
 
     public override func didPanByDegreeX(_ degreeX: Float, degreeY: Float) {
         for program in programs {
-            program.tramsformController?.scroll(byDegreeX: degreeX, degreey: degreeY)
+            program.tramsformController?.scroll(degreeX: degreeX, degreeY: degreeY)
         }
     }
 
     public override func didPanBydx(_ dx: Float, dy: Float) {
         for program in programs {
-            program.tramsformController?.scroll(byDx: dx, dy: dy)
+            program.tramsformController?.scroll(dx: dx, dy: dy)
         }
     }
 

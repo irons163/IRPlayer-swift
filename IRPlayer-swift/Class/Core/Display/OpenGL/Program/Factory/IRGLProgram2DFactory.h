@@ -7,7 +7,9 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "IRGLProgramFactory.h"
+#import "IRGLSupportPixelFormat.h"
+#import "IRMediaParameter.h"
+@class IRGLProgram2D;
 
 NS_ASSUME_NONNULL_BEGIN
 
