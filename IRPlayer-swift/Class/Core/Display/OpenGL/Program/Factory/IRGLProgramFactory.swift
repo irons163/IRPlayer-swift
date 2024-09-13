@@ -6,11 +6,10 @@
 //
 
 import Foundation
-import IRPlayer_swift
 
 @objcMembers public class IRGLProgramFactory: NSObject {
 
-    public static func createIRGLProgram2D(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter) -> IRGLProgram2D {
+    public static func createIRGLProgram2D(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2D {
         let program = IRGLProgram2D(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
             program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
@@ -20,7 +19,7 @@ import IRPlayer_swift
         return program
     }
 
-    public static func createIRGLProgram2DFisheye2Pano(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter) -> IRGLProgram2DFisheye2Pano {
+    public static func createIRGLProgram2DFisheye2Pano(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2DFisheye2Pano {
         let program = IRGLProgram2DFisheye2Pano(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
             program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
@@ -36,7 +35,7 @@ import IRPlayer_swift
         return program
     }
 
-    public static func createIRGLProgram2DFisheye2Persp(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter) -> IRGLProgram2DFisheye2Persp {
+    public static func createIRGLProgram2DFisheye2Persp(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2DFisheye2Persp {
         let program = IRGLProgram2DFisheye2Persp(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
             program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
@@ -79,7 +78,7 @@ import IRPlayer_swift
         return program
     }
 
-    public static func createIRGLProgram2DFisheye2Persp4P(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter) -> IRGLProgramMulti4P {
+    public static func createIRGLProgram2DFisheye2Persp4P(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramMulti4P {
         let programs_4p = [
             createIRGLProgram2DFisheye2Persp(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter),
             createIRGLProgram2DFisheye2Persp(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter),
@@ -173,7 +172,7 @@ import IRPlayer_swift
         return program
     }
 
-    public static func createIRGLProgramVR(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter) -> IRGLProgramVR {
+    public static func createIRGLProgramVR(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramVR {
         let program = IRGLProgramVR(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
             let transformController = IRGLTransformControllerVR(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .TILT_UP)
@@ -193,7 +192,7 @@ import IRPlayer_swift
         return program
     }
 
-    public static func createIRGLProgramDistortion(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter) -> IRGLProgramDistortion {
+    public static func createIRGLProgramDistortion(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramDistortion {
         let program = IRGLProgramDistortion(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
             let transformController = IRGLTransformControllerDistortion(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .TILT_UP)

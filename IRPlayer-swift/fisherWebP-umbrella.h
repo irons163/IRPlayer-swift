@@ -44,12 +44,6 @@
 
 #import "IRFFTrack.h"
 #import "IRFFMpegErrorUtil.h"
-#import "IRGLProgram2DFactory.h"
-#import "IRGLProgram2DFisheye2PanoFactory.h"
-#import "IRGLProgram3DFisheyeFactory.h"
-#import "IRGLProgramVRFactory.h"
-#import "IRGLProgramDistortionFactory.h"
-#import "IRGLProgram3DFisheye4PFactory.h"
 #import "IRePTZShiftController.h"
 #import "IRGLVertexShaderGLSL.h"
 #import "IRGLVertex3DShaderGLSL.h"

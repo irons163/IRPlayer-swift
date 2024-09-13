@@ -506,7 +506,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 extension IRGLRenderMode {
     
     func buildIRGLProgram(pixelFormat: IRPixelFormat, viewprotRange: CGRect, parameter: IRMediaParameter?) {
-        let program = programFactory.createIRGLProgram(with: pixelFormat, withViewprotRange: viewprotRange, with: parameter)
+        let program = programFactory.createIRGLProgram(pixelFormat: pixelFormat, viewportRange: viewprotRange, parameter: parameter)
         self.program = program
         self.shiftController.setProgram(program)
 //        self.defaultScale = self.defaultScale
