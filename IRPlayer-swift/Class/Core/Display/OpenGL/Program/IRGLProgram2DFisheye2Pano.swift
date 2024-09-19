@@ -26,7 +26,7 @@ import Foundation
     }
 
     override func fragmentShader() -> String {
-        return IRGLFragmentFish2PanoShaderGLSL.getShardString(pixelFormat, antialias: fish2Pano.antialias)
+        return IRGLFragmentFish2PanoShaderGLSL.getShaderString(pixelFormat: pixelFormat, antialias: Int(fish2Pano.antialias))
     }
 
 //    override func setup(parameter: IRMediaParameter?) {

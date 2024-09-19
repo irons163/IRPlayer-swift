@@ -19,7 +19,7 @@ import Foundation
     }
 
     override func fragmentShader() -> String {
-        return IRGLFragmentFish2PerspShaderGLSL.getShardString(pixelFormat)
+        return IRGLFragmentFish2PerspShaderGLSL.getShaderString(pixelFormat: pixelFormat)
     }
 
     public func setTransform(x: Float, y: Float) {

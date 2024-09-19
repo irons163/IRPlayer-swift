@@ -40,18 +40,12 @@
 #import "IRFFTools.h"
 #import "IRFisheyeParameter.h"
 #import <CoreMotion/CoreMotion.h>
-#import "IRGLSupportPixelFormat.h"
 
 #import "IRFFTrack.h"
 #import "IRFFMpegErrorUtil.h"
 #import "IRePTZShiftController.h"
 #import "IRGLVertexShaderGLSL.h"
 #import "IRGLVertex3DShaderGLSL.h"
-#import "IRGLFragmentRGBShaderGLSL.h"
-#import "IRGLFragmentYUVShaderGLSL.h"
-#import "IRGLFragmentNV12ShaderGLSL.h"
-#import "IRGLFragmentFish2PerspShaderGLSL.h"
-#import "IRGLFragmentFish2PanoShaderGLSL.h"
 #import "IRGLFish2PerspShaderParams.h"
 
 #import "IRGLShaderParams.h"
