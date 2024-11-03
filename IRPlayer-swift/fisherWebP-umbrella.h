@@ -44,8 +44,6 @@
 #import "IRFFTrack.h"
 #import "IRFFMpegErrorUtil.h"
 #import "IRePTZShiftController.h"
-#import "IRGLVertexShaderGLSL.h"
-#import "IRGLVertex3DShaderGLSL.h"
 #import "IRGLFish2PerspShaderParams.h"
 
 #import "IRGLShaderParams.h"
