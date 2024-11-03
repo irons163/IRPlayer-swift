@@ -26,7 +26,7 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
     var parameter: IRMediaParameter?
     var transformController: IRGLTransformController?
     var doResetToDefaultScaleBlock: IRGLProgram2DResetScaleBlock?
-    public var mapProjection: IRGLProjection?
+    var mapProjection: IRGLProjection?
     weak var delegate: IRGLProgramDelegate?
     var contentMode: IRGLRenderContentMode = .scaleAspectFit {
         didSet {
@@ -83,10 +83,6 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
         }
     }
 
-//    func setup(parameter: IRMediaParameter?) {
-//        // not implemented yet
-//    }
-
     func setViewportRange(_ viewportRange: CGRect, resetTransform: Bool = true) {
         self.viewprotRange = viewportRange
         transformController?.resetViewport(width: Int(viewportRange.width), height: Int(viewportRange.height), resetTransform: resetTransform)
@@ -142,8 +138,8 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
 
         glAttachShader(program, vertShader)
         glAttachShader(program, fragShader)
-        glBindAttribLocation(program, GLuint(ATTRIBUTE_VERTEX), "position")
-        glBindAttribLocation(program, GLuint(ATTRIBUTE_TEXCOORD), "texcoord")
+        glBindAttribLocation(program, GLuint(Attribute.vertex.rawValue), "position")
+        glBindAttribLocation(program, GLuint(Attribute.texcoord.rawValue), "texcoord")
 
         glLinkProgram(program)
 

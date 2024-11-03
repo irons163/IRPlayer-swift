@@ -15,7 +15,7 @@ import Foundation
             program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
             program.tramsformController?.delegate = program
         }
-        program.mapProjection = IRGLProjectionOrthographic(textureWidth: 0, hidth: 0)
+        program.mapProjection = IRGLProjectionOrthographic(textureWidth: 0, height: 0)
         return program
     }
 
@@ -31,7 +31,7 @@ import Foundation
                                                defaultScaleX: oldScaleRange?.defaultScaleX ?? 0, defaultScaleY: oldScaleRange?.defaultScaleY ?? 0)
             program.tramsformController?.scaleRange = newScaleRange
         }
-        program.mapProjection = IRGLProjectionOrthographic(textureWidth: 0, hidth: 0)
+        program.mapProjection = IRGLProjectionOrthographic(textureWidth: 0, height: 0)
         return program
     }
 
@@ -41,7 +41,7 @@ import Foundation
             program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
             program.tramsformController?.delegate = program
         }
-        program.mapProjection = IRGLProjectionOrthographic(textureWidth: 0, hidth: 0)
+        program.mapProjection = IRGLProjectionOrthographic(textureWidth: 0, height: 0)
         return program
     }
 
@@ -188,7 +188,7 @@ import Foundation
                                                defaultScaleX: oldScaleRange?.defaultScaleX ?? 0, defaultScaleY: oldScaleRange?.defaultScaleY ?? 0)
             program.tramsformController?.scaleRange = newScaleRange
         }
-        program.mapProjection = IRGLProjectionVR(textureWidth: 0, hidth: 0)
+        program.mapProjection = IRGLProjectionVR(textureWidth: 0, height: 0)
         return program
     }
 
@@ -208,7 +208,7 @@ import Foundation
                                                defaultScaleX: oldScaleRange?.defaultScaleX ?? 0, defaultScaleY: oldScaleRange?.defaultScaleY ?? 0)
             program.tramsformController?.scaleRange = newScaleRange
         }
-        program.mapProjection = IRGLProjectionVR(textureWidth: 0, hidth: 0)
+        program.mapProjection = IRGLProjectionVR(textureWidth: 0, height: 0)
         return program
     }
 }

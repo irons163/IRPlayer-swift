@@ -36,7 +36,7 @@
         1.0f, 0.0f,
     };
     
-    [self bindPositionLocation:ATTRIBUTE_VERTEX textureCoordLocation:ATTRIBUTE_TEXCOORD];
+    [self bindPositionLocation:Attribute.vertex textureCoordLocation:ATTRIBUTE_TEXCOORD];
 }
 
 -(void)draw{

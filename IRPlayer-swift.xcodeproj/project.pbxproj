@@ -18,6 +18,11 @@
 		B520CAF62C9C2BB3002F5DFB /* IRGLFragmentRGBShaderGLSL.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520CAF52C9C2BB3002F5DFB /* IRGLFragmentRGBShaderGLSL.swift */; };
 		B520CAF82C9C2BE6002F5DFB /* IRGLFragmentYUVShaderGLSL.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520CAF72C9C2BE6002F5DFB /* IRGLFragmentYUVShaderGLSL.swift */; };
 		B520CAFA2C9C2BF3002F5DFB /* IRGLFragmentNV12ShaderGLSL.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520CAF92C9C2BF3002F5DFB /* IRGLFragmentNV12ShaderGLSL.swift */; };
+		B520CAFC2C9C4977002F5DFB /* IRGLProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520CAFB2C9C4977002F5DFB /* IRGLProjection.swift */; };
+		B520CAFE2C9C499C002F5DFB /* IRGLProjectionOrthographic.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520CAFD2C9C499C002F5DFB /* IRGLProjectionOrthographic.swift */; };
+		B520CB002C9C49BD002F5DFB /* IRGLProjectionEquirectangular.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520CAFF2C9C49BD002F5DFB /* IRGLProjectionEquirectangular.swift */; };
+		B520CB022C9C4A63002F5DFB /* IRGLProjectionVR.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520CB012C9C4A63002F5DFB /* IRGLProjectionVR.swift */; };
+		B520CB042C9C4BD9002F5DFB /* IRGLProjectionDistortion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520CB032C9C4BD9002F5DFB /* IRGLProjectionDistortion.swift */; };
 		B534AAEA2C58FECD0002CE5C /* IRFFFramePool.swift in Sources */ = {isa = PBXBuildFile; fileRef = B534AAE92C58FECD0002CE5C /* IRFFFramePool.swift */; };
 		B534AAEC2C5902ED0002CE5C /* IRFFFrameQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B534AAEB2C5902ED0002CE5C /* IRFFFrameQueue.swift */; };
 		B534AAEE2C5904AD0002CE5C /* IRFFPacketQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B534AAED2C5904AD0002CE5C /* IRFFPacketQueue.swift */; };
@@ -248,15 +253,6 @@
 		D1B2604A2804701900F79DCC /* IRGLVertexShaderGLSL.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F982804701800F79DCC /* IRGLVertexShaderGLSL.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B2604B2804701900F79DCC /* IRGLVertex3DShaderGLSL.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F992804701800F79DCC /* IRGLVertex3DShaderGLSL.m */; };
 		D1B2604C2804701900F79DCC /* IRGLVertexShaderGLSL.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25F9A2804701800F79DCC /* IRGLVertexShaderGLSL.m */; };
-		D1B260572804701900F79DCC /* IRGLProjectionOrthographic.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25FA72804701800F79DCC /* IRGLProjectionOrthographic.m */; };
-		D1B260582804701900F79DCC /* IRGLProjectionEquirectangular.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25FA82804701800F79DCC /* IRGLProjectionEquirectangular.m */; };
-		D1B260592804701900F79DCC /* IRGLProjectionVR.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25FA92804701800F79DCC /* IRGLProjectionVR.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2605A2804701900F79DCC /* IRGLProjectionDistortion.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25FAA2804701800F79DCC /* IRGLProjectionDistortion.m */; };
-		D1B2605B2804701900F79DCC /* IRGLProjectionEquirectangular.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25FAB2804701800F79DCC /* IRGLProjectionEquirectangular.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2605C2804701900F79DCC /* IRGLProjectionOrthographic.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25FAC2804701800F79DCC /* IRGLProjectionOrthographic.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2605D2804701900F79DCC /* IRGLProjectionVR.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25FAD2804701800F79DCC /* IRGLProjectionVR.m */; };
-		D1B2605E2804701900F79DCC /* IRGLProjectionDistortion.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25FAE2804701800F79DCC /* IRGLProjectionDistortion.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2605F2804701900F79DCC /* IRGLProjection.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25FAF2804701800F79DCC /* IRGLProjection.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B260602804701900F79DCC /* IRPlayerMacro.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25FB02804701800F79DCC /* IRPlayerMacro.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B260612804701900F79DCC /* IRSensor.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25FB22804701800F79DCC /* IRSensor.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B260622804701900F79DCC /* IRSensor.m in Sources */ = {isa = PBXBuildFile; fileRef = D1B25FB32804701800F79DCC /* IRSensor.m */; };
@@ -290,6 +286,11 @@
 		B520CAF52C9C2BB3002F5DFB /* IRGLFragmentRGBShaderGLSL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLFragmentRGBShaderGLSL.swift; sourceTree = "<group>"; };
 		B520CAF72C9C2BE6002F5DFB /* IRGLFragmentYUVShaderGLSL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLFragmentYUVShaderGLSL.swift; sourceTree = "<group>"; };
 		B520CAF92C9C2BF3002F5DFB /* IRGLFragmentNV12ShaderGLSL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLFragmentNV12ShaderGLSL.swift; sourceTree = "<group>"; };
+		B520CAFB2C9C4977002F5DFB /* IRGLProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjection.swift; sourceTree = "<group>"; };
+		B520CAFD2C9C499C002F5DFB /* IRGLProjectionOrthographic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionOrthographic.swift; sourceTree = "<group>"; };
+		B520CAFF2C9C49BD002F5DFB /* IRGLProjectionEquirectangular.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionEquirectangular.swift; sourceTree = "<group>"; };
+		B520CB012C9C4A63002F5DFB /* IRGLProjectionVR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionVR.swift; sourceTree = "<group>"; };
+		B520CB032C9C4BD9002F5DFB /* IRGLProjectionDistortion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionDistortion.swift; sourceTree = "<group>"; };
 		B534AAE92C58FECD0002CE5C /* IRFFFramePool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFramePool.swift; sourceTree = "<group>"; };
 		B534AAEB2C5902ED0002CE5C /* IRFFFrameQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueue.swift; sourceTree = "<group>"; };
 		B534AAED2C5904AD0002CE5C /* IRFFPacketQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueue.swift; sourceTree = "<group>"; };
@@ -525,15 +526,6 @@
 		D1B25F982804701800F79DCC /* IRGLVertexShaderGLSL.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLVertexShaderGLSL.h; sourceTree = "<group>"; };
 		D1B25F992804701800F79DCC /* IRGLVertex3DShaderGLSL.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLVertex3DShaderGLSL.m; sourceTree = "<group>"; };
 		D1B25F9A2804701800F79DCC /* IRGLVertexShaderGLSL.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLVertexShaderGLSL.m; sourceTree = "<group>"; };
-		D1B25FA72804701800F79DCC /* IRGLProjectionOrthographic.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProjectionOrthographic.m; sourceTree = "<group>"; };
-		D1B25FA82804701800F79DCC /* IRGLProjectionEquirectangular.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProjectionEquirectangular.m; sourceTree = "<group>"; };
-		D1B25FA92804701800F79DCC /* IRGLProjectionVR.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProjectionVR.h; sourceTree = "<group>"; };
-		D1B25FAA2804701800F79DCC /* IRGLProjectionDistortion.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProjectionDistortion.m; sourceTree = "<group>"; };
-		D1B25FAB2804701800F79DCC /* IRGLProjectionEquirectangular.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProjectionEquirectangular.h; sourceTree = "<group>"; };
-		D1B25FAC2804701800F79DCC /* IRGLProjectionOrthographic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProjectionOrthographic.h; sourceTree = "<group>"; };
-		D1B25FAD2804701800F79DCC /* IRGLProjectionVR.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRGLProjectionVR.m; sourceTree = "<group>"; };
-		D1B25FAE2804701800F79DCC /* IRGLProjectionDistortion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProjectionDistortion.h; sourceTree = "<group>"; };
-		D1B25FAF2804701800F79DCC /* IRGLProjection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLProjection.h; sourceTree = "<group>"; };
 		D1B25FB02804701800F79DCC /* IRPlayerMacro.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRPlayerMacro.h; sourceTree = "<group>"; };
 		D1B25FB22804701800F79DCC /* IRSensor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRSensor.h; sourceTree = "<group>"; };
 		D1B25FB32804701800F79DCC /* IRSensor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRSensor.m; sourceTree = "<group>"; };
@@ -1165,15 +1157,11 @@
 		D1B25FA62804701800F79DCC /* Projection */ = {
 			isa = PBXGroup;
 			children = (
-				D1B25FA72804701800F79DCC /* IRGLProjectionOrthographic.m */,
-				D1B25FA82804701800F79DCC /* IRGLProjectionEquirectangular.m */,
-				D1B25FA92804701800F79DCC /* IRGLProjectionVR.h */,
-				D1B25FAA2804701800F79DCC /* IRGLProjectionDistortion.m */,
-				D1B25FAB2804701800F79DCC /* IRGLProjectionEquirectangular.h */,
-				D1B25FAC2804701800F79DCC /* IRGLProjectionOrthographic.h */,
-				D1B25FAD2804701800F79DCC /* IRGLProjectionVR.m */,
-				D1B25FAE2804701800F79DCC /* IRGLProjectionDistortion.h */,
-				D1B25FAF2804701800F79DCC /* IRGLProjection.h */,
+				B520CAFB2C9C4977002F5DFB /* IRGLProjection.swift */,
+				B520CAFD2C9C499C002F5DFB /* IRGLProjectionOrthographic.swift */,
+				B520CAFF2C9C49BD002F5DFB /* IRGLProjectionEquirectangular.swift */,
+				B520CB012C9C4A63002F5DFB /* IRGLProjectionVR.swift */,
+				B520CB032C9C4BD9002F5DFB /* IRGLProjectionDistortion.swift */,
 			);
 			path = Projection;
 			sourceTree = "<group>";
@@ -1252,7 +1240,6 @@
 				D1B25FBC2804701800F79DCC /* IRFFTools.h in Headers */,
 				D13D2E162809B2B800C19C4D /* intfloat.h in Headers */,
 				D13D2E492809B2B800C19C4D /* aes.h in Headers */,
-				D1B260592804701900F79DCC /* IRGLProjectionVR.h in Headers */,
 				D13D2E7A2809B2B800C19C4D /* ac3_parser.h in Headers */,
 				D1B260292804701900F79DCC /* IRGLShaderParams.h in Headers */,
 				D13D2E742809B2B800C19C4D /* mediacodec.h in Headers */,
@@ -1300,11 +1287,9 @@
 				D13D2E252809B2B800C19C4D /* avconfig.h in Headers */,
 				D13D2E5C2809B2B800C19C4D /* pixfmt.h in Headers */,
 				D1B260692804702500F79DCC /* IRPLFImage.h in Headers */,
-				D1B2605F2804701900F79DCC /* IRGLProjection.h in Headers */,
 				D13D2E4C2809B2B800C19C4D /* rc4.h in Headers */,
 				D13D2E432809B2B800C19C4D /* eval.h in Headers */,
 				D13D2E502809B2B800C19C4D /* des.h in Headers */,
-				D1B2605B2804701900F79DCC /* IRGLProjectionEquirectangular.h in Headers */,
 				D13D2E172809B2B800C19C4D /* error.h in Headers */,
 				D13D2E1E2809B2B800C19C4D /* stereo3d.h in Headers */,
 				D13D2E652809B2B800C19C4D /* version.h in Headers */,
@@ -1323,7 +1308,6 @@
 				D1B25FDB2804701900F79DCC /* IRFFMetadata.h in Headers */,
 				D13D2E472809B2B800C19C4D /* mastering_display_metadata.h in Headers */,
 				D13D2E682809B2B800C19C4D /* avio.h in Headers */,
-				D1B2605C2804701900F79DCC /* IRGLProjectionOrthographic.h in Headers */,
 				D13D2E712809B2B800C19C4D /* vaapi.h in Headers */,
 				D13D2E412809B2B800C19C4D /* common.h in Headers */,
 				D13D2E602809B2B800C19C4D /* avassert.h in Headers */,
@@ -1354,7 +1338,6 @@
 				D13D2E3D2809B2B800C19C4D /* buffer.h in Headers */,
 				D13D2E3C2809B2B800C19C4D /* display.h in Headers */,
 				D13D2E452809B2B800C19C4D /* random_seed.h in Headers */,
-				D1B2605E2804701900F79DCC /* IRGLProjectionDistortion.h in Headers */,
 				D13D2E302809B2B800C19C4D /* spherical.h in Headers */,
 				D13D2E7F2809B2B800C19C4D /* swresample.h in Headers */,
 				D13D2E0F2809B2B800C19C4D /* version.h in Headers */,
@@ -1480,14 +1463,14 @@
 				D13D2E932809B2B800C19C4D /* IRFFMpeg.m in Sources */,
 				D1B25FC12804701800F79DCC /* IRFFVideoInput.m in Sources */,
 				B57976CE2C71C2BC0033817C /* IRGLRenderRGB.swift in Sources */,
-				D1B260582804701900F79DCC /* IRGLProjectionEquirectangular.m in Sources */,
+				B520CB042C9C4BD9002F5DFB /* IRGLProjectionDistortion.swift in Sources */,
 				D1B25EE8280462D300F79DCC /* IRPlayerDecoder.swift in Sources */,
 				B5BFB2ED2C948F2F00317C54 /* IRGLProgram3DFisheye4PFactory.swift in Sources */,
 				B5DE20192C95D01A007FF370 /* IRGLFragmentFish2PerspShaderGLSL.swift in Sources */,
 				B5095A1D2C7CAACA00B5C44B /* IRGLProgramVR.swift in Sources */,
 				B57976C22C70E80D0033817C /* IRGLRenderMode3DFisheye.swift in Sources */,
 				D1B25EE628043BA000F79DCC /* IRPlayerImp.swift in Sources */,
-				D1B260572804701900F79DCC /* IRGLProjectionOrthographic.m in Sources */,
+				B520CB022C9C4A63002F5DFB /* IRGLProjectionVR.swift in Sources */,
 				B595FBCB2C4897AF003002BE /* IRFFAudioDecoder.swift in Sources */,
 				B5646661C5B03824003485B9 /* IRGLTransformController2D.swift in Sources */,
 				B5646663C5B03824003485B9 /* IRGLTransformController3DFisheye.swift in Sources */,
@@ -1505,7 +1488,7 @@
 				B5BFB2E92C948D2C00317C54 /* IRGLProgramVRFactory.swift in Sources */,
 				B5095A112C78818D00B5C44B /* IRGLProgram2DFisheye2Pano.swift in Sources */,
 				B57976C02C70E5850033817C /* IRGLRenderMode2DFisheye2Pano.swift in Sources */,
-				D1B2605D2804701900F79DCC /* IRGLProjectionVR.m in Sources */,
+				B520CB002C9C49BD002F5DFB /* IRGLProjectionEquirectangular.swift in Sources */,
 				B57976C62C70EA8E0033817C /* IRGLRenderModeDistortion.swift in Sources */,
 				B5095A0F2C787E6F00B5C44B /* IRGLProgram2D.swift in Sources */,
 				D1B25FD42804701800F79DCC /* IRFFTools.m in Sources */,
@@ -1524,6 +1507,7 @@
 				B5BD58FE2C53D5E000FCC761 /* IRFFVideoFrame.swift in Sources */,
 				B5BD59022C53D71600FCC761 /* IRFFCVYUVVideoFrame.swift in Sources */,
 				B5095A152C78832C00B5C44B /* IRGLProgram3DFisheye.swift in Sources */,
+				B520CAFC2C9C4977002F5DFB /* IRGLProjection.swift in Sources */,
 				D1B25FE92804701900F79DCC /* IRePTZShiftController.m in Sources */,
 				B5095A132C7881E800B5C44B /* IRGLProgram2DFisheye2Persp.swift in Sources */,
 				B57976CA2C70EB9D0033817C /* IRGLRenderModeFactory.swift in Sources */,
@@ -1533,9 +1517,9 @@
 				B564665FC5B03824003485B9 /* IRGLTransformController.swift in Sources */,
 				B55748852BB9BECA009740A8 /* IRFFPlayer.swift in Sources */,
 				D1B25FDF2804701900F79DCC /* IRFisheyeParameter.m in Sources */,
+				B520CAFE2C9C499C002F5DFB /* IRGLProjectionOrthographic.swift in Sources */,
 				B57976B62C6287770033817C /* IRBounceController.swift in Sources */,
 				D1B25EA52804376100F79DCC /* IRPlayer_swift.docc in Sources */,
-				D1B2605A2804701900F79DCC /* IRGLProjectionDistortion.m in Sources */,
 				D1B25FE02804701900F79DCC /* IRMediaParameter.m in Sources */,
 				D1B260262804701900F79DCC /* IRGLShaderParams.m in Sources */,
 				B5CD9CE92B5EA4470039A6C3 /* IRPlayerAction.swift in Sources */,

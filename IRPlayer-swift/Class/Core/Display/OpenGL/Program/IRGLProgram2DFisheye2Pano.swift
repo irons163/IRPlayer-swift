@@ -29,22 +29,6 @@ import Foundation
         return IRGLFragmentFish2PanoShaderGLSL.getShaderString(pixelFormat: pixelFormat, antialias: Int(fish2Pano.antialias))
     }
 
-//    override func setup(parameter: IRMediaParameter?) {
-//        guard let parameter = parameter else { return }
-//
-//        if let fishParameter = parameter as? IRFisheyeParameter {
-//            fish2Pano.fishcenterx = GLint(fishParameter.cx)
-//            fish2Pano.fishcentery = GLint(fishParameter.cy)
-//            fish2Pano.fishradiush = GLint(fishParameter.rx)
-//            fish2Pano.fishradiusv = GLint(fishParameter.ry)
-//        } else {
-//            fish2Pano.fishcenterx = GLint(parameter.width / 2)
-//            fish2Pano.fishcentery = GLint(parameter.height / 2)
-//            fish2Pano.fishradiush = GLint(parameter.width / 2)
-//            fish2Pano.fishradiusv = GLint(parameter.height / 2)
-//        }
-//    }
-
     override func initShaderParams() {
         fish2Pano = IRGLFish2PanoShaderParams()
         fish2Pano.delegate = self
@@ -52,7 +36,9 @@ import Foundation
 
     override func updateTextureWidth(_ w: UInt, height h: UInt) {
         super.updateTextureWidth(w, height: h)
-        fish2Pano.updateTextureWidth(w, height: h)
+        if prepareRender() {
+            fish2Pano.updateTextureWidth(w, height: h)
+        }
     }
 
     override func loadShaders() -> Bool {
@@ -64,10 +50,13 @@ import Foundation
     }
 
     override func setRenderFrame(_ frame: IRFFVideoFrame) {
-        super.setRenderFrame(frame)
+//        super.setRenderFrame(frame)
+        renderer?.setVideoFrame(frame)
 
         if frame.width != fish2Pano.textureWidth || frame.height != fish2Pano.textureHeight {
-            fish2Pano.updateTextureWidth(UInt(frame.width), height: UInt(frame.height))
+            if prepareRender() {
+                fish2Pano.updateTextureWidth(UInt(frame.width), height: UInt(frame.height))
+            }
         }
     }
 

@@ -34,8 +34,8 @@
         1.0f, 0.0f,
     };
     
-    glVertexAttribPointer(ATTRIBUTE_VERTEX, 2, GL_FLOAT, 0, 0, _vertices);
-    glEnableVertexAttribArray(ATTRIBUTE_VERTEX);
+    glVertexAttribPointer(Attribute.vertex, 2, GL_FLOAT, 0, 0, _vertices);
+    glEnableVertexAttribArray(Attribute.vertex);
     glVertexAttribPointer(ATTRIBUTE_TEXCOORD, 2, GL_FLOAT, 0, 0, texCoords);
     glEnableVertexAttribArray(ATTRIBUTE_TEXCOORD);
 }

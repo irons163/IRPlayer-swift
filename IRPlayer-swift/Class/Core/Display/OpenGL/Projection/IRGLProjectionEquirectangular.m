@@ -171,8 +171,8 @@ const float POLAR_LAT = 85.0f;
 }
 
 -(void) updateVertex{
-    glVertexAttribPointer(ATTRIBUTE_VERTEX, 3, GL_FLOAT, 0, 0, mVertices);
-    glEnableVertexAttribArray(ATTRIBUTE_VERTEX);
+    glVertexAttribPointer(Attribute.vertex, 3, GL_FLOAT, 0, 0, mVertices);
+    glEnableVertexAttribArray(Attribute.vertex);
     glVertexAttribPointer(ATTRIBUTE_TEXCOORD, 2, GL_FLOAT, 0, 0, mVectors);
     glEnableVertexAttribArray(ATTRIBUTE_TEXCOORD);
 }

@@ -49,12 +49,7 @@
 #import "IRGLFish2PerspShaderParams.h"
 
 #import "IRGLShaderParams.h"
-#import "IRGLProjection.h"
-#import "IRGLProjectionDistortion.h"
 #import "IRGLRenderContentMode.h"
 #import "IRGLFish2PanoShaderParams.h"
 #import "IRGLScope2D.h"
 #import "IRGLScope3D.h"
-
-#import "IRGLProjectionOrthographic.h"
-#import "IRGLProjectionEquirectangular.h"

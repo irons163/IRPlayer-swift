@@ -359,6 +359,8 @@ class IRGLFragmentFish2PerspShaderGLSL {
         }
         """
 
+        print("Shader String: \(fish2perspFragmentShaderString)")
+
         return fish2perspFragmentShaderString
     }
 }

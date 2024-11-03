@@ -296,15 +296,15 @@ XYZ PRotateZ(XYZ p, float_t theta)
 
 -(void) setDefaultValues
 {
-    [super setTextureWidth:-1];       // Derived from input fisheye file
-    [super setTextureHeight:-1];
+    [super setTextureWidth:0];       // Derived from input fisheye file
+    [super setTextureHeight:0];
     _fishaperture = 180.0;   // Aperture of the fisheye
     _fishcenterx = -1;     // Center of the fisheye (pixels), measured from lower-left corner
     _fishcentery = -1;
     _fishradiush = -1;     // Radius of the fisheye (pixels)
     _fishradiusv = -1;
     [super setOutputWidth:1024];     // Width and height of panoramic view
-    [super setOutputHeight:-1];      // If not specified, work it out
+    [super setOutputHeight:0];      // If not specified, work it out
     _antialias = 1;
     _vaperture = 60.0;
     _lat1 = -100.0;

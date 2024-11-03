@@ -26,7 +26,7 @@
 
 
 - (void) updateVertex {
-//    [self bindPositionLocation:ATTRIBUTE_VERTEX textureCoordLocation:ATTRIBUTE_TEXCOORD];
+//    [self bindPositionLocation:Attribute.vertex textureCoordLocation:ATTRIBUTE_TEXCOORD];
 }
 
 //- (void)bindPositionLocation:(GLint)position_location textureCoordLocation:(GLint)textureCoordLocation
