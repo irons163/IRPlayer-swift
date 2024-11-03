@@ -44,7 +44,7 @@ import Foundation
         super.setRenderFrame(frame)
 
         if frame.width != (fish2Persp?.textureWidth ?? 0) || frame.height != (fish2Persp?.textureHeight ?? 0) {
-            fish2Persp?.updateTextureWidth(UInt(frame.width), height: UInt(frame.height))
+            fish2Persp?.updateTextureWidth(frame.width, height: frame.height)
         }
     }
 

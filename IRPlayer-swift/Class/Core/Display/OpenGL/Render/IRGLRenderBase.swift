@@ -6,7 +6,8 @@
 //
 
 import Foundation
-import OpenGLES.ES2
+import OpenGLES
+import GLKit
 
 @objc public protocol IRGLRender {
     var modelviewProj: GLKMatrix4 { get set }

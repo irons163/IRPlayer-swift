@@ -35,7 +35,7 @@ import GLKit
         self.setViewportRange(viewprotRange)
     }
 
-    override func updateTextureWidth(_ w: UInt, height h: UInt) {
+    override func updateTextureWidth(_ w: Int, height h: Int) {
         super.updateTextureWidth(w, height: h)
         for program in programs {
             program.updateTextureWidth(w, height: h)

@@ -31,7 +31,7 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
     var contentMode: IRGLRenderContentMode = .scaleAspectFit {
         didSet {
             if self.contentMode != oldValue {
-                updateTextureWidth(UInt(shaderParams2D?.textureWidth ?? 0), height: UInt(shaderParams2D?.textureHeight ?? 0))
+                updateTextureWidth(Int(shaderParams2D?.textureWidth ?? 0), height: Int(shaderParams2D?.textureHeight ?? 0))
             }
         }
     }
@@ -171,11 +171,11 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
     func setRenderFrame(_ frame: IRFFVideoFrame) {
         renderer?.setVideoFrame(frame)
         if frame.width != (shaderParams2D?.textureWidth ?? 0) || frame.height != (shaderParams2D?.textureHeight ?? 0) {
-            updateTextureWidth(UInt(frame.width), height: UInt(frame.height))
+            updateTextureWidth(frame.width, height: frame.height)
         }
     }
 
-    func updateTextureWidth(_ width: UInt, height: UInt) {
+    func updateTextureWidth(_ width: Int, height: Int) {
         shaderParams2D?.updateTextureWidth(width, height: height)
     }
 
@@ -379,7 +379,7 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
 
 extension IRGLProgram2D: IRGLShaderParamsDelegate {
     
-    public func didUpdateOutputWH(_ w: Int32, _ h: Int32) {
+    public func didUpdateOutputWH(_ w: Int, _ h: Int) {
         if let transformController = transformController {
             let width = Double(w)
             let height = Double(h)

@@ -30,7 +30,7 @@ import Foundation
         return fragmentShaderString
     }
 
-    public override func didUpdateOutputWH(_ w: Int32, _ h: Int32) {
+    public override func didUpdateOutputWH(_ w: Int, _ h: Int) {
         guard let parameter = parameter,
               parameter.autoUpdate,
               (Float(w) != parameter.width || Float(h) != parameter.height) else {

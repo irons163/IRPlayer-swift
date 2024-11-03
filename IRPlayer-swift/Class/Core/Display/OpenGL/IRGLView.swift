@@ -328,7 +328,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             self.mode = renderMode
             self.currentProgram = self.mode?.program
             self.mode?.shiftController.setProgram(self.currentProgram!)
-            self.currentProgram?.updateTextureWidth(UInt(lastFrameWidth), height: UInt(lastFrameHeight))
+            self.currentProgram?.updateTextureWidth(lastFrameWidth, height: lastFrameHeight)
             self.aspect = CGFloat(self.mode?.aspect ?? 0.0)
 
             if immediatelyRenderOnce {

@@ -39,4 +39,3 @@ FOUNDATION_EXPORT const unsigned char IRPlayer_swiftVersionString[];
 //#import "libavutil/error.h"
 //#import "IRFFMpegErrorUtil.h"
 //#import "IRGLTransformController.h"
-#import "IRGLShaderParams.h"

@@ -16,7 +16,7 @@ import Foundation
     override var contentMode: IRGLRenderContentMode {
         didSet {
             if self.contentMode != oldValue {
-                updateTextureWidth(UInt(fish2Pano.textureWidth), height: UInt(fish2Pano.textureHeight))
+                updateTextureWidth(Int(fish2Pano.textureWidth), height: Int(fish2Pano.textureHeight))
             }
         }
     }
@@ -34,7 +34,7 @@ import Foundation
         fish2Pano.delegate = self
     }
 
-    override func updateTextureWidth(_ w: UInt, height h: UInt) {
+    override func updateTextureWidth(_ w: Int, height h: Int) {
         super.updateTextureWidth(w, height: h)
         if prepareRender() {
             fish2Pano.updateTextureWidth(w, height: h)
@@ -55,7 +55,7 @@ import Foundation
 
         if frame.width != fish2Pano.textureWidth || frame.height != fish2Pano.textureHeight {
             if prepareRender() {
-                fish2Pano.updateTextureWidth(UInt(frame.width), height: UInt(frame.height))
+                fish2Pano.updateTextureWidth(frame.width, height: frame.height)
             }
         }
     }

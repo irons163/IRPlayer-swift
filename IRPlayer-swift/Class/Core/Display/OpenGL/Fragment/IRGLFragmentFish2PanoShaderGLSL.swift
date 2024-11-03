@@ -8,8 +8,8 @@
 import Foundation
 import GLKit
 
-let DTOR = 0.0174532925
-let RTOD = 57.2957795
+let DTOR: Float = 0.0174532925
+let RTOD: Float = 57.2957795
 let PID2 = 1.570796326794896619231322
 
 class IRGLFragmentFish2PanoShaderGLSL {

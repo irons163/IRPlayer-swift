@@ -7,6 +7,7 @@
 
 import Foundation
 import OpenGLES
+import GLKit
 
 // Static arrays for vertex, index, and texture buffer data
 let vertexBufferData: [GLKVector3] = [

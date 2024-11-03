@@ -44,10 +44,6 @@
 #import "IRFFTrack.h"
 #import "IRFFMpegErrorUtil.h"
 #import "IRePTZShiftController.h"
-#import "IRGLFish2PerspShaderParams.h"
-
-#import "IRGLShaderParams.h"
 #import "IRGLRenderContentMode.h"
-#import "IRGLFish2PanoShaderParams.h"
 #import "IRGLScope2D.h"
 #import "IRGLScope3D.h"
