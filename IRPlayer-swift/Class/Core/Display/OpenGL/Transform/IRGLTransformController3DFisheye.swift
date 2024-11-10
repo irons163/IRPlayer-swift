@@ -18,7 +18,7 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     var viewMatrix = GLKMatrix4Identity
 
     private var scope: IRGLScope3D
-    private var defaultType: TiltType = .TILT_UNKNOWN
+    private var defaultType: IRGLScope3D.TiltType = .unknown
     override var scopeRange: IRGLScopeRange? {
         didSet {
             scope.lat = scopeRange?.defaultLat ?? 0
@@ -38,15 +38,15 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     let DRAG_FRICTION: Float = 0.15
     let INITIAL_PITCH_DEGREES: Float = 0
 
-    init(viewportWidth width: Int, viewportHeight height: Int, tileType type: TiltType) {
+    init(viewportWidth width: Int, viewportHeight height: Int, tileType type: IRGLScope3D.TiltType) {
         defaultType = type
         scope = IRGLScope3D()
         scope.tiltType = defaultType
         let scopeRange = IRGLTransformController3DFisheye.getScopeRange(of: scope.tiltType )
         super.init(scopeRange: scopeRange)
 
-        scope.w = Int32(width)
-        scope.h = Int32(height)
+        scope.w = width
+        scope.h = height
 
         let aspectRatio = Float(width) / Float(height)
         let fovyRadians = fov * .pi / 180.0
@@ -66,13 +66,13 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
         return scope
     }
 
-    class func getScopeRange(of type: TiltType) -> IRGLScopeRange {
+    class func getScopeRange(of type: IRGLScope3D.TiltType) -> IRGLScopeRange {
         switch type {
-        case .TILT_UP:
+        case .up:
             return IRGLScopeRange(minLat: -80, maxLat: 80, minLng: -75, maxLng: 75, defaultLat: 0, defaultLng: 0)
-        case .TILT_TOWARD:
+        case .toward:
             return IRGLScopeRange(minLat: 0, maxLat: 80, minLng: -180, maxLng: 180, defaultLat: 80, defaultLng: -90)
-        case .TILT_BACKWARD:
+        case .backward:
             return IRGLScopeRange(minLat: -85, maxLat: -20, minLng: -180, maxLng: 180, defaultLat: -80, defaultLng: 90)
         default:
             return IRGLScopeRange(minLat: 0, maxLat: 0, minLng: 0, maxLng: 0, defaultLat: 0, defaultLng: 0)
@@ -170,18 +170,18 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     override func rotate(degree: Float) {
-        if scope.tiltType != .TILT_UP { return }
+        if scope.tiltType != .up { return }
         let totalDegree = (scope.panDegree ) + degree
         setupScope(scope.tiltType, degree: totalDegree, lat: scope.lat , lng: scope.lng , sx: scope.scaleX , sy: scope.scaleY )
     }
 
-    func setupTilt(_ type: TiltType) {
+    func setupTilt(_ type: IRGLScope3D.TiltType) {
         switch type {
-        case .TILT_UP:
+        case .up:
             modelMatrix = GLKMatrix4MakeRotation(INITIAL_PITCH_DEGREES * .pi / 180.0, 1, 0, 0)
-        case .TILT_TOWARD:
+        case .toward:
             modelMatrix = GLKMatrix4MakeRotation(-90 * .pi / 180.0, 0, 0, 1)
-        case .TILT_BACKWARD:
+        case .backward:
             modelMatrix = GLKMatrix4MakeRotation(90 * .pi / 180.0, 0, 0, 1)
         default:
             break
@@ -189,8 +189,8 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
         scope.tiltType = type
     }
 
-    func setupScope(_ type: TiltType, degree: Float, lat: Float, lng: Float, sx: Float, sy: Float) {
-        if type == .TILT_UP {
+    func setupScope(_ type: IRGLScope3D.TiltType, degree: Float, lat: Float, lng: Float, sx: Float, sy: Float) {
+        if type == .up {
             let newDegree = max(-180, min(180, degree))
             if newDegree != scope.panDegree {
                 let degreeDelta = newDegree - (scope.panDegree )
@@ -228,8 +228,8 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
             scope.lng = scopeRange?.defaultLng ?? 0
         }
 
-        scope.w = Int32(w)
-        scope.h = Int32(h)
+        scope.w = w
+        scope.h = h
         defaultTransformScaleX = oldDefaultScaleX
         defaultTransformScaleY = oldDefaultScaleY
         let aspectRatio = Float(w) / Float(h)

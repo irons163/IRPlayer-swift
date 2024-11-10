@@ -39,8 +39,8 @@ import GLKit
 
     public convenience init(viewportWidth: Int, viewportHeight: Int) {
         self.init()
-        scope.w = Int32(viewportWidth)
-        scope.h = Int32(viewportHeight)
+        scope.w = viewportWidth
+        scope.h = viewportHeight
     }
 
     override func getScope() -> IRGLScope2D {
@@ -196,12 +196,12 @@ import GLKit
 
         if resetTransform {
             reset()
-            scope.w = Int32(w)
-            scope.h = Int32(h)
+            scope.w = w
+            scope.h = h
             updateToDefault()
         } else {
-            scope.w = Int32(w)
-            scope.h = Int32(h)
+            scope.w = w
+            scope.h = h
 
             let oldRW = rW
             let oldRH = rH

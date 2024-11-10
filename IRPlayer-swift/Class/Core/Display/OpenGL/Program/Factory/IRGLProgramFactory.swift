@@ -58,7 +58,7 @@ import Foundation
 
         let program = IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!)
         if program.tramsformController == nil {
-            program.tramsformController = IRGLTransformController3DFisheye(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .TILT_BACKWARD)
+            program.tramsformController = IRGLTransformController3DFisheye(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .backward)
             program.tramsformController?.delegate = program
 
             let oldScopeRange = program.tramsformController?.scopeRange ?? IRGLScopeRange(minLat: 0, maxLat: 0, minLng: 0, maxLng: 0, defaultLat: 0, defaultLng: 0)
@@ -137,7 +137,7 @@ import Foundation
 
         for (index, program) in programs_4p.enumerated() {
             if program.tramsformController == nil {
-                program.tramsformController = IRGLTransformController3DFisheye(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .TILT_BACKWARD)
+                program.tramsformController = IRGLTransformController3DFisheye(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .backward)
                 program.tramsformController?.delegate = program
 
                 let oldScopeRange = program.tramsformController?.scopeRange
@@ -175,7 +175,7 @@ import Foundation
     public static func createIRGLProgramVR(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramVR {
         let program = IRGLProgramVR(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
-            let transformController = IRGLTransformControllerVR(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .TILT_UP)
+            let transformController = IRGLTransformControllerVR(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .up)
             transformController.rc = 1
             transformController.fov = 30
             transformController.updateVertices()
@@ -195,7 +195,7 @@ import Foundation
     public static func createIRGLProgramDistortion(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramDistortion {
         let program = IRGLProgramDistortion(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
-            let transformController = IRGLTransformControllerDistortion(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .TILT_UP)
+            let transformController = IRGLTransformControllerDistortion(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .up)
             transformController.rc = 1
             transformController.fov = 30
             transformController.updateVertices()

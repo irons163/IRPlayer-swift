@@ -45,5 +45,3 @@
 #import "IRFFMpegErrorUtil.h"
 #import "IRePTZShiftController.h"
 #import "IRGLRenderContentMode.h"
-#import "IRGLScope2D.h"
-#import "IRGLScope3D.h"
