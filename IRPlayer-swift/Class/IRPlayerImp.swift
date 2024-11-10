@@ -413,37 +413,38 @@ public extension IRPlayerImp {
     }
 
     func replaceVideoWithInput(videoInput: IRFFVideoInput, videoType: IRVideoType) {
-//        self.error = nil;
-//        self.contentURL = [[NSURL alloc] init];
-//        self.videoInput = videoInput;
-//        if (self.videoInput) {
-//            self.videoInput.videoOutput = self.displayView;
-//        }
-//        self.decoderType = [self.decoder decoderTypeForContentURL:self.contentURL];
-//        self.videoType = videoType;
-//
-//        switch (self.decoderType) {
-//            case IRDecoderTypeAVPlayer:
-//                if (_ffPlayer) {
-//                    [self.ffPlayer stop];
-//                }
-//                [self.avPlayer replaceVideo];
-//                break;
-//            case IRDecoderTypeFFmpeg:
-//                if (_avPlayer) {
-//                    [self.avPlayer stop];
-//                }
-//                [self.ffPlayer replaceVideo];
-//                break;
-//            case IRDecoderTypeError:
-//                if (_avPlayer) {
-//                    [self.avPlayer stop];
-//                }
-//                if (_ffPlayer) {
-//                    [self.ffPlayer stop];
-//                }
-//                break;
-//        }
+        self.error = nil
+        self.contentURL = NSURL()
+        self.videoInput = videoInput
+
+        if let videoInput = self.videoInput {
+            videoInput.videoOutput = self.displayView
+        }
+
+        self.decoderType = self.decoder.decoderTypeForContentURL(contentURL: self.contentURL)
+        self.videoType = videoType
+
+        switch self.decoderType {
+        case .avPlayer:
+            if self._ffPlayer != nil {
+                self.ffPlayer.stop()
+            }
+            self.avPlayer.replaceVideo()
+
+        case .ffmpeg:
+            if self._avPlayer != nil {
+                self.avPlayer.stop()
+            }
+            self.ffPlayer.replaceVideo()
+
+        case .error, .none:
+            if self._avPlayer != nil {
+                self.avPlayer.stop()
+            }
+            if self._ffPlayer != nil {
+                self.ffPlayer.stop()
+            }
+        }
     }
 }
 

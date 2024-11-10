@@ -26,7 +26,6 @@ FOUNDATION_EXPORT const unsigned char IRPlayer_swiftVersionString[];
 //#import "libswresample/swresample.h"
 //#import "libswscale/swscale.h"
 #import <IRPlayer_swift/IRSensor.h>
-#import "IRFFVideoInput.h"
 //#import "IRPlayerAction.h"
 #import "IRPLFView.h"
 #import "IRPLFImage.h"
