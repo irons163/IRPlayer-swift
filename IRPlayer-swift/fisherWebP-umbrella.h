@@ -31,12 +31,9 @@
 #import "libswscale/swscale.h"
 #import <IRPlayer_swift/IRSensor.h>
 //#import "IRPlayerAction.h"
-#import "IRPLFView.h"
-#import "IRPLFImage.h"
 //#import "IRAVPlayer.h"
 //#import "IRFFPlayer.h"
 //#import "IRFFPlayer.h"
-#import "IRFFTools.h"
 #import <CoreMotion/CoreMotion.h>
 
 #import "IRFFMpegErrorUtil.h"

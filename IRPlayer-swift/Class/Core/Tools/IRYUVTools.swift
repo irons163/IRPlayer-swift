@@ -58,12 +58,12 @@ func IRYUVConvertToImage(srcData: [UnsafePointer<UInt8>?],
         av_freep(&data[0])
         return nil
     }
-    guard linesize[0] > 0, data[0] != nil else {
+    guard linesize[0] > 0, let firstData = data[0] else {
         av_freep(&data[0])
         return nil
     }
 
-    let image = IRPLFImageWithRGBData(data[0], linesize[0], Int32(width), Int32(height))
+    let image = IRPLFImageWithRGBData(firstData, linesize: Int(linesize[0]), width: width, height: height)
     av_freep(&data[0])
 
     return image
