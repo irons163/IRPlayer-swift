@@ -29,7 +29,6 @@
 #import "libavutil/imgutils.h"
 #import "libswresample/swresample.h"
 #import "libswscale/swscale.h"
-#import <IRPlayer_swift/IRSensor.h>
 //#import "IRPlayerAction.h"
 //#import "IRAVPlayer.h"
 //#import "IRFFPlayer.h"
