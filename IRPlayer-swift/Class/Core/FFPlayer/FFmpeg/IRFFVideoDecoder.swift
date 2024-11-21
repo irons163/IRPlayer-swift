@@ -161,7 +161,7 @@ class IRFFVideoDecoder {
             } else {
                 var result = avcodec_send_packet(codecContext, &packet)
                 if result < 0 && result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF {
-                    error = IRFFCheckError(result) as NSError
+                    error = IRFFCheckError(result)
                     delegateErrorCallback()
                     return
                 }
@@ -171,7 +171,7 @@ class IRFFVideoDecoder {
                         if result == AVERROR(EAGAIN) || result == IR_AVERROR_EOF {
                             break
                         } else {
-                            error = IRFFCheckError(result) as NSError
+                            error = IRFFCheckError(result)
                             delegateErrorCallback()
                             return
                         }

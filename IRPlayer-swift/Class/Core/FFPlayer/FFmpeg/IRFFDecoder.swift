@@ -301,14 +301,14 @@ protocol IRFFDecoderDelegate: AnyObject {
                 delegate?.decoderDidEndOfFile(self)
                 break
             }
-            if packet.stream_index == formatContext?.videoTrack?.index {
+            if packet.stream_index == (formatContext?.videoTrack?.index ?? 0) {
                 print("video: put packet")
                 videoDecoder?.putPacket(packet)
                 updateBufferedDurationByVideo()
-            } else if packet.stream_index == formatContext?.audioTrack?.index {
+            } else if packet.stream_index == (formatContext?.audioTrack?.index ?? 0) {
                 print("audio: put packet")
                 if (audioDecoder?.putPacket(packet) ?? -1) < 0 {
-                    error = IRFFCheckErrorCode(result!, IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
+                    error = IRFFCheckErrorCode(result!, errorCode: IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
                     delegateErrorCallback()
                     continue
                 }

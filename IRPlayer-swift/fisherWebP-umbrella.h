@@ -39,7 +39,8 @@
 #import "IRFFTools.h"
 #import <CoreMotion/CoreMotion.h>
 
-#import "IRFFTrack.h"
 #import "IRFFMpegErrorUtil.h"
 #import "IRePTZShiftController.h"
 #import "IRGLRenderContentMode.h"
+#import "libavutil/dict.h"
+#import "libavformat/avformat.h"

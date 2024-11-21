@@ -29,3 +29,5 @@
 #import "libswresample"
 #import "libswscale/swscale.h"
 #import "IRFFMpegErrorUtil.h"
+#import "libavutil/dict.h"
+#import "libavformat/avformat.h"
