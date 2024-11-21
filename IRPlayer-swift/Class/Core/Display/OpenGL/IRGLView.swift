@@ -327,7 +327,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         queue.sync {
             self.mode = renderMode
             self.currentProgram = self.mode?.program
-            self.mode?.shiftController.setProgram(self.currentProgram!)
+            self.mode?.shiftController.program = self.currentProgram
             self.currentProgram?.updateTextureWidth(lastFrameWidth, height: lastFrameHeight)
             self.aspect = CGFloat(self.mode?.aspect ?? 0.0)
 
@@ -508,7 +508,7 @@ extension IRGLRenderMode {
     func buildIRGLProgram(pixelFormat: IRPixelFormat, viewprotRange: CGRect, parameter: IRMediaParameter?) {
         let program = programFactory.createIRGLProgram(pixelFormat: pixelFormat, viewportRange: viewprotRange, parameter: parameter)
         self.program = program
-        self.shiftController.setProgram(program)
+        self.shiftController.program = program
 //        self.defaultScale = self.defaultScale
 //        self.contentMode = self.contentMode
         self.setting()
