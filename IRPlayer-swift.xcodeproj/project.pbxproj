@@ -94,6 +94,10 @@
 		B5E32C172CD7AD3C001F78DF /* IRGLShaderParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E32C162CD7AD3A001F78DF /* IRGLShaderParams.swift */; };
 		B5E32C192CD7AD54001F78DF /* IRGLFish2PerspShaderParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E32C182CD7AD51001F78DF /* IRGLFish2PerspShaderParams.swift */; };
 		B5E32C1B2CD7AD67001F78DF /* IRGLFish2PanoShaderParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E32C1A2CD7AD63001F78DF /* IRGLFish2PanoShaderParams.swift */; };
+		B5E94D5F2D088F9B00149265 /* public-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = B5E94D5E2D088F9B00149265 /* public-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B5E94D662D0950DB00149265 /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E94D602D09501300149265 /* libbz2.tbd */; };
+		B5E94D672D0950EF00149265 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E94D642D09509F00149265 /* libz.tbd */; };
+		B5E94D682D0950FD00149265 /* liblzma.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E94D622D09506E00149265 /* liblzma.tbd */; };
 		D13D2E0E2809B2B800C19C4D /* IRFFMpeg.h in Headers */ = {isa = PBXBuildFile; fileRef = D13D2D712809B2B700C19C4D /* IRFFMpeg.h */; };
 		D13D2E0F2809B2B800C19C4D /* version.h in Headers */ = {isa = PBXBuildFile; fileRef = D13D2D742809B2B700C19C4D /* version.h */; };
 		D13D2E102809B2B800C19C4D /* buffersrc.h in Headers */ = {isa = PBXBuildFile; fileRef = D13D2D752809B2B700C19C4D /* buffersrc.h */; };
@@ -217,12 +221,7 @@
 		D13D2E862809B2B800C19C4D /* libswresample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D13D2DF22809B2B800C19C4D /* libswresample.a */; };
 		D13D2E872809B2B800C19C4D /* libswscale.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D13D2DF32809B2B800C19C4D /* libswscale.a */; };
 		D13D2E932809B2B800C19C4D /* IRFFMpeg.m in Sources */ = {isa = PBXBuildFile; fileRef = D13D2E0C2809B2B800C19C4D /* IRFFMpeg.m */; };
-		D13D2E992809B69800C19C4D /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D13D2E982809B68700C19C4D /* libbz2.tbd */; };
-		D13D2E9B2809B6C800C19C4D /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D13D2E9A2809B6A100C19C4D /* libiconv.tbd */; };
-		D13D2E9D2809B6F000C19C4D /* liblzma.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D13D2E9C2809B6E700C19C4D /* liblzma.tbd */; };
-		D13D2E9F280A73CA00C19C4D /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D13D2E9E280A73C200C19C4D /* libz.tbd */; };
-		D163103B281ADB3D0071342E /* fisherWebP-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = D163103A281ADB3D0071342E /* fisherWebP-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D163103F281ADEF00071342E /* fisherWebP-private-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = D163103E281ADEF00071342E /* fisherWebP-private-umbrella.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		D163103F281ADEF00071342E /* private-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = D163103E281ADEF00071342E /* private-umbrella.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D1B25EA52804376100F79DCC /* IRPlayer_swift.docc in Sources */ = {isa = PBXBuildFile; fileRef = D1B25EA42804376100F79DCC /* IRPlayer_swift.docc */; };
 		D1B25EAB2804376100F79DCC /* IRPlayer_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */; };
 		D1B25EB02804376100F79DCC /* IRPlayer_swiftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1B25EAF2804376100F79DCC /* IRPlayer_swiftTests.swift */; };
@@ -333,6 +332,11 @@
 		B5E32C162CD7AD3A001F78DF /* IRGLShaderParams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLShaderParams.swift; sourceTree = "<group>"; };
 		B5E32C182CD7AD51001F78DF /* IRGLFish2PerspShaderParams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLFish2PerspShaderParams.swift; sourceTree = "<group>"; };
 		B5E32C1A2CD7AD63001F78DF /* IRGLFish2PanoShaderParams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLFish2PanoShaderParams.swift; sourceTree = "<group>"; };
+		B5E94D5E2D088F9B00149265 /* public-umbrella.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "public-umbrella.h"; sourceTree = "<group>"; };
+		B5E94D602D09501300149265 /* libbz2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbz2.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/usr/lib/libbz2.tbd; sourceTree = DEVELOPER_DIR; };
+		B5E94D612D09505500149265 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/usr/lib/libiconv.tbd; sourceTree = DEVELOPER_DIR; };
+		B5E94D622D09506E00149265 /* liblzma.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = liblzma.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/usr/lib/liblzma.tbd; sourceTree = DEVELOPER_DIR; };
+		B5E94D642D09509F00149265 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/usr/lib/libz.tbd; sourceTree = DEVELOPER_DIR; };
 		D13D2D712809B2B700C19C4D /* IRFFMpeg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRFFMpeg.h; sourceTree = "<group>"; };
 		D13D2D742809B2B700C19C4D /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
 		D13D2D752809B2B700C19C4D /* buffersrc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = buffersrc.h; sourceTree = "<group>"; };
@@ -458,15 +462,9 @@
 		D13D2E0B2809B2B800C19C4D /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		D13D2E0C2809B2B800C19C4D /* IRFFMpeg.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IRFFMpeg.m; sourceTree = "<group>"; };
 		D13D2E0D2809B2B800C19C4D /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		D13D2E982809B68700C19C4D /* libbz2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbz2.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk/usr/lib/libbz2.tbd; sourceTree = DEVELOPER_DIR; };
-		D13D2E9A2809B6A100C19C4D /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk/usr/lib/libiconv.tbd; sourceTree = DEVELOPER_DIR; };
-		D13D2E9C2809B6E700C19C4D /* liblzma.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = liblzma.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk/usr/lib/liblzma.tbd; sourceTree = DEVELOPER_DIR; };
-		D13D2E9E280A73C200C19C4D /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.3.sdk/usr/lib/libz.tbd; sourceTree = DEVELOPER_DIR; };
-		D1631039281AD92A0071342E /* IRPlayer_swift-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "IRPlayer_swift-Bridging-Header.h"; sourceTree = "<group>"; };
-		D163103A281ADB3D0071342E /* fisherWebP-umbrella.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "fisherWebP-umbrella.h"; sourceTree = "<group>"; };
-		D163103C281ADBCE0071342E /* fisherWebP.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = fisherWebP.modulemap; sourceTree = "<group>"; };
-		D163103D281ADEC60071342E /* fisherWebP-private.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = "fisherWebP-private.modulemap"; sourceTree = "<group>"; };
-		D163103E281ADEF00071342E /* fisherWebP-private-umbrella.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "fisherWebP-private-umbrella.h"; sourceTree = "<group>"; };
+		D163103C281ADBCE0071342E /* public.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = public.modulemap; sourceTree = "<group>"; };
+		D163103D281ADEC60071342E /* private.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = private.modulemap; sourceTree = "<group>"; };
+		D163103E281ADEF00071342E /* private-umbrella.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "private-umbrella.h"; sourceTree = "<group>"; };
 		D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IRPlayer_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1B25EA32804376100F79DCC /* IRPlayer_swift.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IRPlayer_swift.h; sourceTree = "<group>"; };
 		D1B25EA42804376100F79DCC /* IRPlayer_swift.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = IRPlayer_swift.docc; sourceTree = "<group>"; };
@@ -487,17 +485,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D13D2E9D2809B6F000C19C4D /* liblzma.tbd in Frameworks */,
-				D13D2E9F280A73CA00C19C4D /* libz.tbd in Frameworks */,
+				B5E94D682D0950FD00149265 /* liblzma.tbd in Frameworks */,
 				D13D2E852809B2B800C19C4D /* libavdevice.a in Frameworks */,
 				D13D2E872809B2B800C19C4D /* libswscale.a in Frameworks */,
 				D13D2E822809B2B800C19C4D /* libavfilter.a in Frameworks */,
 				D13D2E812809B2B800C19C4D /* libavutil.a in Frameworks */,
 				D13D2E832809B2B800C19C4D /* libavcodec.a in Frameworks */,
 				D13D2E862809B2B800C19C4D /* libswresample.a in Frameworks */,
-				D13D2E9B2809B6C800C19C4D /* libiconv.tbd in Frameworks */,
 				D13D2E842809B2B800C19C4D /* libavformat.a in Frameworks */,
-				D13D2E992809B69800C19C4D /* libbz2.tbd in Frameworks */,
+				B5E94D672D0950EF00149265 /* libz.tbd in Frameworks */,
+				B5E94D662D0950DB00149265 /* libbz2.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -719,10 +716,10 @@
 		D13D2E972809B68600C19C4D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				D13D2E9E280A73C200C19C4D /* libz.tbd */,
-				D13D2E9C2809B6E700C19C4D /* liblzma.tbd */,
-				D13D2E9A2809B6A100C19C4D /* libiconv.tbd */,
-				D13D2E982809B68700C19C4D /* libbz2.tbd */,
+				B5E94D642D09509F00149265 /* libz.tbd */,
+				B5E94D622D09506E00149265 /* liblzma.tbd */,
+				B5E94D612D09505500149265 /* libiconv.tbd */,
+				B5E94D602D09501300149265 /* libbz2.tbd */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -752,11 +749,10 @@
 				D1B2607228047DB300F79DCC /* ThirdParty */,
 				D1B25EE428043B8D00F79DCC /* Class */,
 				D1B25EA32804376100F79DCC /* IRPlayer_swift.h */,
-				D1631039281AD92A0071342E /* IRPlayer_swift-Bridging-Header.h */,
-				D163103A281ADB3D0071342E /* fisherWebP-umbrella.h */,
-				D163103E281ADEF00071342E /* fisherWebP-private-umbrella.h */,
-				D163103C281ADBCE0071342E /* fisherWebP.modulemap */,
-				D163103D281ADEC60071342E /* fisherWebP-private.modulemap */,
+				B5E94D5E2D088F9B00149265 /* public-umbrella.h */,
+				D163103E281ADEF00071342E /* private-umbrella.h */,
+				D163103C281ADBCE0071342E /* public.modulemap */,
+				D163103D281ADEC60071342E /* private.modulemap */,
 				D1B25EA42804376100F79DCC /* IRPlayer_swift.docc */,
 			);
 			path = "IRPlayer-swift";
@@ -1118,6 +1114,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B5E94D5F2D088F9B00149265 /* public-umbrella.h in Headers */,
 				D13D2E6D2809B2B800C19C4D /* avcodec.h in Headers */,
 				D13D2E392809B2B800C19C4D /* tx.h in Headers */,
 				D13D2E312809B2B800C19C4D /* ffversion.h in Headers */,
@@ -1132,7 +1129,6 @@
 				D13D2E422809B2B800C19C4D /* hmac.h in Headers */,
 				D13D2E4A2809B2B800C19C4D /* macros.h in Headers */,
 				D13D2E662809B2B800C19C4D /* avdevice.h in Headers */,
-				D163103B281ADB3D0071342E /* fisherWebP-umbrella.h in Headers */,
 				D1B260092804701900F79DCC /* IRGLMath.h in Headers */,
 				B595FBC92C46B4AC003002BE /* IRFFMpegErrorUtil.h in Headers */,
 				D13D2E1C2809B2B800C19C4D /* version.h in Headers */,
@@ -1152,7 +1148,7 @@
 				D13D2E492809B2B800C19C4D /* aes.h in Headers */,
 				D13D2E7A2809B2B800C19C4D /* ac3_parser.h in Headers */,
 				D13D2E742809B2B800C19C4D /* mediacodec.h in Headers */,
-				D163103F281ADEF00071342E /* fisherWebP-private-umbrella.h in Headers */,
+				D163103F281ADEF00071342E /* private-umbrella.h in Headers */,
 				D13D2E282809B2B800C19C4D /* xtea.h in Headers */,
 				D13D2E342809B2B800C19C4D /* threadmessage.h in Headers */,
 				D13D2E6C2809B2B800C19C4D /* adts_parser.h in Headers */,
@@ -1595,7 +1591,7 @@
 				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/IRPlayer-swift/ThirdParty/ffmpeg/include";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1609,8 +1605,8 @@
 					"$(PROJECT_DIR)/IRPlayer-swift/ThirdParty/ffmpeg/lib",
 				);
 				MARKETING_VERSION = 1.0;
-				MODULEMAP_FILE = "IRPlayer-swift/fisherWebP.modulemap";
-				MODULEMAP_PRIVATE_FILE = "IRPlayer-swift/fisherWebP-private.modulemap";
+				MODULEMAP_FILE = "IRPlayer-swift/public.modulemap";
+				MODULEMAP_PRIVATE_FILE = "IRPlayer-swift/private.modulemap";
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-Objc";
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-error=non-modular-include-in-framework-module";
@@ -1648,7 +1644,7 @@
 				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/IRPlayer-swift/ThirdParty/ffmpeg/include";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1662,8 +1658,8 @@
 					"$(PROJECT_DIR)/IRPlayer-swift/ThirdParty/ffmpeg/lib",
 				);
 				MARKETING_VERSION = 1.0;
-				MODULEMAP_FILE = "IRPlayer-swift/fisherWebP.modulemap";
-				MODULEMAP_PRIVATE_FILE = "IRPlayer-swift/fisherWebP-private.modulemap";
+				MODULEMAP_FILE = "IRPlayer-swift/public.modulemap";
+				MODULEMAP_PRIVATE_FILE = "IRPlayer-swift/private.modulemap";
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "-Objc";
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-error=non-modular-include-in-framework-module";

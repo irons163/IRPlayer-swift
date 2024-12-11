@@ -7,7 +7,7 @@
 //
 
 framework module IRPlayer_swift_Private {
-  umbrella header "fisherWebP-private-umbrella.h"
+  umbrella header "private-umbrella.h"
 
   export *
   module * { export * }

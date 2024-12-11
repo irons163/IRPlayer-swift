@@ -7,7 +7,7 @@
 //
 
 framework module IRPlayer_swift {
-  umbrella header "fisherWebP-umbrella.h"
+  umbrella header "public-umbrella.h"
 
   export *
   module * { export * }
