@@ -18,24 +18,12 @@
 #endif
 #endif
 
-
-
-//#import "libavcodample.h"
-//#import "libswscale/swscale.ec/avcodec.h"
-//#import "libavdevice/avdevice.h"
-//#import "libavfilter/avfilter.h"
-//#import "libavformat/avformat.h"
 #import "libavutil/avutil.h"
 #import "libavutil/imgutils.h"
 #import "libswresample/swresample.h"
 #import "libswscale/swscale.h"
-//#import "IRPlayerAction.h"
-//#import "IRAVPlayer.h"
-//#import "IRFFPlayer.h"
-//#import "IRFFPlayer.h"
-#import <CoreMotion/CoreMotion.h>
 
+#import <CoreMotion/CoreMotion.h>
 #import "IRFFMpegErrorUtil.h"
-#import "IRGLRenderContentMode.h"
 #import "libavutil/dict.h"
 #import "libavformat/avformat.h"

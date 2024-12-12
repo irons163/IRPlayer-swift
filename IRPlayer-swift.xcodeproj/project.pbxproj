@@ -230,7 +230,6 @@
 		D1B25EE8280462D300F79DCC /* IRPlayerDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1B25EE7280462D300F79DCC /* IRPlayerDecoder.swift */; };
 		D1B260092804701900F79DCC /* IRGLMath.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F4E2804701700F79DCC /* IRGLMath.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1B260172804701900F79DCC /* IRGLDefine.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F5E2804701700F79DCC /* IRGLDefine.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D1B2603A2804701900F79DCC /* IRGLRenderContentMode.h in Headers */ = {isa = PBXBuildFile; fileRef = D1B25F862804701800F79DCC /* IRGLRenderContentMode.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D1C185AC28059F010081EBF5 /* IRPlayerTrack.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C185AB28059F010081EBF5 /* IRPlayerTrack.swift */; };
 		D1C185AE28059FBE0081EBF5 /* IRSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C185AD28059FBE0081EBF5 /* IRSensor.swift */; };
 /* End PBXBuildFile section */
@@ -474,7 +473,6 @@
 		D1B25EE7280462D300F79DCC /* IRPlayerDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerDecoder.swift; sourceTree = "<group>"; };
 		D1B25F4E2804701700F79DCC /* IRGLMath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLMath.h; sourceTree = "<group>"; };
 		D1B25F5E2804701700F79DCC /* IRGLDefine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLDefine.h; sourceTree = "<group>"; };
-		D1B25F862804701800F79DCC /* IRGLRenderContentMode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IRGLRenderContentMode.h; sourceTree = "<group>"; };
 		D1C185AB28059F010081EBF5 /* IRPlayerTrack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerTrack.swift; sourceTree = "<group>"; };
 		D1C185AD28059FBE0081EBF5 /* IRSensor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSensor.swift; sourceTree = "<group>"; };
 		D1C185B12805A23C0081EBF5 /* IRPlayerNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerNotification.swift; sourceTree = "<group>"; };
@@ -1013,7 +1011,6 @@
 				B5095A142C78832C00B5C44B /* IRGLProgram3DFisheye.swift */,
 				B5095A162C78836300B5C44B /* IRGLProgramMulti.swift */,
 				B5095A182C78836D00B5C44B /* IRGLProgramMulti4P.swift */,
-				D1B25F862804701800F79DCC /* IRGLRenderContentMode.h */,
 				D1B25F872804701800F79DCC /* Factory */,
 			);
 			path = Program;
@@ -1189,7 +1186,6 @@
 				D13D2E442809B2B800C19C4D /* dict.h in Headers */,
 				D13D2E372809B2B800C19C4D /* hwcontext_d3d11va.h in Headers */,
 				D13D2E182809B2B800C19C4D /* fifo.h in Headers */,
-				D1B2603A2804701900F79DCC /* IRGLRenderContentMode.h in Headers */,
 				D13D2E4F2809B2B800C19C4D /* lzo.h in Headers */,
 				D13D2E2E2809B2B800C19C4D /* cast5.h in Headers */,
 				D13D2E4E2809B2B800C19C4D /* cpu.h in Headers */,

@@ -12,6 +12,12 @@ protocol IRGLProgramDelegate: AnyObject {
     func didScrollToBounds(_ bounds: IRGLTransformController.ScrollToBounds, withProgram program: IRGLProgram2D)
 }
 
+@objc public enum IRGLRenderContentMode: Int {
+    case scaleAspectFit
+    case scaleAspectFill
+    case scaleToFill
+}
+
 typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
 
 @objcMembers public class IRGLProgram2D: NSObject, IRGLTransformControllerDelegate {
