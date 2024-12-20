@@ -164,13 +164,13 @@ func createFisheyeModes(with parameter: IRMediaParameter?) -> [IRGLRenderMode] {
 ## Screenshots
 | Normal | VR |
 |:---:|:---:|
-| ![Normal](./demo/ScreenShots/demo1.PNG)  |  ![VR](./demo/ScreenShots/demo2.PNG)  |
+| ![Normal](./SPMDemo/ScreenShots/demo1.PNG)  |  ![VR](./SPMDemo/ScreenShots/demo2.PNG)  |
 | VR Box| Fisheye 360 |
-| ![VR Box](./demo/ScreenShots/demo3.PNG) | ![Fisheye 360](./demo/ScreenShots/demo4.PNG) |
+| ![VR Box](./SPMDemo/ScreenShots/demo3.PNG) | ![Fisheye 360](./SPMDemo/ScreenShots/demo4.PNG) |
 | Panorama| Modes Selection |
-| ![Panorama](./demo/ScreenShots/demo5.PNG) | ![Modes Selection](./demo/ScreenShots/demo6.PNG) |
+| ![Panorama](./SPMDemo/ScreenShots/demo5.PNG) | ![Modes Selection](./SPMDemo/ScreenShots/demo6.PNG) |
 | Multi Windows |  |
-| ![Multi Windows](./demo/ScreenShots/demo7.PNG)|  |
+| ![Multi Windows](./SPMDemo/ScreenShots/demo7.PNG)|  |
 
 
 ## Copyright
