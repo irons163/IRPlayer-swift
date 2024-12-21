@@ -36,10 +36,12 @@
     - Support set the specific renders to each mode.
     - Support custom video input(IRFFVideoInput). See what it works in [IRIPCamera](https://github.com/irons163/IRIPCamera).
     - Support custom display view(inherit IRGLView). See what it works in [IREffectPlayer](https://github.com/irons163/IREffectPlayer).
+- 0.4.0
+    -  Support SPM.
 
 ## Install
-### Cocoapods
-- Not yet
+### SPM
+- Add package: https://github.com/irons163/IRPlayer-swift
 
 ## Usage
 
@@ -173,9 +175,6 @@ func createFisheyeModes(with parameter: IRMediaParameter?) -> [IRGLRenderMode] {
 | ![Multi Windows](./SPMDemo/ScreenShots/demo7.PNG)|  |
 
 
-## Copyright
-
+## Credit
 ##### This project has some basic codes from [SGPlayer](https://github.com/libobjc/SGPlayer).
-
-Copyright for portions of project IRPlayer are held by Single, 2017. 
-All other copyright for project IRPlayer are held by irons163, 2019.
+##### FFMpeg xcframeworks are from [ffmpeg-kit](https://github.com/arthenica/ffmpeg-kit).
