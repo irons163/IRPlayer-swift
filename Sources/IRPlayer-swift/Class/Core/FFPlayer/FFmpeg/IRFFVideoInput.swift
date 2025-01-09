@@ -6,15 +6,28 @@
 //
 
 import Foundation
+import IRFFMpeg
 
-public class IRFFVideoInput {
-    var videoOutput: IRFFDecoderVideoOutput?
+open class IRFFVideoInput: IRFFVideoDecoderDataSource {
 
-    func updateFrame(_ input: IRFFVideoFrame) {
-        videoOutput?.decoder?(nil, renderVideoFrame: input)
+    public enum OutputType {
+        case displayView
+        case decoder
     }
 
-    func setVideoOutput(_ videoOutput: IRFFDecoderVideoOutput) {
+    public var videoOutput: IRFFDecoderVideoOutput?
+    public var outputType: OutputType = .displayView
+
+    public init(videoOutput: IRFFDecoderVideoOutput? = nil, outputType: OutputType = .displayView) {
         self.videoOutput = videoOutput
+        self.outputType = outputType
+    }
+
+    open func shouldHandle(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> Bool {
+        return true
+    }
+
+    open func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
+        return nil
     }
 }

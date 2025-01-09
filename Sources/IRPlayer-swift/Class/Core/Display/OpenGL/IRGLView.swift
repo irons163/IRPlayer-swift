@@ -233,7 +233,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         viewprotRange = CGRect(x: 0, y: 0, width: Int(w), height: Int(h))
 
         for program in programs {
-            program.setViewportRange(CGRect(x: 0, y: 0, width: Int(w), height: Int(h)), resetTransform: false)
+            program.setViewportRange(CGRect(x: 0, y: 0, width: Int(w), height: Int(h)), resetTransform: resetTransform)
         }
         render(nil)
     }
@@ -428,7 +428,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         // Implementation for clean empty buffer
     }
 
-    public func decoder(_ decoder: IRFFDecoder?, renderVideoFrame videoFrame: IRFFVideoFrame) {
+    public func send(videoFrame: IRFFVideoFrame) {
         render(videoFrame)
     }
 

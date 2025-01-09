@@ -16,6 +16,19 @@ protocol IRFFVideoDecoderDelegate: AnyObject {
     func videoDecoderNeedCheckBufferingStatus(_ videoDecoder: IRFFVideoDecoder)
 }
 
+public struct IRFFVideoDecoderInfo {
+    public var codecContext: UnsafeMutablePointer<AVCodecContext>
+    public var videoToolBoxEnable: Bool
+    public var maxDecodeDuration: TimeInterval
+    public var timebase: TimeInterval
+    public var fps: TimeInterval
+}
+
+public protocol IRFFVideoDecoderDataSource: AnyObject {
+    func shouldHandle(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> Bool
+    func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame?
+}
+
 class IRFFVideoDecoder {
     private var codecContext: UnsafeMutablePointer<AVCodecContext>
     private var tempFrame: UnsafeMutablePointer<AVFrame>?
@@ -30,6 +43,7 @@ class IRFFVideoDecoder {
     private(set) var decoding = false
 
     weak var delegate: IRFFVideoDecoderDelegate?
+    weak var source: IRFFVideoDecoderDataSource?
     var videoToolBoxEnable = true
     var maxDecodeDuration: TimeInterval = 2.0
     var timebase: TimeInterval
@@ -40,9 +54,6 @@ class IRFFVideoDecoder {
     static var flushPacket: AVPacket = {
         var packet = AVPacket()
         av_init_packet(&packet)
-//        packet.data = UnsafeMutablePointer(mutating: &packet)
-//        packet.data = UnsafeMutablePointer(mutating: &packet as UnsafePointer<AVPacket>)
-//        var tempPacket = packet
         packet.data = withUnsafeMutablePointer(to: &packet) {
             return UnsafeMutableRawPointer($0).assumingMemoryBound(to: UInt8.self)
         }
@@ -89,11 +100,11 @@ class IRFFVideoDecoder {
     }
 
     func getFrameSync() -> IRFFVideoFrame? {
-        return frameQueue.getFrameSync() as! IRFFVideoFrame
+        return frameQueue.getFrameSync() as? IRFFVideoFrame
     }
 
     func getFrameAsync() -> IRFFVideoFrame? {
-        return frameQueue.getFrameAsync() as! IRFFVideoFrame
+        return frameQueue.getFrameAsync() as? IRFFVideoFrame
     }
 
     func putPacket(_ packet: AVPacket) {
@@ -153,41 +164,56 @@ class IRFFVideoDecoder {
             }
             if packet.stream_index < 0 || packet.data == nil { continue }
 
-            var videoFrame: IRFFVideoFrame?
-            if videoToolBoxEnable && codecContext.pointee.codec_id == AV_CODEC_ID_H264 {
-                if videoToolBox.trySetupVTSession() {
-                    if videoToolBox.sendPacket(packet) {
-                        videoFrame = videoFrameFromVideoToolBox(packet: packet)
-                    }
-                }
-            } else {
-                var result = avcodec_send_packet(codecContext, &packet)
-                if result < 0 && result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF {
-                    error = IRFFCheckError(result)
-                    delegateErrorCallback()
-                    return
-                }
-                while result >= 0 {
-                    result = avcodec_receive_frame(codecContext, tempFrame)
-                    if result < 0 {
-                        if result == AVERROR(EAGAIN) || result == IR_AVERROR_EOF {
-                            break
-                        } else {
-                            error = IRFFCheckError(result)
-                            delegateErrorCallback()
-                            return
-                        }
-                    }
-                    videoFrame = videoFrameFromTempFrame()
-                }
-            }
-            if let videoFrame = videoFrame {
+            if let videoFrame = decodeFrame(packet: packet) {
                 frameQueue.putSortFrame(videoFrame)
             }
             av_packet_unref(&packet)
         }
         decoding = false
         delegate?.videoDecoderNeedCheckBufferingStatus(self)
+    }
+
+    private func decodeFrame(packet: AVPacket) -> IRFFVideoFrame? {
+        let info = IRFFVideoDecoderInfo(codecContext: codecContext, videoToolBoxEnable: videoToolBoxEnable, maxDecodeDuration: maxDecodeDuration, timebase: timebase, fps: fps)
+        if self.source?.shouldHandle(info, decodeFrame: packet) == true {
+            if let videoFrame = self.source?.videoDecoder(info, decodeFrame: packet) {
+                return videoFrame
+            }
+            return nil
+        }
+
+        if videoToolBoxEnable && codecContext.pointee.codec_id == AV_CODEC_ID_H264 {
+            if videoToolBox.trySetupVTSession() {
+                if videoToolBox.sendPacket(packet) {
+                     return videoFrameFromVideoToolBox(packet: packet)
+                }
+            }
+        }
+
+        return decodeFrameWithFFmpeg(packet: packet)
+    }
+
+    private func decodeFrameWithFFmpeg(packet: AVPacket) -> IRFFVideoFrame? {
+        var packet = packet
+        var result = avcodec_send_packet(codecContext, &packet)
+        if result < 0 && result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF {
+            handleDecodingError(IRFFCheckError(result))
+            delegateErrorCallback()
+            return nil
+        }
+        while result >= 0 {
+            result = avcodec_receive_frame(codecContext, tempFrame)
+            if result < 0 {
+                if result == AVERROR(EAGAIN) || result == IR_AVERROR_EOF {
+                    break
+                } else {
+                    handleDecodingError(IRFFCheckError(result))
+                    return nil
+                }
+            }
+            return videoFrameFromTempFrame()
+        }
+        return nil
     }
 
     private func videoFrameFromTempFrame() -> IRFFAVYUVVideoFrame? {
@@ -197,10 +223,8 @@ class IRFFVideoDecoder {
 
         let videoFrame = framePool?.getUnuseFrame() as? IRFFAVYUVVideoFrame ?? IRFFAVYUVVideoFrame()
         videoFrame.setFrameData(frame, width: Int(codecContext.pointee.width), height: Int(codecContext.pointee.height))
-//        videoFrame.position = Double(av_frame_get_best_effort_timestamp(frame)) * timebase
         videoFrame.position = Double(frame.pointee.best_effort_timestamp) * timebase
 
-//        let frameDuration = av_frame_get_pkt_duration(frame)
         let frameDuration = frame.pointee.duration
         if frameDuration != 0 {
             videoFrame.duration = TimeInterval(frameDuration) * timebase + TimeInterval(frame.pointee.repeat_pict) * timebase * 0.5
@@ -231,6 +255,11 @@ class IRFFVideoDecoder {
         return videoFrame
     }
 
+    private func handleDecodingError(_ error: NSError?) {
+        self.error = error
+        delegateErrorCallback()
+    }
+
     private func delegateErrorCallback() {
         if let error = error {
             delegate?.videoDecoder(self, didError: error)
@@ -242,6 +271,12 @@ class IRFFVideoDecoder {
             av_free(frame)
         }
         print("IRFFVideoDecoder release")
+    }
+}
+
+extension IRFFVideoDecoder: IRFFDecoderVideoOutput {
+    func send(videoFrame: IRFFVideoFrame) {
+        self.frameQueue.putSortFrame(videoFrame)
     }
 }
 

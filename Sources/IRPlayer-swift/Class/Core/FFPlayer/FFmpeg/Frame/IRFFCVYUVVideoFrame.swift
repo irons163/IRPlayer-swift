@@ -11,7 +11,7 @@ import CoreVideo
 @objcMembers public class IRFFCVYUVVideoFrame: IRFFVideoFrame {
     public let pixelBuffer: CVPixelBuffer
 
-    init(pixelBuffer: CVPixelBuffer) {
+    public init(pixelBuffer: CVPixelBuffer) {
         self.pixelBuffer = pixelBuffer
         super.init()
         width = CVPixelBufferGetWidth(pixelBuffer)

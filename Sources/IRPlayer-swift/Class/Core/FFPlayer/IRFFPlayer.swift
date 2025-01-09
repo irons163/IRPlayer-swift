@@ -244,7 +244,12 @@ extension IRFFPlayer {
         clean()
         guard let contentURL = abstractPlayer?.contentURL else { return }
 
-        decoder = IRFFDecoder(contentURL: contentURL as URL, delegate: self, videoOutput: abstractPlayer!.displayView!, audioOutput: self)
+        decoder = IRFFDecoder(contentURL: contentURL as URL,
+                              videoFormat: abstractPlayer?.decoder.formatForContentURL(contentURL: contentURL) ?? .unknown,
+                              videoOutput: abstractPlayer!.displayView!,
+                              audioOutput: self)
+        decoder?.source = self.abstractPlayer?.videoInput
+        decoder?.delegate = self
         decoder?.hardwareDecoderEnable = abstractPlayer?.decoder.ffmpegHardwareDecoderEnable ?? false
         decoder?.open()
         reloadVolume()

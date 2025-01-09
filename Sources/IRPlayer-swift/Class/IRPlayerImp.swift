@@ -380,47 +380,15 @@ public extension IRPlayerImp {
         self.replaceVideoWithURL(contentURL: nil)
     }
 
-    func replaceVideoWithURL(contentURL: NSURL?) {
-        self.replaceVideoWithURL(contentURL: contentURL, videoType: .normal)
-    }
-
-    func replaceVideoWithURL(contentURL: NSURL?, videoType: IRVideoType) {
+    func replaceVideoWithURL(contentURL: NSURL?,
+                             videoType: IRVideoType = .normal,
+                             videoInput: IRFFVideoInput? = nil) {
         self.error = nil;
         self.contentURL = contentURL
-        self.videoInput = nil
-        self.decoderType = self.decoder.decoderTypeForContentURL(contentURL: self.contentURL)
-        self.videoType = videoType
-
-        switch self.decoderType {
-        case .avPlayer:
-            if self._ffPlayer != nil {
-                self.ffPlayer.stop()
-            }
-            self.avPlayer.replaceVideo()
-        case .ffmpeg:
-            if self._avPlayer != nil {
-                self.avPlayer.stop()
-            }
-            self.ffPlayer.replaceVideo()
-        case .error, .none:
-            if self._avPlayer != nil {
-                self.avPlayer.stop()
-            }
-            if self._ffPlayer != nil {
-                self.ffPlayer.stop()
-            }
-        }
-    }
-
-    func replaceVideoWithInput(videoInput: IRFFVideoInput, videoType: IRVideoType) {
-        self.error = nil
-        self.contentURL = NSURL()
         self.videoInput = videoInput
-
         if let videoInput = self.videoInput {
             videoInput.videoOutput = self.displayView
         }
-
         self.decoderType = self.decoder.decoderTypeForContentURL(contentURL: self.contentURL)
         self.videoType = videoType
 
@@ -430,13 +398,14 @@ public extension IRPlayerImp {
                 self.ffPlayer.stop()
             }
             self.avPlayer.replaceVideo()
-
         case .ffmpeg:
             if self._avPlayer != nil {
                 self.avPlayer.stop()
             }
             self.ffPlayer.replaceVideo()
-
+            if self.videoInput?.outputType == .decoder {
+                self.videoInput?.videoOutput = self.ffPlayer.decoder
+            }
         case .error, .none:
             if self._avPlayer != nil {
                 self.avPlayer.stop()
@@ -554,9 +523,9 @@ extension IRPlayerImp {
 public extension IRPlayerImp {
 
     func registerPlayerNotification(target: Any?,
-                                    stateAction: Selector?,
-                                    progressAction: Selector?,
-                                    playableAction: Selector?,
+                                    stateAction: Selector? = nil,
+                                    progressAction: Selector? = nil,
+                                    playableAction: Selector? = nil,
                                     errorAction: Selector? = nil) {
         guard let target = target else { return }
         self.removePlayerNotification(target: target)

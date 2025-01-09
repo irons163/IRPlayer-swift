@@ -21,8 +21,8 @@ protocol IRFFDecoderDelegate: AnyObject {
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfProgress progress: TimeInterval)
 }
 
-@objc public protocol IRFFDecoderVideoOutput: NSObjectProtocol {
-    @objc optional func decoder(_ decoder: IRFFDecoder?, renderVideoFrame videoFrame: IRFFVideoFrame)
+@objc public protocol IRFFDecoderVideoOutput: AnyObject {
+    @objc optional func send(videoFrame videoFrame: IRFFVideoFrame)
 }
 
 @objc protocol IRFFDecoderAudioOutput: AnyObject {
@@ -33,6 +33,7 @@ protocol IRFFDecoderDelegate: AnyObject {
 @objcMembers public class IRFFDecoder: NSObject {
 
     weak var delegate: IRFFDecoderDelegate?
+    weak var source: IRFFVideoDecoderDataSource?
     weak var videoOutput: IRFFDecoderVideoOutput?
     weak var audioOutput: IRFFDecoderAudioOutput?
 
@@ -48,7 +49,15 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     private(set) var error: Error?
     private(set) var contentURL: URL
-    private(set) var progress: TimeInterval = 0
+    private(set) var videoFormat: IRVideoFormat
+    private(set) var progress: TimeInterval = 0 {
+        didSet {
+            guard progress != oldValue else {
+                return
+            }
+            delegate?.decoder(self, didChangeValueOfProgress: progress)
+        }
+    }
     private(set) var bufferedDuration: TimeInterval = 0 {
         didSet {
             guard bufferedDuration != oldValue else {
@@ -64,8 +73,24 @@ protocol IRFFDecoderDelegate: AnyObject {
             checkBufferingStatus()
         }
     }
-    private(set) var buffering: Bool = false
-    private(set) var playbackFinished: Bool = false
+    private(set) var buffering: Bool = false {
+        didSet {
+            guard buffering != oldValue else {
+                return
+            }
+            delegate?.decoder(self, didChangeValueOfBuffering: buffering)
+        }
+    }
+    private(set) var playbackFinished: Bool = false {
+        didSet {
+            guard playbackFinished != oldValue,
+                  playbackFinished else {
+                return
+            }
+            progress = duration
+            delegate?.decoderDidPlaybackFinished(self)
+        }
+    }
     private(set) var closed: Bool = false
     private(set) var endOfFile: Bool = false
     private(set) var paused: Bool = false
@@ -134,9 +159,9 @@ protocol IRFFDecoderDelegate: AnyObject {
         return duration > 0
     }
 
-    init(contentURL: URL, delegate: IRFFDecoderDelegate?, videoOutput: IRFFDecoderVideoOutput?, audioOutput: IRFFDecoderAudioOutput?) {
+    init(contentURL: URL, videoFormat: IRVideoFormat, videoOutput: IRFFDecoderVideoOutput?, audioOutput: IRFFDecoderAudioOutput?) {
         self.contentURL = contentURL
-        self.delegate = delegate
+        self.videoFormat = videoFormat
         self.videoOutput = videoOutput
         self.audioOutput = audioOutput
         super.init()
@@ -220,7 +245,8 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     private func openFormatContext() {
         delegate?.decoderWillOpenInputStream(self)
-        formatContext = IRFFFormatContext.formatContext(with: contentURL, delegate: self)
+        formatContext = IRFFFormatContext(contentURL: contentURL, videoFormat: videoFormat)
+        formatContext?.delegate = self
         formatContext?.setupSync()
         if let formatError = formatContext?.error {
             error = formatError
@@ -231,6 +257,7 @@ protocol IRFFDecoderDelegate: AnyObject {
         delegate?.decoderDidPrepareToDecodeFrames(self)
         if formatContext?.videoEnable == true {
             videoDecoder = IRFFVideoDecoder(codecContext: (formatContext?.videoCodecContext)!, timebase: formatContext!.videoTimebase, fps: (formatContext?.videoFPS)!, delegate: self)
+            videoDecoder?.source = self
             videoDecoder?.videoToolBoxEnable = hardwareDecoderEnable
         }
         if formatContext?.audioEnable == true {
@@ -331,7 +358,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 continue
             }
             if paused, let currentFrame = currentVideoFrame {
-                videoOutput?.decoder?(self, renderVideoFrame: currentFrame)
+                videoOutput?.send?(videoFrame: currentFrame)
                 Thread.sleep(forTimeInterval: 0.03)
                 continue
             }
@@ -366,7 +393,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 }
                 currentVideoFrame = newFrame
                 if let currentFrame = currentVideoFrame {
-                    videoOutput?.decoder?(self, renderVideoFrame: currentFrame)
+                    videoOutput?.send?(videoFrame: currentFrame)
                     updateProgressByVideo()
                     if endOfFile {
                         updateBufferedDurationByVideo()
@@ -384,7 +411,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 }
                 currentVideoFrame = newFrame
                 if let currentFrame = currentVideoFrame {
-                    videoOutput?.decoder?(self, renderVideoFrame: currentFrame)
+                    videoOutput?.send?(videoFrame: currentFrame)
                     updateProgressByVideo()
                     if endOfFile {
                         updateBufferedDurationByVideo()
@@ -595,5 +622,22 @@ extension IRFFDecoder: IRFFVideoDecoderDelegate {
     func videoDecoder(_ videoDecoder: IRFFVideoDecoder, didError error: Error) {
         self.error = error
         delegateErrorCallback()
+    }
+}
+
+extension IRFFDecoder: IRFFVideoDecoderDataSource {
+
+    public func shouldHandle(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> Bool {
+        return source?.shouldHandle(videoDecoder, decodeFrame: packet) ?? false
+    }
+
+    public func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
+        return source?.videoDecoder(videoDecoder, decodeFrame: packet)
+    }
+}
+
+extension IRFFDecoder: IRFFDecoderVideoOutput {
+    public func send(videoFrame: IRFFVideoFrame) {
+        self.videoDecoder?.send(videoFrame: videoFrame)
     }
 }

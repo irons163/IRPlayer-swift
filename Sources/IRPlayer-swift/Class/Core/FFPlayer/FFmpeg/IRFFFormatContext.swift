@@ -22,6 +22,7 @@ public class IRFFFormatContext {
     private(set) var audioCodecContext: UnsafeMutablePointer<AVCodecContext>?
 
     private var contentURL: URL
+    private var videoFormat: IRVideoFormat
     private(set) var error: NSError?
     private(set) var metadata: [AnyHashable: Any] = [:]
     var bitrate: TimeInterval {
@@ -51,13 +52,9 @@ public class IRFFFormatContext {
     private(set) var videoAspect: CGFloat = 0
     private(set) var audioTimebase: TimeInterval = 0
 
-    static public func formatContext(with contentURL: URL, delegate: IRFFFormatContextDelegate?) -> IRFFFormatContext {
-        return IRFFFormatContext(contentURL: contentURL, delegate: delegate)
-    }
-
-    private init(contentURL: URL, delegate: IRFFFormatContextDelegate?) {
+    init(contentURL: URL, videoFormat: IRVideoFormat) {
         self.contentURL = contentURL
-        self.delegate = delegate
+        self.videoFormat = videoFormat
     }
 
     func setupSync() {
@@ -94,7 +91,15 @@ public class IRFFFormatContext {
         formatContext?.pointee.interrupt_callback.callback = ffmpeg_interrupt_callback
         formatContext?.pointee.interrupt_callback.opaque = unsafeBitCast(self, to: UnsafeMutableRawPointer.self)
 
-        result = avformat_open_input(&formatContext, contentURL.absoluteString, nil, nil)
+        var opts = AVDictionary(rawPointer: nil)
+        if videoFormat == .rtsp {
+            let ret = av_dict_set(&opts.rawPointer, "rtsp_transport", "tcp", 0)
+            if ret < 0 {
+                print("Failed to set dictionary option: \(ret)")
+            }
+        }
+        result = avformat_open_input(&formatContext, contentURL.absoluteString, nil, &opts.rawPointer)
+        av_dict_free(&opts.rawPointer)
         error = IRFFCheckErrorCode(result, errorCode: IRFFDecoderErrorCode.formatOpenInput.rawValue)
         if error != nil || formatContext == nil {
             if formatContext != nil {
