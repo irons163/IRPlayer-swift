@@ -31,13 +31,10 @@
     - Support Fisheye to Perspective mode.
 - Support multi windows.
 - Support multi modes selection.
-
-- 0.3.6
-    - Support set the specific renders to each mode.
-    - Support custom video input(IRFFVideoInput). See what it works in [IRIPCamera](https://github.com/irons163/IRIPCamera).
-    - Support custom display view(inherit IRGLView). See what it works in [IREffectPlayer](https://github.com/irons163/IREffectPlayer).
-- 0.4.0
-    -  Support SPM.
+- Support set the specific renders to each mode.
+- Support custom video input(IRFFVideoInput). See what it works in [IRIPCamera](https://github.com/irons163/IRIPCamera).
+- Support custom display view(inherit IRGLView). See what it works in [IREffectPlayer](https://github.com/irons163/IREffectPlayer).
+- Support SPM.
 
 ## Install
 ### SPM
