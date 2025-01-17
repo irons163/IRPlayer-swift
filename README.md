@@ -41,11 +41,31 @@
 - Add package: https://github.com/irons163/IRPlayer-swift
 
 ## Usage
+The following two ways could let you get started quickly without any build errors.
+1. Run the `SPMDemo` which inside this project. OR
+2. Run this simplest implement to valid `IRPlayer-swift`.
+```swift
+import UIKit
+import IRPlayerSwift
 
-- more examples in the demo applications.
+class ViewController: UIViewController {
+
+    var player = IRPlayerImp.player()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        if let view = player.view {
+            self.view.addSubview(view)
+        }
+        player.replaceVideoWithURL(contentURL: NSURL(string: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"))
+        player.play()
+    }
+}
+```
 
 ### Basic
-
+#### Regiser actions
 ```swift
 
 lazy var player: IRPlayerImp = {
