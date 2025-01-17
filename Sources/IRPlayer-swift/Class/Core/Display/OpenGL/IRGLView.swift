@@ -201,7 +201,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             }
         }
 
-        resetAllViewport(w: Float(backingWidth), h: Float(backingHeight), resetTransform: true)
+        resetAllViewport(w: Float(backingWidth), h: Float(backingHeight), resetTransform: false)
     }
 
     public override var contentMode: UIView.ContentMode {
