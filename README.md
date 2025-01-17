@@ -181,15 +181,13 @@ func createFisheyeModes(with parameter: IRMediaParameter?) -> [IRGLRenderMode] {
 ```
 
 ## Screenshots
-| Normal | VR |
-|:---:|:---:|
-| ![Normal](./SPMDemo/ScreenShots/demo1.PNG)  |  ![VR](./SPMDemo/ScreenShots/demo2.PNG)  |
-| VR Box| Fisheye 360 |
-| ![VR Box](./SPMDemo/ScreenShots/demo3.PNG) | ![Fisheye 360](./SPMDemo/ScreenShots/demo4.PNG) |
-| Panorama| Modes Selection |
-| ![Panorama](./SPMDemo/ScreenShots/demo5.PNG) | ![Modes Selection](./SPMDemo/ScreenShots/demo6.PNG) |
-| Multi Windows |  |
-| ![Multi Windows](./SPMDemo/ScreenShots/demo7.PNG)|  |
+| Normal | VR | VR Box
+|:---:|:---:|:---:|
+| ![Normal](./SPMDemo/ScreenShots/demo1.PNG)  |  ![VR](./SPMDemo/ScreenShots/demo2.PNG)  | ![VR Box](./SPMDemo/ScreenShots/demo3.PNG) |
+| Fisheye 360 | Panorama | Modes Selection |
+| ![Fisheye 360](./SPMDemo/ScreenShots/demo4.PNG) | ![Panorama](./SPMDemo/ScreenShots/demo5.PNG) | ![Modes Selection](./SPMDemo/ScreenShots/demo6.PNG) |
+| Multi Windows | Mac Player 1 | Mac Player 2 |
+| ![Multi Windows](./SPMDemo/ScreenShots/demo7.PNG) | ![Mac Player 1](./SPMDemo/ScreenShots/demo8.png) | ![Mac Player 2](./SPMDemo/ScreenShots/demo9.png) |
 
 
 ## Credit
