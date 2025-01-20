@@ -17,7 +17,7 @@ import UIKit
     func glViewDidScroll(toBounds view: IRGLView?)
 }
 
-class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
+class IRGLGestureController: IRGestureController {
 
     var doubleTapEnable: Bool = true
     var swipeEnable: Bool = true
@@ -59,7 +59,6 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
     }
 
     // MARK: - Gesture Callback
-
     @objc override func handlePan(_ gr: UIPanGestureRecognizer) {
         super.handlePan(gr)
 
@@ -107,7 +106,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
         case .began:
             let touchedPoint = sender.location(in: targetView)
             let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                      y: (targetView?.frame.size.height ?? 0) - touchedPoint.y * UIScreen.main.scale)
+                                      y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         default:
@@ -135,7 +134,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
         case .began:
             let touchedPoint = gr.location(in: targetView)
             let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                      y: (targetView?.frame.size.height ?? 0) - touchedPoint.y * UIScreen.main.scale)
+                                      y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         default:
@@ -162,7 +161,7 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
         isTouchedInProgram = false
         let touchedPoint = gr.location(in: targetView)
         let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                  y: (targetView?.frame.size.height ?? 0) - touchedPoint.y * UIScreen.main.scale)
+                                  y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
         isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         guard isTouchedInProgram else { return }
@@ -178,7 +177,6 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
         targetGLView?.render(nil)
     }
 
-    // Not considering Multi program status yet.
     func isProgramZooming() -> Bool {
         guard let scale = currentMode?.program?.getCurrentScale() else { return false }
         return scale != CGPoint(x: 1.0, y: 1.0)
@@ -187,7 +185,12 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         let shouldBegin = super.gestureRecognizerShouldBegin(gestureRecognizer)
 
-        if (!doubleTapEnable || !isProgramZooming()), gestureRecognizer == doubleTapGR {
+        let touchedPoint = gestureRecognizer.location(in: targetView)
+        let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
+                                  y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+        isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
+
+        if (!doubleTapEnable), gestureRecognizer == doubleTapGR {
             return false
         } else if let swipeGR = gestureRecognizer as? UISwipeGestureRecognizer, isProgramZooming() {
             return false
@@ -205,8 +208,10 @@ class IRGLGestureController: IRGestureController, IRGLRenderModeDelegate {
         }
         return shouldRecognizeSimultaneously
     }
+}
 
-    // NOTE: no need?
+extension IRGLGestureController: IRGLRenderModeDelegate {
+
     func programDidCreate(_ program: IRGLProgram2D) {
         program.delegate = smoothScroll
     }

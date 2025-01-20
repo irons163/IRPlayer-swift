@@ -59,9 +59,14 @@ enum IRGLProgramMultiMode {
         }
     }
 
-    func setDefaultScale(scale: Float) {
+    override func setDefaultScale(_ scale: Float) {
         guard let program = touchedProgram else { return }
         program.setDefaultScale(scale)
+    }
+
+    override func getCurrentScale() -> CGPoint {
+        guard let program = touchedProgram else { return .zero }
+        return program.getCurrentScale()
     }
 
     override public func didPanByDegreeX(_ degreeX: Float, degreeY: Float) {
@@ -100,6 +105,7 @@ enum IRGLProgramMultiMode {
 
         if let doResetToDefaultScaleBlock = self.doResetToDefaultScaleBlock, doResetToDefaultScaleBlock(self) {
             program.didDoubleTap()
+            return
         } else if let transformController = program.tramsformController,
                   !CGPointEqualToPoint(CGPoint(x: CGFloat(transformController.getScope().scaleX), y: CGFloat(transformController.getScope().scaleY)), transformController.getDefaultTransformScale()) {
             program.didDoubleTap()

@@ -244,7 +244,7 @@ public class IRPlayerImp: NSObject {
     }
 
     func setupViews() {
-        let displayView = self.createGLView()
+        let displayView = createGLView()
 
         scrollController = IRSmoothScrollController.init(targetView: displayView)
         scrollController?.currentMode = displayView.getCurrentRenderMode()
@@ -253,7 +253,7 @@ public class IRPlayerImp: NSObject {
         gestureControl = IRGLGestureController()
         gestureControl?.addGesture(to: displayView)
         gestureControl?.currentMode = displayView.getCurrentRenderMode()
-        gestureControl?.smoothScroll = self.scrollController
+        gestureControl?.smoothScroll = scrollController
         gestureControl?.delegate = self
         self.displayView = displayView
     }
