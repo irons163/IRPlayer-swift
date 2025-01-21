@@ -48,7 +48,7 @@ public class IRModel: NSObject {
         return state
     }
 
-    static func progress(fromUserInfo userInfo: [AnyHashable : Any]) -> IRProgress {
+    public static func progress(fromUserInfo userInfo: [AnyHashable : Any]) -> IRProgress {
         let progress = IRProgress()
         progress.percent = (userInfo[IRPlayerProgressPercentKey] as? CGFloat) ?? 0.0
         progress.current = (userInfo[IRPlayerProgressCurrentKey] as? CGFloat) ?? 0.0
@@ -56,7 +56,7 @@ public class IRModel: NSObject {
         return progress
     }
 
-    static func playable(fromUserInfo userInfo: [AnyHashable : Any]) -> IRPlayable {
+    public static func playable(fromUserInfo userInfo: [AnyHashable : Any]) -> IRPlayable {
         let playable = IRPlayable()
         playable.percent = (userInfo[IRPlayerPlayablePercentKey] as? CGFloat) ?? 0.0
         playable.current = (userInfo[IRPlayerPlayableCurrentKey] as? CGFloat) ?? 0.0
@@ -64,7 +64,7 @@ public class IRModel: NSObject {
         return playable
     }
 
-    static func error(fromUserInfo userInfo: [AnyHashable : Any]) -> IRError {
+    public static func error(fromUserInfo userInfo: [AnyHashable : Any]) -> IRError {
         if let error = userInfo[IRPlayerErrorKey] as? IRError {
             return error
         } else if let error = userInfo[IRPlayerErrorKey] as? NSError {
@@ -85,16 +85,16 @@ public class IRState: IRModel {
     public var current: IRPlayerState = .none
 }
 
-class IRProgress: IRModel {
-    var percent: CGFloat = 0.0
-    var current: CGFloat = 0.0
-    var total: CGFloat = 0.0
+public class IRProgress: IRModel {
+    public var percent: CGFloat = 0.0
+    public var current: CGFloat = 0.0
+    public var total: CGFloat = 0.0
 }
 
-class IRPlayable: IRModel {
-    var percent: CGFloat = 0.0
-    var current: CGFloat = 0.0
-    var total: CGFloat = 0.0
+public class IRPlayable: IRModel {
+    public var percent: CGFloat = 0.0
+    public var current: CGFloat = 0.0
+    public var total: CGFloat = 0.0
 }
 
 @objcMembers

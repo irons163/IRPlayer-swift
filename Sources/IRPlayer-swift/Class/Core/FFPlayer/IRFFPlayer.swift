@@ -176,18 +176,23 @@ extension IRFFPlayer: IRFFDecoderDelegate {
     func decoderWillOpenInputStream(_ decoder: IRFFDecoder) {
         self.state = .buffering
     }
+
     func decoderDidPrepareToDecodeFrames(_ decoder: IRFFDecoder) {
         self.state = .readyToPlay
     }
+
     func decoderDidEndOfFile(_ decoder: IRFFDecoder) {
         self.playableTime = self.duration
     }
+
     func decoderDidPlaybackFinished(_ decoder: IRFFDecoder) {
         self.state = .finished
     }
+
     func decoder(_ decoder: IRFFDecoder, didError error: Error) {
         errorHandler(error: error as NSError)
     }
+
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBuffering buffering: Bool) {
         if buffering {
             self.state = .buffering
@@ -202,11 +207,13 @@ extension IRFFPlayer: IRFFDecoderDelegate {
             }
         }
     }
+
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBufferedDuration bufferedDuration: TimeInterval) {
         self.playableTime = self.progress + bufferedDuration
     }
-    func decoder(_ decoder: IRFFDecoder, didChangeValueOfProgress progress: TimeInterval) {
 
+    func decoder(_ decoder: IRFFDecoder, didChangeValueOfProgress progress: TimeInterval) {
+        self.progress = progress
     }
 
     func errorHandler(error: NSError) {
