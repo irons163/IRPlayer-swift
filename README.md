@@ -124,21 +124,43 @@ case .ffmpegMultiModesHardwareModesSelection:
 
 ```
 
-#### Set custom video source
+#### Set custom video frames source
 
-- See what it works in [IRIPCamera](https://github.com/irons163/IRIPCamera).
+- Send video frames directly.
 
-``` obj-c
-IRFFVideoInput *input = [[IRFFVideoInput alloc] init];
-[self.player replaceVideoWithInput:input videoType:IRVideoTypeNormal];
+```swift
+let input = IRFFVideoInput()
+self.player.replaceVideoWithInput(input, videoType: .normal)
 
-...
+......
 
-IRFFAVYUVVideoFrame * yuvFrame = [[IRFFAVYUVVideoFrame alloc] init];
+var yuvFrame = IRFFAVYUVVideoFrame()
 /*
 setup the yuvFrame.
 */
-[input updateFrame:frame];
+input.send(videoFrame: yuvFrame)
+```
+
+- Send video frames by your own decode implement.
+- See how it works in [IRIPCamera-swift](https://github.com/irons163/IRIPCamera-swift).
+
+```swift
+class MyIRFFVideoInput: IRFFVideoInput {
+
+    override func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
+
+        asyncHWDecode()
+
+        return nil // if it is sync decode instead, return videoFrame from here.
+    }
+    
+    func asyncHWDecode() {
+        Task {
+            // let videoFrame = ......
+            self.videoOutput?.send?(videoFrame: videoFrame)
+        }
+    }
+}
 ```
 
 ### Advanced settings
