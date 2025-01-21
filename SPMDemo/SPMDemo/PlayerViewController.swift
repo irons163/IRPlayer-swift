@@ -226,7 +226,7 @@ extension PlayerViewController {
 
 extension PlayerViewController {
 
-    @IBAction func stateAction(_ notification: Notification) {
+    @objc func stateAction(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
         let state = IRState.state(fromUserInfo: userInfo)
         var text: String?
@@ -253,22 +253,40 @@ extension PlayerViewController {
         self.stateLabel.text = text
     }
 
-    @IBAction func progressAction(_ notification: Notification) {
-
+    @objc func progressAction(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        let progress = IRProgress.progress(fromUserInfo: userInfo)
+        if !progressSilderTouching {
+            progressSilder.value = Float(progress.percent)
+        }
+        currentTimeLabel.text = timeString(from: progress.current)
     }
 
-    @IBAction func playableAction(_ notification: Notification) {
-
+    @objc func playableAction(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        let playable = IRPlayable.playable(fromUserInfo: userInfo)
+        print("playable time : \(playable.current)")
     }
 
-    @IBAction func errorAction(_ notification: Notification) {
-
+    @objc func errorAction(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+        let error = IRError.error(fromUserInfo: userInfo)
+        print("player did error : \(error.error)")
     }
 }
 
 extension PlayerViewController {
 
     func timeString(from seconds: CGFloat) -> String {
-        return "\(Int64(seconds) / 60):\(Int64(seconds) % 60)"
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let remainingSeconds = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
+        } else {
+            return String(format: "%02d:%02d", minutes, remainingSeconds)
+        }
     }
 }
