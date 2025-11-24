@@ -8,7 +8,6 @@
 import UIKit
 import OpenGLES
 import QuartzCore
-import AssetsLibrary
 
 enum IRDisplayRendererType: UInt {
     case empty
@@ -393,24 +392,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func saveSnapshotAlbum(_ snapshot: UIImage) {
-        let library = ALAssetsLibrary()
-
-        library.writeImage(toSavedPhotosAlbum: snapshot.cgImage, orientation: ALAssetOrientation(rawValue: snapshot.imageOrientation.rawValue)!) { (assetURL, error) in
-            if let error = error {
-                print("Error: \(error.localizedDescription)")
-                return
-            }
-
-            library.asset(for: assetURL!, resultBlock: { (asset) in
-                library.enumerateGroups(withTypes: ALAssetsGroupType(ALAssetsGroupAlbum)) { (group, stop) in
-                    // Handle group
-                } failureBlock: { (error) in
-                    print("Error: \(error?.localizedDescription)")
-                }
-            }, failureBlock: { (error) in
-                print("Error loading asset")
-            })
-        }
+        IRPhotoSaver.save(snapshot, toAlbum: "Snapshots")
     }
 
     func createImageFromFramebuffer() -> UIImage {
