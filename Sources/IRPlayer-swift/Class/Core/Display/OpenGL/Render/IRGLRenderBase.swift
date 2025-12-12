@@ -49,7 +49,13 @@ let kIRColorConversion709: [GLfloat] = [
     }
 
     public func prepareRender(_ program: GLuint) -> Bool {
-        glUniformMatrix4fv(uniformMatrix, 1, GLboolean(GL_FALSE), &modelviewProj.m.0)
+        var m = modelviewProj
+        withUnsafePointer(to: &m) { mp in
+            mp.withMemoryRebound(to: GLfloat.self, capacity: 16) { fptr in
+                glUniformMatrix4fv(uniformMatrix, 1, GLboolean(GL_FALSE), fptr)
+            }
+        }
+
         return true
     }
 
