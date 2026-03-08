@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "IRPlayer",
     platforms: [
-        .iOS(.v15)
+        .iOS(.v16)
     ],
     products: [
         .library(
@@ -13,19 +13,31 @@ let package = Package(
         )
     ],
     targets: [
+        // Configure targets to use Metal instead of OpenGL
         .target(
             name: "IRPlayerSwift",
             dependencies: ["IRPlayerObjc", "IRFFMpeg"],
             path: "Sources",
-            exclude: ["IRPlayer-swift/ThirdParty", "IRPlayer-swift/Objc"],
+            exclude: ["IRPlayer-swift/ThirdParty", "IRPlayer-swift/Objc", "IRPlayer-swift/OpenGL"],
             swiftSettings: [
                 .define("IRPLATFORM_TARGET_OS_IPHONE_OR_TV"),
-                .define("IRPLATFORM_TARGET_OS_MAC_OR_IPHONE")
+                .define("IRPLATFORM_TARGET_OS_MAC_OR_IPHONE"),
+                .define("IR_USE_METAL")
+            ],
+            linkerSettings: [
+                .linkedFramework("Metal"),
+                .linkedFramework("MetalKit"),
+                .linkedFramework("CoreVideo"),
+                .linkedFramework("QuartzCore"),
+                .linkedFramework("AVFoundation")
             ]
         ),
         .target(
             name: "IRPlayerObjc",
-            path: "Sources/IRPlayer-swift/Objc"
+            path: "Sources/IRPlayer-swift/Objc",
+            cSettings: [
+                .define("IR_USE_METAL")
+            ]
         ),
         .target(
             name: "IRFFMpeg",
@@ -37,7 +49,10 @@ let package = Package(
                 "libswscale"
             ],
             path: "Sources/IRPlayer-swift/ThirdParty/IRFFMpeg",
-            publicHeadersPath: "include"
+            publicHeadersPath: "include",
+            cSettings: [
+                .define("IR_USE_METAL")
+            ]
         ),
         .binaryTarget(
             name: "libavcodec",
@@ -74,3 +89,4 @@ let package = Package(
         )
     ]
 )
+

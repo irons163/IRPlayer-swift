@@ -72,7 +72,9 @@ class IRFFVideoToolBox {
                 let destinationPixelBufferAttributes: [CFString: Any] = [
                     kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
                     kCVPixelBufferWidthKey: codecContext.pointee.width,
-                    kCVPixelBufferHeightKey: codecContext.pointee.height
+                    kCVPixelBufferHeightKey: codecContext.pointee.height,
+                    kCVPixelBufferMetalCompatibilityKey: true,
+                    kCVPixelBufferIOSurfacePropertiesKey: [:]
                 ]
 
                 var outputCallbackRecord = VTDecompressionOutputCallbackRecord()

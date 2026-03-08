@@ -7,6 +7,7 @@
 
 import Foundation
 import OpenGLES
+import simd
 
 let SPHERE_RADIUS: Float = 800.0
 let SPHERE_SLICES = 180
@@ -231,5 +232,35 @@ class IRGLProjectionEquirectangular: IRGLProjection {
         glDeleteBuffers(1, &IRGLProjectionEquirectangular.indexBufferID)
         glDeleteBuffers(1, &IRGLProjectionEquirectangular.vertexBufferID)
         glDeleteBuffers(1, &IRGLProjectionEquirectangular.textureBufferID)
+    }
+
+    func exportMesh() -> (positions: [SIMD3<Float>], texcoords: [SIMD2<Float>], indices: [UInt16])? {
+        guard let mVertices = mVertices,
+              let mVectors = mVectors,
+              let mIndices = mIndices,
+              let mNumIndices = mNumIndices else { return nil }
+
+        let count = nVertices
+        var positions = [SIMD3<Float>]()
+        var texcoords = [SIMD2<Float>]()
+        positions.reserveCapacity(count)
+        texcoords.reserveCapacity(count)
+
+        for i in 0..<count {
+            let vBase = i * 3
+            let tBase = i * 2
+            positions.append(SIMD3<Float>(mVertices[vBase], mVertices[vBase + 1], mVertices[vBase + 2]))
+            texcoords.append(SIMD2<Float>(mVectors[tBase], mVectors[tBase + 1]))
+        }
+
+        let indexCount = mNumIndices[0]
+        var indices = [UInt16]()
+        indices.reserveCapacity(indexCount)
+        let indexPtr = mIndices[0]
+        for i in 0..<indexCount {
+            indices.append(UInt16(bitPattern: indexPtr[i]))
+        }
+
+        return (positions, texcoords, indices)
     }
 }
