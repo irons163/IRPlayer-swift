@@ -18,6 +18,16 @@ struct VertexOut {
     float2 texCoord;
 };
 
+struct Fish2PanoParams {
+    int fishwidth;
+    int fishheight;
+    int panowidth;
+    int panoheight;
+    int antialias;
+    float offsetX;
+    float2 _padding;
+};
+
 vertex VertexOut irVertex(VertexIn in [[stage_in]],
                           constant float2 &scale [[buffer(1)]]) {
     VertexOut out;
@@ -41,6 +51,141 @@ vertex VertexOut irVertex3D(VertexIn3D in [[stage_in]],
     out.position = pos;
     out.texCoord = (texMatrix * float4(in.texCoord, 0.0, 1.0)).xy;
     return out;
+}
+
+inline float2 sampleTexUV(int idx,
+                          float2 uv,
+                          array<texture2d<float, access::sample>, 9> texUV,
+                          sampler s) {
+    idx = clamp(idx, 0, 8);
+    float2 uvPixel = texUV[idx].sample(s, uv).rg;
+    return uvPixel;
+}
+
+fragment float4 irFragmentFish2PanoNV12(VertexOut in [[stage_in]],
+                                        constant Fish2PanoParams &params [[buffer(0)]],
+                                        texture2d<float, access::sample> yTex [[texture(0)]],
+                                        texture2d<float, access::sample> uvTex [[texture(1)]],
+                                        array<texture2d<float, access::sample>, 9> texUV [[texture(4)]]) {
+    constexpr sampler s(address::clamp_to_edge, filter::linear);
+    if (params.antialias <= 0 || params.panowidth <= 0 || params.panoheight <= 0) {
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
+
+    float3 accum = float3(0.0);
+    int samples = 0;
+    float2 baseUV = in.texCoord;
+    baseUV.x += params.offsetX / float(params.panowidth);
+    if (baseUV.x > 1.0) { baseUV.x -= 1.0; }
+    if (baseUV.x < 0.0) { baseUV.x += 1.0; }
+
+    for (int ai = 0; ai < params.antialias; ai++) {
+        for (int aj = 0; aj < params.antialias; aj++) {
+            int aa = ai * params.antialias + aj;
+            float2 uvPixel = sampleTexUV(aa, baseUV, texUV, s);
+            float u = uvPixel.x;
+            float v = uvPixel.y;
+            if (u < 0.0 || u > float(params.fishwidth) || v < 0.0 || v > float(params.fishheight)) {
+                continue;
+            }
+            float2 fishUV = float2(u / float(params.fishwidth), v / float(params.fishheight));
+            float y = yTex.sample(s, fishUV).r - (16.0 / 255.0);
+            float2 uv = uvTex.sample(s, fishUV).rg - float2(0.5, 0.5);
+            float r = y + 1.402 * uv.y;
+            float g = y - 0.344136 * uv.x - 0.714136 * uv.y;
+            float b = y + 1.772 * uv.x;
+            accum += float3(r, g, b);
+            samples += 1;
+        }
+    }
+
+    if (samples <= 0) {
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
+    return float4(accum / float(samples), 1.0);
+}
+
+fragment float4 irFragmentFish2PanoI420(VertexOut in [[stage_in]],
+                                        constant Fish2PanoParams &params [[buffer(0)]],
+                                        texture2d<float, access::sample> yTex [[texture(0)]],
+                                        texture2d<float, access::sample> uTex [[texture(1)]],
+                                        texture2d<float, access::sample> vTex [[texture(2)]],
+                                        array<texture2d<float, access::sample>, 9> texUV [[texture(4)]]) {
+    constexpr sampler s(address::clamp_to_edge, filter::linear);
+    if (params.antialias <= 0 || params.panowidth <= 0 || params.panoheight <= 0) {
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
+
+    float3 accum = float3(0.0);
+    int samples = 0;
+    float2 baseUV = in.texCoord;
+    baseUV.x += params.offsetX / float(params.panowidth);
+    if (baseUV.x > 1.0) { baseUV.x -= 1.0; }
+    if (baseUV.x < 0.0) { baseUV.x += 1.0; }
+
+    for (int ai = 0; ai < params.antialias; ai++) {
+        for (int aj = 0; aj < params.antialias; aj++) {
+            int aa = ai * params.antialias + aj;
+            float2 uvPixel = sampleTexUV(aa, baseUV, texUV, s);
+            float u = uvPixel.x;
+            float v = uvPixel.y;
+            if (u < 0.0 || u > float(params.fishwidth) || v < 0.0 || v > float(params.fishheight)) {
+                continue;
+            }
+            float2 fishUV = float2(u / float(params.fishwidth), v / float(params.fishheight));
+            float y = yTex.sample(s, fishUV).r - (16.0 / 255.0);
+            float uVal = uTex.sample(s, fishUV).r - 0.5;
+            float vVal = vTex.sample(s, fishUV).r - 0.5;
+            float r = y + 1.402 * vVal;
+            float g = y - 0.344136 * uVal - 0.714136 * vVal;
+            float b = y + 1.772 * uVal;
+            accum += float3(r, g, b);
+            samples += 1;
+        }
+    }
+
+    if (samples <= 0) {
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
+    return float4(accum / float(samples), 1.0);
+}
+
+fragment float4 irFragmentFish2PanoRGB(VertexOut in [[stage_in]],
+                                       constant Fish2PanoParams &params [[buffer(0)]],
+                                       texture2d<float, access::sample> rgbTex [[texture(0)]],
+                                       array<texture2d<float, access::sample>, 9> texUV [[texture(4)]]) {
+    constexpr sampler s(address::clamp_to_edge, filter::linear);
+    if (params.antialias <= 0 || params.panowidth <= 0 || params.panoheight <= 0) {
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
+
+    float3 accum = float3(0.0);
+    int samples = 0;
+    float2 baseUV = in.texCoord;
+    baseUV.x += params.offsetX / float(params.panowidth);
+    if (baseUV.x > 1.0) { baseUV.x -= 1.0; }
+    if (baseUV.x < 0.0) { baseUV.x += 1.0; }
+
+    for (int ai = 0; ai < params.antialias; ai++) {
+        for (int aj = 0; aj < params.antialias; aj++) {
+            int aa = ai * params.antialias + aj;
+            float2 uvPixel = sampleTexUV(aa, baseUV, texUV, s);
+            float u = uvPixel.x;
+            float v = uvPixel.y;
+            if (u < 0.0 || u > float(params.fishwidth) || v < 0.0 || v > float(params.fishheight)) {
+                continue;
+            }
+            float2 fishUV = float2(u / float(params.fishwidth), v / float(params.fishheight));
+            float3 color = rgbTex.sample(s, fishUV).rgb;
+            accum += color;
+            samples += 1;
+        }
+    }
+
+    if (samples <= 0) {
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
+    return float4(accum / float(samples), 1.0);
 }
 
 fragment float4 irFragmentNV12(VertexOut in [[stage_in]],

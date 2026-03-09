@@ -12,6 +12,16 @@ import simd
 import QuartzCore
 
 final class IRMetalRenderer {
+    struct Fish2PanoParams {
+        var fishwidth: Int32
+        var fishheight: Int32
+        var panowidth: Int32
+        var panoheight: Int32
+        var antialias: Int32
+        var offsetX: Float
+        var _padding: SIMD2<Float> = .zero
+    }
+
     private let device: MTLDevice
     private let commandQueue: MTLCommandQueue
     private var textureCache: CVMetalTextureCache?
@@ -20,6 +30,9 @@ final class IRMetalRenderer {
     private var pipelineRGB: MTLRenderPipelineState?
     private var pipelineNV12Mesh: MTLRenderPipelineState?
     private var pipelineI420Mesh: MTLRenderPipelineState?
+    private var pipelineNV12Fish2Pano: MTLRenderPipelineState?
+    private var pipelineI420Fish2Pano: MTLRenderPipelineState?
+    private var pipelineRGBFish2Pano: MTLRenderPipelineState?
     private var vertexBuffer: MTLBuffer?
     private let vertexDescriptor: MTLVertexDescriptor = {
         let descriptor = MTLVertexDescriptor()
@@ -124,6 +137,9 @@ final class IRMetalRenderer {
         let fragmentNV12 = library.makeFunction(name: "irFragmentNV12")
         let fragmentI420 = library.makeFunction(name: "irFragmentI420")
         let fragmentRGB = library.makeFunction(name: "irFragmentRGB")
+        let fragmentFish2PanoNV12 = library.makeFunction(name: "irFragmentFish2PanoNV12")
+        let fragmentFish2PanoI420 = library.makeFunction(name: "irFragmentFish2PanoI420")
+        let fragmentFish2PanoRGB = library.makeFunction(name: "irFragmentFish2PanoRGB")
 
         if let vertexFunction = vertexFunction, let fragmentNV12 = fragmentNV12 {
             let descriptor = MTLRenderPipelineDescriptor()
@@ -188,6 +204,42 @@ final class IRMetalRenderer {
             pipelineI420Mesh = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineI420Mesh == nil {
                 print("IRMetalRenderer: failed to create I420 mesh pipeline")
+            }
+        }
+
+        if let vertexFunction = vertexFunction, let fragmentFish2PanoNV12 = fragmentFish2PanoNV12 {
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = vertexFunction
+            descriptor.fragmentFunction = fragmentFish2PanoNV12
+            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+            descriptor.vertexDescriptor = vertexDescriptor
+            pipelineNV12Fish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
+            if pipelineNV12Fish2Pano == nil {
+                print("IRMetalRenderer: failed to create NV12 fish2pano pipeline")
+            }
+        }
+
+        if let vertexFunction = vertexFunction, let fragmentFish2PanoI420 = fragmentFish2PanoI420 {
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = vertexFunction
+            descriptor.fragmentFunction = fragmentFish2PanoI420
+            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+            descriptor.vertexDescriptor = vertexDescriptor
+            pipelineI420Fish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
+            if pipelineI420Fish2Pano == nil {
+                print("IRMetalRenderer: failed to create I420 fish2pano pipeline")
+            }
+        }
+
+        if let vertexFunction = vertexFunction, let fragmentFish2PanoRGB = fragmentFish2PanoRGB {
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = vertexFunction
+            descriptor.fragmentFunction = fragmentFish2PanoRGB
+            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+            descriptor.vertexDescriptor = vertexDescriptor
+            pipelineRGBFish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
+            if pipelineRGBFish2Pano == nil {
+                print("IRMetalRenderer: failed to create RGB fish2pano pipeline")
             }
         }
     }
@@ -264,16 +316,25 @@ final class IRMetalRenderer {
 
     private func renderRGB(rgbFrame: IRVideoFrameRGB, encoder: MTLRenderCommandEncoder) -> Bool {
         guard let pipeline = pipelineRGB else { return false }
+        guard let texture = makeRGBTexture(from: rgbFrame) else { return false }
+
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setFragmentTexture(texture, index: 0)
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        return true
+    }
+
+    private func makeRGBTexture(from rgbFrame: IRVideoFrameRGB) -> MTLTexture? {
         let width = rgbFrame.width
         let height = rgbFrame.height
-        guard width > 0, height > 0 else { return false }
+        guard width > 0, height > 0 else { return nil }
         let bytesPerRow = Int(rgbFrame.linesize)
-        guard bytesPerRow == width * 4 else { return false }
-        guard rgbFrame.rgb.count >= bytesPerRow * height else { return false }
+        guard bytesPerRow == width * 4 else { return nil }
+        guard rgbFrame.rgb.count >= bytesPerRow * height else { return nil }
 
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false)
         descriptor.usage = .shaderRead
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return false }
+        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
 
         rgbFrame.rgb.withUnsafeBytes { rawBuffer in
             if let base = rawBuffer.baseAddress {
@@ -281,10 +342,81 @@ final class IRMetalRenderer {
             }
         }
 
-        encoder.setRenderPipelineState(pipeline)
-        encoder.setFragmentTexture(texture, index: 0)
-        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        return true
+        return texture
+    }
+
+    func renderFish2Pano(frame: IRFFVideoFrame,
+                         params: Fish2PanoParams,
+                         texUVTextures: [MTLTexture],
+                         to drawable: CAMetalDrawable,
+                         drawableSize: CGSize,
+                         viewport: CGRect,
+                         contentMode: IRGLRenderContentMode,
+                         outputSize: CGSize) -> Bool {
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
+
+        let originY = drawableSize.height - viewport.origin.y
+        encoder.setViewport(MTLViewport(originX: Double(viewport.origin.x),
+                                        originY: Double(originY),
+                                        width: Double(viewport.size.width),
+                                        height: -Double(viewport.size.height),
+                                        znear: 0,
+                                        zfar: 1))
+
+        let targetSize = viewport.size
+        let scale = computeScale(contentMode: contentMode, frameSize: outputSize, drawableSize: targetSize)
+        var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height))
+
+        encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+        encoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
+
+        var fishParams = params
+        encoder.setFragmentBytes(&fishParams, length: MemoryLayout<Fish2PanoParams>.size, index: 0)
+
+        for i in 0..<9 {
+            let textureIndex = i + 4
+            if i < texUVTextures.count {
+                encoder.setFragmentTexture(texUVTextures[i], index: textureIndex)
+            } else {
+                encoder.setFragmentTexture(nil, index: textureIndex)
+            }
+        }
+
+        var didRender = false
+        if let cvFrame = frame as? IRFFCVYUVVideoFrame {
+            if let pipeline = pipelineNV12Fish2Pano, let textures = makeNV12Textures(from: cvFrame) {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setFragmentTexture(textures.y, index: 0)
+                encoder.setFragmentTexture(textures.uv, index: 1)
+                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+                didRender = true
+            }
+        } else if let yuvFrame = frame as? IRFFAVYUVVideoFrame {
+            if let pipeline = pipelineI420Fish2Pano, let textures = makeI420Textures(from: yuvFrame) {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setFragmentTexture(textures.y, index: 0)
+                encoder.setFragmentTexture(textures.u, index: 1)
+                encoder.setFragmentTexture(textures.v, index: 2)
+                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+                didRender = true
+            }
+        } else if let rgbFrame = frame as? IRVideoFrameRGB {
+            if let pipeline = pipelineRGBFish2Pano, let texture = makeRGBTexture(from: rgbFrame) {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setFragmentTexture(texture, index: 0)
+                encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+                didRender = true
+            }
+        }
+
+        encoder.endEncoding()
+        if didRender {
+            commandBuffer.present(drawable)
+            commandBuffer.commit()
+        }
+        return didRender
     }
 
     func renderFisheye(frame: IRFFVideoFrame,
@@ -402,6 +534,15 @@ final class IRMetalRenderer {
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
         descriptor.colorAttachments[0].storeAction = .store
         return descriptor
+    }
+
+    func renderClear(to drawable: CAMetalDrawable) {
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+        guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return }
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return }
+        encoder.endEncoding()
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
     }
 
     private func computeScale(contentMode: IRGLRenderContentMode, frameSize: CGSize, drawableSize: CGSize) -> CGSize {

@@ -37,6 +37,24 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     private var pixUV: UnsafeMutablePointer<UnsafeMutablePointer<GLfloat>?>?
     private var uUseTexUVs: GLint = 0
     private var useTexUVs = false
+    private var metalPixUVReady = false
+
+    func consumePixUVIfReady() -> [UnsafeMutablePointer<GLfloat>]? {
+        guard metalPixUVReady else { return nil }
+        let texnum = Int(antialias * antialias)
+        guard texnum > 0 else { return nil }
+        guard let pixUV = pixUV else { return nil }
+
+        var result: [UnsafeMutablePointer<GLfloat>] = []
+        result.reserveCapacity(texnum)
+        for i in 0..<texnum {
+            guard let ptr = pixUV[i] else { return nil }
+            result.append(ptr)
+        }
+
+        metalPixUVReady = false
+        return result
+    }
 
     override init() {
         super.init()
@@ -254,13 +272,14 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         transformZ = -90.0
 
         DispatchQueue.global(qos: .userInitiated).async {
-            let texnum = self.ltexUVs.count
+            let texnum = max(Int(self.antialias * self.antialias), 1)
             self.pixUV = .allocate(capacity: texnum)
             for i in 0..<texnum {
                 self.pixUV?[i] = .allocate(capacity: Int(self.outputWidth * self.outputHeight * 2))
             }
             self.initPixelMaps()
             self.useTexUVs = true
+            self.metalPixUVReady = true
         }
     }
 }

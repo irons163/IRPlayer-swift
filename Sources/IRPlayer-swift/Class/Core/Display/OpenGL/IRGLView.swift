@@ -32,6 +32,10 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     private var metalFisheyeController: IRGLTransformController3DFisheye?
     private var metalFisheyeParameter: IRFisheyeParameter?
     private var metalFisheyeLastSize: CGSize = .zero
+    private var metalFish2PanoParams: IRGLFish2PanoShaderParams?
+    private var metalFish2PanoTexUV: [MTLTexture] = []
+    private var metalFish2PanoLastOutputSize: CGSize = .zero
+    private var metalFish2PanoLastAntialias: Int = 0
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     private var backingWidth: Int = 0
     private var backingHeight: Int = 0
@@ -139,6 +143,10 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         metalFisheyeMesh = nil
         metalFisheyeController = nil
         metalFisheyeParameter = nil
+        metalFish2PanoParams = nil
+        metalFish2PanoTexUV = []
+        metalFish2PanoLastOutputSize = .zero
+        metalFish2PanoLastAntialias = 0
         commandQueue = nil
         ciContext = nil
         device = nil
@@ -193,6 +201,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         }
 
         renderContentMode = irGLViewContentMode
+        mode?.program?.contentMode = irGLViewContentMode
     }
 
     func resetAllViewport(w: Float, h: Float, resetTransform: Bool) {
@@ -238,6 +247,12 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
            let renderer = metalRenderer,
            let drawable = metalLayer.nextDrawable() {
             mode?.program?.setRenderFrame(frame)
+            if let fish2PanoResult = renderMetalFish2PanoIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
+                if fish2PanoResult {
+                    saveSnapShot()
+                    return
+                }
+            }
             if let fisheyeResult = renderMetalFisheyeIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
                 if fisheyeResult {
                     saveSnapShot()
@@ -371,6 +386,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                 renderMode.program?.setViewportRange(viewprotRange, resetTransform: false)
             }
             setupMetalFisheyeIfNeeded(renderMode: renderMode)
+            setupMetalFish2PanoIfNeeded(renderMode: renderMode)
 
             if immediatelyRenderOnce {
                 DispatchQueue.main.async {
@@ -428,6 +444,18 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         // Implementation for clean empty buffer
     }
 
+    private func setupMetalFish2PanoIfNeeded(renderMode: IRGLRenderMode) {
+        guard let program = renderMode.program as? IRGLProgram2DFisheye2Pano else {
+            metalFish2PanoParams = nil
+            metalFish2PanoTexUV = []
+            metalFish2PanoLastOutputSize = .zero
+            metalFish2PanoLastAntialias = 0
+            return
+        }
+
+        metalFish2PanoParams = program.metalFish2PanoParams
+    }
+
     private func setupMetalFisheyeIfNeeded(renderMode: IRGLRenderMode) {
         guard renderMode is IRGLRenderMode3DFisheye else {
             metalFisheyeController = nil
@@ -476,6 +504,83 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         let scopeRange = controller.scopeRange ?? newScopeRange
         let adjustedScopeRange = IRGLScopeRange(minLat: scopeRange.minLat, maxLat: scopeRange.maxLat, minLng: scopeRange.minLng, maxLng: scopeRange.maxLng, defaultLat: -40, defaultLng: 90)
         controller.scopeRange = adjustedScopeRange
+    }
+
+    private func renderMetalFish2PanoIfNeeded(frame: IRFFVideoFrame,
+                                              renderer: IRMetalRenderer,
+                                              drawable: CAMetalDrawable,
+                                              drawableSize: CGSize) -> Bool? {
+        guard mode is IRGLRenderMode2DFisheye2Pano else { return nil }
+        guard let params = metalFish2PanoParams else { return false }
+        let outputWidth = Int(params.outputWidth)
+        let outputHeight = Int(params.outputHeight)
+        let antialias = Int(params.antialias)
+        guard outputWidth > 0, outputHeight > 0, antialias > 0 else { return false }
+
+        let outputSize = CGSize(width: outputWidth, height: outputHeight)
+        if outputSize != metalFish2PanoLastOutputSize || antialias != metalFish2PanoLastAntialias {
+            metalFish2PanoTexUV = []
+            metalFish2PanoLastOutputSize = outputSize
+            metalFish2PanoLastAntialias = antialias
+        }
+
+        if let pixUV = params.consumePixUVIfReady() {
+            let texCount = min(pixUV.count, antialias * antialias)
+            var newTextures: [MTLTexture] = []
+            newTextures.reserveCapacity(texCount)
+            for i in 0..<texCount {
+                guard let texture = makeTexUVTexture(width: outputWidth,
+                                                     height: outputHeight,
+                                                     data: pixUV[i]) else {
+                    continue
+                }
+                newTextures.append(texture)
+            }
+            if !newTextures.isEmpty {
+                metalFish2PanoTexUV = newTextures
+            }
+        }
+
+        guard metalFish2PanoTexUV.count == antialias * antialias else {
+            renderer.renderClear(to: drawable)
+            return true
+        }
+
+        let viewportRect = (mode?.program as? IRGLProgram2D)?.calculateViewport() ??
+            CGRect(x: 0, y: 0, width: drawableSize.width, height: drawableSize.height)
+
+        let renderParams = IRMetalRenderer.Fish2PanoParams(
+            fishwidth: Int32(params.textureWidth),
+            fishheight: Int32(params.textureHeight),
+            panowidth: Int32(outputWidth),
+            panoheight: Int32(outputHeight),
+            antialias: Int32(antialias),
+            offsetX: params.offsetX
+        )
+
+        let effectiveContentMode = (mode?.program as? IRGLProgram2D)?.contentMode ?? renderContentMode
+        return renderer.renderFish2Pano(frame: frame,
+                                        params: renderParams,
+                                        texUVTextures: metalFish2PanoTexUV,
+                                        to: drawable,
+                                        drawableSize: drawableSize,
+                                        viewport: viewportRect,
+                                        contentMode: effectiveContentMode,
+                                        outputSize: outputSize)
+    }
+
+    private func makeTexUVTexture(width: Int, height: Int, data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {
+        guard let device = device else { return nil }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float,
+                                                                  width: width,
+                                                                  height: height,
+                                                                  mipmapped: false)
+        descriptor.usage = .shaderRead
+        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
+        let bytesPerRow = width * MemoryLayout<Float>.size * 2
+        let region = MTLRegionMake2D(0, 0, width, height)
+        texture.replace(region: region, mipmapLevel: 0, withBytes: data, bytesPerRow: bytesPerRow)
+        return texture
     }
 
     private func renderMetalFisheyeIfNeeded(frame: IRFFVideoFrame,

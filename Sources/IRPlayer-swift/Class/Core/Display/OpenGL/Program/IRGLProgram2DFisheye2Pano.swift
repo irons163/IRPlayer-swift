@@ -10,6 +10,10 @@ import Foundation
 @objcMembers public class IRGLProgram2DFisheye2Pano: IRGLProgram2D {
 
     private var fish2Pano: IRGLFish2PanoShaderParams!
+
+    var metalFish2PanoParams: IRGLFish2PanoShaderParams? {
+        return fish2Pano
+    }
     private var willScrollX: Float = 0
     private var willScrollY: Float = 0
 
@@ -54,9 +58,8 @@ import Foundation
         renderer?.setVideoFrame(frame)
 
         if frame.width != fish2Pano.textureWidth || frame.height != fish2Pano.textureHeight {
-            if prepareRender() {
-                fish2Pano.updateTextureWidth(frame.width, height: frame.height)
-            }
+            // Ensure output sizes are updated even if GL program isn't ready yet.
+            fish2Pano.updateTextureWidth(frame.width, height: frame.height)
         }
     }
 
