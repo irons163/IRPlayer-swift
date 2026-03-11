@@ -505,6 +505,87 @@ final class IRMetalRenderer {
         return didRender
     }
 
+    func renderFisheyeMulti(frame: IRFFVideoFrame,
+                            mesh: IRMetalFisheyeMesh,
+                            mvpList: [simd_float4x4],
+                            textureMatrix: simd_float4x4,
+                            to drawable: CAMetalDrawable,
+                            drawableSize: CGSize,
+                            viewports: [CGRect]) -> Bool {
+        guard !viewports.isEmpty, viewports.count == mvpList.count else { return false }
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
+
+        encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)
+        var texMatrix = textureMatrix
+        encoder.setVertexBytes(&texMatrix, length: MemoryLayout<simd_float4x4>.size, index: 2)
+
+        var didRender = false
+
+        if let cvFrame = frame as? IRFFCVYUVVideoFrame {
+            guard let pipeline = pipelineNV12Mesh, let textures = makeNV12Textures(from: cvFrame) else {
+                encoder.endEncoding()
+                return false
+            }
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setFragmentTexture(textures.y, index: 0)
+            encoder.setFragmentTexture(textures.uv, index: 1)
+
+            for (index, viewport) in viewports.enumerated() {
+                let originY = drawableSize.height - viewport.origin.y - viewport.size.height
+                encoder.setViewport(MTLViewport(originX: Double(viewport.origin.x),
+                                                originY: Double(originY),
+                                                width: Double(viewport.size.width),
+                                                height: Double(viewport.size.height),
+                                                znear: 0,
+                                                zfar: 1))
+                var mvpMatrix = mvpList[index]
+                encoder.setVertexBytes(&mvpMatrix, length: MemoryLayout<simd_float4x4>.size, index: 1)
+                encoder.drawIndexedPrimitives(type: .triangle,
+                                              indexCount: mesh.indexCount,
+                                              indexType: .uint16,
+                                              indexBuffer: mesh.indexBuffer,
+                                              indexBufferOffset: 0)
+            }
+            didRender = true
+        } else if let yuvFrame = frame as? IRFFAVYUVVideoFrame {
+            guard let pipeline = pipelineI420Mesh, let textures = makeI420Textures(from: yuvFrame) else {
+                encoder.endEncoding()
+                return false
+            }
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setFragmentTexture(textures.y, index: 0)
+            encoder.setFragmentTexture(textures.u, index: 1)
+            encoder.setFragmentTexture(textures.v, index: 2)
+
+            for (index, viewport) in viewports.enumerated() {
+                let originY = drawableSize.height - viewport.origin.y - viewport.size.height
+                encoder.setViewport(MTLViewport(originX: Double(viewport.origin.x),
+                                                originY: Double(originY),
+                                                width: Double(viewport.size.width),
+                                                height: Double(viewport.size.height),
+                                                znear: 0,
+                                                zfar: 1))
+                var mvpMatrix = mvpList[index]
+                encoder.setVertexBytes(&mvpMatrix, length: MemoryLayout<simd_float4x4>.size, index: 1)
+                encoder.drawIndexedPrimitives(type: .triangle,
+                                              indexCount: mesh.indexCount,
+                                              indexType: .uint16,
+                                              indexBuffer: mesh.indexBuffer,
+                                              indexBufferOffset: 0)
+            }
+            didRender = true
+        }
+
+        encoder.endEncoding()
+        if didRender {
+            commandBuffer.present(drawable)
+            commandBuffer.commit()
+        }
+        return didRender
+    }
+
     private func renderNV12Mesh(cvFrame: IRFFCVYUVVideoFrame,
                                 encoder: MTLRenderCommandEncoder,
                                 indexCount: Int,
