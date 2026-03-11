@@ -120,6 +120,53 @@ final class IRMetalRenderer {
         return false
     }
 
+    func renderMulti(frame: IRFFVideoFrame,
+                     to drawable: CAMetalDrawable,
+                     drawableSize: CGSize,
+                     viewports: [CGRect],
+                     contentModes: [IRGLRenderContentMode]) -> Bool {
+        guard !viewports.isEmpty, viewports.count == contentModes.count else { return false }
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
+
+        encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+
+        var didRender = false
+        for (index, viewport) in viewports.enumerated() {
+            guard viewport.width > 0, viewport.height > 0 else { continue }
+            let originY = drawableSize.height - viewport.origin.y
+            encoder.setViewport(MTLViewport(originX: Double(viewport.origin.x),
+                                            originY: Double(originY),
+                                            width: Double(viewport.size.width),
+                                            height: -Double(viewport.size.height),
+                                            znear: 0,
+                                            zfar: 1))
+
+            let targetSize = viewport.size
+            let scale = computeScale(contentMode: contentModes[index],
+                                     frameSize: CGSize(width: frame.width, height: frame.height),
+                                     drawableSize: targetSize)
+            var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height))
+            encoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
+
+            if let cvFrame = frame as? IRFFCVYUVVideoFrame {
+                didRender = renderNV12(cvFrame: cvFrame, encoder: encoder) || didRender
+            } else if let yuvFrame = frame as? IRFFAVYUVVideoFrame {
+                didRender = renderI420(yuvFrame: yuvFrame, encoder: encoder) || didRender
+            } else if let rgbFrame = frame as? IRVideoFrameRGB {
+                didRender = renderRGB(rgbFrame: rgbFrame, encoder: encoder) || didRender
+            }
+        }
+
+        encoder.endEncoding()
+        if didRender {
+            commandBuffer.present(drawable)
+            commandBuffer.commit()
+        }
+        return didRender
+    }
+
     private func buildPipelines() {
         let library: MTLLibrary?
         #if SWIFT_PACKAGE

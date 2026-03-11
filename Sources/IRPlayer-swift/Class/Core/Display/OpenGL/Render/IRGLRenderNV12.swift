@@ -80,9 +80,9 @@ enum UniformParam: Int {
 
         cleanUpTextures()
 
-        let colorAttachments: String? = CVBufferGetAttachment(pixelBuffer, kCVImageBufferYCbCrMatrixKey, nil)?.takeUnretainedValue() as? String
-//        let colorAttachments = colorAttachments.takeUnretainedValue() as CFString
-        if colorAttachments! == kCVImageBufferYCbCrMatrix_ITU_R_601_4 as String {
+        let colorAttachments: String? = CVBufferGetAttachment(pixelBuffer, kCVImageBufferYCbCrMatrixKey, nil)?
+            .takeUnretainedValue() as? String
+        if colorAttachments == kCVImageBufferYCbCrMatrix_ITU_R_601_4 as String {
             preferredConversion = kIRColorConversion601
         } else {
             preferredConversion = kIRColorConversion709
@@ -90,9 +90,14 @@ enum UniformParam: Int {
 
         var err: CVReturn
 
+        guard let textureCache = videoTextureCache else {
+            print("IRGLRenderNV12: videoTextureCache is nil")
+            return
+        }
+
         if EAGLContext.current()?.api == .openGLES2 {
             err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault,
-                                                               videoTextureCache!,
+                                                               textureCache,
                                                                pixelBuffer,
                                                                nil,
                                                                GLenum(GL_TEXTURE_2D),
@@ -105,7 +110,7 @@ enum UniformParam: Int {
                                                                &lumaTexture)
         } else {
             err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault,
-                                                               videoTextureCache!,
+                                                               textureCache,
                                                                pixelBuffer,
                                                                nil,
                                                                GLenum(GL_TEXTURE_2D),
@@ -132,7 +137,7 @@ enum UniformParam: Int {
         // UV-plane
         if EAGLContext.current()?.api == .openGLES2 {
             err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault,
-                                                               videoTextureCache!,
+                                                               textureCache,
                                                                pixelBuffer,
                                                                nil,
                                                                GLenum(GL_TEXTURE_2D),
@@ -145,7 +150,7 @@ enum UniformParam: Int {
                                                                &chromaTexture)
         } else {
             err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault,
-                                                               videoTextureCache!,
+                                                               textureCache,
                                                                pixelBuffer,
                                                                nil,
                                                                GLenum(GL_TEXTURE_2D),

@@ -247,6 +247,12 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
            let renderer = metalRenderer,
            let drawable = metalLayer.nextDrawable() {
             mode?.program?.setRenderFrame(frame)
+            if let multiResult = renderMetalMulti4PIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
+                if multiResult {
+                    saveSnapShot()
+                    return
+                }
+            }
             if let fish2PanoResult = renderMetalFish2PanoIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
                 if fish2PanoResult {
                     saveSnapShot()
@@ -504,6 +510,20 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         let scopeRange = controller.scopeRange ?? newScopeRange
         let adjustedScopeRange = IRGLScopeRange(minLat: scopeRange.minLat, maxLat: scopeRange.maxLat, minLng: scopeRange.minLng, maxLng: scopeRange.maxLng, defaultLat: -40, defaultLng: 90)
         controller.scopeRange = adjustedScopeRange
+    }
+
+    private func renderMetalMulti4PIfNeeded(frame: IRFFVideoFrame,
+                                            renderer: IRMetalRenderer,
+                                            drawable: CAMetalDrawable,
+                                            drawableSize: CGSize) -> Bool? {
+        guard let program = mode?.program as? IRGLProgramMulti4P else { return nil }
+        let viewports = program.programs.map { $0.viewprotRange }
+        let contentModes = program.programs.map { $0.contentMode }
+        return renderer.renderMulti(frame: frame,
+                                    to: drawable,
+                                    drawableSize: drawableSize,
+                                    viewports: viewports,
+                                    contentModes: contentModes)
     }
 
     private func renderMetalFish2PanoIfNeeded(frame: IRFFVideoFrame,
