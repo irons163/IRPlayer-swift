@@ -212,17 +212,29 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func updateScope(byFx fx: Float, fy: Float, dsx: Float, dsy: Float) {
-        metalFisheyeController?.update(fx: fx, fy: fy, sx: dsx, sy: dsy)
+        if let program = mode?.program {
+            program.didPinchByfx(fx, fy: fy, dsx: dsx, dsy: dsy)
+        } else {
+            metalFisheyeController?.update(fx: fx, fy: fy, sx: dsx, sy: dsy)
+        }
         render(nil)
     }
 
     func scroll(byDx dx: Float, dy: Float) {
-        metalFisheyeController?.scroll(dx: dx, dy: dy)
+        if let program = mode?.program {
+            program.didPanBydx(dx, dy: dy)
+        } else {
+            metalFisheyeController?.scroll(dx: dx, dy: dy)
+        }
         render(nil)
     }
 
     func scroll(byDegreeX degreeX: Float, degreeY: Float) {
-        metalFisheyeController?.scroll(degreeX: degreeX, degreeY: degreeY)
+        if let program = mode?.program {
+            program.didPanByDegreeX(degreeX, degreeY: degreeY)
+        } else {
+            metalFisheyeController?.scroll(degreeX: degreeX, degreeY: degreeY)
+        }
         render(nil)
     }
 
