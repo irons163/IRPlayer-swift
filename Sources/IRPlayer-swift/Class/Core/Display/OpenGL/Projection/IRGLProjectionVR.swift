@@ -7,6 +7,7 @@
 
 import Foundation
 import OpenGLES
+import simd
 
 class IRGLProjectionVR: IRGLProjection {
 
@@ -47,6 +48,39 @@ class IRGLProjectionVR: IRGLProjection {
     func draw() {
         glDrawElements(GLenum(GL_TRIANGLES), GLsizei(index_count), GLenum(GL_UNSIGNED_SHORT), nil)
     }
+
+    func exportMesh() -> (positions: [SIMD3<Float>], texcoords: [SIMD2<Float>], indices: [UInt16])? {
+        if IRGLProjectionVR.vertex_buffer_data == nil || IRGLProjectionVR.texture_buffer_data == nil || IRGLProjectionVR.index_buffer_data == nil {
+            ensureVRData()
+        }
+        guard let vbuf = IRGLProjectionVR.vertex_buffer_data,
+              let tbuf = IRGLProjectionVR.texture_buffer_data,
+              let ibuf = IRGLProjectionVR.index_buffer_data else {
+            return nil
+        }
+
+        var positions: [SIMD3<Float>] = []
+        positions.reserveCapacity(IRGLProjectionVR.vertex_count)
+        for i in 0..<IRGLProjectionVR.vertex_count {
+            let base = i * 3
+            positions.append(SIMD3<Float>(vbuf[base], vbuf[base + 1], vbuf[base + 2]))
+        }
+
+        var texcoords: [SIMD2<Float>] = []
+        texcoords.reserveCapacity(IRGLProjectionVR.vertex_count)
+        for i in 0..<IRGLProjectionVR.vertex_count {
+            let base = i * 2
+            texcoords.append(SIMD2<Float>(tbuf[base], tbuf[base + 1]))
+        }
+
+        var indices: [UInt16] = []
+        indices.reserveCapacity(IRGLProjectionVR.index_count)
+        for i in 0..<IRGLProjectionVR.index_count {
+            indices.append(ibuf[i])
+        }
+
+        return (positions: positions, texcoords: texcoords, indices: indices)
+    }
 }
 
 extension IRGLProjectionVR {
@@ -61,10 +95,22 @@ extension IRGLProjectionVR {
     }
 
     private func setupVR() {
+        ensureVRData()
+        glGenBuffers(1, &IRGLProjectionVR.index_buffer_id)
+        glGenBuffers(1, &IRGLProjectionVR.vertex_buffer_id)
+        glGenBuffers(1, &IRGLProjectionVR.texture_buffer_id)
+    }
+
+    private func ensureVRData() {
+        guard IRGLProjectionVR.vertex_buffer_data == nil ||
+              IRGLProjectionVR.texture_buffer_data == nil ||
+              IRGLProjectionVR.index_buffer_data == nil else {
+            return
+        }
+
         let step: Float = (2.0 * .pi) / Float(IRGLProjectionVR.slices_count)
         let radius: Float = 1.0
 
-        // Model
         IRGLProjectionVR.index_buffer_data = UnsafeMutablePointer<GLushort>.allocate(capacity: IRGLProjectionVR.index_count)
         IRGLProjectionVR.vertex_buffer_data = UnsafeMutablePointer<GLfloat>.allocate(capacity: IRGLProjectionVR.vertex_count * 3)
         IRGLProjectionVR.texture_buffer_data = UnsafeMutablePointer<GLfloat>.allocate(capacity: IRGLProjectionVR.vertex_count * 2)
@@ -74,17 +120,14 @@ extension IRGLProjectionVR {
             for j in 0...IRGLProjectionVR.slices_count {
                 let vertex = (i * (IRGLProjectionVR.slices_count + 1) + j) * 3
 
-                // Vertex data
                 IRGLProjectionVR.vertex_buffer_data?[vertex] = radius * sinf(step * Float(i)) * cosf(step * Float(j))
                 IRGLProjectionVR.vertex_buffer_data?[vertex + 1] = radius * cosf(step * Float(i))
                 IRGLProjectionVR.vertex_buffer_data?[vertex + 2] = radius * sinf(step * Float(i)) * sinf(step * Float(j))
 
-                // Texture data
                 let textureIndex = (i * (IRGLProjectionVR.slices_count + 1) + j) * 2
                 IRGLProjectionVR.texture_buffer_data?[textureIndex] = Float(j) / Float(IRGLProjectionVR.slices_count)
                 IRGLProjectionVR.texture_buffer_data?[textureIndex + 1] = Float(i) / Float(IRGLProjectionVR.parallels_count)
 
-                // Index data
                 if i < IRGLProjectionVR.parallels_count && j < IRGLProjectionVR.slices_count {
                     IRGLProjectionVR.index_buffer_data?[runCount] = GLushort(i * (IRGLProjectionVR.slices_count + 1) + j)
                     runCount += 1
@@ -101,10 +144,6 @@ extension IRGLProjectionVR {
                 }
             }
         }
-
-        glGenBuffers(1, &IRGLProjectionVR.index_buffer_id)
-        glGenBuffers(1, &IRGLProjectionVR.vertex_buffer_id)
-        glGenBuffers(1, &IRGLProjectionVR.texture_buffer_id)
     }
 
     private func bindPositionLocation(position_location: GLint, textureCoordLocation: GLint) {

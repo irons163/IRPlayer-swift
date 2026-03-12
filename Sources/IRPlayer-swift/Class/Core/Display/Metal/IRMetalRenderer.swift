@@ -30,6 +30,7 @@ final class IRMetalRenderer {
     private var pipelineRGB: MTLRenderPipelineState?
     private var pipelineNV12Mesh: MTLRenderPipelineState?
     private var pipelineI420Mesh: MTLRenderPipelineState?
+    private var pipelineRGBMesh: MTLRenderPipelineState?
     private var pipelineNV12Fish2Pano: MTLRenderPipelineState?
     private var pipelineI420Fish2Pano: MTLRenderPipelineState?
     private var pipelineRGBFish2Pano: MTLRenderPipelineState?
@@ -94,7 +95,7 @@ final class IRMetalRenderer {
                                         zfar: 1))
 
         if let cvFrame = frame as? IRFFCVYUVVideoFrame {
-            if renderNV12(cvFrame: cvFrame, encoder: encoder) {
+            if renderNV12(cvFrame: cvFrame, encoder: encoder) || renderBGRA(cvFrame: cvFrame, encoder: encoder) {
                 encoder.endEncoding()
                 commandBuffer.present(drawable)
                 commandBuffer.commit()
@@ -151,7 +152,7 @@ final class IRMetalRenderer {
             encoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
 
             if let cvFrame = frame as? IRFFCVYUVVideoFrame {
-                didRender = renderNV12(cvFrame: cvFrame, encoder: encoder) || didRender
+                didRender = renderNV12(cvFrame: cvFrame, encoder: encoder) || renderBGRA(cvFrame: cvFrame, encoder: encoder) || didRender
             } else if let yuvFrame = frame as? IRFFAVYUVVideoFrame {
                 didRender = renderI420(yuvFrame: yuvFrame, encoder: encoder) || didRender
             } else if let rgbFrame = frame as? IRVideoFrameRGB {
@@ -254,6 +255,18 @@ final class IRMetalRenderer {
             }
         }
 
+        if let vertexFunction3D = vertexFunction3D, let fragmentRGB = fragmentRGB {
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = vertexFunction3D
+            descriptor.fragmentFunction = fragmentRGB
+            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+            descriptor.vertexDescriptor = vertexDescriptor3D
+            pipelineRGBMesh = try? device.makeRenderPipelineState(descriptor: descriptor)
+            if pipelineRGBMesh == nil {
+                print("IRMetalRenderer: failed to create RGB mesh pipeline")
+            }
+        }
+
         if let vertexFunction = vertexFunction, let fragmentFish2PanoNV12 = fragmentFish2PanoNV12 {
             let descriptor = MTLRenderPipelineDescriptor()
             descriptor.vertexFunction = vertexFunction
@@ -336,6 +349,15 @@ final class IRMetalRenderer {
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentTexture(yTexture, index: 0)
         encoder.setFragmentTexture(uvTexture, index: 1)
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        return true
+    }
+
+    private func renderBGRA(cvFrame: IRFFCVYUVVideoFrame, encoder: MTLRenderCommandEncoder) -> Bool {
+        guard let pipeline = pipelineRGB else { return false }
+        guard let texture = makeBGRATexture(from: cvFrame) else { return false }
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setFragmentTexture(texture, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         return true
     }
@@ -494,6 +516,7 @@ final class IRMetalRenderer {
         var didRender = false
         if let cvFrame = frame as? IRFFCVYUVVideoFrame {
             didRender = renderNV12Mesh(cvFrame: cvFrame, encoder: encoder, indexCount: mesh.indexCount, indexBuffer: mesh.indexBuffer)
+                || renderBGRAMesh(cvFrame: cvFrame, encoder: encoder, indexCount: mesh.indexCount, indexBuffer: mesh.indexBuffer)
         } else if let yuvFrame = frame as? IRFFAVYUVVideoFrame {
             didRender = renderI420Mesh(yuvFrame: yuvFrame, encoder: encoder, indexCount: mesh.indexCount, indexBuffer: mesh.indexBuffer)
         }
@@ -525,13 +548,17 @@ final class IRMetalRenderer {
         var didRender = false
 
         if let cvFrame = frame as? IRFFCVYUVVideoFrame {
-            guard let pipeline = pipelineNV12Mesh, let textures = makeNV12Textures(from: cvFrame) else {
+            if let pipeline = pipelineNV12Mesh, let textures = makeNV12Textures(from: cvFrame) {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setFragmentTexture(textures.y, index: 0)
+                encoder.setFragmentTexture(textures.uv, index: 1)
+            } else if let pipeline = pipelineRGBMesh, let texture = makeBGRATexture(from: cvFrame) {
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setFragmentTexture(texture, index: 0)
+            } else {
                 encoder.endEncoding()
                 return false
             }
-            encoder.setRenderPipelineState(pipeline)
-            encoder.setFragmentTexture(textures.y, index: 0)
-            encoder.setFragmentTexture(textures.uv, index: 1)
 
             for (index, viewport) in viewports.enumerated() {
                 let originY = drawableSize.height - viewport.origin.y - viewport.size.height
@@ -600,6 +627,18 @@ final class IRMetalRenderer {
         return true
     }
 
+    private func renderBGRAMesh(cvFrame: IRFFCVYUVVideoFrame,
+                                encoder: MTLRenderCommandEncoder,
+                                indexCount: Int,
+                                indexBuffer: MTLBuffer) -> Bool {
+        guard let pipeline = pipelineRGBMesh else { return false }
+        guard let texture = makeBGRATexture(from: cvFrame) else { return false }
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setFragmentTexture(texture, index: 0)
+        encoder.drawIndexedPrimitives(type: .triangle, indexCount: indexCount, indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
+        return true
+    }
+
     private func renderI420Mesh(yuvFrame: IRFFAVYUVVideoFrame,
                                 encoder: MTLRenderCommandEncoder,
                                 indexCount: Int,
@@ -631,6 +670,20 @@ final class IRMetalRenderer {
         guard let yRef = yTextureRef, let uvRef = uvTextureRef else { return nil }
         guard let y = CVMetalTextureGetTexture(yRef), let uv = CVMetalTextureGetTexture(uvRef) else { return nil }
         return (y: y, uv: uv)
+    }
+
+    private func makeBGRATexture(from cvFrame: IRFFCVYUVVideoFrame) -> MTLTexture? {
+        guard let textureCache = textureCache else { return nil }
+        let pixelBuffer = cvFrame.pixelBuffer
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let format = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        guard format == kCVPixelFormatType_32BGRA else { return nil }
+
+        var textureRef: CVMetalTexture?
+        CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, pixelBuffer, nil, .bgra8Unorm, width, height, 0, &textureRef)
+        guard let ref = textureRef else { return nil }
+        return CVMetalTextureGetTexture(ref)
     }
 
     private func makeI420Textures(from yuvFrame: IRFFAVYUVVideoFrame) -> (y: MTLTexture, u: MTLTexture, v: MTLTexture)? {

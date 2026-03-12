@@ -9,6 +9,8 @@ import GLKit
 
 @objcMembers public class IRGLProgramVR: IRGLProgram2D {
 
+    private var initialDefaultScale: Float?
+
     var indexId: GLuint = 0
     var vertexId: GLuint = 0
     var textureId: GLuint = 0
@@ -32,6 +34,22 @@ import GLKit
             fragmentShaderString = IRGLFragmentNV12ShaderGLSL.getShardString()
         }
         return fragmentShaderString
+    }
+
+    override func setDefaultScale(_ scale: Float) {
+        super.setDefaultScale(scale)
+        if initialDefaultScale == nil {
+            initialDefaultScale = scale
+        }
+    }
+
+    override func didDoubleTap() {
+        if let scale = initialDefaultScale,
+           let controller = tramsformController as? IRGLTransformController3DFisheye {
+            controller.update(fx: 0, fy: 0, sx: scale, sy: scale)
+            return
+        }
+        super.didDoubleTap()
     }
 
     public override func doScrollVertical(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {

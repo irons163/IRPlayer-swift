@@ -166,10 +166,15 @@ class IRGLGestureController: IRGestureController {
 
         guard isTouchedInProgram else { return }
 
-        currentMode?.program?.doResetToDefaultScaleBlock = { program in
-            guard !program.getCurrentScale().equalTo(CGPoint(x: 1.0, y: 1.0)) else { return false }
-            program.setDefaultScale(1.0)
-            return true
+        if let program = currentMode?.program,
+           program.tramsformController is IRGLTransformController2D {
+            program.doResetToDefaultScaleBlock = { program in
+                guard !program.getCurrentScale().equalTo(CGPoint(x: 1.0, y: 1.0)) else { return false }
+                program.setDefaultScale(1.0)
+                return true
+            }
+        } else {
+            currentMode?.program?.doResetToDefaultScaleBlock = nil
         }
 
         currentMode?.program?.didDoubleTap()

@@ -29,6 +29,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     private var ciContext: CIContext?
     private var metalRenderer: IRMetalRenderer?
     private var metalFisheyeMesh: IRMetalFisheyeMesh?
+    private var metalVRMesh: IRMetalFisheyeMesh?
     private var metalFisheyeController: IRGLTransformController3DFisheye?
     private var metalFisheyeParameter: IRFisheyeParameter?
     private var metalFisheyeLastSize: CGSize = .zero
@@ -141,6 +142,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         currentFrame = nil
         metalRenderer = nil
         metalFisheyeMesh = nil
+        metalVRMesh = nil
         metalFisheyeController = nil
         metalFisheyeParameter = nil
         metalFish2PanoParams = nil
@@ -300,6 +302,12 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             }
             if let fisheyeResult = renderMetalFisheyeIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
                 if fisheyeResult {
+                    saveSnapShot()
+                    return
+                }
+            }
+            if let vrResult = renderMetalVRIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
+                if vrResult {
                     saveSnapShot()
                     return
                 }
@@ -585,7 +593,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             }
 
             guard let mesh = metalFisheyeMesh else { return false }
-            let texMatrix = GLKMatrix4MakeScale(1, -1, 1)
+            let texMatrix = GLKMatrix4Identity
             let viewports = program.programs.map { $0.viewprotRange }
             var mvps: [simd_float4x4] = []
             mvps.reserveCapacity(program.programs.count)
@@ -746,6 +754,53 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                       to: drawable,
                                       drawableSize: drawableSize,
                                       viewport: viewportRect)
+    }
+
+    private func renderMetalVRIfNeeded(frame: IRFFVideoFrame,
+                                       renderer: IRMetalRenderer,
+                                       drawable: CAMetalDrawable,
+                                       drawableSize: CGSize) -> Bool? {
+        guard mode is IRGLRenderModeVR else { return nil }
+        guard let program = mode?.program as? IRGLProgramVR else {
+            return false
+        }
+        guard let controller = program.tramsformController as? IRGLTransformControllerVR else {
+            return false
+        }
+
+        if metalVRMesh == nil {
+            if let projection = program.mapProjection as? IRGLProjectionVR,
+               let meshData = projection.exportMesh(),
+               let device = (self.device ?? MTLCreateSystemDefaultDevice()) {
+                metalVRMesh = IRMetalFisheyeMesh(device: device,
+                                                 positions: meshData.positions,
+                                                 texcoords: meshData.texcoords,
+                                                 indices: meshData.indices)
+            }
+        }
+
+        guard let mesh = metalVRMesh else {
+            return false
+        }
+        let mvp = controller.getModelViewProjectionMatrix()
+        let texMatrix = GLKMatrix4Identity
+        let viewportRect = program.calculateViewport()
+        let mvpMetal = mvp.simd.toMetalClipSpace()
+        let yFlip = simd_float4x4(columns: (
+            SIMD4<Float>(1, 0, 0, 0),
+            SIMD4<Float>(0, -1, 0, 0),
+            SIMD4<Float>(0, 0, 1, 0),
+            SIMD4<Float>(0, 0, 0, 1)
+        ))
+        let mvpAdjusted = yFlip * mvpMetal
+        let rendered = renderer.renderFisheye(frame: frame,
+                                              mesh: mesh,
+                                              mvp: mvpAdjusted,
+                                              textureMatrix: texMatrix.simd,
+                                              to: drawable,
+                                              drawableSize: drawableSize,
+                                              viewport: viewportRect)
+        return rendered
     }
 
     public func send(videoFrame: IRFFVideoFrame) {
