@@ -96,4 +96,8 @@ import Foundation
         }
         return true
     }
+
+    override func didDoubleTap() {
+        super.didDoubleTap()
+    }
 }

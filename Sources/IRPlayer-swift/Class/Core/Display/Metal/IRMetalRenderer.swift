@@ -399,7 +399,8 @@ final class IRMetalRenderer {
                          drawableSize: CGSize,
                          viewport: CGRect,
                          contentMode: IRGLRenderContentMode,
-                         outputSize: CGSize) -> Bool {
+                         outputSize: CGSize,
+                         zoomScale: Float) -> Bool {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
@@ -414,7 +415,7 @@ final class IRMetalRenderer {
 
         let targetSize = viewport.size
         let scale = computeScale(contentMode: contentMode, frameSize: outputSize, drawableSize: targetSize)
-        var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height))
+        var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height)) * zoomScale
 
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         encoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)

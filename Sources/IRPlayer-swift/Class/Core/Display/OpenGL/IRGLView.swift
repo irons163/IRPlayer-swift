@@ -213,7 +213,17 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     func updateScope(byFx fx: Float, fy: Float, dsx: Float, dsy: Float) {
         if let program = mode?.program {
-            program.didPinchByfx(fx, fy: fy, dsx: dsx, dsy: dsy)
+            if let panoProgram = program as? IRGLProgram2DFisheye2Pano,
+               let controller = panoProgram.tramsformController {
+                let scope = controller.getScope()
+                let scaleX = scope.scaleX * dsx
+                let scaleY = scope.scaleY * dsy
+                let centerX = Float(scope.w) / 2.0
+                let centerY = Float(scope.h) / 2.0
+                controller.update(fx: centerX, fy: centerY, sx: scaleX, sy: scaleY)
+            } else {
+                program.didPinchByfx(fx, fy: fy, dsx: dsx, dsy: dsy)
+            }
         } else {
             metalFisheyeController?.update(fx: fx, fy: fy, sx: dsx, sy: dsy)
         }
@@ -645,8 +655,13 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             return true
         }
 
-        let viewportRect = (mode?.program as? IRGLProgram2D)?.calculateViewport() ??
-            CGRect(x: 0, y: 0, width: drawableSize.width, height: drawableSize.height)
+        let viewportRect: CGRect
+        if let panoProgram = mode?.program as? IRGLProgram2DFisheye2Pano {
+            viewportRect = panoProgram.viewprotRange
+        } else {
+            viewportRect = (mode?.program as? IRGLProgram2D)?.calculateViewport() ??
+                CGRect(x: 0, y: 0, width: drawableSize.width, height: drawableSize.height)
+        }
 
         let renderParams = IRMetalRenderer.Fish2PanoParams(
             fishwidth: Int32(params.textureWidth),
@@ -657,7 +672,9 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             offsetX: params.offsetX
         )
 
-        let effectiveContentMode = (mode?.program as? IRGLProgram2D)?.contentMode ?? renderContentMode
+        let effectiveProgram = mode?.program as? IRGLProgram2D
+        let effectiveContentMode = effectiveProgram?.contentMode ?? renderContentMode
+        let zoomScale = effectiveProgram?.getCurrentScale().x ?? 1
         return renderer.renderFish2Pano(frame: frame,
                                         params: renderParams,
                                         texUVTextures: metalFish2PanoTexUV,
@@ -665,7 +682,8 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                         drawableSize: drawableSize,
                                         viewport: viewportRect,
                                         contentMode: effectiveContentMode,
-                                        outputSize: outputSize)
+                                        outputSize: outputSize,
+                                        zoomScale: Float(zoomScale))
     }
 
     private func makeTexUVTexture(width: Int, height: Int, data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {
