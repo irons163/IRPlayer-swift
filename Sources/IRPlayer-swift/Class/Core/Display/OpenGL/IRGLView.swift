@@ -223,6 +223,23 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     func scroll(byDx dx: Float, dy: Float) {
         if let program = mode?.program {
             program.didPanBydx(dx, dy: dy)
+            if let panoProgram = program as? IRGLProgram2DFisheye2Pano,
+               let params = panoProgram.metalFish2PanoParams,
+               let controller = panoProgram.tramsformController {
+                let scope = controller.getScope()
+                if scope.w > 0, scope.scaleX != 0, params.outputWidth > 0 {
+                    let widthScale = Float(params.outputWidth) / Float(scope.w)
+                    params.offsetX -= (dx / scope.scaleX * widthScale)
+                    let outputWidth = Float(params.outputWidth)
+                    while params.offsetX > outputWidth || params.offsetX < -outputWidth {
+                        if params.offsetX > outputWidth {
+                            params.offsetX -= outputWidth
+                        } else if params.offsetX < -outputWidth {
+                            params.offsetX += outputWidth
+                        }
+                    }
+                }
+            }
         } else {
             metalFisheyeController?.scroll(dx: dx, dy: dy)
         }
