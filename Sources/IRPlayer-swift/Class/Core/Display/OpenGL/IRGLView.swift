@@ -37,6 +37,8 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     private var metalFish2PanoTexUV: [MTLTexture] = []
     private var metalFish2PanoLastOutputSize: CGSize = .zero
     private var metalFish2PanoLastAntialias: Int = 0
+    private var metalDistortionLeftMesh: IRMetalDistortionMesh?
+    private var metalDistortionRightMesh: IRMetalDistortionMesh?
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     private var backingWidth: Int = 0
     private var backingHeight: Int = 0
@@ -149,6 +151,8 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         metalFish2PanoTexUV = []
         metalFish2PanoLastOutputSize = .zero
         metalFish2PanoLastAntialias = 0
+        metalDistortionLeftMesh = nil
+        metalDistortionRightMesh = nil
         commandQueue = nil
         ciContext = nil
         device = nil
@@ -287,7 +291,14 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         if let frame = currentFrame,
            let renderer = metalRenderer,
            let drawable = metalLayer.nextDrawable() {
+            struct RenderDebug {
+                static var didLogDistortion = false
+            }
             mode?.program?.setRenderFrame(frame)
+            if !RenderDebug.didLogDistortion, mode is IRGLRenderModeDistortion {
+                RenderDebug.didLogDistortion = true
+                print("[Distortion] renderCurrentContent enter mode=Distortion drawableSize=\(drawableSize)")
+            }
             if let multiResult = renderMetalMulti4PIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
                 if multiResult {
                     saveSnapShot()
@@ -296,6 +307,12 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             }
             if let fish2PanoResult = renderMetalFish2PanoIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
                 if fish2PanoResult {
+                    saveSnapShot()
+                    return
+                }
+            }
+            if let distortionResult = renderMetalDistortionIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
+                if distortionResult {
                     saveSnapShot()
                     return
                 }
@@ -433,6 +450,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         queue.sync {
             self.mode = renderMode
             self.aspect = CGFloat(self.mode?.aspect ?? 0.0)
+            print("[Distortion] choose renderMode=\(type(of: renderMode))")
             if renderMode.program == nil {
                 renderMode.buildIRGLProgram(pixelFormat: irPixelFormat, viewprotRange: viewprotRange, parameter: renderMode.parameter)
             } else {
@@ -692,6 +710,37 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                         contentMode: effectiveContentMode,
                                         outputSize: outputSize,
                                         zoomScale: Float(zoomScale))
+    }
+
+    private func renderMetalDistortionIfNeeded(frame: IRFFVideoFrame,
+                                               renderer: IRMetalRenderer,
+                                               drawable: CAMetalDrawable,
+                                               drawableSize: CGSize) -> Bool? {
+        guard mode is IRGLRenderModeDistortion else { return nil }
+        struct DistortionDebug {
+            static var didLog = false
+        }
+        if !DistortionDebug.didLog {
+            DistortionDebug.didLog = true
+            print("[Distortion] renderMetalDistortionIfNeeded enter frame=\(type(of: frame))")
+        }
+        if metalDistortionLeftMesh == nil || metalDistortionRightMesh == nil {
+            guard let device = device ?? MTLCreateSystemDefaultDevice() else { return false }
+            metalDistortionLeftMesh = IRMetalDistortionMesh(device: device, modelType: .left)
+            metalDistortionRightMesh = IRMetalDistortionMesh(device: device, modelType: .right)
+        }
+        guard let leftMesh = metalDistortionLeftMesh, let rightMesh = metalDistortionRightMesh else { return false }
+        let effectiveContentMode = (mode?.program as? IRGLProgram2D)?.contentMode ?? renderContentMode
+        let result = renderer.renderDistortion(frame: frame,
+                                               leftMesh: leftMesh,
+                                               rightMesh: rightMesh,
+                                               to: drawable,
+                                               drawableSize: drawableSize,
+                                               contentMode: effectiveContentMode)
+        if DistortionDebug.didLog {
+            print("[Distortion] renderMetalDistortionIfNeeded result=\(result)")
+        }
+        return result
     }
 
     private func makeTexUVTexture(width: Int, height: Int, data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {

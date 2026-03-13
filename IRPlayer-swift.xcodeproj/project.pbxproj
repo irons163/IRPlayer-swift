@@ -10,6 +10,7 @@
 		4A51709A2F5DB6C6009F8BBA /* IRMetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5170992F5DB6C6009F8BBA /* IRMetalRenderer.swift */; };
 		4A51709C2F5DB6D3009F8BBA /* IRMetalShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4A51709B2F5DB6D3009F8BBA /* IRMetalShaders.metal */; };
 		4A5170FE2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5170FD2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift */; };
+		4A9CA7EA2F63848500B90A0E /* IRMetalDistortionMesh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9CA7E92F63848500B90A0E /* IRMetalDistortionMesh.swift */; };
 		B559AA6B2D15C603007A9F9F /* libavcodec.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA612D15C603007A9F9F /* libavcodec.xcframework */; };
 		B559AA6C2D15C603007A9F9F /* libavfilter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA632D15C603007A9F9F /* libavfilter.xcframework */; };
 		B559AA6D2D15C603007A9F9F /* libavdevice.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA622D15C603007A9F9F /* libavdevice.xcframework */; };
@@ -139,6 +140,7 @@
 		4A5170992F5DB6C6009F8BBA /* IRMetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalRenderer.swift; sourceTree = "<group>"; };
 		4A51709B2F5DB6D3009F8BBA /* IRMetalShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = IRMetalShaders.metal; sourceTree = "<group>"; };
 		4A5170FD2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalFisheyeMesh.swift; sourceTree = "<group>"; };
+		4A9CA7E92F63848500B90A0E /* IRMetalDistortionMesh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalDistortionMesh.swift; sourceTree = "<group>"; };
 		B559AA5C2D15C603007A9F9F /* package.xcworkspace */ = {isa = PBXFileReference; lastKnownFileType = wrapper.workspace; path = package.xcworkspace; sourceTree = "<group>"; };
 		B559AA5F2D15C603007A9F9F /* IRFFMpeg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IRFFMpeg.h; sourceTree = "<group>"; };
 		B559AA612D15C603007A9F9F /* libavcodec.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libavcodec.xcframework; sourceTree = "<group>"; };
@@ -293,6 +295,7 @@
 				4A5170992F5DB6C6009F8BBA /* IRMetalRenderer.swift */,
 				4A51709B2F5DB6D3009F8BBA /* IRMetalShaders.metal */,
 				4A5170FD2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift */,
+				4A9CA7E92F63848500B90A0E /* IRMetalDistortionMesh.swift */,
 			);
 			path = Metal;
 			sourceTree = "<group>";
@@ -906,6 +909,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A9CA7EA2F63848500B90A0E /* IRMetalDistortionMesh.swift in Sources */,
 				B5E94EC82D0B21F800149265 /* IRGLProjectionVR.swift in Sources */,
 				B5E94EC92D0B21F800149265 /* IRGLRenderBase.swift in Sources */,
 				B5E94ECA2D0B21F800149265 /* IRGLFragmentRGBShaderGLSL.swift in Sources */,

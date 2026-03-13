@@ -34,7 +34,12 @@ final class IRMetalRenderer {
     private var pipelineNV12Fish2Pano: MTLRenderPipelineState?
     private var pipelineI420Fish2Pano: MTLRenderPipelineState?
     private var pipelineRGBFish2Pano: MTLRenderPipelineState?
+    private var pipelineDistortion: MTLRenderPipelineState?
     private var vertexBuffer: MTLBuffer?
+    private var vertexBufferLeft: MTLBuffer?
+    private var vertexBufferRight: MTLBuffer?
+    private var distortionOffscreenTexture: MTLTexture?
+    private var distortionOffscreenSize: CGSize = .zero
     private let vertexDescriptor: MTLVertexDescriptor = {
         let descriptor = MTLVertexDescriptor()
         descriptor.attributes[0].format = .float2
@@ -44,6 +49,28 @@ final class IRMetalRenderer {
         descriptor.attributes[1].offset = MemoryLayout<SIMD2<Float>>.stride
         descriptor.attributes[1].bufferIndex = 0
         descriptor.layouts[0].stride = MemoryLayout<SIMD2<Float>>.stride * 2
+        descriptor.layouts[0].stepFunction = .perVertex
+        return descriptor
+    }()
+
+    private let vertexDescriptorDistortion: MTLVertexDescriptor = {
+        let descriptor = MTLVertexDescriptor()
+        descriptor.attributes[0].format = .float2
+        descriptor.attributes[0].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.position) ?? 0
+        descriptor.attributes[0].bufferIndex = 0
+        descriptor.attributes[1].format = .float
+        descriptor.attributes[1].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.vignette) ?? 0
+        descriptor.attributes[1].bufferIndex = 0
+        descriptor.attributes[2].format = .float2
+        descriptor.attributes[2].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.redTexCoord) ?? 0
+        descriptor.attributes[2].bufferIndex = 0
+        descriptor.attributes[3].format = .float2
+        descriptor.attributes[3].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.greenTexCoord) ?? 0
+        descriptor.attributes[3].bufferIndex = 0
+        descriptor.attributes[4].format = .float2
+        descriptor.attributes[4].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.blueTexCoord) ?? 0
+        descriptor.attributes[4].bufferIndex = 0
+        descriptor.layouts[0].stride = MemoryLayout<IRMetalDistortionVertex>.stride
         descriptor.layouts[0].stepFunction = .perVertex
         return descriptor
     }()
@@ -188,6 +215,8 @@ final class IRMetalRenderer {
         let fragmentFish2PanoNV12 = library.makeFunction(name: "irFragmentFish2PanoNV12")
         let fragmentFish2PanoI420 = library.makeFunction(name: "irFragmentFish2PanoI420")
         let fragmentFish2PanoRGB = library.makeFunction(name: "irFragmentFish2PanoRGB")
+        let vertexDistortion = library.makeFunction(name: "irDistortionVertex")
+        let fragmentDistortion = library.makeFunction(name: "irFragmentDistortion")
 
         if let vertexFunction = vertexFunction, let fragmentNV12 = fragmentNV12 {
             let descriptor = MTLRenderPipelineDescriptor()
@@ -302,6 +331,18 @@ final class IRMetalRenderer {
                 print("IRMetalRenderer: failed to create RGB fish2pano pipeline")
             }
         }
+
+        if let vertexDistortion = vertexDistortion, let fragmentDistortion = fragmentDistortion {
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = vertexDistortion
+            descriptor.fragmentFunction = fragmentDistortion
+            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+            descriptor.vertexDescriptor = vertexDescriptorDistortion
+            pipelineDistortion = try? device.makeRenderPipelineState(descriptor: descriptor)
+            if pipelineDistortion == nil {
+                print("IRMetalRenderer: failed to create distortion pipeline")
+            }
+        }
     }
 
     private func buildVertexBuffer() {
@@ -318,6 +359,22 @@ final class IRMetalRenderer {
         ]
 
         vertexBuffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<Vertex>.stride * vertices.count, options: .storageModeShared)
+
+        let leftVertices: [Vertex] = [
+            Vertex(position: SIMD2<Float>(-1.0, -1.0), texCoord: SIMD2<Float>(0.0, 1.0)),
+            Vertex(position: SIMD2<Float>( 1.0, -1.0), texCoord: SIMD2<Float>(0.5, 1.0)),
+            Vertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(0.0, 0.0)),
+            Vertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(0.5, 0.0))
+        ]
+        vertexBufferLeft = device.makeBuffer(bytes: leftVertices, length: MemoryLayout<Vertex>.stride * leftVertices.count, options: .storageModeShared)
+
+        let rightVertices: [Vertex] = [
+            Vertex(position: SIMD2<Float>(-1.0, -1.0), texCoord: SIMD2<Float>(0.5, 1.0)),
+            Vertex(position: SIMD2<Float>( 1.0, -1.0), texCoord: SIMD2<Float>(1.0, 1.0)),
+            Vertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(0.5, 0.0)),
+            Vertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(1.0, 0.0))
+        ]
+        vertexBufferRight = device.makeBuffer(bytes: rightVertices, length: MemoryLayout<Vertex>.stride * rightVertices.count, options: .storageModeShared)
     }
 
     private func renderNV12(cvFrame: IRFFCVYUVVideoFrame, encoder: MTLRenderCommandEncoder) -> Bool {
@@ -614,6 +671,119 @@ final class IRMetalRenderer {
         return didRender
     }
 
+    func renderDistortion(frame: IRFFVideoFrame,
+                          leftMesh: IRMetalDistortionMesh,
+                          rightMesh: IRMetalDistortionMesh,
+                          to drawable: CAMetalDrawable,
+                          drawableSize: CGSize,
+                          contentMode: IRGLRenderContentMode) -> Bool {
+        struct DistortionDebug {
+            static var didLog = false
+        }
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        guard let offscreen = makeDistortionOffscreenTexture(size: drawableSize) else {
+            if !DistortionDebug.didLog {
+                DistortionDebug.didLog = true
+                print("[Distortion] offscreen texture creation failed size=\(drawableSize)")
+            }
+            return false
+        }
+
+        let offscreenPass = MTLRenderPassDescriptor()
+        offscreenPass.colorAttachments[0].texture = offscreen
+        offscreenPass.colorAttachments[0].loadAction = .clear
+        offscreenPass.colorAttachments[0].storeAction = .store
+        offscreenPass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
+
+        guard let offscreenEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: offscreenPass) else { return false }
+        offscreenEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+
+        let halfWidth = drawableSize.width / 2.0
+        let halfSize = CGSize(width: halfWidth, height: drawableSize.height)
+
+        func renderHalf(originX: Double, isLeft: Bool) -> Bool {
+            // Distortion expects the offscreen texture to fill each eye half.
+            var scaleVector = SIMD2<Float>(1.0, 1.0)
+            offscreenEncoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
+            if let buffer = isLeft ? vertexBufferLeft : vertexBufferRight {
+                offscreenEncoder.setVertexBuffer(buffer, offset: 0, index: 0)
+            } else {
+                offscreenEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+            }
+            offscreenEncoder.setViewport(MTLViewport(originX: originX,
+                                                     originY: 0,
+                                                     width: Double(halfWidth),
+                                                     height: Double(drawableSize.height),
+                                                     znear: 0,
+                                                     zfar: 1))
+
+            if let cvFrame = frame as? IRFFCVYUVVideoFrame {
+                return renderNV12(cvFrame: cvFrame, encoder: offscreenEncoder)
+                    || renderBGRA(cvFrame: cvFrame, encoder: offscreenEncoder)
+            } else if let yuvFrame = frame as? IRFFAVYUVVideoFrame {
+                return renderI420(yuvFrame: yuvFrame, encoder: offscreenEncoder)
+            } else if let rgbFrame = frame as? IRVideoFrameRGB {
+                return renderRGB(rgbFrame: rgbFrame, encoder: offscreenEncoder)
+            }
+            return false
+        }
+
+        let leftRendered = renderHalf(originX: 0, isLeft: true)
+        let rightRendered = renderHalf(originX: Double(halfWidth), isLeft: false)
+        offscreenEncoder.endEncoding()
+
+        guard leftRendered || rightRendered else {
+            if !DistortionDebug.didLog {
+                DistortionDebug.didLog = true
+                print("[Distortion] offscreen render failed left=\(leftRendered) right=\(rightRendered) frame=\(type(of: frame))")
+            }
+            return false
+        }
+        guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
+        guard let pipelineDistortion = pipelineDistortion else {
+            if !DistortionDebug.didLog {
+                DistortionDebug.didLog = true
+                print("[Distortion] pipelineDistortion is nil")
+            }
+            return false
+        }
+
+        encoder.setRenderPipelineState(pipelineDistortion)
+        encoder.setFragmentTexture(offscreen, index: 0)
+        encoder.setViewport(MTLViewport(originX: 0,
+                                        originY: 0,
+                                        width: Double(drawableSize.width),
+                                        height: Double(drawableSize.height),
+                                        znear: 0,
+                                        zfar: 1))
+
+        let scissorHeight = max(Int(drawableSize.height), 0)
+        let leftWidth = max(Int(halfWidth), 0)
+        let rightWidth = max(Int(drawableSize.width) - leftWidth, 0)
+
+        encoder.setScissorRect(MTLScissorRect(x: 0, y: 0, width: leftWidth, height: scissorHeight))
+        encoder.setVertexBuffer(leftMesh.vertexBuffer, offset: 0, index: 0)
+        encoder.drawIndexedPrimitives(type: .triangleStrip,
+                                      indexCount: leftMesh.indexCount,
+                                      indexType: .uint16,
+                                      indexBuffer: leftMesh.indexBuffer,
+                                      indexBufferOffset: 0)
+
+        encoder.setScissorRect(MTLScissorRect(x: leftWidth, y: 0, width: rightWidth, height: scissorHeight))
+        encoder.setVertexBuffer(rightMesh.vertexBuffer, offset: 0, index: 0)
+        encoder.drawIndexedPrimitives(type: .triangleStrip,
+                                      indexCount: rightMesh.indexCount,
+                                      indexType: .uint16,
+                                      indexBuffer: rightMesh.indexBuffer,
+                                      indexBufferOffset: 0)
+
+        encoder.endEncoding()
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
+        return true
+    }
+
     private func renderNV12Mesh(cvFrame: IRFFCVYUVVideoFrame,
                                 encoder: MTLRenderCommandEncoder,
                                 indexCount: Int,
@@ -706,6 +876,22 @@ final class IRMetalRenderer {
         guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
         let bytesPerRow = width
         texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: bytes, bytesPerRow: bytesPerRow)
+        return texture
+    }
+
+    private func makeDistortionOffscreenTexture(size: CGSize) -> MTLTexture? {
+        guard size.width > 0, size.height > 0 else { return nil }
+        if let texture = distortionOffscreenTexture,
+           distortionOffscreenSize == size {
+            return texture
+        }
+        let width = Int(size.width)
+        let height = Int(size.height)
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false)
+        descriptor.usage = [.renderTarget, .shaderRead]
+        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
+        distortionOffscreenTexture = texture
+        distortionOffscreenSize = size
         return texture
     }
 

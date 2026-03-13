@@ -18,6 +18,22 @@ struct VertexOut {
     float2 texCoord;
 };
 
+struct DistortionVertexIn {
+    float2 position [[attribute(0)]];
+    float vignette [[attribute(1)]];
+    float2 redTexCoord [[attribute(2)]];
+    float2 greenTexCoord [[attribute(3)]];
+    float2 blueTexCoord [[attribute(4)]];
+};
+
+struct DistortionVertexOut {
+    float4 position [[position]];
+    float vignette;
+    float2 redTexCoord;
+    float2 greenTexCoord;
+    float2 blueTexCoord;
+};
+
 struct Fish2PanoParams {
     int fishwidth;
     int fishheight;
@@ -34,6 +50,16 @@ vertex VertexOut irVertex(VertexIn in [[stage_in]],
     float2 scaled = in.position * scale;
     out.position = float4(scaled, 0.0, 1.0);
     out.texCoord = float2(in.texCoord.x, 1.0 - in.texCoord.y);
+    return out;
+}
+
+vertex DistortionVertexOut irDistortionVertex(DistortionVertexIn in [[stage_in]]) {
+    DistortionVertexOut out;
+    out.position = float4(in.position, 0.0, 1.0);
+    out.vignette = in.vignette;
+    out.redTexCoord = in.redTexCoord;
+    out.greenTexCoord = in.greenTexCoord;
+    out.blueTexCoord = in.blueTexCoord;
     return out;
 }
 
@@ -219,4 +245,13 @@ fragment float4 irFragmentRGB(VertexOut in [[stage_in]],
     constexpr sampler s(address::clamp_to_edge, filter::linear);
     float4 color = rgbTex.sample(s, in.texCoord);
     return float4(color.rgb, 1.0);
+}
+
+fragment float4 irFragmentDistortion(DistortionVertexOut in [[stage_in]],
+                                    texture2d<float, access::sample> frameTex [[texture(0)]]) {
+    constexpr sampler s(address::clamp_to_edge, filter::linear);
+    float r = frameTex.sample(s, in.redTexCoord).r;
+    float g = frameTex.sample(s, in.greenTexCoord).g;
+    float b = frameTex.sample(s, in.blueTexCoord).b;
+    return float4(r, g, b, 1.0);
 }
