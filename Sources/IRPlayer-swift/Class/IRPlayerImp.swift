@@ -344,7 +344,6 @@ public class IRPlayerImp: NSObject {
                 mode.defaultScale = 1.5
                 mode.aspect = 16.0 / 9.0
                 self.displayView?.setRenderModes([mode])
-                print("[Distortion] setVideoType vr displayMode=normal -> VR mode")
             } else if self.displayMode == .box {
                 let mode = IRGLRenderModeFactory.createDistortionMode(with: nil)
                 mode.defaultScale = 1.5
@@ -355,7 +354,6 @@ public class IRPlayerImp: NSObject {
                 self.sensor?.targetView = displayView
                 self.sensor?.smoothScroll = self.gestureControl?.smoothScroll
                 self.sensor?.resetUnit()
-                print("[Distortion] setVideoType vr displayMode=box -> Distortion mode")
             }
             self.viewGravityMode = .resizeAspect
             self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()

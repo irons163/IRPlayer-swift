@@ -677,17 +677,8 @@ final class IRMetalRenderer {
                           to drawable: CAMetalDrawable,
                           drawableSize: CGSize,
                           contentMode: IRGLRenderContentMode) -> Bool {
-        struct DistortionDebug {
-            static var didLog = false
-        }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
-        guard let offscreen = makeDistortionOffscreenTexture(size: drawableSize) else {
-            if !DistortionDebug.didLog {
-                DistortionDebug.didLog = true
-                print("[Distortion] offscreen texture creation failed size=\(drawableSize)")
-            }
-            return false
-        }
+        guard let offscreen = makeDistortionOffscreenTexture(size: drawableSize) else { return false }
 
         let offscreenPass = MTLRenderPassDescriptor()
         offscreenPass.colorAttachments[0].texture = offscreen
@@ -732,22 +723,10 @@ final class IRMetalRenderer {
         let rightRendered = renderHalf(originX: Double(halfWidth), isLeft: false)
         offscreenEncoder.endEncoding()
 
-        guard leftRendered || rightRendered else {
-            if !DistortionDebug.didLog {
-                DistortionDebug.didLog = true
-                print("[Distortion] offscreen render failed left=\(leftRendered) right=\(rightRendered) frame=\(type(of: frame))")
-            }
-            return false
-        }
+        guard leftRendered || rightRendered else { return false }
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
-        guard let pipelineDistortion = pipelineDistortion else {
-            if !DistortionDebug.didLog {
-                DistortionDebug.didLog = true
-                print("[Distortion] pipelineDistortion is nil")
-            }
-            return false
-        }
+        guard let pipelineDistortion = pipelineDistortion else { return false }
 
         encoder.setRenderPipelineState(pipelineDistortion)
         encoder.setFragmentTexture(offscreen, index: 0)
