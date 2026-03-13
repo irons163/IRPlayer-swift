@@ -1,0 +1,4 @@
+module IRFFMpeg {
+    header "IRFFMpeg.h"
+    export *
+}

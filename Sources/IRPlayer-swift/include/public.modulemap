@@ -1,0 +1,4 @@
+framework module IRPlayer_swift {
+    umbrella header "IRPlayer_swift.h"
+    export *
+}

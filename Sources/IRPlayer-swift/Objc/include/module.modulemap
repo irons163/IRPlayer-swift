@@ -1,0 +1,4 @@
+module IRPlayerObjc {
+    header "IRFFMpegErrorUtil.h"
+    export *
+}

@@ -9,6 +9,11 @@ import Foundation
 import Metal
 import simd
 
+enum IRDistortionModelType: Int {
+    case left
+    case right
+}
+
 struct IRMetalDistortionVertex {
     var position: SIMD2<Float>
     var vignette: Float
