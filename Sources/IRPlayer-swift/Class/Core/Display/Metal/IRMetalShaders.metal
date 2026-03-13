@@ -253,5 +253,8 @@ fragment float4 irFragmentDistortion(DistortionVertexOut in [[stage_in]],
     float r = frameTex.sample(s, in.redTexCoord).r;
     float g = frameTex.sample(s, in.greenTexCoord).g;
     float b = frameTex.sample(s, in.blueTexCoord).b;
-    return float4(r, g, b, 1.0);
+    float vignette = clamp(in.vignette, 0.0, 1.0);
+    float strength = 0.3;
+    float gain = mix(1.0, vignette, strength);
+    return float4(r, g, b, 1.0) * gain;
 }
