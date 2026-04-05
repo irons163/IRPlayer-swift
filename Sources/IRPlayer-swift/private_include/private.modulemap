@@ -1,0 +1,4 @@
+framework module IRPlayer_swift_Private {
+    umbrella header "private-umbrella.h"
+    export *
+}
