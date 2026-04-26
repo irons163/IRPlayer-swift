@@ -343,12 +343,12 @@ public class IRPlayerImp: NSObject {
             self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
         case .vr:
             guard let displayView = self.displayView else { return }
-            if (self.displayMode == .normal) {
+            if self.displayMode == .normal {
                 let mode = IRGLRenderModeFactory.createVRMode(with: nil)
-                mode.program?.setDefaultScale(1.5)
+                mode.defaultScale = 1.5
                 mode.aspect = 16.0 / 9.0
                 self.displayView?.setRenderModes([mode])
-            } else if self.displayMode == .normal {
+            } else if self.displayMode == .box {
                 let mode = IRGLRenderModeFactory.createDistortionMode(with: nil)
                 mode.defaultScale = 1.5
                 mode.aspect = 16.0 / 9.0
