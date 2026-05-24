@@ -289,6 +289,39 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertEqual(ffPlayer.duration, 0)
         withExtendedLifetime(abstractPlayer) {}
     }
+
+    func testPlayableBufferIntervalReloadsFFmpegDecoderBufferDuration() throws {
+        let player = IRPlayerImp.player()
+        player.decoder = IRPlayerDecoder.FFmpegDecoder()
+        player.manager = nil
+        player.replaceVideoWithURL(contentURL: NSURL(fileURLWithPath: "/tmp/missing.flv"))
+
+        let ffPlayer = try XCTUnwrap(mirroredFFPlayer(from: player))
+        addTeardownBlock {
+            ffPlayer.stop()
+        }
+        let decoder = try XCTUnwrap(ffPlayer.decoder)
+        XCTAssertEqual(decoder.minBufferedDuration, 2)
+
+        player.playableBufferInterval = 7
+
+        XCTAssertEqual(decoder.minBufferedDuration, 7)
+        withExtendedLifetime(player) {}
+    }
+
+    private func mirroredFFPlayer(from player: IRPlayerImp) -> IRFFPlayer? {
+        let childValue = Mirror(reflecting: player)
+            .children
+            .first { $0.label == "_ffPlayer" }?
+            .value
+        guard let childValue = childValue else { return nil }
+
+        let optionalMirror = Mirror(reflecting: childValue)
+        if optionalMirror.displayStyle == .optional {
+            return optionalMirror.children.first?.value as? IRFFPlayer
+        }
+        return childValue as? IRFFPlayer
+    }
 }
 
 final class IRFFFrameQueueTests: XCTestCase {

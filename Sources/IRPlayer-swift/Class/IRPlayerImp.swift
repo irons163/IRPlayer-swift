@@ -162,7 +162,7 @@ public class IRPlayerImp: NSObject {
     public var playableBufferInterval: TimeInterval = 2.0 {
         didSet {
             if self._ffPlayer != nil {
-                self.ffPlayer.reloadVolume()
+                self.ffPlayer.reloadPlayableBufferInterval()
             }
         }
     }
