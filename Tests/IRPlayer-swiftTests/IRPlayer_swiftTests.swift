@@ -588,6 +588,26 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         XCTAssertEqual(extensions["CVImageBufferChromaLocationTopField"] as? String, "left")
         XCTAssertEqual(extensions["FullRangeVideo"] as? Bool, false)
     }
+
+    func testRequiredFormatDescriptionRejectsMissingDescription() throws {
+        XCTAssertNil(IRFFVideoToolBox.requiredFormatDescription(nil))
+
+        var formatDescription: CMFormatDescription?
+        let status = CMVideoFormatDescriptionCreate(
+            allocator: nil,
+            codecType: kCMVideoCodecType_H264,
+            width: 16,
+            height: 8,
+            extensions: nil,
+            formatDescriptionOut: &formatDescription
+        )
+
+        XCTAssertEqual(status, noErr)
+        let payload = try XCTUnwrap(IRFFVideoToolBox.requiredFormatDescription(formatDescription))
+        let dimensions = CMVideoFormatDescriptionGetDimensions(payload)
+        XCTAssertEqual(dimensions.width, 16)
+        XCTAssertEqual(dimensions.height, 8)
+    }
 }
 
 final class IRFFDecoderOperationTests: XCTestCase {

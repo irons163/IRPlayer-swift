@@ -83,6 +83,9 @@ class IRFFVideoToolBox {
                 if self.formatDescription == nil {
                     throw IRFFVideoToolBoxErrorCode.createFormatDescription
                 }
+                guard let formatDescription = Self.requiredFormatDescription(self.formatDescription) else {
+                    throw IRFFVideoToolBoxErrorCode.createFormatDescription
+                }
 
                 let destinationPixelBufferAttributes: [CFString: Any] = [
                     kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
@@ -98,7 +101,7 @@ class IRFFVideoToolBox {
 
                 let status = VTDecompressionSessionCreate(
                     allocator: kCFAllocatorDefault,
-                    formatDescription: self.formatDescription!,
+                    formatDescription: formatDescription,
                     decoderSpecification: nil,
                     imageBufferAttributes: destinationPixelBufferAttributes as CFDictionary,
                     outputCallback: &outputCallbackRecord,
@@ -188,6 +191,7 @@ class IRFFVideoToolBox {
         }
 
         if status == noErr {
+            guard let formatDescription = Self.requiredFormatDescription(self.formatDescription) else { return false }
             var sampleBuffer: CMSampleBuffer?
             status = CMSampleBufferCreate(
                 allocator: nil,
@@ -195,7 +199,7 @@ class IRFFVideoToolBox {
                 dataReady: true,
                 makeDataReadyCallback: nil,
                 refcon: nil,
-                formatDescription: self.formatDescription!,
+                formatDescription: formatDescription,
                 sampleCount: 1,
                 sampleTimingEntryCount: 0,
                 sampleTimingArray: nil,
@@ -229,6 +233,11 @@ class IRFFVideoToolBox {
     static func convertedNALBlockPayload(memoryBlock: UnsafeMutablePointer<UInt8>?, demuxSize: Int32, packetSize: Int32) -> ConvertedNALBlockPayload? {
         guard let memoryBlock, demuxSize > 0, packetSize > 0 else { return nil }
         return ConvertedNALBlockPayload(memoryBlock: memoryBlock, blockLength: Int(demuxSize), dataLength: Int(packetSize))
+    }
+
+    static func requiredFormatDescription(_ formatDescription: CMFormatDescription?) -> CMFormatDescription? {
+        guard let formatDescription else { return nil }
+        return formatDescription
     }
 
     static func threeByteNALUnitsAreBounded(in payload: PacketPayload) -> Bool {
