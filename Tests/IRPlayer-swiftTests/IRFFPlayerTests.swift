@@ -40,6 +40,17 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 0, remainingFrames: 32, numberOfChannels: 0))
     }
 
+    func testAudioCopyPlanRejectsOverflowingFrameCalculations() {
+        XCTAssertNil(
+            IRFFPlayer.audioCopyPlan(
+                frameSize: Int.max,
+                outputOffset: 0,
+                remainingFrames: .max,
+                numberOfChannels: .max
+            )
+        )
+    }
+
     func testAudioCopyPlanCalculatesFramesAndBytesWithinBounds() throws {
         let partial = try XCTUnwrap(
             IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 0, remainingFrames: 10, numberOfChannels: 2)

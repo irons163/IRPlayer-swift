@@ -113,13 +113,16 @@ class IRFFPlayer: NSObject {
             return nil
         }
 
-        let frameSizeOf = Int(numberOfChannels) * MemoryLayout<Float>.size
-        guard frameSizeOf > 0 else { return nil }
+        let (frameSizeOf, frameSizeOverflow) = Int(numberOfChannels).multipliedReportingOverflow(by: MemoryLayout<Float>.size)
+        guard !frameSizeOverflow, frameSizeOf > 0 else { return nil }
 
         let bytesLeft = frameSize - outputOffset
         guard bytesLeft > 0 else { return nil }
 
-        let bytesToCopy = min(Int(remainingFrames) * frameSizeOf, bytesLeft)
+        let (requestedBytes, requestedBytesOverflow) = Int(remainingFrames).multipliedReportingOverflow(by: frameSizeOf)
+        guard !requestedBytesOverflow else { return nil }
+
+        let bytesToCopy = min(requestedBytes, bytesLeft)
         let framesToCopy = bytesToCopy / frameSizeOf
         guard bytesToCopy > 0, framesToCopy > 0 else { return nil }
 
