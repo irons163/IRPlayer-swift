@@ -11,6 +11,10 @@ import XCTest
 
 final class IRMatrix4Tests: XCTestCase {
 
+    func testIdentityReturnsSimdIdentity() {
+        XCTAssertEqual(IRMatrix4.identity(), matrix_identity_float4x4)
+    }
+
     func testTranslationMatrixStoresTranslationInLastColumn() {
         let matrix = IRMatrix4.makeTranslation(1, 2, 3)
 
@@ -34,5 +38,63 @@ final class IRMatrix4Tests: XCTestCase {
         let scale = IRMatrix4.makeScale(2, 2, 2)
 
         XCTAssertEqual(IRMatrix4.multiply(translation, scale), simd_mul(translation, scale))
+    }
+
+    func testRotationMatrixRotatesAroundNormalizedAxis() {
+        let matrix = IRMatrix4.makeRotation(.pi / 2, 0, 0, 2)
+        let rotated = simd_mul(matrix, SIMD4<Float>(1, 0, 0, 1))
+
+        XCTAssertEqual(rotated.x, 0, accuracy: 0.0001)
+        XCTAssertEqual(rotated.y, 1, accuracy: 0.0001)
+        XCTAssertEqual(rotated.z, 0, accuracy: 0.0001)
+        XCTAssertEqual(rotated.w, 1, accuracy: 0.0001)
+    }
+
+    func testPerspectiveMatrixStoresProjectionTerms() {
+        let matrix = IRMatrix4.makePerspective(.pi / 2, 2, 1, 11)
+
+        XCTAssertEqual(matrix.columns.0.x, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.1.y, 1, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.2.z, -1.1, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.2.w, -1, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.3.z, -1.1, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.3.w, 0, accuracy: 0.0001)
+    }
+
+    func testLookAtMatrixMovesEyeToOrigin() {
+        let eye = SIMD3<Float>(0, 0, 1)
+        let matrix = IRMatrix4.makeLookAt(
+            eye,
+            SIMD3<Float>(0, 0, 0),
+            SIMD3<Float>(0, 1, 0)
+        )
+        let transformedEye = simd_mul(matrix, SIMD4<Float>(eye, 1))
+
+        XCTAssertEqual(transformedEye.x, 0, accuracy: 0.0001)
+        XCTAssertEqual(transformedEye.y, 0, accuracy: 0.0001)
+        XCTAssertEqual(transformedEye.z, 0, accuracy: 0.0001)
+        XCTAssertEqual(transformedEye.w, 1, accuracy: 0.0001)
+    }
+
+    func testOrthoMatrixStoresScaleAndTranslationTerms() {
+        let matrix = IRMatrix4.makeOrtho(-2, 2, -1, 3, 1, 5)
+
+        XCTAssertEqual(matrix.columns.0.x, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.1.y, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.2.z, -0.5, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.3.x, 0, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.3.y, -0.5, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.3.z, -1.5, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.3.w, 1, accuracy: 0.0001)
+    }
+
+    func testMetalClipSpaceConvertsIdentityZRange() {
+        let matrix = IRMatrix4.identity().toMetalClipSpace()
+
+        XCTAssertEqual(matrix.columns.0.x, 1, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.1.y, 1, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.2.z, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.3.z, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(matrix.columns.3.w, 1, accuracy: 0.0001)
     }
 }
