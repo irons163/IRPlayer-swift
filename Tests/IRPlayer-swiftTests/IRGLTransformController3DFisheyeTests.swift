@@ -81,6 +81,16 @@ final class IRGLTransformController3DFisheyeTests: XCTestCase {
         assertFinite(controller.getModelViewProjectionMatrix())
     }
 
+    func testUpdateIgnoresNonFiniteScale() {
+        let controller = IRGLTransformController3DFisheye(viewportWidth: 100, viewportHeight: 100, tileType: .up)
+
+        controller.update(fx: 0, fy: 0, sx: .nan, sy: .nan)
+
+        assertFinite(controller.getModelViewProjectionMatrix())
+        XCTAssertEqual(controller.getScope().scaleX, 1, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().scaleY, 1, accuracy: 0.0001)
+    }
+
     private func assertFinite(
         _ matrix: simd_float4x4,
         file: StaticString = #filePath,

@@ -102,6 +102,7 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     func updateBy(fx: Float, fy: Float, sx: Float, sy: Float, renew: Bool) {
+        guard sx.isFinite, sy.isFinite, sx > 0, sy > 0 else { return }
         let oldScale = scope.scaleX 
         if sx <= 1.0 {
             scope.scaleX = 1
