@@ -468,7 +468,12 @@ class IRAudioManager: NSObject {
                 return noErr
             }
 
-            delegate.audioManager(self, outputData: outData, numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels)
+            let outputChannelCount = numberOfChannels
+            guard let sampleCount = Self.renderSampleCount(numberOfFrames: numberOfFrames, numberOfChannels: outputChannelCount) else {
+                return noErr
+            }
+
+            delegate.audioManager(self, outputData: outData, numberOfFrames: numberOfFrames, numberOfChannels: outputChannelCount)
 
             let numBytesPerSample = outputContext.commonFormat.mBitsPerChannel / 8
             if numBytesPerSample == 4 {
@@ -478,7 +483,7 @@ class IRAudioManager: NSObject {
                     let numChannels = buffer.mNumberChannels
                     for j in 0..<Int(numChannels) {
                         vDSP_vsadd(outData + j,
-                                   vDSP_Stride(numberOfChannels),
+                                   vDSP_Stride(outputChannelCount),
                                    &zero,
                                    mData.assumingMemoryBound(to: Float.self),
                                    vDSP_Stride(numChannels),
@@ -487,14 +492,14 @@ class IRAudioManager: NSObject {
                 }
             } else if numBytesPerSample == 2 {
                 var scale: Float = Float(INT16_MAX)
-                vDSP_vsmul(outData, 1, &scale, outData, 1, vDSP_Length(numberOfFrames * numberOfChannels))
+                vDSP_vsmul(outData, 1, &scale, outData, 1, vDSP_Length(sampleCount))
 
                 for buffer in ioBuffers {
                     guard let mData = buffer.mData else { continue }
                     let numChannels = buffer.mNumberChannels
                     for j in 0..<Int(numChannels) {
                         vDSP_vfix16(outData + j,
-                                    vDSP_Stride(numberOfChannels),
+                                    vDSP_Stride(outputChannelCount),
                                     mData.assumingMemoryBound(to: Int16.self) + j,
                                     vDSP_Stride(numChannels),
                                     vDSP_Length(numberOfFrames))
@@ -564,6 +569,14 @@ class IRAudioManager: NSObject {
             return .failure(NSError(domain: domain, code: -1, userInfo: nil))
         }
         return .success(audioUnit)
+    }
+
+    static func renderSampleCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
+        guard numberOfFrames > 0, numberOfChannels > 0 else { return nil }
+
+        let (sampleCount, overflow) = Int(numberOfFrames).multipliedReportingOverflow(by: Int(numberOfChannels))
+        guard !overflow, sampleCount > 0 else { return nil }
+        return sampleCount
     }
 
     private static var maxFrameSize = 4096
