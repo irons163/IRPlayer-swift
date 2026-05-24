@@ -18,6 +18,15 @@ enum IRFFVideoToolBoxErrorCode: Error {
 }
 
 class IRFFVideoToolBox {
+    struct PacketPayload {
+        let data: UnsafeMutablePointer<UInt8>
+        let size: Int32
+
+        var end: UnsafeMutablePointer<UInt8> {
+            data.advanced(by: Int(size))
+        }
+    }
+
     private var codecContext: UnsafeMutablePointer<AVCodecContext>
     private var vtSession: VTDecompressionSession?
     private var formatDescription: CMFormatDescription?
@@ -119,6 +128,7 @@ class IRFFVideoToolBox {
 
     func sendPacket(_ packet: AVPacket) -> Bool {
         guard self.trySetupVTSession() else { return false }
+        guard let packetPayload = Self.packetPayload(for: packet) else { return false }
         self.cleanDecodeInfo()
 
         var result = false
@@ -131,9 +141,9 @@ class IRFFVideoToolBox {
                 status = -1900
             } else {
                 var nalSize: UInt32 = 0
-                let end = packet.data?.advanced(by: Int(packet.size))
-                var nalStart = packet.data!
-                while nalStart < end! {
+                let end = packetPayload.end
+                var nalStart = packetPayload.data
+                while nalStart < end {
                     nalSize = (UInt32(nalStart[0]) << 16) | (UInt32(nalStart[1]) << 8) | UInt32(nalStart[2])
                     avio_wb32(ioContext, nalSize)
                     nalStart += 3
@@ -149,7 +159,7 @@ class IRFFVideoToolBox {
                     blockAllocator: kCFAllocatorNull,
                     customBlockSource: nil,
                     offsetToData: 0,
-                    dataLength: Int(packet.size),
+                    dataLength: Int(packetPayload.size),
                     flags: 0,
                     blockBufferOut: &blockBuffer
                 )
@@ -157,12 +167,12 @@ class IRFFVideoToolBox {
         } else {
             status = CMBlockBufferCreateWithMemoryBlock(
                 allocator: nil,
-                memoryBlock: packet.data!,
-                blockLength: Int(packet.size),
+                memoryBlock: packetPayload.data,
+                blockLength: Int(packetPayload.size),
                 blockAllocator: kCFAllocatorNull,
                 customBlockSource: nil,
                 offsetToData: 0,
-                dataLength: Int(packet.size),
+                dataLength: Int(packetPayload.size),
                 flags: 0,
                 blockBufferOut: &blockBuffer
             )
@@ -200,6 +210,11 @@ class IRFFVideoToolBox {
             }
         }
         return result
+    }
+
+    static func packetPayload(for packet: AVPacket) -> PacketPayload? {
+        guard let data = packet.data, packet.size > 0 else { return nil }
+        return PacketPayload(data: data, size: packet.size)
     }
 
     func imageBuffer() -> CVImageBuffer? {

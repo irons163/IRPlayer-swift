@@ -459,6 +459,24 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
 
 final class IRFFVideoToolBoxTests: XCTestCase {
 
+    func testPacketPayloadRejectsMissingOrEmptyPacketData() {
+        var packet = AVPacket()
+        packet.size = 4
+        XCTAssertNil(IRFFVideoToolBox.packetPayload(for: packet))
+
+        var bytes = [UInt8](arrayLiteral: 1, 2, 3, 4)
+        bytes.withUnsafeMutableBufferPointer { buffer in
+            packet.data = buffer.baseAddress
+            packet.size = 0
+            XCTAssertNil(IRFFVideoToolBox.packetPayload(for: packet))
+
+            packet.size = Int32(buffer.count)
+            let payload = IRFFVideoToolBox.packetPayload(for: packet)
+            XCTAssertEqual(payload?.data, buffer.baseAddress)
+            XCTAssertEqual(payload?.size, Int32(buffer.count))
+        }
+    }
+
     func testOutputCallbackIgnoresMissingRefConAndUpdatesDecoderState() {
         IRFFVideoToolBox.handleOutputCallback(refCon: nil, status: -1, imageBuffer: nil)
 
