@@ -27,7 +27,7 @@ import UIKit
         super.init()
         self.targetView = targetView
         self.bounce = IRBounceController()
-        self.bounce?.addBounceToView(self.targetView!)
+        self.bounce?.addBounceToView(targetView)
 
         self.timer = CADisplayLink(target: self, selector: #selector(tick(_:)))
         self.timer?.add(to: .main, forMode: .default)
@@ -61,7 +61,7 @@ import UIKit
 
         if finalPoint == alreadyPoint {
             self.resetSmoothScroll()
-            delegate?.glViewDidEndDecelerating(self.targetView!)
+            delegate?.glViewDidEndDecelerating(self.targetView)
         }
     }
 

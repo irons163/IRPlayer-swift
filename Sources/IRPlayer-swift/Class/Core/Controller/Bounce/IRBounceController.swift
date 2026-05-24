@@ -32,17 +32,19 @@ import UIKit
     }
 
     private func createLine() {
-        horizontalLineLayer = CAShapeLayer()
-        horizontalLineLayer?.strokeColor = UIColor(white: 0.333, alpha: 0.5).cgColor
-        horizontalLineLayer?.lineWidth = 0.0
-        horizontalLineLayer?.fillColor = UIColor(white: 0.333, alpha: 0.5).cgColor
-        targetView?.layer.addSublayer(horizontalLineLayer!)
+        let horizontalLineLayer = CAShapeLayer()
+        horizontalLineLayer.strokeColor = UIColor(white: 0.333, alpha: 0.5).cgColor
+        horizontalLineLayer.lineWidth = 0.0
+        horizontalLineLayer.fillColor = UIColor(white: 0.333, alpha: 0.5).cgColor
+        targetView?.layer.addSublayer(horizontalLineLayer)
+        self.horizontalLineLayer = horizontalLineLayer
 
-        verticalLineLayer = CAShapeLayer()
-        verticalLineLayer?.strokeColor = UIColor(white: 0.333, alpha: 0.5).cgColor
-        verticalLineLayer?.lineWidth = 0.0
-        verticalLineLayer?.fillColor = UIColor(white: 0.333, alpha: 0.5).cgColor
-        targetView?.layer.addSublayer(verticalLineLayer!)
+        let verticalLineLayer = CAShapeLayer()
+        verticalLineLayer.strokeColor = UIColor(white: 0.333, alpha: 0.5).cgColor
+        verticalLineLayer.lineWidth = 0.0
+        verticalLineLayer.fillColor = UIColor(white: 0.333, alpha: 0.5).cgColor
+        targetView?.layer.addSublayer(verticalLineLayer)
+        self.verticalLineLayer = verticalLineLayer
     }
 
     public func removeAndAddAnimate(with scrollValue: CGFloat, byScrollDirection type: IRScrollDirectionType) {
@@ -116,4 +118,3 @@ import UIKit
         return path
     }
 }
-
