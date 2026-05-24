@@ -181,6 +181,17 @@ final class IRFFFormatContextTests: XCTestCase {
         }
     }
 
+    func testDecoderLookupRejectsMissingAndInvalidCodecContext() {
+        XCTAssertNil(IRFFFormatContext.decoder(for: nil))
+
+        var codecContext = AVCodecContext()
+        codecContext.codec_id = AV_CODEC_ID_NONE
+
+        withUnsafeMutablePointer(to: &codecContext) { contextPointer in
+            XCTAssertNil(IRFFFormatContext.decoder(for: contextPointer))
+        }
+    }
+
     func testInterruptCallbackIgnoresMissingContextAndUsesDelegateDecision() {
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: nil), 0)
 

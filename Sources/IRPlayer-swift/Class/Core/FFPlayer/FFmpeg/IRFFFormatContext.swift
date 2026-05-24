@@ -68,6 +68,11 @@ public class IRFFFormatContext {
         return streams[index]
     }
 
+    static func decoder(for codecContext: UnsafeMutablePointer<AVCodecContext>?) -> UnsafePointer<AVCodec>? {
+        guard let codecContext else { return nil }
+        return avcodec_find_decoder(codecContext.pointee.codec_id)
+    }
+
     func setupSync() {
         self.error = openStream()
         if error != nil { return }
@@ -236,6 +241,10 @@ public class IRFFFormatContext {
             error = NSError(domain: "\(domain) codec context create error", code: Int(IRFFDecoderErrorCode.codecContextCreate.rawValue), userInfo: nil)
             return error
         }
+        guard let openedCodecContext = codecContext else {
+            error = NSError(domain: "\(domain) codec context create error", code: Int(IRFFDecoderErrorCode.codecContextCreate.rawValue), userInfo: nil)
+            return error
+        }
 
         result = avcodec_parameters_to_context(codecContext, codecParameters)
         error = IRFFCheckErrorCode(result, errorCode: IRFFDecoderErrorCode.codecContextSetParam.rawValue)
@@ -244,15 +253,14 @@ public class IRFFFormatContext {
             return error
         }
 //        av_codec_set_pkt_timebase(codecContext, (stream?.pointee.time_base)!)
-        codecContext?.pointee.pkt_timebase = stream.pointee.time_base
+        openedCodecContext.pointee.pkt_timebase = stream.pointee.time_base
 
-        let codec = avcodec_find_decoder((codecContext?.pointee.codec_id)!)
-        if codec == nil {
+        guard let codec = Self.decoder(for: openedCodecContext) else {
             avcodec_free_context(&codecContext)
             error = NSError(domain: "\(domain) codec not found decoder", code: Int(IRFFDecoderErrorCode.codecFindDecoder.rawValue), userInfo: nil)
             return error
         }
-        codecContext?.pointee.codec_id = (codec?.pointee.id)!
+        openedCodecContext.pointee.codec_id = codec.pointee.id
 
         result = avcodec_open2(codecContext, codec, nil)
         error = IRFFCheckErrorCode(result, errorCode: IRFFDecoderErrorCode.codecOpen2.rawValue)
