@@ -223,6 +223,7 @@ extension IRAVPlayer {
 
     func snapshotAtCurrentTime() -> IRPLFImage? {
         guard let avAsset = avAsset,
+              let avPlayerItem = avPlayerItem,
               abstractPlayer.videoType == .normal else { return nil }
 
         let imageGenerator = AVAssetImageGenerator(asset: avAsset)
