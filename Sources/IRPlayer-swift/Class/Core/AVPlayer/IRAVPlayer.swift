@@ -152,6 +152,7 @@ extension IRAVPlayer {
 
     func pause() {
         guard state != .failed else { return }
+        guard let avPlayer = avPlayer else { return }
         state = .suspend
         cancelPlayIfNeeded()
         avPlayer.pause()
