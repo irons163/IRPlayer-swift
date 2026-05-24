@@ -183,10 +183,12 @@ extension IRAVPlayer {
     }
 
     var progress: TimeInterval {
+        guard let avPlayerItem = avPlayerItem else { return 0 }
         return CMTimeGetSeconds(avPlayerItem.currentTime())
     }
 
     var duration: TimeInterval {
+        guard let avPlayerItem = avPlayerItem else { return 0 }
         return CMTimeGetSeconds(avPlayerItem.duration)
     }
 

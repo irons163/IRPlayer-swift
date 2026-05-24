@@ -197,6 +197,26 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertFalse(completionCalled)
         withExtendedLifetime(abstractPlayer) {}
     }
+
+    func testProgressReturnsZeroWhenPlayerItemIsMissing() {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+
+        avPlayer.avPlayerItem = nil
+
+        XCTAssertEqual(avPlayer.progress, 0)
+        withExtendedLifetime(abstractPlayer) {}
+    }
+
+    func testDurationReturnsZeroWhenPlayerItemIsMissing() {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+
+        avPlayer.avPlayerItem = nil
+
+        XCTAssertEqual(avPlayer.duration, 0)
+        withExtendedLifetime(abstractPlayer) {}
+    }
 }
 
 final class IRFFFrameQueueTests: XCTestCase {
