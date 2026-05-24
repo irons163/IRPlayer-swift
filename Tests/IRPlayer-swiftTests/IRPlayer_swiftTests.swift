@@ -277,6 +277,20 @@ final class IRAVPlayerTests: XCTestCase {
     }
 }
 
+final class IRFFPlayerTests: XCTestCase {
+
+    func testFactoryCreatesPlayerWhenAudioManagerIsMissing() {
+        let abstractPlayer = IRPlayerImp.player()
+        abstractPlayer.manager = nil
+
+        let ffPlayer = IRFFPlayer.player(with: abstractPlayer)
+
+        XCTAssertNil(ffPlayer.audioManager)
+        XCTAssertEqual(ffPlayer.duration, 0)
+        withExtendedLifetime(abstractPlayer) {}
+    }
+}
+
 final class IRFFFrameQueueTests: XCTestCase {
 
     func testFrameQueueTracksCountDurationAndSizeWhenPuttingAndFetchingFrames() {

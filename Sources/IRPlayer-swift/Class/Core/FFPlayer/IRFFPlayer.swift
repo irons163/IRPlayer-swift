@@ -82,11 +82,10 @@ class IRFFPlayer: NSObject {
 
     var playing = false
 
-    init?(abstractPlayer: IRPlayerImp) {
+    init(abstractPlayer: IRPlayerImp) {
         self.abstractPlayer = abstractPlayer
-        guard let manager = abstractPlayer.manager else { return nil }
-        self.audioManager = manager
-        _ = manager.registerAudioSession()
+        self.audioManager = abstractPlayer.manager
+        _ = audioManager?.registerAudioSession()
     }
 
     deinit {
@@ -96,7 +95,7 @@ class IRFFPlayer: NSObject {
     }
 
     static func player(with abstractPlayer: IRPlayerImp) -> IRFFPlayer {
-        return IRFFPlayer(abstractPlayer: abstractPlayer)!
+        return IRFFPlayer(abstractPlayer: abstractPlayer)
     }
 
     func play() {
