@@ -33,6 +33,11 @@ class IRFFVideoToolBox {
         let dataLength: Int
     }
 
+    struct DecodeFramePayload {
+        let session: VTDecompressionSession
+        let sampleBuffer: CMSampleBuffer
+    }
+
     private var codecContext: UnsafeMutablePointer<AVCodecContext>
     private var vtSession: VTDecompressionSession?
     private var formatDescription: CMFormatDescription?
@@ -209,9 +214,10 @@ class IRFFVideoToolBox {
             )
 
             if status == noErr {
+                guard let decodePayload = Self.decodeFramePayload(session: self.vtSession, sampleBuffer: sampleBuffer) else { return false }
                 status = VTDecompressionSessionDecodeFrame(
-                    self.vtSession!,
-                    sampleBuffer: sampleBuffer!,
+                    decodePayload.session,
+                    sampleBuffer: decodePayload.sampleBuffer,
                     flags: [],
                     frameRefcon: nil,
                     infoFlagsOut: nil
@@ -238,6 +244,11 @@ class IRFFVideoToolBox {
     static func requiredFormatDescription(_ formatDescription: CMFormatDescription?) -> CMFormatDescription? {
         guard let formatDescription else { return nil }
         return formatDescription
+    }
+
+    static func decodeFramePayload(session: VTDecompressionSession?, sampleBuffer: CMSampleBuffer?) -> DecodeFramePayload? {
+        guard let session, let sampleBuffer else { return nil }
+        return DecodeFramePayload(session: session, sampleBuffer: sampleBuffer)
     }
 
     static func threeByteNALUnitsAreBounded(in payload: PacketPayload) -> Bool {

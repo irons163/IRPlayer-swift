@@ -608,6 +608,10 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         XCTAssertEqual(dimensions.width, 16)
         XCTAssertEqual(dimensions.height, 8)
     }
+
+    func testDecodeFramePayloadRejectsMissingInputs() {
+        XCTAssertNil(IRFFVideoToolBox.decodeFramePayload(session: nil, sampleBuffer: nil))
+    }
 }
 
 final class IRFFDecoderOperationTests: XCTestCase {
