@@ -562,10 +562,10 @@ extension IRAVPlayer {
         tracks.forEach { track in
             if track.mediaType == .video {
                 videoEnable = true
-                videoTracks.append(playerTrack(from: track)!)
+                videoTracks.append(playerTrack(from: track))
             } else if track.mediaType == .audio {
                 audioEnable = true
-                audioTracks.append(playerTrack(from: track)!)
+                audioTracks.append(playerTrack(from: track))
             }
         }
 
@@ -618,7 +618,7 @@ extension IRAVPlayer {
         }
     }
 
-    func playerTrack(from track: AVAssetTrack) -> IRPlayerTrack? {
+    func playerTrack(from track: AVAssetTrack) -> IRPlayerTrack {
         let obj = IRPlayerTrack()
         obj.index = Int(track.trackID)
         obj.name = track.languageCode ?? "Track \(track.trackID)"
