@@ -1034,7 +1034,11 @@ final class IRGLRenderStrategyFactory {
 extension IRGLRenderMode {
     
     func buildIRGLProgram(pixelFormat: IRPixelFormat, viewprotRange: CGRect, parameter: IRMediaParameter?) {
-        let program = programFactory.createIRGLProgram(pixelFormat: pixelFormat, viewportRange: viewprotRange, parameter: parameter)
+        guard let program = programFactory.createIRGLProgram(pixelFormat: pixelFormat, viewportRange: viewprotRange, parameter: parameter) else {
+            self.program = nil
+            self.shiftController.program = nil
+            return
+        }
         self.program = program
         self.shiftController.program = program
 //        self.defaultScale = self.defaultScale

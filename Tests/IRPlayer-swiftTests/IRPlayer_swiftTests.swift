@@ -227,6 +227,23 @@ final class IRGLRenderModeFactoryTests: XCTestCase {
         XCTAssertEqual(mode.wideDegreeX, 360)
         XCTAssertEqual(mode.wideDegreeY, 20)
     }
+
+    func testFisheyeRenderModesIgnoreIncompatibleProgramParameters() {
+        let invalidParameter = IRMediaParameter(width: 100, height: 50)
+
+        let fisheyeMode = IRGLRenderMode3DFisheye()
+        fisheyeMode.buildIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
+                                     viewprotRange: CGRect(x: 0, y: 0, width: 320, height: 240),
+                                     parameter: invalidParameter)
+
+        let fourPanelMode = IRGLRenderModeMulti4P()
+        fourPanelMode.buildIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
+                                       viewprotRange: CGRect(x: 0, y: 0, width: 320, height: 240),
+                                       parameter: invalidParameter)
+
+        XCTAssertNil(fisheyeMode.program)
+        XCTAssertNil(fourPanelMode.program)
+    }
 }
 
 final class IRMatrix4Tests: XCTestCase {

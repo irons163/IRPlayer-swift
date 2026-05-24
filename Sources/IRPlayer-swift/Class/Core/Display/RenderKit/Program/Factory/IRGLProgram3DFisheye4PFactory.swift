@@ -9,7 +9,7 @@ import Foundation
 
 class IRGLProgram3DFisheye4PFactory: IRGLProgram2DFactory {
 
-    override func createIRGLProgram(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2D {
-        return IRGLProgramFactory.createIRGLProgram3DFisheye4P(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)!
+    override func createIRGLProgram(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2D? {
+        return IRGLProgramFactory.createIRGLProgram3DFisheye4P(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
     }
 }

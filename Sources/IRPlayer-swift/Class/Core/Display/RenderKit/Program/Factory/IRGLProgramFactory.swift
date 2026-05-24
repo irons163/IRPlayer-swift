@@ -46,23 +46,17 @@ import Foundation
     }
 
     public static func createIRGLProgram3DFisheye(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram3DFisheye? {
-        var parameter = parameter
-        if parameter == nil {
-            parameter = IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
-        } else if !(parameter is IRFisheyeParameter) {
-            print("createIRGLProgram failed.")
+        guard let fisheyeParameter = makeFisheyeParameter(from: parameter) else {
             return nil
         }
 
-        let fp = parameter as! IRFisheyeParameter
-
-        let program = IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!)
+        let program = IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter)
         if program.tramsformController == nil {
             program.tramsformController = IRGLTransformController3DFisheye(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .backward)
             program.tramsformController?.delegate = program
 
             let oldScopeRange = program.tramsformController?.scopeRange ?? IRGLScopeRange(minLat: 0, maxLat: 0, minLng: 0, maxLng: 0, defaultLat: 0, defaultLng: 0)
-            let newMaxLat = oldScopeRange.maxLat > 0 ? fp.latmax : fp.latmax - 90.0
+            let newMaxLat = oldScopeRange.maxLat > 0 ? fisheyeParameter.latmax : fisheyeParameter.latmax - 90.0
             var newDefaultLat = oldScopeRange.defaultLat
             if newDefaultLat > newMaxLat || newDefaultLat < oldScopeRange.minLat {
                 newDefaultLat = (newMaxLat + oldScopeRange.minLat) / 2
@@ -74,7 +68,7 @@ import Foundation
             let adjustedScopeRange = IRGLScopeRange(minLat: scopeRange.minLat, maxLat: scopeRange.maxLat, minLng: scopeRange.minLng, maxLng: scopeRange.maxLng, defaultLat: -40, defaultLng: 90)
             program.tramsformController?.scopeRange = adjustedScopeRange
         }
-        program.mapProjection = IRGLProjectionEquirectangular(textureWidth: fp.width, height: fp.height, centerX: fp.cx, centerY: fp.cy, radius: fp.ry)
+        program.mapProjection = IRGLProjectionEquirectangular(textureWidth: fisheyeParameter.width, height: fisheyeParameter.height, centerX: fisheyeParameter.cx, centerY: fisheyeParameter.cy, radius: fisheyeParameter.ry)
         return program
     }
 
@@ -110,21 +104,15 @@ import Foundation
     }
 
     public static func createIRGLProgram3DFisheye4P(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramMulti4P? {
-        var parameter = parameter
-        if parameter == nil {
-            parameter = IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
-        } else if !(parameter is IRFisheyeParameter) {
-            print("createIRGLProgram failed.")
+        guard let fisheyeParameter = makeFisheyeParameter(from: parameter) else {
             return nil
         }
 
-        let fp = parameter as! IRFisheyeParameter
-
         let programs_4p = [
-            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!),
-            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!),
-            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!),
-            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!)
+            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter),
+            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter),
+            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter),
+            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter)
         ]
 
         let program = IRGLProgramMulti4P(programs: programs_4p, viewprotRange: viewportRange)
@@ -133,7 +121,7 @@ import Foundation
             program.tramsformController?.delegate = program
         }
 
-        let mapProjection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: fp.cx, centerY: fp.cy, radius: fp.ry)
+        let mapProjection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: fisheyeParameter.cx, centerY: fisheyeParameter.cy, radius: fisheyeParameter.ry)
 
         for (index, program) in programs_4p.enumerated() {
             if program.tramsformController == nil {
@@ -141,7 +129,7 @@ import Foundation
                 program.tramsformController?.delegate = program
 
                 let oldScopeRange = program.tramsformController?.scopeRange
-                let newMaxLat = (oldScopeRange?.maxLat ?? 0 > 0) ? fp.latmax : fp.latmax - 90.0
+                let newMaxLat = (oldScopeRange?.maxLat ?? 0 > 0) ? fisheyeParameter.latmax : fisheyeParameter.latmax - 90.0
                 var newDefaultLat = oldScopeRange?.defaultLat ?? 0
                 if newDefaultLat > newMaxLat || newDefaultLat < oldScopeRange?.minLat ?? 0 {
                     newDefaultLat = (newMaxLat + (oldScopeRange?.minLat ?? 0)) / 2
@@ -170,6 +158,17 @@ import Foundation
         }
 
         return program
+    }
+
+    private static func makeFisheyeParameter(from parameter: IRMediaParameter?) -> IRFisheyeParameter? {
+        guard let parameter = parameter else {
+            return IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
+        }
+        guard let fisheyeParameter = parameter as? IRFisheyeParameter else {
+            print("createIRGLProgram failed.")
+            return nil
+        }
+        return fisheyeParameter
     }
 
     public static func createIRGLProgramVR(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramVR {
