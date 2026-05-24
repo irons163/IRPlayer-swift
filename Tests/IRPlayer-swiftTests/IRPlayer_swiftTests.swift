@@ -400,6 +400,18 @@ final class IRFFFramePoolTests: XCTestCase {
 
 final class IRFFToolsTests: XCTestCase {
 
+    func testStreamTimebaseFallsBackToFiniteValueForInvalidStreamAndDefault() {
+        var stream = AVStream()
+        stream.time_base = AVRational(num: 0, den: 0)
+
+        let timebase = withUnsafePointer(to: &stream) { streamPointer in
+            IRFFStreamGetTimebase(streamPointer, defaultTimebase: 0)
+        }
+
+        XCTAssertEqual(timebase, 1)
+        XCTAssertTrue(timebase.isFinite)
+    }
+
     func testStreamFPSFallsBackToFiniteValueForInvalidRatesAndTimebase() {
         var stream = AVStream()
         stream.avg_frame_rate = AVRational(num: 0, den: 0)

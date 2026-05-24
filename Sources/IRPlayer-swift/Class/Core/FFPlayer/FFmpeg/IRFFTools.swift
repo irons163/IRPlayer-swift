@@ -63,7 +63,7 @@ func IRFFStreamGetTimebase(_ stream: UnsafePointer<AVStream>, defaultTimebase: D
     } else {
         timebase = defaultTimebase
     }
-    return timebase
+    return timebase.isFinite && timebase > 0 ? timebase : 1.0
 }
 
 func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Double {
