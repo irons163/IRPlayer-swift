@@ -46,6 +46,10 @@ class IRGLGestureController: IRGestureController {
 
     override func removeGesture(to view: UIView) {
         super.removeGesture(to: view)
+        if let rotateGR = rotateGR {
+            view.removeGestureRecognizer(rotateGR)
+            self.rotateGR = nil
+        }
     }
 
     private func initDefaultValue() {

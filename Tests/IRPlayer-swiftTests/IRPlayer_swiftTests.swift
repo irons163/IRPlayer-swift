@@ -884,6 +884,17 @@ final class IRGLGestureControllerTests: XCTestCase {
         let rotationRecognizers = view.gestureRecognizers?.filter { $0 is UIRotationGestureRecognizer } ?? []
         XCTAssertEqual(rotationRecognizers.count, 1)
     }
+
+    func testRemoveGestureRemovesRotationGestureRecognizer() {
+        let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+        let gestureController = IRGLGestureController()
+
+        gestureController.addGesture(to: view)
+        gestureController.removeGesture(to: view)
+
+        let rotationRecognizers = view.gestureRecognizers?.filter { $0 is UIRotationGestureRecognizer } ?? []
+        XCTAssertTrue(rotationRecognizers.isEmpty)
+    }
 }
 
 final class IRGLViewSnapshotTests: XCTestCase {
