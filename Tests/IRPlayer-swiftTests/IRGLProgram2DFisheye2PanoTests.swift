@@ -73,6 +73,11 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: -1))
     }
 
+    func testNormalizedOffsetRejectsNonFiniteInputs() {
+        XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: .nan, delta: 20, outputWidth: 100))
+        XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: .infinity, outputWidth: 100))
+    }
+
     func testNormalizedOffsetWrapsWithinOutputWidth() throws {
         let wrappedLeft = try XCTUnwrap(
             IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 260, outputWidth: 100)

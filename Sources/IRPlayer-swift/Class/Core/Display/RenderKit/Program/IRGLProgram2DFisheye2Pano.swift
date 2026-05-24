@@ -37,7 +37,7 @@ import Foundation
     }
 
     static func normalizedOffsetX(currentOffset: Float, delta: Float, outputWidth: GLint) -> Float? {
-        guard outputWidth > 0 else { return nil }
+        guard outputWidth > 0, currentOffset.isFinite, delta.isFinite else { return nil }
 
         let width = Float(outputWidth)
         var offset = currentOffset - delta
