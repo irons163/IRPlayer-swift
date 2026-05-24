@@ -11,6 +11,19 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertEqual(IRAVPlayer.trackName(languageCode: "en", trackID: 10), "en")
     }
 
+    func testMediaSelectionTrackIDParsesOptionPropertyLists() {
+        XCTAssertEqual(IRAVPlayer.mediaSelectionTrackID(from: [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: 42
+        ]), 42)
+        XCTAssertEqual(IRAVPlayer.mediaSelectionTrackID(from: [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: NSNumber(value: 43)
+        ]), 43)
+        XCTAssertNil(IRAVPlayer.mediaSelectionTrackID(from: [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: "44"
+        ]))
+        XCTAssertNil(IRAVPlayer.mediaSelectionTrackID(from: "not-a-dictionary"))
+    }
+
     func testSetupAVPlayerItemIgnoresMissingAsset() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)

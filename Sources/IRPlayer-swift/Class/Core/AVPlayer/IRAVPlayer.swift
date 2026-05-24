@@ -621,10 +621,7 @@ extension IRAVPlayer {
               let group = avAsset?.mediaSelectionGroup(forMediaCharacteristic: .audible) else { return }
 
         if let option = group.options.first(where: { option in
-            if let trackID = (group.defaultOption?.propertyList as? [String: Any])?[IRAVPlayer.avMediaSelectionOptionTrackIDKey] as? Int {
-                return trackID == audioTrackIndex
-            }
-            return false
+            return Self.mediaSelectionTrackID(from: option.propertyList) == audioTrackIndex
         }) {
             avPlayerItem?.select(option, in: group)
             if let track = audioTracks.first(where: { $0.index == audioTrackIndex }) {
@@ -645,6 +642,19 @@ extension IRAVPlayer {
             return "Track \(trackID)"
         }
         return languageCode
+    }
+
+    static func mediaSelectionTrackID(from propertyList: Any?) -> Int? {
+        guard let propertyList = propertyList as? [String: Any],
+              let value = propertyList[avMediaSelectionOptionTrackIDKey] else { return nil }
+
+        if let value = value as? Int {
+            return value
+        }
+        if let value = value as? NSNumber {
+            return value.intValue
+        }
+        return nil
     }
 
 }
