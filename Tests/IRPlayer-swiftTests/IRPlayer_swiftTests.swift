@@ -207,18 +207,6 @@ final class IRFFFormatContextTests: XCTestCase {
     }
 }
 
-private final class FormatContextInterruptDelegate: IRFFFormatContextDelegate {
-    var shouldInterrupt: Bool
-
-    init(shouldInterrupt: Bool) {
-        self.shouldInterrupt = shouldInterrupt
-    }
-
-    func formatContextNeedInterrupt(_ formatContext: IRFFFormatContext) -> Bool {
-        shouldInterrupt
-    }
-}
-
 final class IRAVPlayerTests: XCTestCase {
 
     func testTrackNameFallsBackWhenLanguageCodeIsMissingOrEmpty() {
@@ -410,19 +398,6 @@ final class IRFFPlayerTests: XCTestCase {
         withExtendedLifetime(player) {}
     }
 
-    private func mirroredFFPlayer(from player: IRPlayerImp) -> IRFFPlayer? {
-        let childValue = Mirror(reflecting: player)
-            .children
-            .first { $0.label == "_ffPlayer" }?
-            .value
-        guard let childValue = childValue else { return nil }
-
-        let optionalMirror = Mirror(reflecting: childValue)
-        if optionalMirror.displayStyle == .optional {
-            return optionalMirror.children.first?.value as? IRFFPlayer
-        }
-        return childValue as? IRFFPlayer
-    }
 }
 
 final class IRPlayerImpLazyPlayerTests: XCTestCase {

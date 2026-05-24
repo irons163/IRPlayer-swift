@@ -119,6 +119,7 @@
 		B5E94F9A0000000000000001 /* IRPhotoSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94F990000000000000001 /* IRPhotoSaver.swift */; };
 		B5E94FE12D0B21F800149265 /* IRFFPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = B5E94E052D0B21F800149265 /* IRFFPlayer.h */; };
 		B5E94FEF2D0B268500149265 /* IRPlayer_swiftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94FEB2D0B220400149265 /* IRPlayer_swiftTests.swift */; };
+		B5E950012F68A00100149265 /* IRPlayerTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950002F68A00100149265 /* IRPlayerTestSupport.swift */; };
 		D1B25EAB2804376100F79DCC /* IRPlayer_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */; };
 /* End PBXBuildFile section */
 
@@ -248,6 +249,7 @@
 		B5E94EC12D0B21F800149265 /* IRPlayer_swift.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = IRPlayer_swift.docc; sourceTree = "<group>"; };
 		B5E94F990000000000000001 /* IRPhotoSaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPhotoSaver.swift; sourceTree = "<group>"; };
 		B5E94FEB2D0B220400149265 /* IRPlayer_swiftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayer_swiftTests.swift; sourceTree = "<group>"; };
+		B5E950002F68A00100149265 /* IRPlayerTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerTestSupport.swift; sourceTree = "<group>"; };
 		D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IRPlayer_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1B25EAA2804376100F79DCC /* IRPlayer-swiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "IRPlayer-swiftTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -714,6 +716,7 @@
 			isa = PBXGroup;
 			children = (
 				B5E94FEB2D0B220400149265 /* IRPlayer_swiftTests.swift */,
+				B5E950002F68A00100149265 /* IRPlayerTestSupport.swift */,
 			);
 			path = "IRPlayer-swiftTests";
 			sourceTree = "<group>";
@@ -973,6 +976,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B5E94FEF2D0B268500149265 /* IRPlayer_swiftTests.swift in Sources */,
+				B5E950012F68A00100149265 /* IRPlayerTestSupport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
