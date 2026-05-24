@@ -192,8 +192,11 @@ extension IRGLProgram2D: IRGLShaderParamsDelegate {
         if let transformController = transformController {
             let width = Double(w)
             let height = Double(h)
-            let dH = Double(transformController.getScope().h) / height
-            let dW = Double(transformController.getScope().w) / width
+            let viewportWidth = Double(transformController.getScope().w)
+            let viewportHeight = Double(transformController.getScope().h)
+            guard width > 0, height > 0, viewportWidth > 0, viewportHeight > 0 else { return }
+            let dH = viewportHeight / height
+            let dW = viewportWidth / width
             var dd: Double
 
             switch contentMode {
@@ -208,8 +211,8 @@ extension IRGLProgram2D: IRGLShaderParamsDelegate {
             }
 
             if dd > 0 {
-                let sy = height * dd / Double(transformController.getScope().h)
-                let sx = width * dd / Double(transformController.getScope().w)
+                let sy = height * dd / viewportHeight
+                let sx = width * dd / viewportWidth
 
                 transformController.setupDefaultTransform(scaleX: Float(sx), scaleY: Float(sy))
 

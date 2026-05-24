@@ -48,6 +48,20 @@ final class IRGLProgram2DTests: XCTestCase {
         XCTAssertEqual(delegate.bounds, [.horizontal, .vertical, .both])
         XCTAssertTrue(delegate.programs.allSatisfy { $0 === program })
     }
+
+    func testOutputSizeUpdateIgnoresZeroDimensionsWhenScalingTransform() {
+        let program = IRGLProgram2D()
+        let transformController = IRGLTransformController2D(viewportWidth: 320, viewportHeight: 180)
+        program.tramsformController = transformController
+
+        program.didUpdateOutputWH(0, 0)
+
+        let defaultScale = transformController.getDefaultTransformScale()
+        XCTAssertTrue(defaultScale.x.isFinite)
+        XCTAssertTrue(defaultScale.y.isFinite)
+        XCTAssertEqual(defaultScale.x, 1, accuracy: 0.0001)
+        XCTAssertEqual(defaultScale.y, 1, accuracy: 0.0001)
+    }
 }
 
 private final class ProgramDelegateSpy: IRGLProgramDelegate {
