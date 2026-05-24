@@ -400,7 +400,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         }
 
         if let yuvFrame = frame as? IRFFAVYUVVideoFrame {
-            let image = yuvFrame.image()
+            guard let image = yuvFrame.image() else { return nil }
             return CIImage(image: image)
         }
 

@@ -398,6 +398,17 @@ final class IRFFFramePoolTests: XCTestCase {
     }
 }
 
+final class IRFFAVYUVVideoFrameTests: XCTestCase {
+
+    func testImageReturnsNilWhenFrameDataIsMissing() {
+        let frame = IRFFAVYUVVideoFrame()
+
+        let image: IRPLFImage? = frame.image()
+
+        XCTAssertNil(image)
+    }
+}
+
 final class IRFFToolsTests: XCTestCase {
 
     func testFFLogIgnoresInvalidUTF8FormatString() throws {

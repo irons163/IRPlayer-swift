@@ -80,13 +80,14 @@ import IRFFMpeg
         lock.unlock()
     }
 
-    func image() -> IRPLFImage {
+    func image() -> IRPLFImage? {
         lock.lock()
         defer { lock.unlock() }
         if !isImageDirty, let cachedImage {
             return cachedImage
         }
-        let image = IRYUVConvertToImage(srcData: channelPixels, srcLinesize: channelLinesize, width: width, height: height, pixelFormat: pixelFormat!)!
+        guard width > 0, height > 0, let pixelFormat else { return nil }
+        guard let image = IRYUVConvertToImage(srcData: channelPixels, srcLinesize: channelLinesize, width: width, height: height, pixelFormat: pixelFormat) else { return nil }
         cachedImage = image
         isImageDirty = false
         return image
