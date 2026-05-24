@@ -1,3 +1,4 @@
+import simd
 import XCTest
 @testable import IRPlayer_swift
 
@@ -70,6 +71,27 @@ final class IRGLTransformController3DFisheyeTests: XCTestCase {
 
         XCTAssertEqual(upController.getScope().panDegree, 30, accuracy: 0.0001)
         XCTAssertEqual(towardController.getScope().panDegree, 0, accuracy: 0.0001)
+    }
+
+    func testResetViewportToZeroSizeKeepsMatrixFinite() {
+        let controller = IRGLTransformController3DFisheye(viewportWidth: 100, viewportHeight: 100, tileType: .up)
+
+        controller.resetViewport(width: 0, height: 0, resetTransform: true)
+
+        assertFinite(controller.getModelViewProjectionMatrix())
+    }
+
+    private func assertFinite(
+        _ matrix: simd_float4x4,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        for column in [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3] {
+            XCTAssertTrue(column.x.isFinite, file: file, line: line)
+            XCTAssertTrue(column.y.isFinite, file: file, line: line)
+            XCTAssertTrue(column.z.isFinite, file: file, line: line)
+            XCTAssertTrue(column.w.isFinite, file: file, line: line)
+        }
     }
 }
 
