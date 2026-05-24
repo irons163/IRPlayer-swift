@@ -57,6 +57,17 @@ public class IRFFFormatContext {
         self.videoFormat = videoFormat
     }
 
+    static func stream(at index: Int, in formatContext: UnsafeMutablePointer<AVFormatContext>?) -> UnsafeMutablePointer<AVStream>? {
+        guard let formatContext,
+              index >= 0,
+              index < Int(formatContext.pointee.nb_streams),
+              let streams = formatContext.pointee.streams else {
+            return nil
+        }
+
+        return streams[index]
+    }
+
     func setupSync() {
         self.error = openStream()
         if error != nil { return }
@@ -132,8 +143,10 @@ public class IRFFFormatContext {
         var audioTracks: [IRFFTrack] = []
 
         for i in 0..<Int((formatContext?.pointee.nb_streams ?? 0)) {
-            let stream = formatContext?.pointee.streams[i]
-            switch stream?.pointee.codecpar.pointee.codec_type {
+            guard let stream = Self.stream(at: i, in: formatContext),
+                  let codecParameters = stream.pointee.codecpar else { continue }
+
+            switch codecParameters.pointee.codec_type {
             case AVMEDIA_TYPE_VIDEO:
                 let track = IRFFTrack(index: i, type: .video)
                 videoTracks.append(track)
@@ -159,14 +172,16 @@ public class IRFFFormatContext {
         if !videoTracks.isEmpty {
             for track in videoTracks {
                 let index = track.index
-                if ((formatContext?.pointee.streams[Int(index)]?.pointee.disposition)! & AV_DISPOSITION_ATTACHED_PIC) == 0 {
+                guard let stream = Self.stream(at: Int(index), in: formatContext) else { continue }
+
+                if (stream.pointee.disposition & AV_DISPOSITION_ATTACHED_PIC) == 0 {
                     var codecContext: UnsafeMutablePointer<AVCodecContext>?
                     error = openStream(with: Int(index), codecContext: &codecContext, domain: "video")
                     if error == nil {
                         self.videoTrack = track
                         self.videoEnable = true
-                        self.videoTimebase = IRFFStreamGetTimebase((formatContext?.pointee.streams[Int(index)])!, defaultTimebase: 0.00004)
-                        self.videoFPS = IRFFStreamGetFPS((formatContext?.pointee.streams[Int(index)])!, timebase: self.videoTimebase)
+                        self.videoTimebase = IRFFStreamGetTimebase(stream, defaultTimebase: 0.00004)
+                        self.videoFPS = IRFFStreamGetFPS(stream, timebase: self.videoTimebase)
                         self.videoPresentationSize = CGSize(width: CGFloat(codecContext?.pointee.width ?? 0), height: CGFloat(codecContext?.pointee.height ?? 0))
                         self.videoAspect = CGFloat(codecContext?.pointee.width ?? 0) / CGFloat(codecContext?.pointee.height ?? 0)
                         self.videoCodecContext = codecContext
@@ -192,7 +207,9 @@ public class IRFFFormatContext {
                 if error == nil {
                     self.audioTrack = track
                     self.audioEnable = true
-                    self.audioTimebase = IRFFStreamGetTimebase((formatContext?.pointee.streams[Int(index)])!, defaultTimebase: 0.000025)
+                    if let stream = Self.stream(at: Int(index), in: formatContext) {
+                        self.audioTimebase = IRFFStreamGetTimebase(stream, defaultTimebase: 0.000025)
+                    }
                     self.audioCodecContext = codecContext
                     break
                 }
@@ -208,21 +225,26 @@ public class IRFFFormatContext {
         var result: Int32 = 0
         var error: NSError?
 
-        let stream = formatContext?.pointee.streams[trackIndex]
+        guard let stream = Self.stream(at: trackIndex, in: formatContext),
+              let codecParameters = stream.pointee.codecpar else {
+            error = NSError(domain: "\(domain) stream not found", code: Int(IRFFDecoderErrorCode.streamNotFound.rawValue), userInfo: nil)
+            return error
+        }
+
         codecContext = avcodec_alloc_context3(nil)
         if codecContext == nil {
             error = NSError(domain: "\(domain) codec context create error", code: Int(IRFFDecoderErrorCode.codecContextCreate.rawValue), userInfo: nil)
             return error
         }
 
-        result = avcodec_parameters_to_context(codecContext, stream?.pointee.codecpar)
+        result = avcodec_parameters_to_context(codecContext, codecParameters)
         error = IRFFCheckErrorCode(result, errorCode: IRFFDecoderErrorCode.codecContextSetParam.rawValue)
         if error != nil {
             avcodec_free_context(&codecContext)
             return error
         }
 //        av_codec_set_pkt_timebase(codecContext, (stream?.pointee.time_base)!)
-        codecContext?.pointee.pkt_timebase = (stream?.pointee.time_base)!
+        codecContext?.pointee.pkt_timebase = stream.pointee.time_base
 
         let codec = avcodec_find_decoder((codecContext?.pointee.codec_id)!)
         if codec == nil {
@@ -268,7 +290,9 @@ public class IRFFFormatContext {
             }
             audioTrack = audioTracks.first { $0.index == audioTrackIndex }
             audioEnable = true
-            audioTimebase = IRFFStreamGetTimebase((formatContext?.pointee.streams[audioTrackIndex])!, defaultTimebase: 0.000025)
+            if let stream = Self.stream(at: audioTrackIndex, in: formatContext) {
+                audioTimebase = IRFFStreamGetTimebase(stream, defaultTimebase: 0.000025)
+            }
             audioCodecContext = codecContext
         } else {
             print("select audio track error: \(String(describing: error))")

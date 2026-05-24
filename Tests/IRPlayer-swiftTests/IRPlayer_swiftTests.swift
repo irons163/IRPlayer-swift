@@ -149,6 +149,38 @@ final class IRPlayerNotificationTests: XCTestCase {
 
 final class IRFFFormatContextTests: XCTestCase {
 
+    func testStreamLookupRejectsMissingContextStreamsAndOutOfRangeIndex() {
+        XCTAssertNil(IRFFFormatContext.stream(at: 0, in: nil))
+
+        var formatContext = AVFormatContext()
+        formatContext.nb_streams = 1
+        formatContext.streams = nil
+
+        withUnsafeMutablePointer(to: &formatContext) { contextPointer in
+            XCTAssertNil(IRFFFormatContext.stream(at: -1, in: contextPointer))
+            XCTAssertNil(IRFFFormatContext.stream(at: 0, in: contextPointer))
+            XCTAssertNil(IRFFFormatContext.stream(at: 1, in: contextPointer))
+        }
+    }
+
+    func testStreamLookupReturnsExistingStream() {
+        var formatContext = AVFormatContext()
+        var stream = AVStream()
+
+        withUnsafeMutablePointer(to: &stream) { streamPointer in
+            var streams: [UnsafeMutablePointer<AVStream>?] = [streamPointer]
+
+            streams.withUnsafeMutableBufferPointer { streamBuffer in
+                formatContext.nb_streams = 1
+                formatContext.streams = streamBuffer.baseAddress
+
+                withUnsafeMutablePointer(to: &formatContext) { contextPointer in
+                    XCTAssertEqual(IRFFFormatContext.stream(at: 0, in: contextPointer), streamPointer)
+                }
+            }
+        }
+    }
+
     func testInterruptCallbackIgnoresMissingContextAndUsesDelegateDecision() {
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: nil), 0)
 
