@@ -88,6 +88,7 @@ extension IRAVPlayer {
         }
 
         tryReplaceVideo()
+        guard let avPlayer = avPlayer else { return }
 
         switch state {
         case .none:
@@ -103,7 +104,7 @@ extension IRAVPlayer {
             guard let self = self else { return }
             switch self.state {
             case .buffering, .playing, .readyToPlay:
-                self.avPlayer.play()
+                self.avPlayer?.play()
             default:
                 break
             }
