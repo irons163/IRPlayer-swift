@@ -36,6 +36,21 @@ import Foundation
         return (Int(params.textureWidth), Int(params.textureHeight))
     }
 
+    static func normalizedOffsetX(currentOffset: Float, delta: Float, outputWidth: GLint) -> Float? {
+        guard outputWidth > 0 else { return nil }
+
+        let width = Float(outputWidth)
+        var offset = currentOffset - delta
+        while offset > width || offset < -width {
+            if offset > width {
+                offset -= width
+            } else if offset < -width {
+                offset += width
+            }
+        }
+        return offset
+    }
+
     override func updateTextureWidth(_ w: Int, height h: Int) {
         super.updateTextureWidth(w, height: h)
         fish2Pano?.updateTextureWidth(w, height: h)
@@ -62,14 +77,15 @@ import Foundation
                 return false
             }
             let width = Float(fish2Pano.outputWidth) / Float(transformController.getScope().w)
-            fish2Pano.offsetX -= (willScrollX / transformController.getScope().scaleX * width)
-            while Int32(fish2Pano.offsetX) > fish2Pano.outputWidth || fish2Pano.offsetX < -Float(fish2Pano.outputWidth) {
-                if fish2Pano.offsetX > Float(fish2Pano.outputWidth) {
-                    fish2Pano.offsetX -= Float(fish2Pano.outputWidth)
-                } else if fish2Pano.offsetX < -Float(fish2Pano.outputWidth) {
-                    fish2Pano.offsetX += Float(fish2Pano.outputWidth)
-                }
+            let delta = willScrollX / transformController.getScope().scaleX * width
+            guard let offsetX = Self.normalizedOffsetX(
+                currentOffset: fish2Pano.offsetX,
+                delta: delta,
+                outputWidth: fish2Pano.outputWidth
+            ) else {
+                return false
             }
+            fish2Pano.offsetX = offsetX
             return false
         }
         return true

@@ -54,6 +54,23 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertTrue(delegate.outputSizes.isEmpty)
     }
 
+    func testNormalizedOffsetRejectsInvalidOutputWidth() {
+        XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: 0))
+        XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: -1))
+    }
+
+    func testNormalizedOffsetWrapsWithinOutputWidth() throws {
+        let wrappedLeft = try XCTUnwrap(
+            IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 260, outputWidth: 100)
+        )
+        let wrappedRight = try XCTUnwrap(
+            IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: -260, outputWidth: 100)
+        )
+
+        XCTAssertEqual(wrappedLeft, -60, accuracy: 0.0001)
+        XCTAssertEqual(wrappedRight, 60, accuracy: 0.0001)
+    }
+
     func testRotationHelpersRotateAroundExpectedAxes() {
         let point = XYZ(x: 1, y: 2, z: 3)
         let quarterTurn = GLfloat.pi / 2
