@@ -459,6 +459,12 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
 
 final class IRFFVideoToolBoxTests: XCTestCase {
 
+    func testThreeByteNALPayloadValidationRejectsTruncatedUnits() throws {
+        try assertThreeByteNALPayload([0, 0, 1, 42], isValid: true)
+        try assertThreeByteNALPayload([0, 0], isValid: false)
+        try assertThreeByteNALPayload([0, 0, 5, 1, 2], isValid: false)
+    }
+
     func testPacketPayloadRejectsMissingOrEmptyPacketData() {
         var packet = AVPacket()
         packet.size = 4
@@ -475,6 +481,21 @@ final class IRFFVideoToolBoxTests: XCTestCase {
             XCTAssertEqual(payload?.data, buffer.baseAddress)
             XCTAssertEqual(payload?.size, Int32(buffer.count))
         }
+    }
+
+    private func assertThreeByteNALPayload(_ bytes: [UInt8], isValid: Bool, file: StaticString = #filePath, line: UInt = #line) throws {
+        var packet = AVPacket()
+        var bytes = bytes
+
+        let isBounded = try bytes.withUnsafeMutableBufferPointer { buffer in
+            let data = try XCTUnwrap(buffer.baseAddress)
+            packet.data = data
+            packet.size = Int32(buffer.count)
+            let payload = try XCTUnwrap(IRFFVideoToolBox.packetPayload(for: packet))
+            return IRFFVideoToolBox.threeByteNALUnitsAreBounded(in: payload)
+        }
+
+        XCTAssertEqual(isBounded, isValid, file: file, line: line)
     }
 
     func testOutputCallbackIgnoresMissingRefConAndUpdatesDecoderState() {

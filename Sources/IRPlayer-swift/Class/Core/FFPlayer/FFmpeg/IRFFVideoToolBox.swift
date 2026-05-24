@@ -136,6 +136,8 @@ class IRFFVideoToolBox {
         var status: OSStatus = noErr
 
         if self.needConvertNALSize3To4 {
+            guard Self.threeByteNALUnitsAreBounded(in: packetPayload) else { return false }
+
             var ioContext: UnsafeMutablePointer<AVIOContext>?
             if avio_open_dyn_buf(&ioContext) < 0 {
                 status = -1900
@@ -215,6 +217,25 @@ class IRFFVideoToolBox {
     static func packetPayload(for packet: AVPacket) -> PacketPayload? {
         guard let data = packet.data, packet.size > 0 else { return nil }
         return PacketPayload(data: data, size: packet.size)
+    }
+
+    static func threeByteNALUnitsAreBounded(in payload: PacketPayload) -> Bool {
+        var cursor = payload.data
+        let end = payload.end
+
+        while cursor < end {
+            let nalSizeEnd = cursor.advanced(by: 3)
+            guard nalSizeEnd <= end else { return false }
+
+            let nalSize = (UInt32(cursor[0]) << 16) | (UInt32(cursor[1]) << 8) | UInt32(cursor[2])
+            cursor = nalSizeEnd
+
+            let nalEnd = cursor.advanced(by: Int(nalSize))
+            guard nalEnd <= end else { return false }
+            cursor = nalEnd
+        }
+
+        return true
     }
 
     func imageBuffer() -> CVImageBuffer? {
