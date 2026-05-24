@@ -178,6 +178,13 @@ private final class FormatContextInterruptDelegate: IRFFFormatContextDelegate {
 
 final class IRAVPlayerTests: XCTestCase {
 
+    func testTrackNameFallsBackWhenLanguageCodeIsMissingOrEmpty() {
+        XCTAssertEqual(IRAVPlayer.trackName(languageCode: nil, trackID: 7), "Track 7")
+        XCTAssertEqual(IRAVPlayer.trackName(languageCode: "", trackID: 8), "Track 8")
+        XCTAssertEqual(IRAVPlayer.trackName(languageCode: "  ", trackID: 9), "Track 9")
+        XCTAssertEqual(IRAVPlayer.trackName(languageCode: "en", trackID: 10), "en")
+    }
+
     func testSetupAVPlayerItemIgnoresMissingAsset() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)

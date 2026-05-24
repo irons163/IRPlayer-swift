@@ -622,8 +622,15 @@ extension IRAVPlayer {
     func playerTrack(from track: AVAssetTrack) -> IRPlayerTrack {
         let obj = IRPlayerTrack()
         obj.index = Int(track.trackID)
-        obj.name = track.languageCode ?? "Track \(track.trackID)"
+        obj.name = Self.trackName(languageCode: track.languageCode, trackID: track.trackID)
         return obj
+    }
+
+    static func trackName(languageCode: String?, trackID: CMPersistentTrackID) -> String {
+        guard let languageCode, !languageCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "Track \(trackID)"
+        }
+        return languageCode
     }
 
 }
