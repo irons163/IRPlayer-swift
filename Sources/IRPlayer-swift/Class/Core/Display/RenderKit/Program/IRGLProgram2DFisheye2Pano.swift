@@ -9,7 +9,7 @@ import Foundation
 
 @objcMembers public class IRGLProgram2DFisheye2Pano: IRGLProgram2D {
 
-    private var fish2Pano: IRGLFish2PanoShaderParams!
+    private var fish2Pano: IRGLFish2PanoShaderParams?
 
     var metalFish2PanoParams: IRGLFish2PanoShaderParams? {
         return fish2Pano
@@ -19,23 +19,30 @@ import Foundation
 
     override var contentMode: IRGLRenderContentMode {
         didSet {
-            if self.contentMode != oldValue {
-                updateTextureWidth(Int(fish2Pano.textureWidth), height: Int(fish2Pano.textureHeight))
+            if self.contentMode != oldValue,
+               let textureSize = Self.textureSize(from: fish2Pano) {
+                updateTextureWidth(textureSize.width, height: textureSize.height)
             }
         }
     }
 
     override func initShaderParams() {
         fish2Pano = IRGLFish2PanoShaderParams()
-        fish2Pano.delegate = self
+        fish2Pano?.delegate = self
+    }
+
+    static func textureSize(from params: IRGLFish2PanoShaderParams?) -> (width: Int, height: Int)? {
+        guard let params else { return nil }
+        return (Int(params.textureWidth), Int(params.textureHeight))
     }
 
     override func updateTextureWidth(_ w: Int, height h: Int) {
         super.updateTextureWidth(w, height: h)
-        fish2Pano.updateTextureWidth(w, height: h)
+        fish2Pano?.updateTextureWidth(w, height: h)
     }
 
     override func setRenderFrame(_ frame: IRFFVideoFrame) {
+        guard let fish2Pano else { return }
         if frame.width != fish2Pano.textureWidth || frame.height != fish2Pano.textureHeight {
             fish2Pano.updateTextureWidth(frame.width, height: frame.height)
         }
@@ -48,7 +55,8 @@ import Foundation
 
     override public func doScrollHorizontal(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
         if status.contains(.toMaxX) || status.contains(.toMinX) {
-            guard let transformController = tramsformController,
+            guard let fish2Pano,
+                  let transformController = tramsformController,
                   transformController.getScope().w != 0,
                   transformController.getScope().scaleX != 0 else {
                 return false
