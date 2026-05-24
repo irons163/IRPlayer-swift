@@ -226,6 +226,27 @@ class IRFFVideoToolBox {
         videoToolBox.decodeOutput = imageBuffer
     }
 
+    static func makeFormatDescriptionExtensions(extradata: UnsafePointer<UInt8>, extradataSize: Int32) -> CFDictionary {
+        let pixelAspectRatio: [String: Any] = [
+            "HorizontalSpacing": 0,
+            "VerticalSpacing": 0
+        ]
+
+        let atoms: [String: Any] = [
+            "avcC": CFDataCreate(nil, extradata, CFIndex(extradataSize)) as Any
+        ]
+
+        let extensions: [String: Any] = [
+            "CVImageBufferChromaLocationBottomField": "left" as CFString,
+            "CVImageBufferChromaLocationTopField": "left" as CFString,
+            "FullRangeVideo": false,
+            "CVPixelAspectRatio": pixelAspectRatio,
+            "SampleDescriptionExtensionAtoms": atoms
+        ]
+
+        return extensions as CFDictionary
+    }
+
     private static let outputCallback: VTDecompressionOutputCallback = { (
         decompressionOutputRefCon: UnsafeMutableRawPointer?,
         sourceFrameRefCon: UnsafeMutableRawPointer?,
@@ -242,22 +263,7 @@ class IRFFVideoToolBox {
         var formatDescription: CMFormatDescription?
         var status: OSStatus
 
-        let par: CFMutableDictionary = [
-            "HorizontalSpacing": 0,
-            "VerticalSpacing": 0
-        ] as! CFMutableDictionary as CFMutableDictionary
-
-        let atoms: CFMutableDictionary = [
-            "avcC": CFDataCreate(nil, extradata, CFIndex(extradataSize))
-        ] as! CFMutableDictionary as CFMutableDictionary
-
-        let extensions: CFMutableDictionary = [
-            "CVImageBufferChromaLocationBottomField": "left" as CFString,
-            "CVImageBufferChromaLocationTopField": "left" as CFString,
-            "FullRangeVideo": false,
-            "CVPixelAspectRatio": par,
-            "SampleDescriptionExtensionAtoms": atoms
-        ] as! CFMutableDictionary
+        let extensions = Self.makeFormatDescriptionExtensions(extradata: extradata, extradataSize: extradataSize)
 
         status = CMVideoFormatDescriptionCreate(
             allocator: nil,

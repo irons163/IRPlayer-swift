@@ -466,6 +466,22 @@ final class IRFFVideoToolBoxTests: XCTestCase {
             XCTAssertNil(videoToolBox.decodeOutput)
         }
     }
+
+    func testFormatDescriptionExtensionsIncludeExpectedAVCCAtom() throws {
+        let extradata = [UInt8](arrayLiteral: 1, 2, 3, 4)
+
+        let extensions: NSDictionary = try extradata.withUnsafeBufferPointer { buffer in
+            let pointer = try XCTUnwrap(buffer.baseAddress)
+            return IRFFVideoToolBox.makeFormatDescriptionExtensions(extradata: pointer, extradataSize: Int32(buffer.count)) as NSDictionary
+        }
+
+        let atoms = try XCTUnwrap(extensions["SampleDescriptionExtensionAtoms"] as? NSDictionary)
+        let avcC = try XCTUnwrap(atoms["avcC"] as? Data)
+        XCTAssertEqual(Array(avcC), extradata)
+        XCTAssertEqual(extensions["CVImageBufferChromaLocationBottomField"] as? String, "left")
+        XCTAssertEqual(extensions["CVImageBufferChromaLocationTopField"] as? String, "left")
+        XCTAssertEqual(extensions["FullRangeVideo"] as? Bool, false)
+    }
 }
 
 final class IRFFToolsTests: XCTestCase {
