@@ -45,6 +45,10 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertEqual(IRFFAudioDecoder.sampleElementCount(numberOfFrames: 3, channelCount: 2), 6)
     }
 
+    func testSampleElementCountRejectsOverflow() {
+        XCTAssertNil(IRFFAudioDecoder.sampleElementCount(numberOfFrames: Int.max, channelCount: 2))
+    }
+
     func testFallbackDurationRejectsInvalidAudioOutputInfo() {
         XCTAssertNil(IRFFAudioDecoder.fallbackDuration(sampleByteCount: 0, channelCount: 2, samplingRate: 48_000))
         XCTAssertNil(IRFFAudioDecoder.fallbackDuration(sampleByteCount: 128, channelCount: 0, samplingRate: 48_000))

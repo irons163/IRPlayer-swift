@@ -72,7 +72,9 @@ class IRFFAudioDecoder {
 
     static func sampleElementCount(numberOfFrames: Int, channelCount: UInt32) -> Int? {
         guard numberOfFrames > 0, channelCount > 0 else { return nil }
-        return numberOfFrames * Int(channelCount)
+        let (count, overflow) = numberOfFrames.multipliedReportingOverflow(by: Int(channelCount))
+        guard !overflow else { return nil }
+        return count
     }
 
     static func fallbackDuration(sampleByteCount: Int, channelCount: UInt32, samplingRate: Float64) -> TimeInterval? {
