@@ -57,6 +57,18 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         setDefaultValues()
     }
 
+    static func outputSize(forTextureWidth textureWidth: Int, height textureHeight: Int) -> (width: Int, height: Int)? {
+        guard textureWidth > 0, textureHeight > 0 else { return nil }
+
+        let outputWidth = GLint(1.422222222222222 * Double(textureWidth))
+        let vapertureRadians = GLfloat(60.0) * DTOR
+        let halfVaperture = 0.5 * vapertureRadians
+        let deltaLongitudeRadians = 0.5 * (GLfloat(360.0) * DTOR)
+        let outputHeight = GLint(Float(outputWidth) * tan(halfVaperture) / deltaLongitudeRadians)
+        guard outputWidth > 0, outputHeight > 0 else { return nil }
+        return (Int(outputWidth), Int(outputHeight))
+    }
+
     func initPixelMaps() {
         let transX = transformX * DTOR
         let transY = transformY * DTOR
@@ -147,7 +159,7 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
             fishradiush = textureWidth / 2
             fishradiusv = textureHeight / 2
 
-            if w != 0 && h != 0 {
+            if Self.outputSize(forTextureWidth: w, height: h) != nil {
                 updateOutputWH()
                 delegate?.didUpdateOutputWH(Int(outputWidth), Int(outputHeight))
             }
@@ -161,14 +173,11 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         long1 = 0.0
         long2 = 360.0
 
-        let long1Radians = long1 * DTOR
-        let long2Radians = long2 * DTOR
-        let deltaLongitudeRadians = 0.5 * (long2Radians - long1Radians)
-        let vapertureRadians = vaperture * DTOR
-        let halfVaperture = 0.5 * vapertureRadians
-
-        outputWidth = GLint(1.422222222222222 * Double(textureWidth))
-        outputHeight = GLint(Float(outputWidth) * tan(halfVaperture) / deltaLongitudeRadians)
+        guard let size = Self.outputSize(forTextureWidth: Int(textureWidth), height: Int(textureHeight)) else {
+            return
+        }
+        outputWidth = GLint(size.width)
+        outputHeight = GLint(size.height)
 
         enableTransformX = 1
         enableTransformZ = 1

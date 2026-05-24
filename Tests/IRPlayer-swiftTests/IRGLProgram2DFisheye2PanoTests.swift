@@ -54,6 +54,20 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertTrue(delegate.outputSizes.isEmpty)
     }
 
+    func testPanoOutputSizeRejectsInvalidTextureDimensions() {
+        XCTAssertNil(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 0, height: 480))
+        XCTAssertNil(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: 0))
+        XCTAssertNil(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: -640, height: 480))
+        XCTAssertNil(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: -480))
+    }
+
+    func testPanoOutputSizeUsesExpectedAspectForValidTextureDimensions() throws {
+        let outputSize = try XCTUnwrap(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: 480))
+
+        XCTAssertEqual(outputSize.width, 910)
+        XCTAssertEqual(outputSize.height, 167)
+    }
+
     func testNormalizedOffsetRejectsInvalidOutputWidth() {
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: 0))
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: -1))
