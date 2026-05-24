@@ -45,6 +45,24 @@ final class IRGLTransformController2DTests: XCTestCase {
         XCTAssertEqual(delegate.verticalStatuses.count, 1)
         XCTAssertEqual(delegate.didScrollStatuses.count, 1)
     }
+
+    func testDegreeScrollUsesFullScopeRangeWidth() {
+        let controller = IRGLTransformController2D(viewportWidth: 100, viewportHeight: 100)
+        let delegate = TransformDelegateSpy()
+        controller.delegate = delegate
+        controller.update(fx: 50, fy: 50, sx: 2, sy: 2)
+        controller.scopeRange = IRGLScopeRange(minLat: -50,
+                                               maxLat: 50,
+                                               minLng: -100,
+                                               maxLng: 100,
+                                               defaultLat: 0,
+                                               defaultLng: 0)
+
+        controller.scroll(degreeX: 20, degreeY: 10)
+
+        XCTAssertEqual(controller.getScope().offsetX, 35, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().offsetY, 35, accuracy: 0.0001)
+    }
 }
 
 private final class TransformDelegateSpy: IRGLTransformControllerDelegate {

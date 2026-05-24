@@ -32,6 +32,14 @@ class IRGLScopeRange {
         self.defaultLat = defaultLat
         self.defaultLng = defaultLng
     }
+
+    var wideDegreeX: Float {
+        return maxLng - minLng
+    }
+
+    var wideDegreeY: Float {
+        return maxLat - minLat
+    }
 }
 
 class IRGLScaleRange {
