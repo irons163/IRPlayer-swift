@@ -53,6 +53,16 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(state.current, .playing)
     }
 
+    func testStateParserAcceptsRawNumericPayloads() {
+        let state = IRModel.state(fromUserInfo: [
+            IRPlayerStatePreviousKey: NSNumber(value: IRPlayerState.readyToPlay.rawValue),
+            IRPlayerStateCurrentKey: IRPlayerState.failed.rawValue
+        ])
+
+        XCTAssertEqual(state.previous, .readyToPlay)
+        XCTAssertEqual(state.current, .failed)
+    }
+
     func testProgressParserAcceptsNumericPayloadsAndDefaultsMissingValues() {
         let progress = IRModel.progress(fromUserInfo: [
             IRPlayerProgressPercentKey: NSNumber(value: 0.5),

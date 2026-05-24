@@ -66,6 +66,19 @@ enum IRPlayerNotificationPayload {
         return 0
     }
 
+    static func state(_ value: Any?) -> IRPlayerState {
+        if let value = value as? IRPlayerState {
+            return value
+        }
+        if let value = value as? NSNumber {
+            return IRPlayerState(rawValue: value.intValue) ?? .none
+        }
+        if let value = value as? Int {
+            return IRPlayerState(rawValue: value) ?? .none
+        }
+        return .none
+    }
+
     private static func timePayload(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
         return [
             IRPlayerProgressPercentKey: percent ?? NSNumber(value: 0),
@@ -92,8 +105,8 @@ public class IRModel: NSObject {
 
     public static func state(fromUserInfo userInfo: [AnyHashable : Any]) -> IRState {
         let state = IRState()
-        state.previous = userInfo[IRPlayerStatePreviousKey] as? IRPlayerState ?? .none
-        state.current = userInfo[IRPlayerStateCurrentKey] as? IRPlayerState ?? .none
+        state.previous = IRPlayerNotificationPayload.state(userInfo[IRPlayerStatePreviousKey])
+        state.current = IRPlayerNotificationPayload.state(userInfo[IRPlayerStateCurrentKey])
         return state
     }
 
