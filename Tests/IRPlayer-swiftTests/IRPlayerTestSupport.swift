@@ -20,6 +20,14 @@ final class FormatContextInterruptDelegate: IRFFFormatContextDelegate {
     }
 }
 
+final class ShaderParamsDelegateSpy: IRGLShaderParamsDelegate {
+    private(set) var outputSizes: [(width: Int, height: Int)] = []
+
+    func didUpdateOutputWH(_ w: Int, _ h: Int) {
+        outputSizes.append((w, h))
+    }
+}
+
 func mirroredFFPlayer(from player: IRPlayerImp) -> IRFFPlayer? {
     let childValue = Mirror(reflecting: player)
         .children

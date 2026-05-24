@@ -40,7 +40,7 @@ final class IRGLProgram2DFisheye2PerspTests: XCTestCase {
 
     func testPerspShaderParamsTextureUpdateBuildsExpectedOutputAndNotifiesDelegate() {
         let params = IRGLFish2PerspShaderParams()
-        let delegate = PerspShaderParamsDelegateSpy()
+        let delegate = ShaderParamsDelegateSpy()
         params.delegate = delegate
 
         params.updateTextureWidth(1920, height: 960)
@@ -58,13 +58,5 @@ final class IRGLProgram2DFisheye2PerspTests: XCTestCase {
         XCTAssertEqual(params.fishfov, GLfloat.pi, accuracy: 0.0001)
         XCTAssertEqual(params.perspfov, 100 * GLfloat.pi / 180, accuracy: 0.0001)
         XCTAssertEqual(delegate.outputSizes.map { "\($0.width)x\($0.height)" }, ["1280x720"])
-    }
-}
-
-private final class PerspShaderParamsDelegateSpy: IRGLShaderParamsDelegate {
-    private(set) var outputSizes: [(width: Int, height: Int)] = []
-
-    func didUpdateOutputWH(_ w: Int, _ h: Int) {
-        outputSizes.append((w, h))
     }
 }

@@ -76,11 +76,3 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(value.z, z, accuracy: 0.0001, file: file, line: line)
     }
 }
-
-private final class ShaderParamsDelegateSpy: IRGLShaderParamsDelegate {
-    private(set) var outputSizes: [(width: Int, height: Int)] = []
-
-    func didUpdateOutputWH(_ w: Int, _ h: Int) {
-        outputSizes.append((w, h))
-    }
-}
