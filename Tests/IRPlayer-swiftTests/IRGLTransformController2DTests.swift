@@ -1,3 +1,4 @@
+import simd
 import XCTest
 @testable import IRPlayer_swift
 
@@ -62,6 +63,28 @@ final class IRGLTransformController2DTests: XCTestCase {
 
         XCTAssertEqual(controller.getScope().offsetX, 35, accuracy: 0.0001)
         XCTAssertEqual(controller.getScope().offsetY, 35, accuracy: 0.0001)
+    }
+
+    func testResetViewportToZeroSizeKeepsMatrixFinite() {
+        let controller = IRGLTransformController2D(viewportWidth: 100, viewportHeight: 100)
+        controller.update(fx: 50, fy: 50, sx: 2, sy: 2)
+
+        controller.resetViewport(width: 0, height: 0, resetTransform: false)
+
+        assertFinite(controller.getModelViewProjectionMatrix())
+    }
+
+    private func assertFinite(
+        _ matrix: simd_float4x4,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        for column in [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3] {
+            XCTAssertTrue(column.x.isFinite, file: file, line: line)
+            XCTAssertTrue(column.y.isFinite, file: file, line: line)
+            XCTAssertTrue(column.z.isFinite, file: file, line: line)
+            XCTAssertTrue(column.w.isFinite, file: file, line: line)
+        }
     }
 }
 

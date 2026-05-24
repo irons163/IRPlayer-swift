@@ -200,6 +200,16 @@ import simd
             scope.h = h
             updateToDefault()
         } else {
+            guard w > 0, h > 0 else {
+                reset()
+                scope.w = w
+                scope.h = h
+                updateVertices()
+                defaultTransformScaleX = oldDefaultScaleX
+                defaultTransformScaleY = oldDefaultScaleY
+                return
+            }
+
             scope.w = w
             scope.h = h
 
