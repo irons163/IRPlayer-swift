@@ -159,13 +159,13 @@ extension IRAVPlayer {
     }
 
     func seek(to time: TimeInterval, completionHandler: ((Bool) -> Void)? = nil) {
-        guard avPlayerItem.status == .readyToPlay else { return }
+        guard let avPlayerItem = avPlayerItem, avPlayerItem.status == .readyToPlay else { return }
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.setPlayIfNeeded()
             self.seeking = true
-            self.avPlayerItem.seek(to: CMTimeMakeWithSeconds(time, preferredTimescale: Int32(NSEC_PER_SEC))) { finished in
+            avPlayerItem.seek(to: CMTimeMakeWithSeconds(time, preferredTimescale: Int32(NSEC_PER_SEC))) { finished in
                 DispatchQueue.main.async {
                     self.seeking = false
                     self.playIfNeeded()
