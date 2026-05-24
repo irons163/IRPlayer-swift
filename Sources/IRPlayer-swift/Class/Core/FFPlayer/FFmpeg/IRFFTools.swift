@@ -36,7 +36,8 @@ func IRPlayerLog(_ text: String) {
 
 func IRFFLog(context: UnsafeMutableRawPointer?, level: Int32, format: UnsafePointer<CChar>, args: CVaListPointer) {
 #if IRFFFFmpegLogEnable
-    let message = NSString(format: NSString(utf8String: format)! as String, arguments: args) as String
+    guard let formatString = String(validatingUTF8: format) else { return }
+    let message = NSString(format: formatString, arguments: args) as String
     print("IRFFLog: \(message)")
 #endif
 }

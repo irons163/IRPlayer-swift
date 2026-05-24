@@ -400,6 +400,17 @@ final class IRFFFramePoolTests: XCTestCase {
 
 final class IRFFToolsTests: XCTestCase {
 
+    func testFFLogIgnoresInvalidUTF8FormatString() throws {
+        let invalidFormat: [CChar] = [-1, 0]
+
+        try invalidFormat.withUnsafeBufferPointer { formatBuffer in
+            let format = try XCTUnwrap(formatBuffer.baseAddress)
+            withVaList([]) { args in
+                IRFFLog(context: nil, level: 0, format: format, args: args)
+            }
+        }
+    }
+
     func testStreamTimebaseFallsBackToFiniteValueForInvalidStreamAndDefault() {
         var stream = AVStream()
         stream.time_base = AVRational(num: 0, den: 0)
