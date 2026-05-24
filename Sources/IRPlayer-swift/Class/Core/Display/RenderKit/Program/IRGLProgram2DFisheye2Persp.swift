@@ -37,8 +37,9 @@ import Foundation
 
     override public func doScrollHorizontal(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
         if status.contains(.toMaxX) || status.contains(.toMinX) {
-            let moveDegree = -1 * (willScrollX * (180.0 / Float(fish2Persp!.outputWidth)))
-            fish2Persp?.transformY -= moveDegree
+            guard let fish2Persp = fish2Persp, fish2Persp.outputWidth != 0 else { return false }
+            let moveDegree = -1 * (willScrollX * (180.0 / Float(fish2Persp.outputWidth)))
+            fish2Persp.transformY -= moveDegree
             return false
         }
         return true
@@ -46,12 +47,13 @@ import Foundation
 
     override public func doScrollVertical(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
         if status.contains(.toMaxY) || status.contains(.toMinY) {
-            fish2Persp?.transformX -= (willScrollY * (180.0 / (Float(fish2Persp!.fishradiush) * 2.0)))
+            guard let fish2Persp = fish2Persp, fish2Persp.fishradiush != 0 else { return false }
+            fish2Persp.transformX -= (willScrollY * (180.0 / (Float(fish2Persp.fishradiush) * 2.0)))
 
-            if fish2Persp!.transformX > 55 {
-                fish2Persp!.transformX = 55
-            } else if fish2Persp!.transformX < 0 {
-                fish2Persp!.transformX = 0
+            if fish2Persp.transformX > 55 {
+                fish2Persp.transformX = 55
+            } else if fish2Persp.transformX < 0 {
+                fish2Persp.transformX = 0
             }
             return false
         }
