@@ -120,6 +120,9 @@
 		B5E94FE12D0B21F800149265 /* IRFFPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = B5E94E052D0B21F800149265 /* IRFFPlayer.h */; };
 		B5E94FEF2D0B268500149265 /* IRPlayer_swiftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94FEB2D0B220400149265 /* IRPlayer_swiftTests.swift */; };
 		B5E950012F68A00100149265 /* IRPlayerTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950002F68A00100149265 /* IRPlayerTestSupport.swift */; };
+		B5E950032F68A00200149265 /* IRPlayerDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950022F68A00200149265 /* IRPlayerDecoderTests.swift */; };
+		B5E950052F68A00300149265 /* IRModelPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950042F68A00300149265 /* IRModelPayloadTests.swift */; };
+		B5E950072F68A00400149265 /* IRPlayerNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950062F68A00400149265 /* IRPlayerNotificationTests.swift */; };
 		D1B25EAB2804376100F79DCC /* IRPlayer_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */; };
 /* End PBXBuildFile section */
 
@@ -250,6 +253,9 @@
 		B5E94F990000000000000001 /* IRPhotoSaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPhotoSaver.swift; sourceTree = "<group>"; };
 		B5E94FEB2D0B220400149265 /* IRPlayer_swiftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayer_swiftTests.swift; sourceTree = "<group>"; };
 		B5E950002F68A00100149265 /* IRPlayerTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerTestSupport.swift; sourceTree = "<group>"; };
+		B5E950022F68A00200149265 /* IRPlayerDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerDecoderTests.swift; sourceTree = "<group>"; };
+		B5E950042F68A00300149265 /* IRModelPayloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRModelPayloadTests.swift; sourceTree = "<group>"; };
+		B5E950062F68A00400149265 /* IRPlayerNotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerNotificationTests.swift; sourceTree = "<group>"; };
 		D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IRPlayer_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1B25EAA2804376100F79DCC /* IRPlayer-swiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "IRPlayer-swiftTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -715,6 +721,9 @@
 		B5E94FEC2D0B220400149265 /* IRPlayer-swiftTests */ = {
 			isa = PBXGroup;
 			children = (
+				B5E950022F68A00200149265 /* IRPlayerDecoderTests.swift */,
+				B5E950042F68A00300149265 /* IRModelPayloadTests.swift */,
+				B5E950062F68A00400149265 /* IRPlayerNotificationTests.swift */,
 				B5E94FEB2D0B220400149265 /* IRPlayer_swiftTests.swift */,
 				B5E950002F68A00100149265 /* IRPlayerTestSupport.swift */,
 			);
@@ -975,6 +984,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B5E950032F68A00200149265 /* IRPlayerDecoderTests.swift in Sources */,
+				B5E950052F68A00300149265 /* IRModelPayloadTests.swift in Sources */,
+				B5E950072F68A00400149265 /* IRPlayerNotificationTests.swift in Sources */,
 				B5E94FEF2D0B268500149265 /* IRPlayer_swiftTests.swift in Sources */,
 				B5E950012F68A00100149265 /* IRPlayerTestSupport.swift in Sources */,
 			);
