@@ -51,6 +51,16 @@ final class IRFFPlayerTests: XCTestCase {
         )
     }
 
+    func testAudioSilenceByteCountRejectsInvalidOrOverflowingInputs() {
+        XCTAssertNil(IRFFPlayer.audioSilenceByteCount(numberOfFrames: 0, numberOfChannels: 2))
+        XCTAssertNil(IRFFPlayer.audioSilenceByteCount(numberOfFrames: 10, numberOfChannels: 0))
+        XCTAssertNil(IRFFPlayer.audioSilenceByteCount(numberOfFrames: .max, numberOfChannels: .max))
+    }
+
+    func testAudioSilenceByteCountCalculatesFloatStorageSize() {
+        XCTAssertEqual(IRFFPlayer.audioSilenceByteCount(numberOfFrames: 10, numberOfChannels: 2), 80)
+    }
+
     func testAudioCopyPlanCalculatesFramesAndBytesWithinBounds() throws {
         let partial = try XCTUnwrap(
             IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 0, remainingFrames: 10, numberOfChannels: 2)

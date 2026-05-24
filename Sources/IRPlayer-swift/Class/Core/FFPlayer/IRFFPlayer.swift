@@ -104,6 +104,17 @@ class IRFFPlayer: NSObject {
         return IRFFPlayer(abstractPlayer: abstractPlayer)
     }
 
+    static func audioSilenceByteCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
+        guard numberOfFrames > 0, numberOfChannels > 0 else { return nil }
+
+        let (sampleCount, sampleCountOverflow) = Int(numberOfFrames).multipliedReportingOverflow(by: Int(numberOfChannels))
+        guard !sampleCountOverflow, sampleCount > 0 else { return nil }
+
+        let (byteCount, byteCountOverflow) = sampleCount.multipliedReportingOverflow(by: MemoryLayout<Float>.size)
+        guard !byteCountOverflow else { return nil }
+        return byteCount
+    }
+
     static func audioCopyPlan(frameSize: Int, outputOffset: Int, remainingFrames: UInt32, numberOfChannels: UInt32) -> AudioCopyPlan? {
         guard frameSize > 0,
               outputOffset >= 0,
@@ -331,7 +342,9 @@ extension IRFFPlayer: IRAudioManagerDelegate {
     
     func audioManager(_ audioManager: IRAudioManager, outputData: UnsafeMutablePointer<Float>, numberOfFrames: UInt32, numberOfChannels: UInt32) {
         guard self.playing else {
-            memset(outputData, 0, Int(numberOfFrames * numberOfChannels * UInt32(MemoryLayout<Float>.size)))
+            if let byteCount = Self.audioSilenceByteCount(numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels) {
+                memset(outputData, 0, byteCount)
+            }
             return
         }
 
@@ -346,14 +359,18 @@ extension IRFFPlayer: IRAudioManagerDelegate {
                 }
 
                 guard let currentAudioFrame = self.currentAudioFrame else {
-                    memset(currentOutputData, 0, Int(remainingFrames * numberOfChannels) * MemoryLayout<Float>.size)
+                    if let byteCount = Self.audioSilenceByteCount(numberOfFrames: remainingFrames, numberOfChannels: numberOfChannels) {
+                        memset(currentOutputData, 0, byteCount)
+                    }
                     return
                 }
 
                 guard let samples = currentAudioFrame.samples else {
                     currentAudioFrame.stopPlaying()
                     self.currentAudioFrame = nil
-                    memset(currentOutputData, 0, Int(remainingFrames * numberOfChannels) * MemoryLayout<Float>.size)
+                    if let byteCount = Self.audioSilenceByteCount(numberOfFrames: remainingFrames, numberOfChannels: numberOfChannels) {
+                        memset(currentOutputData, 0, byteCount)
+                    }
                     return
                 }
 
@@ -365,7 +382,9 @@ extension IRFFPlayer: IRAudioManagerDelegate {
                 ) else {
                     currentAudioFrame.stopPlaying()
                     self.currentAudioFrame = nil
-                    memset(currentOutputData, 0, Int(remainingFrames * numberOfChannels) * MemoryLayout<Float>.size)
+                    if let byteCount = Self.audioSilenceByteCount(numberOfFrames: remainingFrames, numberOfChannels: numberOfChannels) {
+                        memset(currentOutputData, 0, byteCount)
+                    }
                     return
                 }
 
