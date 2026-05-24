@@ -322,7 +322,7 @@ public class IRFFFormatContext {
 }
 
 func ffmpeg_interrupt_callback(ctx: UnsafeMutableRawPointer?) -> Int32 {
-    let obj = Unmanaged<IRFFFormatContext>.fromOpaque(ctx!).takeUnretainedValue()
+    guard let ctx else { return 0 }
+    let obj = Unmanaged<IRFFFormatContext>.fromOpaque(ctx).takeUnretainedValue()
     return obj.delegate?.formatContextNeedInterrupt(obj) == true ? 1 : 0
 }
-

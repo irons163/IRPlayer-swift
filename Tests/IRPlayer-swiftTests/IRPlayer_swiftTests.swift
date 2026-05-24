@@ -147,6 +147,35 @@ final class IRPlayerNotificationTests: XCTestCase {
     }
 }
 
+final class IRFFFormatContextTests: XCTestCase {
+
+    func testInterruptCallbackIgnoresMissingContextAndUsesDelegateDecision() {
+        XCTAssertEqual(ffmpeg_interrupt_callback(ctx: nil), 0)
+
+        let context = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
+        let delegate = FormatContextInterruptDelegate(shouldInterrupt: true)
+        context.delegate = delegate
+        let refCon = UnsafeMutableRawPointer(Unmanaged.passUnretained(context).toOpaque())
+
+        XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 1)
+
+        delegate.shouldInterrupt = false
+        XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 0)
+    }
+}
+
+private final class FormatContextInterruptDelegate: IRFFFormatContextDelegate {
+    var shouldInterrupt: Bool
+
+    init(shouldInterrupt: Bool) {
+        self.shouldInterrupt = shouldInterrupt
+    }
+
+    func formatContextNeedInterrupt(_ formatContext: IRFFFormatContext) -> Bool {
+        shouldInterrupt
+    }
+}
+
 final class IRAVPlayerTests: XCTestCase {
 
     func testSetupAVPlayerItemIgnoresMissingAsset() {
