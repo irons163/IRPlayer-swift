@@ -145,6 +145,7 @@ extension IRAVPlayer {
 
     func playIfNeeded() {
         if needPlay {
+            guard let avPlayer = avPlayer else { return }
             state = .playing
             avPlayer.play()
             needPlay = false

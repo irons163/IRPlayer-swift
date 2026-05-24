@@ -169,6 +169,20 @@ final class IRAVPlayerTests: XCTestCase {
         withExtendedLifetime(abstractPlayer) {}
     }
 
+    func testPlayIfNeededIgnoresMissingPlayerInstance() {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+
+        avPlayer.state = .buffering
+        avPlayer.needPlay = true
+        avPlayer.avPlayer = nil
+        avPlayer.playIfNeeded()
+
+        XCTAssertEqual(avPlayer.state, .buffering)
+        XCTAssertTrue(avPlayer.needPlay)
+        withExtendedLifetime(abstractPlayer) {}
+    }
+
     func testSeekIgnoresMissingPlayerItem() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
