@@ -1013,24 +1013,50 @@ private final class IRGLRenderStrategyFisheye: IRGLRenderStrategyBase {}
 private final class IRGLRenderStrategyVR: IRGLRenderStrategyBase {}
 private final class IRGLRenderStrategyMulti4P: IRGLRenderStrategyBase {}
 
+enum IRGLRenderStrategyKind {
+    case twoD
+    case fish2Pano
+    case distortion
+    case fisheye
+    case vr
+    case multi4P
+}
+
 final class IRGLRenderStrategyFactory {
-    static func make(for renderMode: IRGLRenderMode, renderer: IRMetalRenderer) -> IRGLRenderInternal {
+    static func strategyKind(for renderMode: IRGLRenderMode) -> IRGLRenderStrategyKind {
         if renderMode is IRGLRenderModeDistortion {
-            return IRGLRenderStrategyDistortion(renderer: renderer)
+            return .distortion
         }
         if renderMode is IRGLRenderMode2DFisheye2Pano {
-            return IRGLRenderStrategyFish2Pano(renderer: renderer)
+            return .fish2Pano
         }
         if renderMode is IRGLRenderModeVR {
-            return IRGLRenderStrategyVR(renderer: renderer)
+            return .vr
         }
         if renderMode is IRGLRenderModeMulti4P {
-            return IRGLRenderStrategyMulti4P(renderer: renderer)
+            return .multi4P
         }
         if renderMode is IRGLRenderMode3DFisheye {
-            return IRGLRenderStrategyFisheye(renderer: renderer)
+            return .fisheye
         }
-        return IRGLRenderStrategy2D(renderer: renderer)
+        return .twoD
+    }
+
+    static func make(for renderMode: IRGLRenderMode, renderer: IRMetalRenderer) -> IRGLRenderInternal {
+        switch strategyKind(for: renderMode) {
+        case .distortion:
+            return IRGLRenderStrategyDistortion(renderer: renderer)
+        case .fish2Pano:
+            return IRGLRenderStrategyFish2Pano(renderer: renderer)
+        case .vr:
+            return IRGLRenderStrategyVR(renderer: renderer)
+        case .multi4P:
+            return IRGLRenderStrategyMulti4P(renderer: renderer)
+        case .fisheye:
+            return IRGLRenderStrategyFisheye(renderer: renderer)
+        case .twoD:
+            return IRGLRenderStrategy2D(renderer: renderer)
+        }
     }
 }
 
