@@ -13,7 +13,7 @@ class IRFFPacketQueue: NSObject {
     @objc dynamic private(set) var duration: TimeInterval = 0
     private(set) var timebase: TimeInterval
     private var condition = NSCondition()
-    private var packets = [AVPacket]()
+    private var packets = [IRFFPacketQueueEntry]()
     private var destroyToken = false
 
     var count: Int {
@@ -35,13 +35,10 @@ class IRFFPacketQueue: NSObject {
             condition.unlock()
             return
         }
-        packets.append(packet)
+        let packetDuration = Self.accountedDuration(for: packet, fallbackDuration: duration, timebase: timebase)
+        packets.append(IRFFPacketQueueEntry(packet: packet, duration: packetDuration))
         size += Int(packet.size)
-        if packet.duration > 0 {
-            self.duration += Double(packet.duration) * self.timebase
-        } else if duration > 0 {
-            self.duration += duration
-        }
+        self.duration += packetDuration
         condition.signal()
         condition.unlock()
     }
@@ -57,12 +54,13 @@ class IRFFPacketQueue: NSObject {
             }
             condition.wait()
         }
-        packet = packets.removeFirst()
+        let entry = packets.removeFirst()
+        packet = entry.packet
         size -= Int(packet.size)
         if size < 0 || count <= 0 {
             size = 0
         }
-        duration -= Double(packet.duration) * timebase
+        duration -= entry.duration
         if duration < 0 || count <= 0 {
             duration = 0
         }
@@ -73,7 +71,7 @@ class IRFFPacketQueue: NSObject {
     func flush() {
         condition.lock()
         for i in packets.indices {
-            av_packet_unref(&packets[i])
+            av_packet_unref(&packets[i].packet)
         }
         packets.removeAll()
         size = 0
@@ -88,4 +86,18 @@ class IRFFPacketQueue: NSObject {
         condition.broadcast()
         condition.unlock()
     }
+
+    private static func accountedDuration(for packet: AVPacket,
+                                           fallbackDuration: TimeInterval,
+                                           timebase: TimeInterval) -> TimeInterval {
+        if packet.duration > 0 {
+            return Double(packet.duration) * timebase
+        }
+        return max(0, fallbackDuration)
+    }
+}
+
+private struct IRFFPacketQueueEntry {
+    var packet: AVPacket
+    let duration: TimeInterval
 }
