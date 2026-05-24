@@ -48,6 +48,13 @@ final class IRFFFormatContextTests: XCTestCase {
         }
     }
 
+    func testVideoAspectUsesFiniteRatioAndFallsBackForInvalidDimensions() {
+        XCTAssertEqual(IRFFFormatContext.videoAspect(width: 1920, height: 1080), 16.0 / 9.0, accuracy: 0.0001)
+        XCTAssertEqual(IRFFFormatContext.videoAspect(width: 0, height: 1080), 0)
+        XCTAssertEqual(IRFFFormatContext.videoAspect(width: 1920, height: 0), 0)
+        XCTAssertEqual(IRFFFormatContext.videoAspect(width: -1, height: 1080), 0)
+    }
+
     func testInterruptCallbackIgnoresMissingContextAndUsesDelegateDecision() {
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: nil), 0)
 
