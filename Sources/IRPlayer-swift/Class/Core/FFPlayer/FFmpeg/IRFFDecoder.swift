@@ -277,6 +277,10 @@ protocol IRFFDecoderDelegate: AnyObject {
         return formatContext?.audioCodecContext
     }
 
+    static func audioPacketError(fromPacketResult packetResult: Int) -> NSError? {
+        return IRFFCheckErrorCode(Int32(packetResult), errorCode: IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
+    }
+
     private func openFormatContext() {
         delegate?.decoderWillOpenInputStream(self)
         formatContext = IRFFFormatContext(contentURL: contentURL, videoFormat: videoFormat)
@@ -374,8 +378,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                 updateBufferedDurationByVideo()
             } else if packet.stream_index == (formatContext?.audioTrack?.index ?? 0) {
                 print("audio: put packet")
-                if (audioDecoder?.putPacket(packet) ?? -1) < 0 {
-                    error = IRFFCheckErrorCode(result!, errorCode: IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
+                let audioPacketResult = audioDecoder?.putPacket(packet) ?? -1
+                if audioPacketResult < 0 {
+                    error = Self.audioPacketError(fromPacketResult: audioPacketResult)
                     delegateErrorCallback()
                     continue
                 }

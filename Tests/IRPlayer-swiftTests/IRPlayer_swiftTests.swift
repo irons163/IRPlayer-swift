@@ -656,6 +656,14 @@ final class IRFFDecoderOperationTests: XCTestCase {
         queue.cancelAllOperations()
         queue.isSuspended = false
     }
+
+    func testAudioPacketErrorUsesPacketResult() throws {
+        XCTAssertNil(IRFFDecoder.audioPacketError(fromPacketResult: 0))
+
+        let error = try XCTUnwrap(IRFFDecoder.audioPacketError(fromPacketResult: -1))
+        XCTAssertEqual(error.code, IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
+        XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
+    }
 }
 
 final class IRFFAudioDecoderTests: XCTestCase {
