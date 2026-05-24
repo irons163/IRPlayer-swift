@@ -74,6 +74,16 @@ final class IRGLTransformController2DTests: XCTestCase {
         assertFinite(controller.getModelViewProjectionMatrix())
     }
 
+    func testUpdateWithZeroViewportKeepsMatrixFinite() {
+        let controller = IRGLTransformController2D()
+
+        controller.update(fx: 0, fy: 0, sx: 2, sy: 2)
+
+        assertFinite(controller.getModelViewProjectionMatrix())
+        XCTAssertEqual(controller.getScope().scaleX, 1, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().scaleY, 1, accuracy: 0.0001)
+    }
+
     private func assertFinite(
         _ matrix: simd_float4x4,
         file: StaticString = #filePath,
