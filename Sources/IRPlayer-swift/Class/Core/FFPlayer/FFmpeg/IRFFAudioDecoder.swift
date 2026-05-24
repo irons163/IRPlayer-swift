@@ -77,6 +77,13 @@ class IRFFAudioDecoder {
         return count
     }
 
+    static func sampleByteCount(numberOfElements: Int) -> Int? {
+        guard numberOfElements > 0 else { return nil }
+        let (byteCount, overflow) = numberOfElements.multipliedReportingOverflow(by: MemoryLayout<Float>.size)
+        guard !overflow else { return nil }
+        return byteCount
+    }
+
     static func fallbackDuration(sampleByteCount: Int, channelCount: UInt32, samplingRate: Float64) -> TimeInterval? {
         guard sampleByteCount > 0,
               channelCount > 0,
@@ -222,7 +229,9 @@ class IRFFAudioDecoder {
         guard let numberOfElements = Self.sampleElementCount(numberOfFrames: numberOfFrames, channelCount: channelCount) else {
             return nil
         }
-        let sampleByteCount = numberOfElements * MemoryLayout<Float>.size
+        guard let sampleByteCount = Self.sampleByteCount(numberOfElements: numberOfElements) else {
+            return nil
+        }
         audioFrame.setSamplesLength(sampleByteCount)
         if audioFrame.duration == 0,
            let fallbackDuration = Self.fallbackDuration(sampleByteCount: sampleByteCount, channelCount: channelCount, samplingRate: samplingRate) {

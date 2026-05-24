@@ -49,6 +49,16 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertNil(IRFFAudioDecoder.sampleElementCount(numberOfFrames: Int.max, channelCount: 2))
     }
 
+    func testSampleByteCountRejectsInvalidAndOverflowingElementCounts() {
+        XCTAssertNil(IRFFAudioDecoder.sampleByteCount(numberOfElements: 0))
+        XCTAssertNil(IRFFAudioDecoder.sampleByteCount(numberOfElements: -1))
+        XCTAssertNil(IRFFAudioDecoder.sampleByteCount(numberOfElements: Int.max))
+    }
+
+    func testSampleByteCountCalculatesFloatStorageSize() {
+        XCTAssertEqual(IRFFAudioDecoder.sampleByteCount(numberOfElements: 3), 12)
+    }
+
     func testFallbackDurationRejectsInvalidAudioOutputInfo() {
         XCTAssertNil(IRFFAudioDecoder.fallbackDuration(sampleByteCount: 0, channelCount: 2, samplingRate: 48_000))
         XCTAssertNil(IRFFAudioDecoder.fallbackDuration(sampleByteCount: 128, channelCount: 0, samplingRate: 48_000))
