@@ -619,6 +619,20 @@ final class IRFFDecoderOperationTests: XCTestCase {
 
 final class IRFFAudioDecoderTests: XCTestCase {
 
+    func testInputChannelCapacityRejectsMissingOrInvalidCodecContext() {
+        XCTAssertNil(IRFFAudioDecoder.inputChannelCapacity(from: nil))
+
+        var codecContext = AVCodecContext()
+        codecContext.channels = 0
+
+        withUnsafeMutablePointer(to: &codecContext) { contextPointer in
+            XCTAssertNil(IRFFAudioDecoder.inputChannelCapacity(from: contextPointer))
+
+            contextPointer.pointee.channels = 2
+            XCTAssertEqual(IRFFAudioDecoder.inputChannelCapacity(from: contextPointer), 2)
+        }
+    }
+
     func testSampleElementCountRejectsEmptyInputs() {
         XCTAssertNil(IRFFAudioDecoder.sampleElementCount(numberOfFrames: 0, channelCount: 2))
         XCTAssertNil(IRFFAudioDecoder.sampleElementCount(numberOfFrames: 4, channelCount: 0))

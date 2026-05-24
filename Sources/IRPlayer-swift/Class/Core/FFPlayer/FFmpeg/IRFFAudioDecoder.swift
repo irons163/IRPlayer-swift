@@ -75,6 +75,11 @@ class IRFFAudioDecoder {
         return numberOfFrames * Int(channelCount)
     }
 
+    static func inputChannelCapacity(from codecContext: UnsafeMutablePointer<AVCodecContext>?) -> Int? {
+        guard let channels = codecContext?.pointee.channels, channels > 0 else { return nil }
+        return Int(channels)
+    }
+
     func duration() -> TimeInterval {
         return frameQueue.duration
     }
@@ -155,8 +160,9 @@ class IRFFAudioDecoder {
 //            let inputPointer: UnsafeMutablePointer<UnsafePointer<UInt8>?> = tempFrame.pointee.data.withMemoryRebound(to: UnsafePointer<UInt8>?.self, capacity: Int(codecContext!.pointee.channels)) {
 //                        UnsafeMutablePointer<UnsafePointer<UInt8>?>(mutating: $0)
 //                    }
+            guard let inputChannelCapacity = Self.inputChannelCapacity(from: codecContext) else { return nil }
             let inputPointer: UnsafeMutablePointer<UnsafePointer<UInt8>?> = withUnsafeMutablePointer(to: &tempFrame.pointee.data) {
-                $0.withMemoryRebound(to: UnsafePointer<UInt8>?.self, capacity: Int(codecContext!.pointee.channels)) {
+                $0.withMemoryRebound(to: UnsafePointer<UInt8>?.self, capacity: inputChannelCapacity) {
                     $0
                 }
             }
