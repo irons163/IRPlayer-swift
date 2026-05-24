@@ -617,6 +617,16 @@ final class IRFFDecoderOperationTests: XCTestCase {
     }
 }
 
+final class IRFFAudioDecoderTests: XCTestCase {
+
+    func testSampleElementCountRejectsEmptyInputs() {
+        XCTAssertNil(IRFFAudioDecoder.sampleElementCount(numberOfFrames: 0, channelCount: 2))
+        XCTAssertNil(IRFFAudioDecoder.sampleElementCount(numberOfFrames: 4, channelCount: 0))
+        XCTAssertNil(IRFFAudioDecoder.sampleElementCount(numberOfFrames: -1, channelCount: 2))
+        XCTAssertEqual(IRFFAudioDecoder.sampleElementCount(numberOfFrames: 3, channelCount: 2), 6)
+    }
+}
+
 final class IRFFToolsTests: XCTestCase {
 
     func testFFLogIgnoresInvalidUTF8FormatString() throws {

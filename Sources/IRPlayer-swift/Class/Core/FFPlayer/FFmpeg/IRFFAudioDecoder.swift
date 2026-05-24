@@ -70,6 +70,11 @@ class IRFFAudioDecoder {
         return frameQueue.count <= 0
     }
 
+    static func sampleElementCount(numberOfFrames: Int, channelCount: UInt32) -> Int? {
+        guard numberOfFrames > 0, channelCount > 0 else { return nil }
+        return numberOfFrames * Int(channelCount)
+    }
+
     func duration() -> TimeInterval {
         return frameQueue.duration
     }
@@ -184,13 +189,16 @@ class IRFFAudioDecoder {
             audioFrame.duration = Double(audioFrame.size) / size
         }
 
-        let numberOfElements = numberOfFrames * Int(channelCount)
-        audioFrame.setSamplesLength(numberOfElements * MemoryLayout<Float32>.size)
+        guard let numberOfElements = Self.sampleElementCount(numberOfFrames: numberOfFrames, channelCount: channelCount) else {
+            return nil
+        }
+        audioFrame.setSamplesLength(numberOfElements * MemoryLayout<Float>.size)
+        guard let samples = audioFrame.samples else { return nil }
 
         var scale: Float32 = 1.0 / Float32(Int16.max)
         let audioDataPointer = audioDataBuffer.bindMemory(to: Int16.self, capacity: numberOfElements)
-        vDSP_vflt16(audioDataPointer, 1, audioFrame.samples!, 1, vDSP_Length(numberOfElements))
-        vDSP_vsmul(audioFrame.samples!, 1, &scale, audioFrame.samples!, 1, vDSP_Length(numberOfElements))
+        vDSP_vflt16(audioDataPointer, 1, samples, 1, vDSP_Length(numberOfElements))
+        vDSP_vsmul(samples, 1, &scale, samples, 1, vDSP_Length(numberOfElements))
 
         return audioFrame
     }
