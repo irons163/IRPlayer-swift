@@ -1,0 +1,64 @@
+import Foundation
+import IRFFMpeg
+import XCTest
+@testable import IRPlayer_swift
+
+final class IRFFFormatContextTests: XCTestCase {
+
+    func testStreamLookupRejectsMissingContextStreamsAndOutOfRangeIndex() {
+        XCTAssertNil(IRFFFormatContext.stream(at: 0, in: nil))
+
+        var formatContext = AVFormatContext()
+        formatContext.nb_streams = 1
+        formatContext.streams = nil
+
+        withUnsafeMutablePointer(to: &formatContext) { contextPointer in
+            XCTAssertNil(IRFFFormatContext.stream(at: -1, in: contextPointer))
+            XCTAssertNil(IRFFFormatContext.stream(at: 0, in: contextPointer))
+            XCTAssertNil(IRFFFormatContext.stream(at: 1, in: contextPointer))
+        }
+    }
+
+    func testStreamLookupReturnsExistingStream() {
+        var formatContext = AVFormatContext()
+        var stream = AVStream()
+
+        withUnsafeMutablePointer(to: &stream) { streamPointer in
+            var streams: [UnsafeMutablePointer<AVStream>?] = [streamPointer]
+
+            streams.withUnsafeMutableBufferPointer { streamBuffer in
+                formatContext.nb_streams = 1
+                formatContext.streams = streamBuffer.baseAddress
+
+                withUnsafeMutablePointer(to: &formatContext) { contextPointer in
+                    XCTAssertEqual(IRFFFormatContext.stream(at: 0, in: contextPointer), streamPointer)
+                }
+            }
+        }
+    }
+
+    func testDecoderLookupRejectsMissingAndInvalidCodecContext() {
+        XCTAssertNil(IRFFFormatContext.decoder(for: nil))
+
+        var codecContext = AVCodecContext()
+        codecContext.codec_id = AV_CODEC_ID_NONE
+
+        withUnsafeMutablePointer(to: &codecContext) { contextPointer in
+            XCTAssertNil(IRFFFormatContext.decoder(for: contextPointer))
+        }
+    }
+
+    func testInterruptCallbackIgnoresMissingContextAndUsesDelegateDecision() {
+        XCTAssertEqual(ffmpeg_interrupt_callback(ctx: nil), 0)
+
+        let context = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
+        let delegate = FormatContextInterruptDelegate(shouldInterrupt: true)
+        context.delegate = delegate
+        let refCon = UnsafeMutableRawPointer(Unmanaged.passUnretained(context).toOpaque())
+
+        XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 1)
+
+        delegate.shouldInterrupt = false
+        XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 0)
+    }
+}
