@@ -73,4 +73,19 @@ final class IRGLProgram2DFisheye2PerspTests: XCTestCase {
         XCTAssertFalse(shouldContinue)
         XCTAssertEqual(params.transformX, 10, accuracy: 0.0001)
     }
+
+    func testHorizontalBoundsScrollIgnoresInvalidOutputWidth() {
+        let program = IRGLProgram2DFisheye2Persp()
+        guard let params = program.metalFish2PerspParams else {
+            return XCTFail("Expected fisheye-to-perspective params")
+        }
+        params.outputWidth = -1
+        params.transformY = -90
+
+        program.willScroll(dx: 20, dy: 0, transformController: IRGLTransformController())
+        let shouldContinue = program.doScrollHorizontal(status: [.toMaxX], transformController: IRGLTransformController())
+
+        XCTAssertFalse(shouldContinue)
+        XCTAssertEqual(params.transformY, -90, accuracy: 0.0001)
+    }
 }
