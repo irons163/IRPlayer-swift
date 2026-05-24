@@ -122,7 +122,7 @@ public class IRModel: NSObject {
             return obj
         } else {
             let obj = IRError()
-            obj.error = NSError(domain: "IRPlayer error", code: -1, userInfo: nil)
+            obj.error = IRError.makeDefaultNSError()
             return obj
         }
     }
@@ -159,8 +159,12 @@ public class IRErrorEvent: IRModel {
 
 @objcMembers
 public class IRError: IRModel {
-    public var error: NSError = NSError()
+    public var error: NSError = IRError.makeDefaultNSError()
     public var extendedLogData: Data?
     public var extendedLogDataStringEncoding: UInt = String.Encoding.utf8.rawValue
     public var errorEvents: [IRErrorEvent]?
+
+    static func makeDefaultNSError() -> NSError {
+        return NSError(domain: "IRPlayer error", code: -1, userInfo: nil)
+    }
 }

@@ -38,6 +38,13 @@ final class IRPlayerDecoderTests: XCTestCase {
 
 final class IRModelPayloadTests: XCTestCase {
 
+    func testDefaultIRErrorUsesValidNSError() {
+        let error = IRError()
+
+        XCTAssertEqual(error.error.domain, "IRPlayer error")
+        XCTAssertEqual(error.error.code, -1)
+    }
+
     func testStatePayloadRoundTripsThroughModelParser() {
         let payload = IRPlayerNotificationPayload.state(previous: .buffering, current: .playing)
         let state = IRModel.state(fromUserInfo: payload)
