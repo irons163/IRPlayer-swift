@@ -67,7 +67,7 @@ class IRGLWideDegreeRange {
     public struct ScrollStatus: OptionSet {
         public let rawValue: UInt
 
-        static let none = ScrollStatus(rawValue: 0)
+        static let none: ScrollStatus = []
         static let toMaxX = ScrollStatus(rawValue: 1 << 0)
         static let toMinX = ScrollStatus(rawValue: 1 << 1)
         static let toMaxY = ScrollStatus(rawValue: 1 << 2)
