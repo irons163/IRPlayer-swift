@@ -74,3 +74,16 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertEqual(duration, 1, accuracy: 0.0001)
     }
 }
+
+final class IRFFAudioFrameTests: XCTestCase {
+
+    func testSampleCapacityRejectsInvalidByteLengths() {
+        XCTAssertNil(IRFFAudioFrame.sampleCapacity(forByteLength: 0))
+        XCTAssertNil(IRFFAudioFrame.sampleCapacity(forByteLength: -1))
+    }
+
+    func testSampleCapacityRoundsUpToFloatStorage() {
+        XCTAssertEqual(IRFFAudioFrame.sampleCapacity(forByteLength: MemoryLayout<Float>.size), 1)
+        XCTAssertEqual(IRFFAudioFrame.sampleCapacity(forByteLength: MemoryLayout<Float>.size + 1), 2)
+    }
+}
