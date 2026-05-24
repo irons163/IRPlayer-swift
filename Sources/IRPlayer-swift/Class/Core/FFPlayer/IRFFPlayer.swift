@@ -249,31 +249,36 @@ extension IRFFPlayer {
 
     func replaceVideo() {
         clean()
-        guard let contentURL = abstractPlayer?.contentURL else { return }
+        guard let abstractPlayer = abstractPlayer,
+              let contentURL = abstractPlayer.contentURL else { return }
+        guard let displayView = abstractPlayer.displayView else {
+            errorHandler(error: NSError(domain: "IRFFPlayer", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "Cannot replace FFmpeg video without a display view."
+            ]))
+            return
+        }
 
         decoder = IRFFDecoder(contentURL: contentURL as URL,
-                              videoFormat: abstractPlayer?.decoder.formatForContentURL(contentURL: contentURL) ?? .unknown,
-                              videoOutput: abstractPlayer!.displayView!,
+                              videoFormat: abstractPlayer.decoder.formatForContentURL(contentURL: contentURL),
+                              videoOutput: displayView,
                               audioOutput: self)
-        decoder?.source = self.abstractPlayer?.videoInput
+        decoder?.source = abstractPlayer.videoInput
         decoder?.delegate = self
-        decoder?.hardwareDecoderEnable = abstractPlayer?.decoder.ffmpegHardwareDecoderEnable ?? false
+        decoder?.hardwareDecoderEnable = abstractPlayer.decoder.ffmpegHardwareDecoderEnable
         decoder?.open()
         reloadVolume()
         reloadPlayableBufferInterval()
 
         let pixelFormat: IRPixelFormat = decoder?.hardwareDecoderEnable == true ? .NV12_IRPixelFormat : .YUV_IRPixelFormat
-        abstractPlayer?.displayView?.irPixelFormat = pixelFormat
+        displayView.irPixelFormat = pixelFormat
 
-        switch abstractPlayer?.videoType {
+        switch abstractPlayer.videoType {
         case .normal:
-            abstractPlayer?.displayView?.rendererType = .FFmpegPixelBuffer
+            displayView.rendererType = .FFmpegPixelBuffer
         case .vr:
-            abstractPlayer?.displayView?.rendererType = .FFmpegPixelBufferVR
+            displayView.rendererType = .FFmpegPixelBufferVR
         case .fisheye, .pano, .custom:
-            abstractPlayer?.displayView?.rendererType = .FFmpegPixelBuffer
-        case .none:
-            break
+            displayView.rendererType = .FFmpegPixelBuffer
         }
     }
 }
@@ -311,7 +316,14 @@ extension IRFFPlayer: IRAudioManagerDelegate {
                     return
                 }
 
-                let bytes = UnsafeRawPointer(currentAudioFrame.samples!).advanced(by: Int(currentAudioFrame.outputOffset)).assumingMemoryBound(to: UInt8.self)
+                guard let samples = currentAudioFrame.samples else {
+                    currentAudioFrame.stopPlaying()
+                    self.currentAudioFrame = nil
+                    memset(currentOutputData, 0, Int(remainingFrames * numberOfChannels) * MemoryLayout<Float>.size)
+                    return
+                }
+
+                let bytes = UnsafeRawPointer(samples).advanced(by: Int(currentAudioFrame.outputOffset)).assumingMemoryBound(to: UInt8.self)
                 let bytesLeft = currentAudioFrame.size - currentAudioFrame.outputOffset
                 let frameSizeOf = Int(numberOfChannels) * MemoryLayout<Float>.size
                 let bytesToCopy = min(Int(remainingFrames) * frameSizeOf, bytesLeft)

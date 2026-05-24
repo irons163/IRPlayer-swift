@@ -132,10 +132,11 @@ class IRAudioManager: NSObject {
 
     @objc private func audioSessionInterruptionHandler(_ notification: Notification) {
         guard let handlerTarget = handlerTarget, let interruptionHandler = interruptionHandler else { return }
-        let avType = AVAudioSession.InterruptionType(rawValue: notification.userInfo?[AVAudioSessionInterruptionTypeKey] as! UInt)!
+        guard let rawType = unsignedInteger(from: notification.userInfo?[AVAudioSessionInterruptionTypeKey]),
+              let avType = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
         let type: IRAudioManagerInterruptionType = (avType == .ended) ? .ended : .begin
         var option: IRAudioManagerInterruptionOption = .none
-        if let avOption = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt {
+        if let avOption = unsignedInteger(from: notification.userInfo?[AVAudioSessionInterruptionOptionKey]) {
             if avOption == AVAudioSession.InterruptionOptions.shouldResume.rawValue {
                 option = .shouldResume
             }
@@ -145,10 +146,24 @@ class IRAudioManager: NSObject {
 
     @objc private func audioSessionRouteChangeHandler(_ notification: Notification) {
         guard let handlerTarget = handlerTarget, let routeChangeHandler = routeChangeHandler else { return }
-        let avReason = AVAudioSession.RouteChangeReason(rawValue: notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as! UInt)!
+        guard let rawReason = unsignedInteger(from: notification.userInfo?[AVAudioSessionRouteChangeReasonKey]),
+              let avReason = AVAudioSession.RouteChangeReason(rawValue: rawReason) else { return }
         if avReason == .oldDeviceUnavailable {
             routeChangeHandler(handlerTarget, self, .oldDeviceUnavailable)
         }
+    }
+
+    private func unsignedInteger(from value: Any?) -> UInt? {
+        if let value = value as? UInt {
+            return value
+        }
+        if let value = value as? NSNumber {
+            return value.uintValue
+        }
+        if let value = value as? Int, value >= 0 {
+            return UInt(value)
+        }
+        return nil
     }
 
     func registerAudioSession() -> Bool {

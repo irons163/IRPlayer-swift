@@ -61,7 +61,7 @@ class IRFFFrameQueue: NSObject {
             }
         }
         if !added {
-            frames.append(frame)
+            frames.insert(frame, at: 0)
         }
         duration += frame.duration
         size += frame.size
@@ -126,4 +126,3 @@ class IRFFFrameQueue: NSObject {
         condition.unlock()
     }
 }
-

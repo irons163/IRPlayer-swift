@@ -297,43 +297,14 @@ extension IRAVPlayer {
 
             case .failed:
                 print("IRAVPlayer item status failed")
-                readyToPlayTime = 0
-                let errorInfo = IRError()
-
-                if let playerItemError = avPlayerItem.error {
-                    errorInfo.error = playerItemError as NSError
-
-                    if let extendedLogData = avPlayerItem.errorLog()?.extendedLogData(), extendedLogData.count > 0 {
-                        errorInfo.extendedLogData = extendedLogData
-                        errorInfo.extendedLogDataStringEncoding = String.Encoding(rawValue: avPlayerItem.errorLog()?.extendedLogDataStringEncoding ?? 0).rawValue
-                    }
-
-                    if let errorEvents = avPlayerItem.errorLog()?.events {
-                        errorInfo.errorEvents = errorEvents.map { event in
-                            let errorEvent = IRErrorEvent()
-                            errorEvent.date = event.date
-                            errorEvent.URI = event.uri
-                            errorEvent.serverAddress = event.serverAddress
-                            errorEvent.playbackSessionID = event.playbackSessionID
-                            errorEvent.errorStatusCode = event.errorStatusCode
-                            errorEvent.errorDomain = event.errorDomain
-                            errorEvent.errorComment = event.errorComment
-                            return errorEvent
-                        }
-                    }
-                } else if let playerError = avPlayer.error {
-                    errorInfo.error = playerError as NSError
-                } else {
-                    errorInfo.error = NSError(domain: "AVPlayer playback error", code: -1, userInfo: nil)
-                }
-
-                abstractPlayer.error = errorInfo
-                state = .failed
-                // Assuming IRPlayerNotification is adapted to Swift
-                IRPlayerNotification.postPlayer(abstractPlayer, error: errorInfo)
+                failPlayback(with: playbackErrorInfo())
 
             @unknown default:
-                fatalError()
+                let errorInfo = IRError()
+                errorInfo.error = NSError(domain: "AVPlayer item status unknown", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "AVPlayerItem reported an unknown status."
+                ])
+                failPlayback(with: errorInfo)
             }
 
         case "playbackBufferEmpty":
@@ -362,6 +333,46 @@ extension IRAVPlayer {
 
     func avAssetPrepareFailed(error: Error?) {
         print("\(#function) - AVAsset load failed: \(error?.localizedDescription ?? "Unknown error")")
+    }
+
+    private func playbackErrorInfo() -> IRError {
+        readyToPlayTime = 0
+        let errorInfo = IRError()
+
+        if let playerItemError = avPlayerItem.error {
+            errorInfo.error = playerItemError as NSError
+
+            if let extendedLogData = avPlayerItem.errorLog()?.extendedLogData(), extendedLogData.count > 0 {
+                errorInfo.extendedLogData = extendedLogData
+                errorInfo.extendedLogDataStringEncoding = String.Encoding(rawValue: avPlayerItem.errorLog()?.extendedLogDataStringEncoding ?? 0).rawValue
+            }
+
+            if let errorEvents = avPlayerItem.errorLog()?.events {
+                errorInfo.errorEvents = errorEvents.map { event in
+                    let errorEvent = IRErrorEvent()
+                    errorEvent.date = event.date
+                    errorEvent.URI = event.uri
+                    errorEvent.serverAddress = event.serverAddress
+                    errorEvent.playbackSessionID = event.playbackSessionID
+                    errorEvent.errorStatusCode = event.errorStatusCode
+                    errorEvent.errorDomain = event.errorDomain
+                    errorEvent.errorComment = event.errorComment
+                    return errorEvent
+                }
+            }
+        } else if let playerError = avPlayer.error {
+            errorInfo.error = playerError as NSError
+        } else {
+            errorInfo.error = NSError(domain: "AVPlayer playback error", code: -1, userInfo: nil)
+        }
+
+        return errorInfo
+    }
+
+    private func failPlayback(with errorInfo: IRError) {
+        abstractPlayer.error = errorInfo
+        state = .failed
+        IRPlayerNotification.postPlayer(abstractPlayer, error: errorInfo)
     }
 }
 
@@ -596,7 +607,7 @@ extension IRAVPlayer {
     func playerTrack(from track: AVAssetTrack) -> IRPlayerTrack? {
         let obj = IRPlayerTrack()
         obj.index = Int(track.trackID)
-        obj.name = track.languageCode!
+        obj.name = track.languageCode ?? "Track \(track.trackID)"
         return obj
     }
 
