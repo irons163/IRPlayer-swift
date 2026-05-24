@@ -407,6 +407,18 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
 
         XCTAssertNil(image)
     }
+
+    func testSetFrameDataIgnoresMissingPlaneData() {
+        var avFrame = AVFrame()
+        avFrame.format = 0
+        let frame = IRFFAVYUVVideoFrame()
+
+        withUnsafePointer(to: &avFrame) { pointer in
+            frame.setFrameData(pointer, width: 4, height: 4)
+        }
+
+        XCTAssertNil(frame.image())
+    }
 }
 
 final class IRFFToolsTests: XCTestCase {

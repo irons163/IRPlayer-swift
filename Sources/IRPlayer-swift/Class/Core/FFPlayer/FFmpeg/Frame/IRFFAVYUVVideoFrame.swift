@@ -24,6 +24,15 @@ import IRFFMpeg
     }
 
     func setFrameData(_ frame: UnsafePointer<AVFrame>, width: Int, height: Int) {
+        guard width > 0,
+              height > 0,
+              let luma = frame.pointee.data.0,
+              let chromaB = frame.pointee.data.1,
+              let chromaR = frame.pointee.data.2 else {
+            flush()
+            return
+        }
+
         self.pixelFormat = AVPixelFormat(rawValue: frame.pointee.format)
 
         self.width = width
@@ -41,9 +50,9 @@ import IRFFMpeg
         updateChannelBuffer(for: .chromaB, width: width / 2, height: height / 2, linesize: linesizeU)
         updateChannelBuffer(for: .chromaR, width: width / 2, height: height / 2, linesize: linesizeV)
 
-        copyFrameData(frame.pointee.data.0!, to: &channelPixels[IRYUVChannel.luma.rawValue], linesize: linesizeY, width: width, height: height)
-        copyFrameData(frame.pointee.data.1!, to: &channelPixels[IRYUVChannel.chromaB.rawValue], linesize: linesizeU, width: width / 2, height: height / 2)
-        copyFrameData(frame.pointee.data.2!, to: &channelPixels[IRYUVChannel.chromaR.rawValue], linesize: linesizeV, width: width / 2, height: height / 2)
+        copyFrameData(luma, to: &channelPixels[IRYUVChannel.luma.rawValue], linesize: linesizeY, width: width, height: height)
+        copyFrameData(chromaB, to: &channelPixels[IRYUVChannel.chromaB.rawValue], linesize: linesizeU, width: width / 2, height: height / 2)
+        copyFrameData(chromaR, to: &channelPixels[IRYUVChannel.chromaR.rawValue], linesize: linesizeV, width: width / 2, height: height / 2)
         isImageDirty = true
     }
 
