@@ -294,3 +294,12 @@ final class IRAudioManagerNotificationTests: XCTestCase {
         XCTAssertFalse(routeChangeCalled)
     }
 }
+
+final class IRAudioManagerRenderTests: XCTestCase {
+
+    func testRenderFramesIgnoresMissingAudioBufferList() {
+        let manager = IRAudioManager()
+
+        XCTAssertEqual(manager.renderFrames(16, ioData: nil), noErr)
+    }
+}

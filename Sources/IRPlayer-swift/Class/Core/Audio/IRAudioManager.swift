@@ -64,7 +64,7 @@ class IRAudioManager: NSObject {
                                                0,
                                                &volume)
             warning = checkError(result, domain: "graph get mixer volume error")
-            if let warning = warning {
+            if warning != nil {
                 delegateWarningCallback()
             }
             return volume
@@ -80,7 +80,7 @@ class IRAudioManager: NSObject {
                                                newValue,
                                                0)
             warning = checkError(result, domain: "graph set mixer volume error")
-            if let warning = warning {
+            if warning != nil {
                 delegateWarningCallback()
             }
         }
@@ -179,17 +179,17 @@ class IRAudioManager: NSObject {
         if registered, let graph = outputContext?.graph {
             var result = AUGraphUninitialize(graph)
             warning = checkError(result, domain: "graph uninitialize error")
-            if let warning = warning {
+            if warning != nil {
                 delegateWarningCallback()
             }
             result = AUGraphClose(graph)
             warning = checkError(result, domain: "graph close error")
-            if let warning = warning {
+            if warning != nil {
                 delegateWarningCallback()
             }
             result = DisposeAUGraph(graph)
             warning = checkError(result, domain: "graph dispose error")
-            if let warning = warning {
+            if warning != nil {
                 delegateWarningCallback()
             }
             outputContext = nil
@@ -218,7 +218,7 @@ class IRAudioManager: NSObject {
                                                              componentFlagsMask: 0)
         result = AUGraphAddNode(outputContext.graph!, &converterDescription, &outputContext.converterNodeContext.node)
         error = checkError(result, domain: "graph add converter node error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -230,7 +230,7 @@ class IRAudioManager: NSObject {
                                                          componentFlagsMask: 0)
         result = AUGraphAddNode(outputContext.graph!, &mixerDescription, &outputContext.mixerNodeContext.node)
         error = checkError(result, domain: "graph add mixer node error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -242,14 +242,14 @@ class IRAudioManager: NSObject {
                                                           componentFlagsMask: 0)
         result = AUGraphAddNode(outputContext.graph!, &outputDescription, &outputContext.outputNodeContext.node)
         error = checkError(result, domain: "graph add output node error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
 
         result = AUGraphOpen(outputContext.graph!)
         error = checkError(result, domain: "open graph error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -260,7 +260,7 @@ class IRAudioManager: NSObject {
                                          outputContext.mixerNodeContext.node,
                                          0)
         error = checkError(result, domain: "graph connect converter and mixer error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -271,7 +271,7 @@ class IRAudioManager: NSObject {
                                          outputContext.outputNodeContext.node,
                                          0)
         error = checkError(result, domain: "graph connect mixer and output error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -281,7 +281,7 @@ class IRAudioManager: NSObject {
                                  &converterDescription,
                                  &outputContext.converterNodeContext.audioUnit)
         error = checkError(result, domain: "graph get converter audio unit error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -291,7 +291,7 @@ class IRAudioManager: NSObject {
                                  &mixerDescription,
                                  &outputContext.mixerNodeContext.audioUnit)
         error = checkError(result, domain: "graph get mixer audio unit error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -301,7 +301,7 @@ class IRAudioManager: NSObject {
                                  &outputDescription,
                                  &outputContext.outputNodeContext.audioUnit)
         error = checkError(result, domain: "graph get output audio unit error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -313,7 +313,7 @@ class IRAudioManager: NSObject {
                                              0,
                                              &converterCallback)
         error = checkError(result, domain: "graph add converter input callback error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -325,7 +325,7 @@ class IRAudioManager: NSObject {
                                       &outputContext.commonFormat,
                                       &audioStreamBasicDescriptionSize)
         warning = checkError(result, domain: "get hardware output stream format error")
-        if let warning = warning {
+        if warning != nil {
             delegateWarningCallback()
         } else {
             if audioSession.sampleRate != outputContext.commonFormat.mSampleRate {
@@ -337,7 +337,7 @@ class IRAudioManager: NSObject {
                                               &outputContext.commonFormat,
                                               audioStreamBasicDescriptionSize)
                 warning = checkError(result, domain: "set hardware output stream format error")
-                if let warning = warning {
+                if warning != nil {
                     delegateWarningCallback()
                 }
             }
@@ -350,7 +350,7 @@ class IRAudioManager: NSObject {
                                       &outputContext.commonFormat,
                                       audioStreamBasicDescriptionSize)
         error = checkError(result, domain: "graph set converter input format error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -362,7 +362,7 @@ class IRAudioManager: NSObject {
                                       &outputContext.commonFormat,
                                       audioStreamBasicDescriptionSize)
         error = checkError(result, domain: "graph set converter output format error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -374,7 +374,7 @@ class IRAudioManager: NSObject {
                                       &outputContext.commonFormat,
                                       audioStreamBasicDescriptionSize)
         error = checkError(result, domain: "graph set mixer input format error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -386,7 +386,7 @@ class IRAudioManager: NSObject {
                                       &outputContext.commonFormat,
                                       audioStreamBasicDescriptionSize)
         error = checkError(result, domain: "graph set mixer output format error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -398,13 +398,13 @@ class IRAudioManager: NSObject {
                                       &IRAudioManager.maxFrameSize,
                                       UInt32(MemoryLayout.size(ofValue: IRAudioManager.maxFrameSize)))
         warning = checkError(result, domain: "graph set mixer max frames per slice size error")
-        if let warning = warning {
+        if warning != nil {
             delegateWarningCallback()
         }
 
         result = AUGraphInitialize(outputContext.graph!)
         error = checkError(result, domain: "graph initialize error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
             return false
         }
@@ -412,40 +412,51 @@ class IRAudioManager: NSObject {
         return true
     }
 
-    func renderFrames(_ numberOfFrames: UInt32, ioData: UnsafeMutablePointer<AudioBufferList>) -> OSStatus {
-        let ioBuffers = UnsafeBufferPointer(start: &ioData.pointee.mBuffers, count: Int(ioData.pointee.mNumberBuffers))
+    func renderFrames(_ numberOfFrames: UInt32, ioData: UnsafeMutablePointer<AudioBufferList>?) -> OSStatus {
+        guard let ioData = ioData else {
+            return noErr
+        }
+
+        let ioBuffers = UnsafeMutableAudioBufferListPointer(ioData)
 
         for buffer in ioBuffers {
-            memset(buffer.mData, 0, Int(buffer.mDataByteSize))
+            guard let mData = buffer.mData else { continue }
+            memset(mData, 0, Int(buffer.mDataByteSize))
         }
 
         if playing, let delegate = delegate {
-            delegate.audioManager(self, outputData: _outData!, numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels)
+            guard let outData = _outData, let outputContext = outputContext else {
+                return noErr
+            }
 
-            let numBytesPerSample = outputContext!.commonFormat.mBitsPerChannel / 8
+            delegate.audioManager(self, outputData: outData, numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels)
+
+            let numBytesPerSample = outputContext.commonFormat.mBitsPerChannel / 8
             if numBytesPerSample == 4 {
                 var zero: Float = 0.0
                 for buffer in ioBuffers {
+                    guard let mData = buffer.mData else { continue }
                     let numChannels = buffer.mNumberChannels
                     for j in 0..<Int(numChannels) {
-                        vDSP_vsadd(_outData! + j,
+                        vDSP_vsadd(outData + j,
                                    vDSP_Stride(numberOfChannels),
                                    &zero,
-                                   buffer.mData!.assumingMemoryBound(to: Float.self),
+                                   mData.assumingMemoryBound(to: Float.self),
                                    vDSP_Stride(numChannels),
                                    vDSP_Length(numberOfFrames))
                     }
                 }
             } else if numBytesPerSample == 2 {
                 var scale: Float = Float(INT16_MAX)
-                vDSP_vsmul(_outData!, 1, &scale, _outData!, 1, vDSP_Length(numberOfFrames * numberOfChannels))
+                vDSP_vsmul(outData, 1, &scale, outData, 1, vDSP_Length(numberOfFrames * numberOfChannels))
 
                 for buffer in ioBuffers {
+                    guard let mData = buffer.mData else { continue }
                     let numChannels = buffer.mNumberChannels
                     for j in 0..<Int(numChannels) {
-                        vDSP_vfix16(_outData! + j,
+                        vDSP_vfix16(outData + j,
                                     vDSP_Stride(numberOfChannels),
-                                    buffer.mData!.assumingMemoryBound(to: Int16.self) + j,
+                                    mData.assumingMemoryBound(to: Int16.self) + j,
                                     vDSP_Stride(numChannels),
                                     vDSP_Length(numberOfFrames))
                     }
@@ -467,7 +478,7 @@ class IRAudioManager: NSObject {
         if registerAudioSession() {
             let result = AUGraphStart(graph)
             error = checkError(result, domain: "graph start error")
-            if let error = error {
+            if error != nil {
                 delegateErrorCallback()
             } else {
                 _playing = true
@@ -480,7 +491,7 @@ class IRAudioManager: NSObject {
               let graph = outputContext?.graph else { return }
         let result = AUGraphStop(graph)
         error = checkError(result, domain: "graph stop error")
-        if let error = error {
+        if error != nil {
             delegateErrorCallback()
         }
         _playing = false
@@ -524,5 +535,5 @@ private struct IRAudioOutputContext {
 
 private func renderCallback(inRefCon: UnsafeMutableRawPointer, ioActionFlags: UnsafeMutablePointer<AudioUnitRenderActionFlags>, inTimeStamp: UnsafePointer<AudioTimeStamp>, inOutputBusNumber: UInt32, inNumberFrames: UInt32, ioData: UnsafeMutablePointer<AudioBufferList>?) -> OSStatus {
     let audioManager = Unmanaged<IRAudioManager>.fromOpaque(inRefCon).takeUnretainedValue()
-    return audioManager.renderFrames(inNumberFrames, ioData: ioData!)
+    return audioManager.renderFrames(inNumberFrames, ioData: ioData)
 }
