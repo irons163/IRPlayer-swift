@@ -516,7 +516,8 @@ extension IRAVPlayer {
         ]
         avOutput = AVPlayerItemVideoOutput(pixelBufferAttributes: pixelBufferAttributes)
         avOutput?.requestNotificationOfMediaDataChange(withAdvanceInterval: IRAVPlayer.pixelBufferRequestInterval)
-        avPlayerItem?.add(avOutput!)
+        guard let avOutput = avOutput else { return }
+        avPlayerItem?.add(avOutput)
 
         print("IRAVPlayer add output success") // Assuming IRPlayerLog is a custom logging function. Replace with your logging mechanism.
     }
