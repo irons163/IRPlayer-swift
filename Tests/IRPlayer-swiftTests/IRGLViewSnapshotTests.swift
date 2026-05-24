@@ -11,4 +11,22 @@ final class IRGLViewSnapshotTests: XCTestCase {
 
         XCTAssertEqual(image.size, .zero)
     }
+
+    func testRenderModeSelectionRequiresRegisteredMode() {
+        let view = IRGLView(frame: .zero)
+        let firstMode = IRGLRenderMode2D()
+        let secondMode = IRGLRenderMode2D()
+        let externalMode = IRGLRenderMode2D()
+
+        view.setRenderModes([firstMode, secondMode])
+
+        XCTAssertEqual(view.getRenderModes().count, 2)
+        XCTAssertTrue(view.getCurrentRenderMode() === firstMode)
+        XCTAssertFalse(view.choose(renderMode: nil, withImmediatelyRenderOnce: false))
+        XCTAssertFalse(view.choose(renderMode: externalMode, withImmediatelyRenderOnce: false))
+
+        XCTAssertTrue(view.choose(renderMode: secondMode, withImmediatelyRenderOnce: false))
+        XCTAssertTrue(view.getCurrentRenderMode() === secondMode)
+        XCTAssertTrue(secondMode.program != nil)
+    }
 }
