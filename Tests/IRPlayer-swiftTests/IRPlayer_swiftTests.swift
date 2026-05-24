@@ -421,6 +421,24 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
     }
 }
 
+final class IRFFVideoToolBoxTests: XCTestCase {
+
+    func testOutputCallbackIgnoresMissingRefConAndUpdatesDecoderState() {
+        IRFFVideoToolBox.handleOutputCallback(refCon: nil, status: -1, imageBuffer: nil)
+
+        var codecContext = AVCodecContext()
+        withUnsafeMutablePointer(to: &codecContext) { context in
+            let videoToolBox = IRFFVideoToolBox.videoToolBox(with: context)
+            let refCon = UnsafeMutableRawPointer(Unmanaged.passUnretained(videoToolBox).toOpaque())
+
+            IRFFVideoToolBox.handleOutputCallback(refCon: refCon, status: -2, imageBuffer: nil)
+
+            XCTAssertEqual(videoToolBox.decodeStatus, -2)
+            XCTAssertNil(videoToolBox.decodeOutput)
+        }
+    }
+}
+
 final class IRFFToolsTests: XCTestCase {
 
     func testFFLogIgnoresInvalidUTF8FormatString() throws {

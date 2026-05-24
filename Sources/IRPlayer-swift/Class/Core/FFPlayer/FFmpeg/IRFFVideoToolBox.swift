@@ -219,6 +219,13 @@ class IRFFVideoToolBox {
         print("IRFFVideoToolBox release")
     }
 
+    static func handleOutputCallback(refCon: UnsafeMutableRawPointer?, status: OSStatus, imageBuffer: CVImageBuffer?) {
+        guard let refCon else { return }
+        let videoToolBox = Unmanaged<IRFFVideoToolBox>.fromOpaque(refCon).takeUnretainedValue()
+        videoToolBox.decodeStatus = status
+        videoToolBox.decodeOutput = imageBuffer
+    }
+
     private static let outputCallback: VTDecompressionOutputCallback = { (
         decompressionOutputRefCon: UnsafeMutableRawPointer?,
         sourceFrameRefCon: UnsafeMutableRawPointer?,
@@ -228,9 +235,7 @@ class IRFFVideoToolBox {
         presentationTimeStamp: CMTime,
         presentationDuration: CMTime
     ) in
-            let videoToolBox = Unmanaged<IRFFVideoToolBox>.fromOpaque(decompressionOutputRefCon!).takeUnretainedValue()
-            videoToolBox.decodeStatus = status
-            videoToolBox.decodeOutput = imageBuffer
+            IRFFVideoToolBox.handleOutputCallback(refCon: decompressionOutputRefCon, status: status, imageBuffer: imageBuffer)
     }
 
     private func createFormatDescription(codecType: CMVideoCodecType, width: Int32, height: Int32, extradata: UnsafePointer<UInt8>, extradataSize: Int32) -> CMFormatDescription? {
