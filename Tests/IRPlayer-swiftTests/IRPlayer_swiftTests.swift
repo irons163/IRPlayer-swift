@@ -334,6 +334,20 @@ final class IRAVPlayerTests: XCTestCase {
         withExtendedLifetime(abstractPlayer) {}
     }
 
+    func testReloadVolumeIgnoresReleasedAbstractPlayer() {
+        var retainedPlayer: IRAVPlayer?
+        autoreleasepool {
+            let abstractPlayer = IRPlayerImp.player()
+            let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+            avPlayer.avPlayer = AVPlayer()
+            retainedPlayer = avPlayer
+        }
+
+        XCTAssertNil(retainedPlayer?.abstractPlayer)
+        retainedPlayer?.reloadVolume()
+        retainedPlayer?.displayLink?.invalidate()
+    }
+
     func testPixelBufferAtCurrentTimeReturnsNilWhenPlayerItemIsMissing() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)

@@ -14,7 +14,7 @@ class IRAVPlayer: NSObject {
     static let avMediaSelectionOptionTrackIDKey = "MediaSelectionOptionsPersistentID"
     static let AVAssetLoadKeys: [String] = ["tracks", "playable"]
 
-    weak var abstractPlayer: IRPlayerImp!
+    weak var abstractPlayer: IRPlayerImp?
 
     var seeking = false
 
@@ -66,7 +66,7 @@ class IRAVPlayer: NSObject {
         self.abstractPlayer = abstractPlayer
         super.init()
 //        self.abstractPlayer.displayView?.avplayer = self
-        self.abstractPlayer.displayView?.irPixelFormat = .NV12_IRPixelFormat
+        abstractPlayer.displayView?.irPixelFormat = .NV12_IRPixelFormat
 
         setupDisplayLink()
     }
@@ -201,7 +201,8 @@ extension IRAVPlayer {
 extension IRAVPlayer {
 
     func reloadVolume() {
-        guard let avPlayer = avPlayer else { return }
+        guard let avPlayer = avPlayer,
+              let abstractPlayer = abstractPlayer else { return }
         avPlayer.volume = Float(abstractPlayer.volume)
     }
 
@@ -224,7 +225,7 @@ extension IRAVPlayer {
     func snapshotAtCurrentTime() -> IRPLFImage? {
         guard let avAsset = avAsset,
               let avPlayerItem = avPlayerItem,
-              abstractPlayer.videoType == .normal else { return nil }
+              abstractPlayer?.videoType == .normal else { return nil }
 
         let imageGenerator = AVAssetImageGenerator(asset: avAsset)
         imageGenerator.appliesPreferredTrackTransform = true
@@ -275,7 +276,7 @@ extension IRAVPlayer {
 
         videoFrame.position = -1
         videoFrame.duration = -1
-        abstractPlayer.displayView?.render(videoFrame)
+        abstractPlayer?.displayView?.render(videoFrame)
     }
 }
 
@@ -323,6 +324,7 @@ extension IRAVPlayer {
 
         case "loadedTimeRanges":
             reloadPlayableTime()
+            guard let abstractPlayer = abstractPlayer else { return }
             let interval = playableTime - progress
             let residue = duration - progress
             if interval > abstractPlayer.playableBufferInterval {
@@ -379,6 +381,10 @@ extension IRAVPlayer {
     }
 
     private func failPlayback(with errorInfo: IRError) {
+        guard let abstractPlayer = abstractPlayer else {
+            state = .failed
+            return
+        }
         abstractPlayer.error = errorInfo
         state = .failed
         IRPlayerNotification.postPlayer(abstractPlayer, error: errorInfo)
@@ -395,7 +401,8 @@ extension IRAVPlayer {
 
     func replaceVideo() {
         replaceEmpty()
-        guard let contentURL = abstractPlayer.contentURL else { return }
+        guard let abstractPlayer = abstractPlayer,
+              let contentURL = abstractPlayer.contentURL else { return }
 
         avAsset = AVURLAsset(url: contentURL as URL)
         switch abstractPlayer.videoType {
@@ -449,9 +456,10 @@ extension IRAVPlayer {
         playBackTimeObserver = avPlayer?.addPeriodicTimeObserver(forInterval: CMTimeMake(value: 1, timescale: 1), queue: .main) { [weak self] time in
             guard let strongSelf = self else { return }
             if strongSelf.state == .playing {
+                guard let abstractPlayer = strongSelf.abstractPlayer else { return }
                 let current = CMTimeGetSeconds(time)
                 let duration = strongSelf.duration
-                IRPlayerNotification.postPlayer(strongSelf.abstractPlayer, progressPercent: current / duration as NSNumber, current: current as NSNumber, total: duration as NSNumber)
+                IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: current / duration as NSNumber, current: current as NSNumber, total: duration as NSNumber)
             }
         }
         reloadVolume()
@@ -538,8 +546,10 @@ extension IRAVPlayer {
 extension IRAVPlayer {
 
     func replaceEmpty() {
-        IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: 0, current: 0, total: 0)
-        IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: 0, current: 0, total: 0)
+        if let abstractPlayer = abstractPlayer {
+            IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: 0, current: 0, total: 0)
+            IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: 0, current: 0, total: 0)
+        }
         avAsset?.cancelLoading()
         avAsset = nil
         cleanOutput()
