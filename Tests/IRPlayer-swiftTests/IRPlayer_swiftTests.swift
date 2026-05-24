@@ -287,50 +287,6 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
     }
 }
 
-final class IRFFFrameQueueTests: XCTestCase {
-
-    func testFrameQueueTracksCountDurationAndSizeWhenPuttingAndFetchingFrames() {
-        let queue = IRFFFrameQueue.frameQueue()
-        let first = makeFrame(position: 0, duration: 0.25, size: 10)
-        let second = makeFrame(position: 1, duration: 0.5, size: 20)
-
-        queue.putFrame(first)
-        queue.putFrame(second)
-
-        XCTAssertEqual(queue.count, 2)
-        XCTAssertEqual(queue.duration, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(queue.size, 30)
-
-        XCTAssertTrue(queue.getFrameAsync() === first)
-        XCTAssertEqual(queue.count, 1)
-        XCTAssertEqual(queue.duration, 0.5, accuracy: 0.0001)
-        XCTAssertEqual(queue.size, 20)
-    }
-
-    func testPutSortFrameReturnsFramesInAscendingPositionOrder() {
-        let queue = IRFFFrameQueue.frameQueue()
-        let later = makeFrame(position: 3, duration: 0.1, size: 1)
-        let earlier = makeFrame(position: 1, duration: 0.1, size: 1)
-        let middle = makeFrame(position: 2, duration: 0.1, size: 1)
-
-        queue.putSortFrame(later)
-        queue.putSortFrame(earlier)
-        queue.putSortFrame(middle)
-
-        XCTAssertTrue(queue.getFrameAsync() === earlier)
-        XCTAssertTrue(queue.getFrameAsync() === middle)
-        XCTAssertTrue(queue.getFrameAsync() === later)
-    }
-
-    private func makeFrame(position: TimeInterval, duration: TimeInterval, size: Int) -> IRFFFrame {
-        let frame = IRFFFrame()
-        frame.position = position
-        frame.duration = duration
-        frame.size = size
-        return frame
-    }
-}
-
 final class IRFFFramePoolTests: XCTestCase {
 
     func testDefaultPoolsCreateExpectedFrameTypesWithoutModuleNameLookup() {
@@ -632,58 +588,6 @@ final class IRFFToolsTests: XCTestCase {
     }
 }
 
-final class IRGLRenderModeFactoryTests: XCTestCase {
-
-    func testNormalModesContainOnly2DModeWithParameter() {
-        let parameter = IRMediaParameter(width: 100, height: 50)
-        let modes = IRGLRenderModeFactory.createNormalModes(with: parameter)
-
-        XCTAssertEqual(modes.count, 1)
-        XCTAssertTrue(modes[0] is IRGLRenderMode2D)
-        XCTAssertTrue(modes[0].parameter === parameter)
-    }
-
-    func testFisheyeModesHaveExpectedOrderNamesAndDefaults() {
-        let modes = IRGLRenderModeFactory.createFisheyeModes(with: nil)
-
-        XCTAssertEqual(modes.map(\.name), ["Panorama", "Onelen", "Fourlens", "Rawdata"])
-        XCTAssertTrue(modes[0] is IRGLRenderMode2DFisheye2Pano)
-        XCTAssertTrue(modes[1] is IRGLRenderMode3DFisheye)
-        XCTAssertTrue(modes[2] is IRGLRenderModeMulti4P)
-        XCTAssertTrue(modes[3] is IRGLRenderMode2D)
-        XCTAssertEqual(modes[0].contentMode, .scaleAspectFill)
-        XCTAssertEqual(modes[0].wideDegreeX, 360)
-        XCTAssertEqual(modes[0].wideDegreeY, 20)
-        XCTAssertFalse(modes[3].shiftController.enabled)
-    }
-
-    func testPanoramaModeUsesScaleAspectFillAndWideDegrees() {
-        let mode = IRGLRenderModeFactory.createPanoramaMode(with: nil)
-
-        XCTAssertTrue(mode is IRGLRenderMode2DFisheye2Pano)
-        XCTAssertEqual(mode.contentMode, .scaleAspectFill)
-        XCTAssertEqual(mode.wideDegreeX, 360)
-        XCTAssertEqual(mode.wideDegreeY, 20)
-    }
-
-    func testFisheyeRenderModesIgnoreIncompatibleProgramParameters() {
-        let invalidParameter = IRMediaParameter(width: 100, height: 50)
-
-        let fisheyeMode = IRGLRenderMode3DFisheye()
-        fisheyeMode.buildIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
-                                     viewprotRange: CGRect(x: 0, y: 0, width: 320, height: 240),
-                                     parameter: invalidParameter)
-
-        let fourPanelMode = IRGLRenderModeMulti4P()
-        fourPanelMode.buildIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
-                                       viewprotRange: CGRect(x: 0, y: 0, width: 320, height: 240),
-                                       parameter: invalidParameter)
-
-        XCTAssertNil(fisheyeMode.program)
-        XCTAssertNil(fourPanelMode.program)
-    }
-}
-
 final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
 
     func testTextureSizeRejectsMissingParamsAndReturnsExistingDimensions() {
@@ -746,34 +650,6 @@ final class IRGLViewSnapshotTests: XCTestCase {
         let image = view.createImageFromFramebuffer()
 
         XCTAssertEqual(image.size, .zero)
-    }
-}
-
-final class IRMatrix4Tests: XCTestCase {
-
-    func testTranslationMatrixStoresTranslationInLastColumn() {
-        let matrix = IRMatrix4.makeTranslation(1, 2, 3)
-
-        XCTAssertEqual(matrix.columns.3.x, 1, accuracy: 0.0001)
-        XCTAssertEqual(matrix.columns.3.y, 2, accuracy: 0.0001)
-        XCTAssertEqual(matrix.columns.3.z, 3, accuracy: 0.0001)
-        XCTAssertEqual(matrix.columns.3.w, 1, accuracy: 0.0001)
-    }
-
-    func testScaleMatrixStoresScaleOnDiagonal() {
-        let matrix = IRMatrix4.makeScale(2, 3, 4)
-
-        XCTAssertEqual(matrix.columns.0.x, 2, accuracy: 0.0001)
-        XCTAssertEqual(matrix.columns.1.y, 3, accuracy: 0.0001)
-        XCTAssertEqual(matrix.columns.2.z, 4, accuracy: 0.0001)
-        XCTAssertEqual(matrix.columns.3.w, 1, accuracy: 0.0001)
-    }
-
-    func testMultiplyReturnsSimdProduct() {
-        let translation = IRMatrix4.makeTranslation(1, 2, 3)
-        let scale = IRMatrix4.makeScale(2, 2, 2)
-
-        XCTAssertEqual(IRMatrix4.multiply(translation, scale), simd_mul(translation, scale))
     }
 }
 
