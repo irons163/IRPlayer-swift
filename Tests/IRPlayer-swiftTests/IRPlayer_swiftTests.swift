@@ -873,6 +873,17 @@ final class IRGLGestureControllerTests: XCTestCase {
         XCTAssertNil(smoothScroll.currentMode)
         withExtendedLifetime(smoothScroll) {}
     }
+
+    func testAddGestureReplacesExistingRotationGestureRecognizer() {
+        let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+        let gestureController = IRGLGestureController()
+
+        gestureController.addGesture(to: view)
+        gestureController.addGesture(to: view)
+
+        let rotationRecognizers = view.gestureRecognizers?.filter { $0 is UIRotationGestureRecognizer } ?? []
+        XCTAssertEqual(rotationRecognizers.count, 1)
+    }
 }
 
 final class IRGLViewSnapshotTests: XCTestCase {

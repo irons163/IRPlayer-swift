@@ -36,7 +36,7 @@ class IRGLGestureController: IRGestureController {
         return targetView as? IRGLView
     }
 
-    private var rotateGR: UIRotationGestureRecognizer!
+    private var rotateGR: UIRotationGestureRecognizer?
     private var isTouchedInProgram: Bool = false
 
     func addGesture(to view: IRGLView) {
@@ -51,8 +51,13 @@ class IRGLGestureController: IRGestureController {
     private func initDefaultValue() {
         self.swipeEnable = true
 
-        rotateGR = UIRotationGestureRecognizer(target: self, action: #selector(handleRotate(_:)))
-        targetView?.addGestureRecognizer(rotateGR)
+        if let rotateGR = rotateGR {
+            rotateGR.view?.removeGestureRecognizer(rotateGR)
+        }
+
+        let rotationGestureRecognizer = UIRotationGestureRecognizer(target: self, action: #selector(handleRotate(_:)))
+        rotateGR = rotationGestureRecognizer
+        targetView?.addGestureRecognizer(rotationGestureRecognizer)
 
         isTouchedInProgram = false
         self.doubleTapEnable = true
