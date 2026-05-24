@@ -75,6 +75,21 @@ class IRFFAudioDecoder {
         return numberOfFrames * Int(channelCount)
     }
 
+    static func fallbackDuration(sampleByteCount: Int, channelCount: UInt32, samplingRate: Float64) -> TimeInterval? {
+        guard sampleByteCount > 0,
+              channelCount > 0,
+              samplingRate.isFinite,
+              samplingRate > 0 else {
+            return nil
+        }
+
+        let bytesPerSecond = Double(MemoryLayout<Float32>.size) * Double(channelCount) * samplingRate
+        guard bytesPerSecond.isFinite, bytesPerSecond > 0 else { return nil }
+
+        let duration = Double(sampleByteCount) / bytesPerSecond
+        return duration.isFinite && duration > 0 ? duration : nil
+    }
+
     static func inputChannelCapacity(from codecContext: UnsafeMutablePointer<AVCodecContext>?) -> Int? {
         guard let channels = codecContext?.pointee.channels, channels > 0 else { return nil }
         return Int(channels)
@@ -202,15 +217,15 @@ class IRFFAudioDecoder {
         audioFrame.position = Double(tempFrame.pointee.best_effort_timestamp) * timebase
         audioFrame.duration = Double(tempFrame.pointee.duration) * timebase
 
-        if audioFrame.duration == 0 {
-            let size = (Double(MemoryLayout<Float32>.size) * Double(channelCount) * samplingRate)
-            audioFrame.duration = Double(audioFrame.size) / size
-        }
-
         guard let numberOfElements = Self.sampleElementCount(numberOfFrames: numberOfFrames, channelCount: channelCount) else {
             return nil
         }
-        audioFrame.setSamplesLength(numberOfElements * MemoryLayout<Float>.size)
+        let sampleByteCount = numberOfElements * MemoryLayout<Float>.size
+        audioFrame.setSamplesLength(sampleByteCount)
+        if audioFrame.duration == 0,
+           let fallbackDuration = Self.fallbackDuration(sampleByteCount: sampleByteCount, channelCount: channelCount, samplingRate: samplingRate) {
+            audioFrame.duration = fallbackDuration
+        }
         guard let samples = audioFrame.samples else { return nil }
 
         var scale: Float32 = 1.0 / Float32(Int16.max)
