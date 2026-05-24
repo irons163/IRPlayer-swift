@@ -575,6 +575,15 @@ final class IRFFVideoToolBoxTests: XCTestCase {
 
 final class IRFFDecoderOperationTests: XCTestCase {
 
+    func testCodecContextHelpersRejectMissingOrDisabledFormatContext() {
+        let formatContext = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
+
+        XCTAssertNil(IRFFDecoder.videoCodecContext(from: nil))
+        XCTAssertNil(IRFFDecoder.audioCodecContext(from: nil))
+        XCTAssertNil(IRFFDecoder.videoCodecContext(from: formatContext))
+        XCTAssertNil(IRFFDecoder.audioCodecContext(from: formatContext))
+    }
+
     func testOperationSchedulingTreatsMissingOrFinishedOperationsAsSchedulable() {
         XCTAssertTrue(IRFFDecoder.needsScheduling(nil))
 
