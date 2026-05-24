@@ -593,8 +593,7 @@ extension IRAVPlayer {
 
     private func setupDefaultTrack(for characteristic: AVMediaCharacteristic, from tracks: [IRPlayerTrack]) {
         guard let group = avAsset?.mediaSelectionGroup(forMediaCharacteristic: characteristic) else { return }
-        let trackID = (group.defaultOption?.propertyList as? [String: Any])?[IRAVPlayer.avMediaSelectionOptionTrackIDKey] as? Int ?? -1
-        let defaultTrack = tracks.first { $0.index == trackID } ?? tracks.first
+        let defaultTrack = Self.defaultTrack(from: tracks, propertyList: group.defaultOption?.propertyList)
         if characteristic == .visual {
             videoTrack = defaultTrack
         } else if characteristic == .audible {
@@ -655,6 +654,13 @@ extension IRAVPlayer {
             return value.intValue
         }
         return nil
+    }
+
+    static func defaultTrack(from tracks: [IRPlayerTrack], propertyList: Any?) -> IRPlayerTrack? {
+        guard let trackID = mediaSelectionTrackID(from: propertyList) else {
+            return tracks.first
+        }
+        return tracks.first { $0.index == trackID } ?? tracks.first
     }
 
 }

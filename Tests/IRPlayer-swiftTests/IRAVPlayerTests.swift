@@ -24,6 +24,24 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertNil(IRAVPlayer.mediaSelectionTrackID(from: "not-a-dictionary"))
     }
 
+    func testDefaultTrackFallsBackWhenPropertyListDoesNotMatch() {
+        let first = IRPlayerTrack()
+        first.index = 1
+        let second = IRPlayerTrack()
+        second.index = 2
+
+        XCTAssertTrue(IRAVPlayer.defaultTrack(from: [first, second], propertyList: [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: 2
+        ]) === second)
+        XCTAssertTrue(IRAVPlayer.defaultTrack(from: [first, second], propertyList: [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: "2"
+        ]) === first)
+        XCTAssertTrue(IRAVPlayer.defaultTrack(from: [first, second], propertyList: nil) === first)
+        XCTAssertNil(IRAVPlayer.defaultTrack(from: [], propertyList: [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: 2
+        ]))
+    }
+
     func testSetupAVPlayerItemIgnoresMissingAsset() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
