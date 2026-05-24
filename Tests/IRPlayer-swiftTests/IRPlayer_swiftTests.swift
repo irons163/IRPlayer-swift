@@ -121,6 +121,20 @@ final class IRPlayerNotificationTests: XCTestCase {
     }
 }
 
+final class IRAVPlayerTests: XCTestCase {
+
+    func testSetupAVPlayerItemIgnoresMissingAsset() {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+
+        avPlayer.avAsset = nil
+        avPlayer.setupAVPlayerItem(autoLoadedAsset: false)
+
+        XCTAssertNil(avPlayer.avPlayerItem)
+        withExtendedLifetime(abstractPlayer) {}
+    }
+}
+
 final class IRFFFrameQueueTests: XCTestCase {
 
     func testFrameQueueTracksCountDurationAndSizeWhenPuttingAndFetchingFrames() {

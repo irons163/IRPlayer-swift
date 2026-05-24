@@ -461,10 +461,15 @@ extension IRAVPlayer {
     }
 
     func setupAVPlayerItem(autoLoadedAsset: Bool) {
+        guard let avAsset = avAsset else {
+            avPlayerItem = nil
+            return
+        }
+
         if autoLoadedAsset {
-            avPlayerItem = AVPlayerItem(asset: avAsset!, automaticallyLoadedAssetKeys: Self.AVAssetLoadKeys)
+            avPlayerItem = AVPlayerItem(asset: avAsset, automaticallyLoadedAssetKeys: Self.AVAssetLoadKeys)
         } else {
-            avPlayerItem = AVPlayerItem(asset: avAsset!)
+            avPlayerItem = AVPlayerItem(asset: avAsset)
         }
 
         avPlayerItem?.addObserver(self, forKeyPath: "status", options: [], context: nil)
