@@ -193,17 +193,15 @@ public class IRPlayerImp: NSObject {
     private var decoderType: IRDecoderType?
     private var _avPlayer: IRAVPlayer?
     private var avPlayer: IRAVPlayer {
-        if self._avPlayer == nil {
-            self._avPlayer = IRAVPlayer(abstractPlayer: self)
-        }
-        return self._avPlayer!
+        let player = Self.makeAVPlayerIfNeeded(self._avPlayer, abstractPlayer: self)
+        self._avPlayer = player
+        return player
     }
     private var _ffPlayer: IRFFPlayer?
     private var ffPlayer: IRFFPlayer {
-        if self._ffPlayer == nil {
-            self._ffPlayer = IRFFPlayer.init(abstractPlayer: self)
-        }
-        return self._ffPlayer!
+        let player = Self.makeFFPlayerIfNeeded(self._ffPlayer, abstractPlayer: self)
+        self._ffPlayer = player
+        return player
     }
     private var gestureControl: IRGLGestureController?
     private var sensor: IRSensor?
@@ -232,6 +230,14 @@ public class IRPlayerImp: NSObject {
 
     public class func player() -> IRPlayerImp {
         return IRPlayerImp()
+    }
+
+    static func makeAVPlayerIfNeeded(_ player: IRAVPlayer?, abstractPlayer: IRPlayerImp) -> IRAVPlayer {
+        return player ?? IRAVPlayer(abstractPlayer: abstractPlayer)
+    }
+
+    static func makeFFPlayerIfNeeded(_ player: IRFFPlayer?, abstractPlayer: IRPlayerImp) -> IRFFPlayer {
+        return player ?? IRFFPlayer(abstractPlayer: abstractPlayer)
     }
 
     deinit {
