@@ -9,9 +9,20 @@ import Foundation
 import CoreGraphics
 import IRFFMpeg
 
-func IRYUVChannelFilterNeedSize(linesize: Int, width: Int, height: Int, channelCount: Int) -> Int {
+func IRYUVChannelFilterNeedSizeChecked(linesize: Int, width: Int, height: Int, channelCount: Int) -> Int? {
+    guard linesize > 0, width > 0, height > 0, channelCount > 0 else { return nil }
+
     let adjustedWidth = min(linesize, width)
-    return adjustedWidth * height * channelCount
+    let (rowByteCount, rowOverflow) = adjustedWidth.multipliedReportingOverflow(by: channelCount)
+    guard !rowOverflow, rowByteCount > 0 else { return nil }
+
+    let (bufferSize, bufferOverflow) = rowByteCount.multipliedReportingOverflow(by: height)
+    guard !bufferOverflow, bufferSize > 0 else { return nil }
+    return bufferSize
+}
+
+func IRYUVChannelFilterNeedSize(linesize: Int, width: Int, height: Int, channelCount: Int) -> Int {
+    return IRYUVChannelFilterNeedSizeChecked(linesize: linesize, width: width, height: height, channelCount: channelCount) ?? 0
 }
 
 func IRYUVChannelFilter(src: UnsafePointer<UInt8>, 
@@ -21,13 +32,18 @@ func IRYUVChannelFilter(src: UnsafePointer<UInt8>,
                         dst: UnsafeMutablePointer<UInt8>,
                         dstsize: Int,
                         channelCount: Int) {
-    var src = src
-    let adjustedWidth = min(linesize, width)
-    var temp = dst
+    guard dstsize > 0 else { return }
     memset(dst, 0, dstsize)
+
+    guard let rowByteCount = IRYUVChannelFilterNeedSizeChecked(linesize: linesize, width: width, height: 1, channelCount: channelCount),
+          let totalByteCount = IRYUVChannelFilterNeedSizeChecked(linesize: linesize, width: width, height: height, channelCount: channelCount),
+          totalByteCount <= dstsize else { return }
+
+    var src = src
+    var temp = dst
     for _ in 0..<height {
-        memcpy(temp, src, adjustedWidth * channelCount)
-        temp += adjustedWidth * channelCount
+        memcpy(temp, src, rowByteCount)
+        temp += rowByteCount
         src += linesize
     }
 }

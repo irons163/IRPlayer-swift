@@ -23,4 +23,15 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
 
         XCTAssertNil(frame.image())
     }
+
+    func testYUVChannelFilterNeedSizeCheckedRejectsInvalidOrOverflowingInputs() {
+        XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 0, height: 4, channelCount: 1))
+        XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 4, height: 0, channelCount: 1))
+        XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 4, height: 4, channelCount: 0))
+        XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: .max, width: .max, height: 2, channelCount: 2))
+    }
+
+    func testYUVChannelFilterNeedSizeCheckedUsesAdjustedWidth() {
+        XCTAssertEqual(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2), 24)
+    }
 }
