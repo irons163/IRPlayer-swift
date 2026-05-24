@@ -151,14 +151,17 @@ public class IRFFFormatContext {
             guard let stream = Self.stream(at: i, in: formatContext),
                   let codecParameters = stream.pointee.codecpar else { continue }
 
-            switch codecParameters.pointee.codec_type {
-            case AVMEDIA_TYPE_VIDEO:
-                let track = IRFFTrack(index: i, type: .video)
+            let metadata = IRFFFoundationBrigeOfAVDictionary(stream.pointee.metadata).map(IRFFMetadata.init(dictionary:))
+            guard let track = Self.track(index: i, codecType: codecParameters.pointee.codec_type, metadata: metadata) else {
+                continue
+            }
+
+            switch track.type {
+            case .video:
                 videoTracks.append(track)
-            case AVMEDIA_TYPE_AUDIO:
-                let track = IRFFTrack(index: i, type: .audio)
+            case .audio:
                 audioTracks.append(track)
-            default:
+            case .subtitle:
                 break
             }
         }
@@ -283,6 +286,17 @@ public class IRFFFormatContext {
 
     func containAudioTrack(_ audioTrackIndex: Int) -> Bool {
         return audioTracks.contains { $0.index == audioTrackIndex }
+    }
+
+    static func track(index: Int, codecType: AVMediaType, metadata: IRFFMetadata?) -> IRFFTrack? {
+        switch codecType {
+        case AVMEDIA_TYPE_VIDEO:
+            return IRFFTrack(index: index, type: .video, metadata: metadata)
+        case AVMEDIA_TYPE_AUDIO:
+            return IRFFTrack(index: index, type: .audio, metadata: metadata)
+        default:
+            return nil
+        }
     }
 
     func selectAudioTrackIndex(_ audioTrackIndex: Int) -> NSError? {
