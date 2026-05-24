@@ -353,7 +353,7 @@ public class IRPlayerImp: NSObject {
                 self.sensor = IRSensor()
                 self.sensor?.targetView = displayView
                 self.sensor?.smoothScroll = self.gestureControl?.smoothScroll
-                self.sensor?.resetUnit()
+                _ = self.sensor?.resetUnit()
             }
             self.viewGravityMode = .resizeAspect
             self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
@@ -560,7 +560,7 @@ extension IRPlayerImp: IRGLViewDelegate {
     }
 
     public func glViewDidEndZooming(_ glView: IRGLView?, atScale scale: CGFloat) {
-        self.sensor?.resetUnit()
+        _ = self.sensor?.resetUnit()
     }
 
     public func glViewWillBeginDragging(_ glView: IRGLView?) {
@@ -569,7 +569,7 @@ extension IRPlayerImp: IRGLViewDelegate {
 
     public func glViewDidEndDragging(_ glView: IRGLView?, willDecelerate decelerate: Bool) {
         if !decelerate {
-            self.sensor?.resetUnit()
+            _ = self.sensor?.resetUnit()
         }
     }
 

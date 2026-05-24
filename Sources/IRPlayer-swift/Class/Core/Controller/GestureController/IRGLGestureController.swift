@@ -197,7 +197,7 @@ class IRGLGestureController: IRGestureController {
 
         if (!doubleTapEnable), gestureRecognizer == doubleTapGR {
             return false
-        } else if let swipeGR = gestureRecognizer as? UISwipeGestureRecognizer, isProgramZooming() {
+        } else if gestureRecognizer is UISwipeGestureRecognizer, isProgramZooming() {
             return false
         }
         return shouldBegin
@@ -206,8 +206,8 @@ class IRGLGestureController: IRGestureController {
     override func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         let shouldRecognizeSimultaneously = super.gestureRecognizer(gestureRecognizer, shouldRecognizeSimultaneouslyWith: otherGestureRecognizer)
 
-        if let panGR = gestureRecognizer as? UIPanGestureRecognizer,
-           let swipeGR = otherGestureRecognizer as? UISwipeGestureRecognizer,
+        if gestureRecognizer is UIPanGestureRecognizer,
+           otherGestureRecognizer is UISwipeGestureRecognizer,
            swipeEnable, !isProgramZooming() {
             return true
         }

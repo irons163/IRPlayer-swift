@@ -22,7 +22,7 @@ protocol IRFFDecoderDelegate: AnyObject {
 }
 
 @objc public protocol IRFFDecoderVideoOutput: AnyObject {
-    @objc optional func send(videoFrame videoFrame: IRFFVideoFrame)
+    @objc optional func send(videoFrame frame: IRFFVideoFrame)
 }
 
 @objc protocol IRFFDecoderAudioOutput: AnyObject {

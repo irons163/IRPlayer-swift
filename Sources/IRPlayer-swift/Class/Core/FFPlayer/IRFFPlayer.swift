@@ -86,7 +86,7 @@ class IRFFPlayer: NSObject {
         self.abstractPlayer = abstractPlayer
         guard let manager = abstractPlayer.manager else { return nil }
         self.audioManager = manager
-        manager.registerAudioSession()
+        _ = manager.registerAudioSession()
     }
 
     deinit {

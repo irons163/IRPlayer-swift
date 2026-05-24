@@ -428,7 +428,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     func setupModes() {
         initModes()
         contentMode = .scaleAspectFit
-        choose(renderMode: modes.first, withImmediatelyRenderOnce: false)
+        _ = choose(renderMode: modes.first, withImmediatelyRenderOnce: false)
     }
 
     func getRenderModes() -> [IRGLRenderMode] {
