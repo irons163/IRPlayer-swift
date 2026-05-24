@@ -85,6 +85,11 @@ class IRFFAudioDecoder {
         return swrBuffer
     }
 
+    static func audioDataBuffer(fromDecodedData decodedData: UnsafeMutablePointer<UInt8>?) -> UnsafeMutableRawPointer? {
+        guard let decodedData else { return nil }
+        return UnsafeMutableRawPointer(decodedData)
+    }
+
     func duration() -> TimeInterval {
         return frameQueue.duration
     }
@@ -185,7 +190,8 @@ class IRFFAudioDecoder {
                 IRFFErrorLog("audio format error")
                 return nil
             }
-            audioDataBuffer = UnsafeMutableRawPointer(tempFrame.pointee.data.0!)
+            guard let decodedDataBuffer = Self.audioDataBuffer(fromDecodedData: tempFrame.pointee.data.0) else { return nil }
+            audioDataBuffer = decodedDataBuffer
             numberOfFrames = Int(tempFrame.pointee.nb_samples)
         }
 

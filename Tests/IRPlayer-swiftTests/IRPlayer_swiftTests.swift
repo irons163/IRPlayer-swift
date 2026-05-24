@@ -660,6 +660,16 @@ final class IRFFDecoderOperationTests: XCTestCase {
 
 final class IRFFAudioDecoderTests: XCTestCase {
 
+    func testAudioDataBufferRejectsMissingDecodedData() {
+        XCTAssertNil(IRFFAudioDecoder.audioDataBuffer(fromDecodedData: nil))
+
+        var byte: UInt8 = 0
+        withUnsafeMutablePointer(to: &byte) { pointer in
+            let rawPointer = UnsafeMutableRawPointer(pointer)
+            XCTAssertEqual(IRFFAudioDecoder.audioDataBuffer(fromDecodedData: pointer), rawPointer)
+        }
+    }
+
     func testAudioDataBufferRejectsMissingSwrBuffer() {
         XCTAssertNil(IRFFAudioDecoder.audioDataBuffer(fromSwrBuffer: nil))
 
