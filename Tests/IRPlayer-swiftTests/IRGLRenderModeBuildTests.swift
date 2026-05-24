@@ -78,6 +78,32 @@ final class IRGLRenderModeBuildTests: XCTestCase {
         XCTAssertNil(mode.program)
         XCTAssertNil(mode.shiftController.program)
     }
+
+    func test2DModeLiveConfigurationUpdatesBuiltProgram() throws {
+        let mode = IRGLRenderMode2D()
+        mode.scaleRange = IRGLScaleRange(minScaleX: 0.5,
+                                         minScaleY: 0.75,
+                                         maxScaleX: 8,
+                                         maxScaleY: 9,
+                                         defaultScaleX: 1,
+                                         defaultScaleY: 1)
+        mode.buildIRGLProgram(pixelFormat: .RGB_IRPixelFormat,
+                              viewprotRange: CGRect(x: 0, y: 0, width: 200, height: 100),
+                              parameter: nil)
+
+        mode.contentMode = .scaleToFill
+        mode.defaultScale = 3.25
+
+        let program = try XCTUnwrap(mode.program)
+        let scaleRange = try XCTUnwrap(program.tramsformController?.scaleRange)
+        XCTAssertEqual(program.contentMode, .scaleToFill)
+        XCTAssertEqual(scaleRange.defaultScaleX, 3.25)
+        XCTAssertEqual(scaleRange.defaultScaleY, 3.25)
+        XCTAssertEqual(scaleRange.minScaleX, 0.5)
+        XCTAssertEqual(scaleRange.minScaleY, 0.75)
+        XCTAssertEqual(scaleRange.maxScaleX, 8)
+        XCTAssertEqual(scaleRange.maxScaleY, 9)
+    }
 }
 
 private final class RecordingRenderModeDelegate: IRGLRenderModeDelegate {
