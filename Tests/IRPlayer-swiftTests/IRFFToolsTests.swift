@@ -15,6 +15,15 @@ final class IRFFToolsTests: XCTestCase {
         }
     }
 
+    func testCheckErrorReturnsNilForSuccessAndUsesRequestedCodeForFailures() throws {
+        XCTAssertNil(IRFFCheckError(0))
+        XCTAssertNil(IRFFCheckErrorCode(1, errorCode: 99))
+
+        let error = try XCTUnwrap(IRFFCheckErrorCode(-1, errorCode: 42))
+        XCTAssertEqual(error.code, 42)
+        XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
+    }
+
     func testStreamTimebaseFallsBackToFiniteValueForInvalidStreamAndDefault() {
         var stream = AVStream()
         stream.time_base = AVRational(num: 0, den: 0)
