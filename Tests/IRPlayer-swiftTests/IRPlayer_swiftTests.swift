@@ -526,6 +526,23 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         }
     }
 
+    func testConvertedNALBlockPayloadRejectsMissingOrInvalidBuffer() {
+        XCTAssertNil(IRFFVideoToolBox.convertedNALBlockPayload(memoryBlock: nil, demuxSize: 4, packetSize: 4))
+
+        var bytes = [UInt8](arrayLiteral: 1, 2, 3, 4)
+        bytes.withUnsafeMutableBufferPointer { buffer in
+            let pointer = buffer.baseAddress
+
+            XCTAssertNil(IRFFVideoToolBox.convertedNALBlockPayload(memoryBlock: pointer, demuxSize: 0, packetSize: 4))
+            XCTAssertNil(IRFFVideoToolBox.convertedNALBlockPayload(memoryBlock: pointer, demuxSize: 4, packetSize: 0))
+
+            let payload = IRFFVideoToolBox.convertedNALBlockPayload(memoryBlock: pointer, demuxSize: 5, packetSize: 4)
+            XCTAssertEqual(payload?.memoryBlock, pointer)
+            XCTAssertEqual(payload?.blockLength, 5)
+            XCTAssertEqual(payload?.dataLength, 4)
+        }
+    }
+
     private func assertThreeByteNALPayload(_ bytes: [UInt8], isValid: Bool, file: StaticString = #filePath, line: UInt = #line) throws {
         var packet = AVPacket()
         var bytes = bytes

@@ -27,6 +27,12 @@ class IRFFVideoToolBox {
         }
     }
 
+    struct ConvertedNALBlockPayload {
+        let memoryBlock: UnsafeMutablePointer<UInt8>
+        let blockLength: Int
+        let dataLength: Int
+    }
+
     private var codecContext: UnsafeMutablePointer<AVCodecContext>
     private var vtSession: VTDecompressionSession?
     private var formatDescription: CMFormatDescription?
@@ -154,14 +160,15 @@ class IRFFVideoToolBox {
                 }
                 var demuxBuffer: UnsafeMutablePointer<UInt8>?
                 let demuxSize = avio_close_dyn_buf(ioContext, &demuxBuffer)
+                guard let convertedPayload = Self.convertedNALBlockPayload(memoryBlock: demuxBuffer, demuxSize: demuxSize, packetSize: packetPayload.size) else { return false }
                 status = CMBlockBufferCreateWithMemoryBlock(
                     allocator: nil,
-                    memoryBlock: demuxBuffer!,
-                    blockLength: Int(demuxSize),
+                    memoryBlock: convertedPayload.memoryBlock,
+                    blockLength: convertedPayload.blockLength,
                     blockAllocator: kCFAllocatorNull,
                     customBlockSource: nil,
                     offsetToData: 0,
-                    dataLength: Int(packetPayload.size),
+                    dataLength: convertedPayload.dataLength,
                     flags: 0,
                     blockBufferOut: &blockBuffer
                 )
@@ -217,6 +224,11 @@ class IRFFVideoToolBox {
     static func packetPayload(for packet: AVPacket) -> PacketPayload? {
         guard let data = packet.data, packet.size > 0 else { return nil }
         return PacketPayload(data: data, size: packet.size)
+    }
+
+    static func convertedNALBlockPayload(memoryBlock: UnsafeMutablePointer<UInt8>?, demuxSize: Int32, packetSize: Int32) -> ConvertedNALBlockPayload? {
+        guard let memoryBlock, demuxSize > 0, packetSize > 0 else { return nil }
+        return ConvertedNALBlockPayload(memoryBlock: memoryBlock, blockLength: Int(demuxSize), dataLength: Int(packetSize))
     }
 
     static func threeByteNALUnitsAreBounded(in payload: PacketPayload) -> Bool {
