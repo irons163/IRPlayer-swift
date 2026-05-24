@@ -131,8 +131,7 @@ class IRFFVideoDecoder {
 
     func decodeFrameThread() {
         decoding = true
-        var finished = false
-        while !finished {
+        while true {
             if canceled || error != nil {
                 print("decode video thread quit")
                 break
