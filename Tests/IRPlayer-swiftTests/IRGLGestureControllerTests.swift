@@ -55,3 +55,26 @@ final class IRGLGestureControllerTests: XCTestCase {
         XCTAssertTrue(rotationRecognizers.isEmpty)
     }
 }
+
+final class IRBounceControllerTests: XCTestCase {
+
+    func testBounceGeometryClampsHorizontalControlPointToBounceWidth() {
+        let geometry = IRBounceController.bouncePathGeometry(amount: -200,
+                                                             direction: .left,
+                                                             targetSize: CGSize(width: 100, height: 80))
+
+        XCTAssertEqual(geometry.start, CGPoint(x: 100, y: 0))
+        XCTAssertEqual(geometry.control, CGPoint(x: 92, y: 40))
+        XCTAssertEqual(geometry.end, CGPoint(x: 100, y: 80))
+    }
+
+    func testBounceGeometryClampsVerticalControlPointToBounceWidth() {
+        let geometry = IRBounceController.bouncePathGeometry(amount: 200,
+                                                             direction: .down,
+                                                             targetSize: CGSize(width: 100, height: 80))
+
+        XCTAssertEqual(geometry.start, .zero)
+        XCTAssertEqual(geometry.control, CGPoint(x: 50, y: 8))
+        XCTAssertEqual(geometry.end, CGPoint(x: 100, y: 0))
+    }
+}
