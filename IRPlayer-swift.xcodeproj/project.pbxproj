@@ -126,6 +126,7 @@
 		B5E950092F68A00500149265 /* IRFFFrameQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */; };
 		B5E9500B2F68A00600149265 /* IRGLRenderModeFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */; };
 		B5E9500D2F68A00700149265 /* IRMatrix4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */; };
+		B5E9500F2F68A00800149265 /* IRAudioManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500E2F68A00800149265 /* IRAudioManagerTests.swift */; };
 		D1B25EAB2804376100F79DCC /* IRPlayer_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */; };
 /* End PBXBuildFile section */
 
@@ -262,6 +263,7 @@
 		B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueueTests.swift; sourceTree = "<group>"; };
 		B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderModeFactoryTests.swift; sourceTree = "<group>"; };
 		B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMatrix4Tests.swift; sourceTree = "<group>"; };
+		B5E9500E2F68A00800149265 /* IRAudioManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAudioManagerTests.swift; sourceTree = "<group>"; };
 		D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IRPlayer_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1B25EAA2804376100F79DCC /* IRPlayer-swiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "IRPlayer-swiftTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -727,6 +729,7 @@
 		B5E94FEC2D0B220400149265 /* IRPlayer-swiftTests */ = {
 			isa = PBXGroup;
 			children = (
+				B5E9500E2F68A00800149265 /* IRAudioManagerTests.swift */,
 				B5E950022F68A00200149265 /* IRPlayerDecoderTests.swift */,
 				B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */,
 				B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */,
@@ -993,6 +996,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B5E9500F2F68A00800149265 /* IRAudioManagerTests.swift in Sources */,
 				B5E950032F68A00200149265 /* IRPlayerDecoderTests.swift in Sources */,
 				B5E950092F68A00500149265 /* IRFFFrameQueueTests.swift in Sources */,
 				B5E9500B2F68A00600149265 /* IRGLRenderModeFactoryTests.swift in Sources */,
