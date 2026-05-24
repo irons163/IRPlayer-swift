@@ -433,6 +433,17 @@ final class IRGLGestureControllerTests: XCTestCase {
     }
 }
 
+final class IRGLViewSnapshotTests: XCTestCase {
+
+    func testCreateImageFromFramebufferReturnsImageForZeroSizedView() {
+        let view = IRGLView(frame: .zero)
+
+        let image = view.createImageFromFramebuffer()
+
+        XCTAssertEqual(image.size, .zero)
+    }
+}
+
 final class IRMatrix4Tests: XCTestCase {
 
     func testTranslationMatrixStoresTranslationInLastColumn() {

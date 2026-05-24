@@ -498,14 +498,17 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func createImageFromFramebuffer() -> UIImage {
-        var image: UIImage?
         let size = layer.bounds.size
+        guard size.width > 0, size.height > 0 else {
+            return UIImage()
+        }
         UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        defer {
+            UIGraphicsEndImageContext()
+        }
         let containerRect = layer.bounds
         drawHierarchy(in: containerRect, afterScreenUpdates: false)
-        image = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        return image!
+        return UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
     }
 
     func cleanEmptyBuffer() {
