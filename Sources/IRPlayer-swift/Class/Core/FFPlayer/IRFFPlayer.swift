@@ -9,6 +9,12 @@ import UIKit // For CGSize
 import AVFoundation // For NSTimeInterval
 
 class IRFFPlayer: NSObject {
+    struct AudioCopyPlan {
+        let bytesToCopy: Int
+        let framesToCopy: Int
+        let hasRemainingFrameBytes: Bool
+    }
+
     private let stateLock = NSLock()
     weak var abstractPlayer: IRPlayerImp?
     var decoder: IRFFDecoder?
@@ -96,6 +102,32 @@ class IRFFPlayer: NSObject {
 
     static func player(with abstractPlayer: IRPlayerImp) -> IRFFPlayer {
         return IRFFPlayer(abstractPlayer: abstractPlayer)
+    }
+
+    static func audioCopyPlan(frameSize: Int, outputOffset: Int, remainingFrames: UInt32, numberOfChannels: UInt32) -> AudioCopyPlan? {
+        guard frameSize > 0,
+              outputOffset >= 0,
+              outputOffset <= frameSize,
+              remainingFrames > 0,
+              numberOfChannels > 0 else {
+            return nil
+        }
+
+        let frameSizeOf = Int(numberOfChannels) * MemoryLayout<Float>.size
+        guard frameSizeOf > 0 else { return nil }
+
+        let bytesLeft = frameSize - outputOffset
+        guard bytesLeft > 0 else { return nil }
+
+        let bytesToCopy = min(Int(remainingFrames) * frameSizeOf, bytesLeft)
+        let framesToCopy = bytesToCopy / frameSizeOf
+        guard bytesToCopy > 0, framesToCopy > 0 else { return nil }
+
+        return AudioCopyPlan(
+            bytesToCopy: bytesToCopy,
+            framesToCopy: framesToCopy,
+            hasRemainingFrameBytes: bytesToCopy < bytesLeft
+        )
     }
 
     func play() {
@@ -322,17 +354,26 @@ extension IRFFPlayer: IRAudioManagerDelegate {
                     return
                 }
 
-                let bytes = UnsafeRawPointer(samples).advanced(by: Int(currentAudioFrame.outputOffset)).assumingMemoryBound(to: UInt8.self)
-                let bytesLeft = currentAudioFrame.size - currentAudioFrame.outputOffset
-                let frameSizeOf = Int(numberOfChannels) * MemoryLayout<Float>.size
-                let bytesToCopy = min(Int(remainingFrames) * frameSizeOf, bytesLeft)
-                let framesToCopy = bytesToCopy / frameSizeOf
+                guard let copyPlan = Self.audioCopyPlan(
+                    frameSize: currentAudioFrame.size,
+                    outputOffset: currentAudioFrame.outputOffset,
+                    remainingFrames: remainingFrames,
+                    numberOfChannels: numberOfChannels
+                ) else {
+                    currentAudioFrame.stopPlaying()
+                    self.currentAudioFrame = nil
+                    memset(currentOutputData, 0, Int(remainingFrames * numberOfChannels) * MemoryLayout<Float>.size)
+                    return
+                }
 
+                let bytes = UnsafeRawPointer(samples).advanced(by: Int(currentAudioFrame.outputOffset)).assumingMemoryBound(to: UInt8.self)
+                let bytesToCopy = copyPlan.bytesToCopy
+                let framesToCopy = copyPlan.framesToCopy
                 memcpy(currentOutputData, bytes, bytesToCopy)
                 remainingFrames -= UInt32(framesToCopy)
                 currentOutputData = currentOutputData.advanced(by: framesToCopy * Int(numberOfChannels))
 
-                if bytesToCopy < bytesLeft {
+                if copyPlan.hasRemainingFrameBytes {
                     currentAudioFrame.outputOffset += bytesToCopy
                 } else {
                     currentAudioFrame.stopPlaying()

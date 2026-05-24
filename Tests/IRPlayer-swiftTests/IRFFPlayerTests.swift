@@ -34,4 +34,26 @@ final class IRFFPlayerTests: XCTestCase {
         withExtendedLifetime(player) {}
     }
 
+    func testAudioCopyPlanRejectsInvalidFrameOffsets() {
+        XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: -1, remainingFrames: 32, numberOfChannels: 2))
+        XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 129, remainingFrames: 32, numberOfChannels: 2))
+        XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 0, remainingFrames: 32, numberOfChannels: 0))
+    }
+
+    func testAudioCopyPlanCalculatesFramesAndBytesWithinBounds() throws {
+        let partial = try XCTUnwrap(
+            IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 0, remainingFrames: 10, numberOfChannels: 2)
+        )
+        XCTAssertEqual(partial.bytesToCopy, 80)
+        XCTAssertEqual(partial.framesToCopy, 10)
+        XCTAssertTrue(partial.hasRemainingFrameBytes)
+
+        let final = try XCTUnwrap(
+            IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 120, remainingFrames: 10, numberOfChannels: 2)
+        )
+        XCTAssertEqual(final.bytesToCopy, 8)
+        XCTAssertEqual(final.framesToCopy, 1)
+        XCTAssertFalse(final.hasRemainingFrameBytes)
+    }
+
 }
