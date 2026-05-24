@@ -74,14 +74,10 @@ import UIKit
     }
 
     func calculateSmoothScroll(velocity: CGPoint) {
-        let magnitude = sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y))
-        let slideMult = magnitude / 200
-        print("magnitude: \(magnitude), slideMult: \(slideMult)")
-
         self.resetSmoothScroll()
-        let slideFactor = 0.05 * slideMult // Increase for more of a slide
-        finalPoint = CGPoint(x: velocity.x * slideFactor, y: velocity.y * slideFactor)
-        slideDuration = slideFactor * 2
+        let target = Self.smoothScrollTarget(for: velocity)
+        finalPoint = target.point
+        slideDuration = target.duration
     }
 
     func scrollBy(dx: Float, dy: Float) {
@@ -101,6 +97,15 @@ import UIKit
 
         finalPoint = CGPoint(x: CGFloat(degreeX), y: CGFloat(-degreeY))
         slideDuration = 0.5
+    }
+
+    static func smoothScrollTarget(for velocity: CGPoint) -> (point: CGPoint, duration: CGFloat) {
+        let magnitude = sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y))
+        let slideFactor = 0.05 * (magnitude / 200)
+        return (
+            point: CGPoint(x: velocity.x * slideFactor, y: velocity.y * slideFactor),
+            duration: slideFactor * 2
+        )
     }
 }
 

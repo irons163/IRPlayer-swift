@@ -4,6 +4,21 @@ import XCTest
 
 final class IRGLGestureControllerTests: XCTestCase {
 
+    func testSmoothScrollTargetScalesVelocityMagnitudeIntoDistanceAndDuration() {
+        let target = IRSmoothScrollController.smoothScrollTarget(for: CGPoint(x: 300, y: 400))
+
+        XCTAssertEqual(target.point.x, 37.5, accuracy: 0.0001)
+        XCTAssertEqual(target.point.y, 50, accuracy: 0.0001)
+        XCTAssertEqual(target.duration, 0.25, accuracy: 0.0001)
+    }
+
+    func testSmoothScrollTargetUsesZeroForZeroVelocity() {
+        let target = IRSmoothScrollController.smoothScrollTarget(for: .zero)
+
+        XCTAssertEqual(target.point, .zero)
+        XCTAssertEqual(target.duration, 0)
+    }
+
     func testClearingCurrentModeClearsSmoothScrollMode() {
         let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
         let smoothScroll = IRSmoothScrollController(targetView: view)
