@@ -80,6 +80,11 @@ class IRFFAudioDecoder {
         return Int(channels)
     }
 
+    static func audioDataBuffer(fromSwrBuffer swrBuffer: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+        guard let swrBuffer else { return nil }
+        return swrBuffer
+    }
+
     func duration() -> TimeInterval {
         return frameQueue.duration
     }
@@ -173,7 +178,8 @@ class IRFFAudioDecoder {
                 IRFFErrorLog("audio codec error : \(String(describing: error))")
                 return nil
             }
-            audioDataBuffer = audioSwrBuffer!
+            guard let swrBuffer = Self.audioDataBuffer(fromSwrBuffer: audioSwrBuffer) else { return nil }
+            audioDataBuffer = swrBuffer
         } else {
             if codecContext?.pointee.sample_fmt != AV_SAMPLE_FMT_S16 {
                 IRFFErrorLog("audio format error")
