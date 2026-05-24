@@ -201,6 +201,7 @@ extension IRAVPlayer {
 extension IRAVPlayer {
 
     func reloadVolume() {
+        guard let avPlayer = avPlayer else { return }
         avPlayer.volume = Float(abstractPlayer.volume)
     }
 
@@ -240,7 +241,8 @@ extension IRAVPlayer {
 
     func pixelBufferAtCurrentTime() -> CVPixelBuffer? {
         guard !seeking else { return nil }
-        guard let avOutput = avOutput,
+        guard let avPlayerItem = avPlayerItem,
+              let avOutput = avOutput,
               avOutput.hasNewPixelBuffer(forItemTime: avPlayerItem.currentTime()) else {
             return nil
         }
