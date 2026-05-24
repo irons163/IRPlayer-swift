@@ -8,6 +8,7 @@
 
 import AVFoundation
 import CoreGraphics
+import IRFFMpeg
 import simd
 import XCTest
 @testable import IRPlayer_swift
@@ -394,6 +395,22 @@ final class IRFFFramePoolTests: XCTestCase {
         XCTAssertNil(pool.playingFrame)
         XCTAssertEqual(pool.usedCount, 0)
         XCTAssertEqual(pool.unuseCount, 1)
+    }
+}
+
+final class IRFFToolsTests: XCTestCase {
+
+    func testStreamFPSFallsBackToFiniteValueForInvalidRatesAndTimebase() {
+        var stream = AVStream()
+        stream.avg_frame_rate = AVRational(num: 0, den: 0)
+        stream.r_frame_rate = AVRational(num: 0, den: 0)
+
+        let fps = withUnsafePointer(to: &stream) { streamPointer in
+            IRFFStreamGetFPS(streamPointer, timebase: 0)
+        }
+
+        XCTAssertEqual(fps, 1)
+        XCTAssertTrue(fps.isFinite)
     }
 }
 

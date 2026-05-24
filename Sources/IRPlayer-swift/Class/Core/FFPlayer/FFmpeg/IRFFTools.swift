@@ -72,10 +72,12 @@ func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Do
         fps = av_q2d(stream.pointee.avg_frame_rate)
     } else if stream.pointee.r_frame_rate.den > 0 && stream.pointee.r_frame_rate.num > 0 {
         fps = av_q2d(stream.pointee.r_frame_rate)
-    } else {
+    } else if timebase > 0 {
         fps = 1.0 / timebase
+    } else {
+        fps = 1.0
     }
-    return fps
+    return fps.isFinite && fps > 0 ? fps : 1.0
 }
 
 func IRFFFoundationBrigeOfAVDictionary(_ avDictionary: OpaquePointer?) -> [String: String]? {
