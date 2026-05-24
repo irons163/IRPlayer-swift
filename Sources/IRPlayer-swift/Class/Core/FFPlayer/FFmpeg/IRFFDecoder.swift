@@ -199,12 +199,13 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     private func setupOpenFileOperation() {
-        openFileOperation = BlockOperation { [weak self] in
+        let operation = BlockOperation { [weak self] in
             self?.openFormatContext()
         }
-        openFileOperation?.queuePriority = .veryHigh
-        openFileOperation?.qualityOfService = .userInteractive
-        ffmpegOperationQueue?.addOperation(openFileOperation!)
+        operation.queuePriority = .veryHigh
+        operation.qualityOfService = .userInteractive
+        openFileOperation = operation
+        Self.enqueue(operation, on: ffmpegOperationQueue)
     }
 
     private func setupReadPacketOperation() {
@@ -212,35 +213,58 @@ protocol IRFFDecoderDelegate: AnyObject {
             delegateErrorCallback()
             return
         }
-        if readPacketOperation == nil || readPacketOperation!.isFinished {
-            readPacketOperation = BlockOperation { [weak self] in
+        guard let openFileOperation else { return }
+
+        if Self.needsScheduling(readPacketOperation) {
+            let operation = BlockOperation { [weak self] in
                 self?.readPacketThread()
             }
-            readPacketOperation?.queuePriority = .veryHigh
-            readPacketOperation?.qualityOfService = .userInteractive
-            readPacketOperation?.addDependency(openFileOperation!)
-            ffmpegOperationQueue?.addOperation(readPacketOperation!)
+            operation.queuePriority = .veryHigh
+            operation.qualityOfService = .userInteractive
+            Self.addDependency(openFileOperation, to: operation)
+            readPacketOperation = operation
+            Self.enqueue(operation, on: ffmpegOperationQueue)
         }
         if formatContext?.videoEnable == true {
-            if decodeFrameOperation == nil || decodeFrameOperation!.isFinished {
-                decodeFrameOperation = BlockOperation { [weak self] in
+            if Self.needsScheduling(decodeFrameOperation) {
+                let operation = BlockOperation { [weak self] in
                     self?.videoDecoder?.decodeFrameThread()
                 }
-                decodeFrameOperation?.queuePriority = .veryHigh
-                decodeFrameOperation?.qualityOfService = .userInteractive
-                decodeFrameOperation?.addDependency(openFileOperation!)
-                ffmpegOperationQueue?.addOperation(decodeFrameOperation!)
+                operation.queuePriority = .veryHigh
+                operation.qualityOfService = .userInteractive
+                Self.addDependency(openFileOperation, to: operation)
+                decodeFrameOperation = operation
+                Self.enqueue(operation, on: ffmpegOperationQueue)
             }
-            if displayOperation == nil || displayOperation!.isFinished {
-                displayOperation = BlockOperation { [weak self] in
+            if Self.needsScheduling(displayOperation) {
+                let operation = BlockOperation { [weak self] in
                     self?.displayThread()
                 }
-                displayOperation?.queuePriority = .veryHigh
-                displayOperation?.qualityOfService = .userInteractive
-                displayOperation?.addDependency(openFileOperation!)
-                ffmpegOperationQueue?.addOperation(displayOperation!)
+                operation.queuePriority = .veryHigh
+                operation.qualityOfService = .userInteractive
+                Self.addDependency(openFileOperation, to: operation)
+                displayOperation = operation
+                Self.enqueue(operation, on: ffmpegOperationQueue)
             }
         }
+    }
+
+    static func needsScheduling(_ operation: Operation?) -> Bool {
+        return operation?.isFinished ?? true
+    }
+
+    @discardableResult
+    static func addDependency(_ dependency: Operation?, to operation: Operation?) -> Bool {
+        guard let dependency, let operation else { return false }
+        operation.addDependency(dependency)
+        return true
+    }
+
+    @discardableResult
+    static func enqueue(_ operation: Operation?, on queue: OperationQueue?) -> Bool {
+        guard let operation, let queue else { return false }
+        queue.addOperation(operation)
+        return true
     }
 
     private func openFormatContext() {
