@@ -892,6 +892,18 @@ final class IRAudioManagerRenderTests: XCTestCase {
         }
     }
 
+    func testRequiredAudioUnitRejectsMissingUnit() {
+        let result = IRAudioManager.requiredAudioUnit(nil, domain: "missing audio unit")
+
+        switch result {
+        case .success:
+            XCTFail("Missing audio unit should not be accepted")
+        case .failure(let error):
+            XCTAssertEqual(error.domain, "missing audio unit")
+            XCTAssertEqual(error.code, -1)
+        }
+    }
+
     func testRenderFramesIgnoresMissingAudioBufferList() {
         let manager = IRAudioManager()
 

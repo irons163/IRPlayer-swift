@@ -315,6 +315,36 @@ class IRAudioManager: NSObject {
             return false
         }
 
+        let converterAudioUnit: AudioUnit
+        switch Self.requiredAudioUnit(outputContext.converterNodeContext.audioUnit, domain: "graph get converter audio unit error") {
+        case .success(let audioUnit):
+            converterAudioUnit = audioUnit
+        case .failure(let missingAudioUnitError):
+            error = missingAudioUnitError
+            delegateErrorCallback()
+            return false
+        }
+
+        let mixerAudioUnit: AudioUnit
+        switch Self.requiredAudioUnit(outputContext.mixerNodeContext.audioUnit, domain: "graph get mixer audio unit error") {
+        case .success(let audioUnit):
+            mixerAudioUnit = audioUnit
+        case .failure(let missingAudioUnitError):
+            error = missingAudioUnitError
+            delegateErrorCallback()
+            return false
+        }
+
+        let outputAudioUnit: AudioUnit
+        switch Self.requiredAudioUnit(outputContext.outputNodeContext.audioUnit, domain: "graph get output audio unit error") {
+        case .success(let audioUnit):
+            outputAudioUnit = audioUnit
+        case .failure(let missingAudioUnitError):
+            error = missingAudioUnitError
+            delegateErrorCallback()
+            return false
+        }
+
         var converterCallback = AURenderCallbackStruct(inputProc: renderCallback,
                                                        inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()))
         result = AUGraphSetNodeInputCallback(graph,
@@ -328,7 +358,7 @@ class IRAudioManager: NSObject {
         }
 
         var audioStreamBasicDescriptionSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
-        result = AudioUnitGetProperty(outputContext.outputNodeContext.audioUnit!,
+        result = AudioUnitGetProperty(outputAudioUnit,
                                       kAudioUnitProperty_StreamFormat,
                                       kAudioUnitScope_Input, 0,
                                       &outputContext.commonFormat,
@@ -339,7 +369,7 @@ class IRAudioManager: NSObject {
         } else {
             if audioSession.sampleRate != outputContext.commonFormat.mSampleRate {
                 outputContext.commonFormat.mSampleRate = audioSession.sampleRate
-                result = AudioUnitSetProperty(outputContext.outputNodeContext.audioUnit!,
+                result = AudioUnitSetProperty(outputAudioUnit,
                                               kAudioUnitProperty_StreamFormat,
                                               kAudioUnitScope_Input,
                                               0,
@@ -352,7 +382,7 @@ class IRAudioManager: NSObject {
             }
         }
 
-        result = AudioUnitSetProperty(outputContext.converterNodeContext.audioUnit!,
+        result = AudioUnitSetProperty(converterAudioUnit,
                                       kAudioUnitProperty_StreamFormat,
                                       kAudioUnitScope_Input,
                                       0,
@@ -364,7 +394,7 @@ class IRAudioManager: NSObject {
             return false
         }
 
-        result = AudioUnitSetProperty(outputContext.converterNodeContext.audioUnit!,
+        result = AudioUnitSetProperty(converterAudioUnit,
                                       kAudioUnitProperty_StreamFormat,
                                       kAudioUnitScope_Output,
                                       0,
@@ -376,7 +406,7 @@ class IRAudioManager: NSObject {
             return false
         }
 
-        result = AudioUnitSetProperty(outputContext.mixerNodeContext.audioUnit!,
+        result = AudioUnitSetProperty(mixerAudioUnit,
                                       kAudioUnitProperty_StreamFormat,
                                       kAudioUnitScope_Input,
                                       0,
@@ -388,7 +418,7 @@ class IRAudioManager: NSObject {
             return false
         }
 
-        result = AudioUnitSetProperty(outputContext.mixerNodeContext.audioUnit!,
+        result = AudioUnitSetProperty(mixerAudioUnit,
                                       kAudioUnitProperty_StreamFormat,
                                       kAudioUnitScope_Output,
                                       0,
@@ -400,7 +430,7 @@ class IRAudioManager: NSObject {
             return false
         }
 
-        result = AudioUnitSetProperty(outputContext.mixerNodeContext.audioUnit!,
+        result = AudioUnitSetProperty(mixerAudioUnit,
                                       kAudioUnitProperty_MaximumFramesPerSlice,
                                       kAudioUnitScope_Global,
                                       0,
@@ -527,6 +557,13 @@ class IRAudioManager: NSObject {
             return .failure(NSError(domain: domain, code: -1, userInfo: nil))
         }
         return .success(graph)
+    }
+
+    static func requiredAudioUnit(_ audioUnit: AudioUnit?, domain: String) -> Result<AudioUnit, NSError> {
+        guard let audioUnit else {
+            return .failure(NSError(domain: domain, code: -1, userInfo: nil))
+        }
+        return .success(audioUnit)
     }
 
     private static var maxFrameSize = 4096
