@@ -27,7 +27,7 @@ class IRGLGestureController: IRGestureController {
                 program.delegate = smoothScroll
             }
             currentMode?.delegate = self
-            smoothScroll?.currentMode = currentMode!
+            smoothScroll?.currentMode = currentMode
         }
     }
     weak var delegate: IRGLViewDelegate?

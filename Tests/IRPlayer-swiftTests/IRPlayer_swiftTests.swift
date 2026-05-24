@@ -260,6 +260,23 @@ final class IRGLRenderModeFactoryTests: XCTestCase {
     }
 }
 
+final class IRGLGestureControllerTests: XCTestCase {
+
+    func testClearingCurrentModeClearsSmoothScrollMode() {
+        let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+        let smoothScroll = IRSmoothScrollController(targetView: view)
+        let gestureController = IRGLGestureController()
+
+        gestureController.smoothScroll = smoothScroll
+        gestureController.currentMode = IRGLRenderMode2D()
+
+        gestureController.currentMode = nil
+
+        XCTAssertNil(smoothScroll.currentMode)
+        withExtendedLifetime(smoothScroll) {}
+    }
+}
+
 final class IRMatrix4Tests: XCTestCase {
 
     func testTranslationMatrixStoresTranslationInLastColumn() {
