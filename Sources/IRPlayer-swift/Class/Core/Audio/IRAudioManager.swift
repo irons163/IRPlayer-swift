@@ -210,13 +210,22 @@ class IRAudioManager: NSObject {
             delegateErrorCallback()
             return false
         }
+        let graph: AUGraph
+        switch Self.requiredAudioGraph(outputContext.graph, domain: "create graph error") {
+        case .success(let audioGraph):
+            graph = audioGraph
+        case .failure(let missingGraphError):
+            error = missingGraphError
+            delegateErrorCallback()
+            return false
+        }
 
         var converterDescription = AudioComponentDescription(componentType: kAudioUnitType_FormatConverter,
                                                              componentSubType: kAudioUnitSubType_AUConverter,
                                                              componentManufacturer: kAudioUnitManufacturer_Apple,
                                                              componentFlags: 0,
                                                              componentFlagsMask: 0)
-        result = AUGraphAddNode(outputContext.graph!, &converterDescription, &outputContext.converterNodeContext.node)
+        result = AUGraphAddNode(graph, &converterDescription, &outputContext.converterNodeContext.node)
         error = checkError(result, domain: "graph add converter node error")
         if error != nil {
             delegateErrorCallback()
@@ -228,7 +237,7 @@ class IRAudioManager: NSObject {
                                                          componentManufacturer: kAudioUnitManufacturer_Apple,
                                                          componentFlags: 0,
                                                          componentFlagsMask: 0)
-        result = AUGraphAddNode(outputContext.graph!, &mixerDescription, &outputContext.mixerNodeContext.node)
+        result = AUGraphAddNode(graph, &mixerDescription, &outputContext.mixerNodeContext.node)
         error = checkError(result, domain: "graph add mixer node error")
         if error != nil {
             delegateErrorCallback()
@@ -240,21 +249,21 @@ class IRAudioManager: NSObject {
                                                           componentManufacturer: kAudioUnitManufacturer_Apple,
                                                           componentFlags: 0,
                                                           componentFlagsMask: 0)
-        result = AUGraphAddNode(outputContext.graph!, &outputDescription, &outputContext.outputNodeContext.node)
+        result = AUGraphAddNode(graph, &outputDescription, &outputContext.outputNodeContext.node)
         error = checkError(result, domain: "graph add output node error")
         if error != nil {
             delegateErrorCallback()
             return false
         }
 
-        result = AUGraphOpen(outputContext.graph!)
+        result = AUGraphOpen(graph)
         error = checkError(result, domain: "open graph error")
         if error != nil {
             delegateErrorCallback()
             return false
         }
 
-        result = AUGraphConnectNodeInput(outputContext.graph!,
+        result = AUGraphConnectNodeInput(graph,
                                          outputContext.converterNodeContext.node,
                                          0,
                                          outputContext.mixerNodeContext.node,
@@ -265,7 +274,7 @@ class IRAudioManager: NSObject {
             return false
         }
 
-        result = AUGraphConnectNodeInput(outputContext.graph!,
+        result = AUGraphConnectNodeInput(graph,
                                          outputContext.mixerNodeContext.node,
                                          0,
                                          outputContext.outputNodeContext.node,
@@ -276,7 +285,7 @@ class IRAudioManager: NSObject {
             return false
         }
 
-        result = AUGraphNodeInfo(outputContext.graph!,
+        result = AUGraphNodeInfo(graph,
                                  outputContext.converterNodeContext.node,
                                  &converterDescription,
                                  &outputContext.converterNodeContext.audioUnit)
@@ -286,7 +295,7 @@ class IRAudioManager: NSObject {
             return false
         }
 
-        result = AUGraphNodeInfo(outputContext.graph!,
+        result = AUGraphNodeInfo(graph,
                                  outputContext.mixerNodeContext.node,
                                  &mixerDescription,
                                  &outputContext.mixerNodeContext.audioUnit)
@@ -296,7 +305,7 @@ class IRAudioManager: NSObject {
             return false
         }
 
-        result = AUGraphNodeInfo(outputContext.graph!,
+        result = AUGraphNodeInfo(graph,
                                  outputContext.outputNodeContext.node,
                                  &outputDescription,
                                  &outputContext.outputNodeContext.audioUnit)
@@ -308,7 +317,7 @@ class IRAudioManager: NSObject {
 
         var converterCallback = AURenderCallbackStruct(inputProc: renderCallback,
                                                        inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()))
-        result = AUGraphSetNodeInputCallback(outputContext.graph!,
+        result = AUGraphSetNodeInputCallback(graph,
                                              outputContext.converterNodeContext.node,
                                              0,
                                              &converterCallback)
@@ -402,7 +411,7 @@ class IRAudioManager: NSObject {
             delegateWarningCallback()
         }
 
-        result = AUGraphInitialize(outputContext.graph!)
+        result = AUGraphInitialize(graph)
         error = checkError(result, domain: "graph initialize error")
         if error != nil {
             delegateErrorCallback()
@@ -511,6 +520,13 @@ class IRAudioManager: NSObject {
 
     private func checkError(_ result: OSStatus, domain: String) -> NSError? {
         return result == noErr ? nil : NSError(domain: domain, code: Int(result), userInfo: nil)
+    }
+
+    static func requiredAudioGraph(_ graph: AUGraph?, domain: String) -> Result<AUGraph, NSError> {
+        guard let graph else {
+            return .failure(NSError(domain: domain, code: -1, userInfo: nil))
+        }
+        return .success(graph)
     }
 
     private static var maxFrameSize = 4096

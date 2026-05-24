@@ -880,6 +880,18 @@ final class IRAudioManagerNotificationTests: XCTestCase {
 
 final class IRAudioManagerRenderTests: XCTestCase {
 
+    func testRequiredAudioGraphRejectsMissingGraph() {
+        let result = IRAudioManager.requiredAudioGraph(nil, domain: "missing graph")
+
+        switch result {
+        case .success:
+            XCTFail("Missing graph should not be accepted")
+        case .failure(let error):
+            XCTAssertEqual(error.domain, "missing graph")
+            XCTAssertEqual(error.code, -1)
+        }
+    }
+
     func testRenderFramesIgnoresMissingAudioBufferList() {
         let manager = IRAudioManager()
 
