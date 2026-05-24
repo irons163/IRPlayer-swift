@@ -132,6 +132,7 @@ extension IRAVPlayer {
 
     func setPlayIfNeeded() {
         if state == .playing || state == .buffering {
+            guard let avPlayer = avPlayer else { return }
             state = .buffering
             needPlay = true
             avPlayer.pause()
