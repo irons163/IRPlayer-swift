@@ -102,16 +102,10 @@ class IRSensor {
 
             let newOffsetXByDeviceMotion = degreeX
             let newOffsetYByDeviceMotion = -degreeY
-            var dx = newOffsetXByDeviceMotion - lastOffsetXByDeviceMotion
-            var dy = newOffsetYByDeviceMotion - lastOffsetYByDeviceMotion
+            let dx = Self.normalizedMotionDelta(current: newOffsetXByDeviceMotion, previous: lastOffsetXByDeviceMotion)
+            let dy = newOffsetYByDeviceMotion - lastOffsetYByDeviceMotion
             lastOffsetXByDeviceMotion = newOffsetXByDeviceMotion
             lastOffsetYByDeviceMotion = newOffsetYByDeviceMotion
-
-            if dx < -180 {
-                dx = 360 + dx
-            } else if dx > 180 {
-                dx = dx - 360
-            }
 
             DispatchQueue.main.async {
                 if self.orientation != UIApplication.shared.statusBarOrientation {
@@ -130,5 +124,15 @@ class IRSensor {
 
     func stopMotionDetection() {
         manager.stopDeviceMotionUpdates()
+    }
+
+    static func normalizedMotionDelta(current: CGFloat, previous: CGFloat) -> CGFloat {
+        let delta = current - previous
+        if delta < -180 {
+            return 360 + delta
+        } else if delta > 180 {
+            return delta - 360
+        }
+        return delta
     }
 }
