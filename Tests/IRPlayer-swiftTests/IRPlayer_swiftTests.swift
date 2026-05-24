@@ -89,6 +89,31 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(playable.total, 0)
     }
 
+    func testProgressParserDefaultsNonFiniteNumericPayloads() {
+        let progress = IRModel.progress(fromUserInfo: [
+            IRPlayerProgressPercentKey: NSNumber(value: Double.nan),
+            IRPlayerProgressCurrentKey: NSNumber(value: Double.infinity),
+            IRPlayerProgressTotalKey: NSNumber(value: -Double.infinity)
+        ])
+
+        XCTAssertEqual(progress.percent, 0)
+        XCTAssertEqual(progress.current, 0)
+        XCTAssertEqual(progress.total, 0)
+    }
+
+    func testProgressPayloadDefaultsNonFiniteNumbers() {
+        let payload = IRPlayerNotificationPayload.progress(
+            percent: NSNumber(value: Double.nan),
+            current: NSNumber(value: Double.infinity),
+            total: NSNumber(value: -Double.infinity)
+        )
+        let progress = IRModel.progress(fromUserInfo: payload)
+
+        XCTAssertEqual(progress.percent, 0)
+        XCTAssertEqual(progress.current, 0)
+        XCTAssertEqual(progress.total, 0)
+    }
+
     func testErrorParserReturnsExistingIRErrorAndWrapsNSError() {
         let existingError = IRError()
         existingError.error = NSError(domain: "existing", code: 7)

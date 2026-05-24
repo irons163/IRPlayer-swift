@@ -48,22 +48,21 @@ enum IRPlayerNotificationPayload {
     }
 
     static func cgFloat(_ value: Any?) -> CGFloat {
+        let converted: CGFloat
         if let value = value as? CGFloat {
-            return value
+            converted = value
+        } else if let value = value as? NSNumber {
+            converted = CGFloat(truncating: value)
+        } else if let value = value as? Double {
+            converted = CGFloat(value)
+        } else if let value = value as? Float {
+            converted = CGFloat(value)
+        } else if let value = value as? Int {
+            converted = CGFloat(value)
+        } else {
+            return 0
         }
-        if let value = value as? NSNumber {
-            return CGFloat(truncating: value)
-        }
-        if let value = value as? Double {
-            return CGFloat(value)
-        }
-        if let value = value as? Float {
-            return CGFloat(value)
-        }
-        if let value = value as? Int {
-            return CGFloat(value)
-        }
-        return 0
+        return converted.isFinite ? converted : 0
     }
 
     static func state(_ value: Any?) -> IRPlayerState {
@@ -81,10 +80,17 @@ enum IRPlayerNotificationPayload {
 
     private static func timePayload(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
         return [
-            IRPlayerProgressPercentKey: percent ?? NSNumber(value: 0),
-            IRPlayerProgressCurrentKey: current ?? NSNumber(value: 0),
-            IRPlayerProgressTotalKey: total ?? NSNumber(value: 0)
+            IRPlayerProgressPercentKey: finiteNumber(percent),
+            IRPlayerProgressCurrentKey: finiteNumber(current),
+            IRPlayerProgressTotalKey: finiteNumber(total)
         ]
+    }
+
+    private static func finiteNumber(_ value: NSNumber?) -> NSNumber {
+        guard let value = value, value.doubleValue.isFinite else {
+            return NSNumber(value: 0)
+        }
+        return value
     }
 }
 
