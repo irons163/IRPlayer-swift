@@ -57,7 +57,7 @@ class IRAVPlayer: NSObject {
             if playableTime != oldValue,
                let abstractPlayer = abstractPlayer {
                 let duration = self.duration
-                IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: playableTime/duration as NSNumber, current: playableTime as NSNumber, total: duration as NSNumber)
+                IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: IRPlayerNotificationPayload.timePercent(current: playableTime, total: duration), current: playableTime as NSNumber, total: duration as NSNumber)
             }
         }
     }
@@ -463,7 +463,7 @@ extension IRAVPlayer {
                 guard let abstractPlayer = strongSelf.abstractPlayer else { return }
                 let current = CMTimeGetSeconds(time)
                 let duration = strongSelf.duration
-                IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: current / duration as NSNumber, current: current as NSNumber, total: duration as NSNumber)
+                IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: current, total: duration), current: current as NSNumber, total: duration as NSNumber)
             }
         }
         reloadVolume()

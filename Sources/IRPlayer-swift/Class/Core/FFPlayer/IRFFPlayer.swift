@@ -42,7 +42,7 @@ class IRFFPlayer: NSObject {
             
             var duration = self.duration
             if progress <= 0.000001 || progress == duration {
-                IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: progress / duration as NSNumber, current: progress as NSNumber, total: duration as NSNumber)
+                IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: progress, total: duration), current: progress as NSNumber, total: duration as NSNumber)
             } else {
                 let currentTime = Date().timeIntervalSince1970
                 if currentTime - self.lastPostProgressTime >= 1 {
@@ -50,7 +50,7 @@ class IRFFPlayer: NSObject {
                     if decoder?.seekEnable == false {
                         duration = progress
                     }
-                    IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: progress / duration as NSNumber, current: progress as NSNumber, total: duration as NSNumber)
+                    IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: progress, total: duration), current: progress as NSNumber, total: duration as NSNumber)
                 }
             }
         }
@@ -68,7 +68,7 @@ class IRFFPlayer: NSObject {
 
             if playableTime != newPlayableTime {
                 playableTime = newPlayableTime
-                IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: playableTime / duration as NSNumber, current: playableTime as NSNumber, total: duration as NSNumber)
+                IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: IRPlayerNotificationPayload.timePercent(current: playableTime, total: duration), current: playableTime as NSNumber, total: duration as NSNumber)
             }
         }
     }

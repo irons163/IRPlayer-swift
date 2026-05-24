@@ -87,6 +87,14 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(progress.total, 0)
     }
 
+    func testTimePercentUsesFinitePositiveTotal() {
+        XCTAssertEqual(IRPlayerNotificationPayload.timePercent(current: 3, total: 12), NSNumber(value: 0.25))
+        XCTAssertEqual(IRPlayerNotificationPayload.timePercent(current: 3, total: 0), NSNumber(value: 0))
+        XCTAssertEqual(IRPlayerNotificationPayload.timePercent(current: 3, total: -1), NSNumber(value: 0))
+        XCTAssertEqual(IRPlayerNotificationPayload.timePercent(current: Double.nan, total: 12), NSNumber(value: 0))
+        XCTAssertEqual(IRPlayerNotificationPayload.timePercent(current: 3, total: Double.infinity), NSNumber(value: 0))
+    }
+
     func testErrorParserReturnsExistingIRErrorAndWrapsNSError() {
         let existingError = IRError()
         existingError.error = NSError(domain: "existing", code: 7)

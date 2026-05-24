@@ -43,6 +43,14 @@ enum IRPlayerNotificationPayload {
         return timePayload(percent: percent, current: current, total: total)
     }
 
+    static func timePercent(current: TimeInterval, total: TimeInterval) -> NSNumber {
+        guard current.isFinite, total.isFinite, total > 0 else {
+            return NSNumber(value: 0)
+        }
+        let percent = current / total
+        return NSNumber(value: percent.isFinite ? percent : 0)
+    }
+
     static func error(_ error: IRError) -> [AnyHashable: Any] {
         return [IRPlayerErrorKey: error]
     }
