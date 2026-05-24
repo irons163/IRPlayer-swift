@@ -348,6 +348,13 @@ final class IRAVPlayerTests: XCTestCase {
         retainedPlayer?.displayLink?.invalidate()
     }
 
+    func testPlaybackErrorInfoFallsBackWhenPlayerItemAndPlayerAreMissing() {
+        let errorInfo = IRAVPlayer.playbackErrorInfo(playerItem: nil, player: nil)
+
+        XCTAssertEqual(errorInfo.error.domain, "AVPlayer playback error")
+        XCTAssertEqual(errorInfo.error.code, -1)
+    }
+
     func testPixelBufferAtCurrentTimeReturnsNilWhenPlayerItemIsMissing() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)

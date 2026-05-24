@@ -19,8 +19,8 @@ class IRAVPlayer: NSObject {
     var seeking = false
 
     var playBackTimeObserver: Any?
-    var avPlayer: AVPlayer!
-    var avPlayerItem: AVPlayerItem!
+    var avPlayer: AVPlayer?
+    var avPlayerItem: AVPlayerItem?
     var avAsset: AVURLAsset?
     var avOutput: AVPlayerItemVideoOutput?
     var readyToPlayTime: TimeInterval = 0
@@ -348,17 +348,21 @@ extension IRAVPlayer {
 
     private func playbackErrorInfo() -> IRError {
         readyToPlayTime = 0
+        return Self.playbackErrorInfo(playerItem: avPlayerItem, player: avPlayer)
+    }
+
+    static func playbackErrorInfo(playerItem: AVPlayerItem?, player: AVPlayer?) -> IRError {
         let errorInfo = IRError()
 
-        if let playerItemError = avPlayerItem.error {
+        if let playerItemError = playerItem?.error {
             errorInfo.error = playerItemError as NSError
 
-            if let extendedLogData = avPlayerItem.errorLog()?.extendedLogData(), extendedLogData.count > 0 {
+            if let extendedLogData = playerItem?.errorLog()?.extendedLogData(), extendedLogData.count > 0 {
                 errorInfo.extendedLogData = extendedLogData
-                errorInfo.extendedLogDataStringEncoding = String.Encoding(rawValue: avPlayerItem.errorLog()?.extendedLogDataStringEncoding ?? 0).rawValue
+                errorInfo.extendedLogDataStringEncoding = String.Encoding(rawValue: playerItem?.errorLog()?.extendedLogDataStringEncoding ?? 0).rawValue
             }
 
-            if let errorEvents = avPlayerItem.errorLog()?.events {
+            if let errorEvents = playerItem?.errorLog()?.events {
                 errorInfo.errorEvents = errorEvents.map { event in
                     let errorEvent = IRErrorEvent()
                     errorEvent.date = event.date
@@ -371,7 +375,7 @@ extension IRAVPlayer {
                     return errorEvent
                 }
             }
-        } else if let playerError = avPlayer.error {
+        } else if let playerError = player?.error {
             errorInfo.error = playerError as NSError
         } else {
             errorInfo.error = NSError(domain: "AVPlayer playback error", code: -1, userInfo: nil)
