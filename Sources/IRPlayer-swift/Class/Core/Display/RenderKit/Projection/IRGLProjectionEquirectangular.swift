@@ -134,7 +134,11 @@ class IRGLProjectionEquirectangular: IRGLProjection {
             mVectorsPosition += mVectorsLength
         }
 
-        let indexBuffer = UnsafeMutablePointer<Int16>.allocate(capacity: getMaxItem(array: mNumIndices, size: indicesPerVertex))
+        guard let maxIndexCount = Self.maxItem(in: mNumIndices, size: indicesPerVertex) else {
+            releaseBuffers()
+            return
+        }
+        let indexBuffer = UnsafeMutablePointer<Int16>.allocate(capacity: maxIndexCount)
         defer { indexBuffer.deallocate() }
         var index = 0
         var bufferNum = 0
@@ -174,11 +178,12 @@ class IRGLProjectionEquirectangular: IRGLProjection {
         memcpy(mIndices?[bufferNum], indexBuffer, indexByteCount)
     }
 
-    private func getMaxItem(array: UnsafeMutablePointer<Int>?, size: Int) -> Int {
-        var max = array?[0] ?? 0
+    static func maxItem(in array: UnsafeMutablePointer<Int>?, size: Int) -> Int? {
+        guard let array, size > 0 else { return nil }
+        var max = array[0]
         for i in 1..<size {
-            if array?[i] ?? 0 > max {
-                max = array?[i] ?? 0
+            if array[i] > max {
+                max = array[i]
             }
         }
         return max

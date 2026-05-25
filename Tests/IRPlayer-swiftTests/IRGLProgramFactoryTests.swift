@@ -162,6 +162,23 @@ final class IRGLProjectionEquirectangularTests: XCTestCase {
         )
     }
 
+    func testMaxItemRejectsMissingOrEmptyInputs() {
+        XCTAssertNil(IRGLProjectionEquirectangular.maxItem(in: nil, size: 1))
+
+        var values = [1, 2, 3]
+        values.withUnsafeMutableBufferPointer { buffer in
+            XCTAssertNil(IRGLProjectionEquirectangular.maxItem(in: buffer.baseAddress, size: 0))
+        }
+    }
+
+    func testMaxItemReturnsLargestValue() {
+        var values = [3, 7, 2]
+        let count = values.count
+        values.withUnsafeMutableBufferPointer { buffer in
+            XCTAssertEqual(IRGLProjectionEquirectangular.maxItem(in: buffer.baseAddress, size: count), 7)
+        }
+    }
+
     func testProjectionExportMeshSurvivesParameterUpdate() throws {
         let projection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: 720, centerY: 540, radius: 520)
         let firstMesh = try XCTUnwrap(projection.exportMesh())
