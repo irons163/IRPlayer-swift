@@ -34,6 +34,20 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
     func testYUVChannelFilterNeedSizeCheckedUsesAdjustedWidth() {
         XCTAssertEqual(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2), 24)
     }
+
+    func testYUVImageDimensions32RejectsInvalidOrOverflowingDimensions() {
+        XCTAssertNil(IRYUVImageDimensions32(width: 0, height: 4))
+        XCTAssertNil(IRYUVImageDimensions32(width: 4, height: 0))
+        XCTAssertNil(IRYUVImageDimensions32(width: Int.max, height: 4))
+        XCTAssertNil(IRYUVImageDimensions32(width: 4, height: Int.max))
+    }
+
+    func testYUVImageDimensions32ConvertsValidDimensions() {
+        let dimensions = IRYUVImageDimensions32(width: 640, height: 480)
+
+        XCTAssertEqual(dimensions?.width, 640)
+        XCTAssertEqual(dimensions?.height, 480)
+    }
 }
 
 final class IRPLFImageTests: XCTestCase {

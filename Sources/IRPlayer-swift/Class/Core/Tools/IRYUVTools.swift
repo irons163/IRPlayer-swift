@@ -25,6 +25,11 @@ func IRYUVChannelFilterNeedSize(linesize: Int, width: Int, height: Int, channelC
     return IRYUVChannelFilterNeedSizeChecked(linesize: linesize, width: width, height: height, channelCount: channelCount) ?? 0
 }
 
+func IRYUVImageDimensions32(width: Int, height: Int) -> (width: Int32, height: Int32)? {
+    guard width > 0, height > 0, width <= Int(Int32.max), height <= Int(Int32.max) else { return nil }
+    return (Int32(width), Int32(height))
+}
+
 func IRYUVChannelFilter(src: UnsafePointer<UInt8>, 
                         linesize: Int,
                         width: Int,
@@ -53,9 +58,11 @@ func IRYUVConvertToImage(srcData: [UnsafePointer<UInt8>?],
                          width: Int,
                          height: Int,
                          pixelFormat: AVPixelFormat) -> IRPLFImage? {
+    guard let dimensions = IRYUVImageDimensions32(width: width, height: height) else { return nil }
+
     var swsContext: OpaquePointer? = nil
 //    swsContext = sws_getCachedContext(swsContext, width, height, pixelFormat, width, height, AV_PIX_FMT_RGB24, SWS_FAST_BILINEAR, nil, nil, nil)
-    swsContext = sws_getCachedContext(swsContext, Int32(width), Int32(height), pixelFormat, Int32(width), Int32(height), AV_PIX_FMT_RGB24, 1, nil, nil, nil)
+    swsContext = sws_getCachedContext(swsContext, dimensions.width, dimensions.height, pixelFormat, dimensions.width, dimensions.height, AV_PIX_FMT_RGB24, 1, nil, nil, nil)
     guard let context = swsContext else {
         return nil
     }
@@ -63,13 +70,13 @@ func IRYUVConvertToImage(srcData: [UnsafePointer<UInt8>?],
     var data = [UnsafeMutablePointer<UInt8>?](repeating: nil, count: Int(AV_NUM_DATA_POINTERS))
     var linesize = [Int32](repeating: 0, count: Int(AV_NUM_DATA_POINTERS))
 
-    let result = av_image_alloc(&data, &linesize, Int32(width), Int32(height), AV_PIX_FMT_RGB24, 1)
+    let result = av_image_alloc(&data, &linesize, dimensions.width, dimensions.height, AV_PIX_FMT_RGB24, 1)
     if result < 0 {
         sws_freeContext(context)
         return nil
     }
 
-    let scaleResult = sws_scale(context, srcData, srcLinesize, 0, Int32(height), &data, &linesize)
+    let scaleResult = sws_scale(context, srcData, srcLinesize, 0, dimensions.height, &data, &linesize)
     sws_freeContext(context)
     if scaleResult < 0 {
         av_freep(&data[0])
