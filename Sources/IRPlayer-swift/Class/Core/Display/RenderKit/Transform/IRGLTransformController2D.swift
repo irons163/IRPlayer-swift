@@ -88,6 +88,7 @@ import simd
     override func update(fx: Float, fy: Float, sx: Float, sy: Float) {
         let scope2d = scope
         guard scope2d.w > 0, scope2d.h > 0 else { return }
+        guard sx.isFinite, sy.isFinite, sx > 0, sy > 0 else { return }
 
         var scaleX = sx
         var scaleY = sy
