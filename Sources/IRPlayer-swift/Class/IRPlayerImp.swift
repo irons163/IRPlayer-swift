@@ -49,6 +49,13 @@ enum IRPlayerBackgroundMode {
     case continuing
 }
 
+enum IRPlayerVolume {
+    static func normalizedFloat(from volume: CGFloat?) -> Float {
+        guard let volume = volume, volume.isFinite else { return 0 }
+        return Float(volume)
+    }
+}
+
 // Mark: - IRPlayerImp
 @objcMembers
 public class IRPlayerImp: NSObject {

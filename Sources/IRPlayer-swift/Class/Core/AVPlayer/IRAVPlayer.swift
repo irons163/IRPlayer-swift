@@ -218,7 +218,7 @@ extension IRAVPlayer {
     func reloadVolume() {
         guard let avPlayer = avPlayer,
               let abstractPlayer = abstractPlayer else { return }
-        avPlayer.volume = Float(abstractPlayer.volume)
+        avPlayer.volume = IRPlayerVolume.normalizedFloat(from: abstractPlayer.volume)
     }
 
     func reloadPlayableTime() {

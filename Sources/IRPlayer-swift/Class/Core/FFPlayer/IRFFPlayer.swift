@@ -286,7 +286,7 @@ extension IRFFPlayer {
     }
 
     func reloadVolume() {
-        audioManager?.volume = Float(abstractPlayer?.volume ?? 0)
+        audioManager?.volume = IRPlayerVolume.normalizedFloat(from: abstractPlayer?.volume)
     }
 
     func reloadPlayableBufferInterval() {
