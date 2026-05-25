@@ -67,6 +67,18 @@ final class IRFFFormatContextTests: XCTestCase {
         XCTAssertNil(IRFFFormatContext.seekTimestamp(for: Double(Int64.max)))
     }
 
+    func testDurationSecondsPreservesNoPTSBehavior() {
+        XCTAssertEqual(IRFFFormatContext.durationSeconds(from: Int64.min), TimeInterval(MAXFLOAT))
+    }
+
+    func testDurationSecondsUsesFractionalFFmpegTimebase() {
+        XCTAssertEqual(IRFFFormatContext.durationSeconds(from: 1_500_000), 1.5, accuracy: 0.0001)
+    }
+
+    func testDurationSecondsRejectsNegativeDurations() {
+        XCTAssertEqual(IRFFFormatContext.durationSeconds(from: -1), 0)
+    }
+
     func testInterruptCallbackIgnoresMissingContextAndUsesDelegateDecision() {
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: nil), 0)
 

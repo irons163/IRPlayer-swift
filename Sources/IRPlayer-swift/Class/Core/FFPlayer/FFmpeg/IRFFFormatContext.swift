@@ -35,10 +35,7 @@ public class IRFFFormatContext {
         guard let formatContext = formatContext else {
             return 0
         }
-        guard formatContext.pointee.duration != IR_AV_NOPTS_VALUE else {
-            return TimeInterval(MAXFLOAT)
-        }
-        return TimeInterval(formatContext.pointee.duration / Int64(AV_TIME_BASE))
+        return Self.durationSeconds(from: formatContext.pointee.duration)
     }
     private(set) var videoEnable: Bool = false
     private(set) var audioEnable: Bool = false
@@ -71,6 +68,15 @@ public class IRFFFormatContext {
     static func decoder(for codecContext: UnsafeMutablePointer<AVCodecContext>?) -> UnsafePointer<AVCodec>? {
         guard let codecContext else { return nil }
         return avcodec_find_decoder(codecContext.pointee.codec_id)
+    }
+
+    static func durationSeconds(from duration: Int64) -> TimeInterval {
+        guard duration != IR_AV_NOPTS_VALUE else {
+            return TimeInterval(MAXFLOAT)
+        }
+        guard duration >= 0 else { return 0 }
+        let seconds = TimeInterval(duration) / TimeInterval(AV_TIME_BASE)
+        return seconds.isFinite ? seconds : 0
     }
 
     func setupSync() {
