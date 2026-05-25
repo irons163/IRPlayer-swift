@@ -187,18 +187,24 @@ extension IRAVPlayer {
         return seekTime
     }
 
+    static func finiteSeconds(from time: CMTime) -> TimeInterval {
+        let seconds = CMTimeGetSeconds(time)
+        guard seconds.isFinite else { return 0 }
+        return seconds
+    }
+
     func stop() {
         replaceEmpty()
     }
 
     var progress: TimeInterval {
         guard let avPlayerItem = avPlayerItem else { return 0 }
-        return CMTimeGetSeconds(avPlayerItem.currentTime())
+        return Self.finiteSeconds(from: avPlayerItem.currentTime())
     }
 
     var duration: TimeInterval {
         guard let avPlayerItem = avPlayerItem else { return 0 }
-        return CMTimeGetSeconds(avPlayerItem.duration)
+        return Self.finiteSeconds(from: avPlayerItem.duration)
     }
 
     var bitrate: TimeInterval {
@@ -222,8 +228,8 @@ extension IRAVPlayer {
             return
         }
 
-        let start = CMTimeGetSeconds(range.start)
-        let duration = CMTimeGetSeconds(range.duration)
+        let start = Self.finiteSeconds(from: range.start)
+        let duration = Self.finiteSeconds(from: range.duration)
         playableTime = start + duration
     }
 
@@ -470,7 +476,7 @@ extension IRAVPlayer {
             guard let strongSelf = self else { return }
             if strongSelf.state == .playing {
                 guard let abstractPlayer = strongSelf.abstractPlayer else { return }
-                let current = CMTimeGetSeconds(time)
+                let current = Self.finiteSeconds(from: time)
                 let duration = strongSelf.duration
                 IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: current, total: duration), current: current as NSNumber, total: duration as NSNumber)
             }
