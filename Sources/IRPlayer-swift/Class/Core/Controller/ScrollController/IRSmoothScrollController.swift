@@ -100,6 +100,9 @@ import UIKit
     }
 
     static func smoothScrollTarget(for velocity: CGPoint) -> (point: CGPoint, duration: CGFloat) {
+        guard velocity.x.isFinite, velocity.y.isFinite else {
+            return (point: .zero, duration: 0)
+        }
         let magnitude = sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y))
         let slideFactor = 0.05 * (magnitude / 200)
         return (

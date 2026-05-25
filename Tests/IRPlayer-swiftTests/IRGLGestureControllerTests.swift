@@ -19,6 +19,13 @@ final class IRGLGestureControllerTests: XCTestCase {
         XCTAssertEqual(target.duration, 0)
     }
 
+    func testSmoothScrollTargetDefaultsNonFiniteVelocityToZero() {
+        let target = IRSmoothScrollController.smoothScrollTarget(for: CGPoint(x: CGFloat.nan, y: CGFloat.infinity))
+
+        XCTAssertEqual(target.point, .zero)
+        XCTAssertEqual(target.duration, 0)
+    }
+
     func testClearingCurrentModeClearsSmoothScrollMode() {
         let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
         let smoothScroll = IRSmoothScrollController(targetView: view)
