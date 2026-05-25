@@ -30,6 +30,20 @@ final class IRGLShaderParamsTests: XCTestCase {
             ["320x180", "640x180"]
         )
     }
+
+    func testTextureUpdateIgnoresDimensionsOutsideGLintRange() {
+        let params = IRGLShaderParams()
+        let delegate = ShaderParamsDelegateSpy()
+        params.delegate = delegate
+
+        params.updateTextureWidth(Int.max, height: 180)
+
+        XCTAssertEqual(params.textureWidth, 0)
+        XCTAssertEqual(params.textureHeight, 0)
+        XCTAssertEqual(params.outputWidth, 0)
+        XCTAssertEqual(params.outputHeight, 0)
+        XCTAssertTrue(delegate.outputSizes.isEmpty)
+    }
 }
 
 final class IRMetalRendererPixelFormatTests: XCTestCase {

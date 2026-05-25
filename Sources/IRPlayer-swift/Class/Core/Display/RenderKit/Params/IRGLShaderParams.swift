@@ -20,12 +20,22 @@ class IRGLShaderParams: NSObject {
     var outputWidth: GLint = 0
     var outputHeight: GLint = 0
 
+    static func boundedGLint(from value: Double) -> GLint? {
+        guard value.isFinite, value >= Double(GLint.min), value <= Double(GLint.max) else { return nil }
+        return GLint(value)
+    }
+
     func updateTextureWidth(_ w: Int, height h: Int) {
-        if textureWidth != GLint(w) || textureHeight != GLint(h) {
-            textureWidth = GLint(w)
-            textureHeight = GLint(h)
-            outputWidth = GLint(w)
-            outputHeight = GLint(h)
+        guard let nextTextureWidth = Self.boundedGLint(from: Double(w)),
+              let nextTextureHeight = Self.boundedGLint(from: Double(h)) else {
+            return
+        }
+
+        if textureWidth != nextTextureWidth || textureHeight != nextTextureHeight {
+            textureWidth = nextTextureWidth
+            textureHeight = nextTextureHeight
+            outputWidth = nextTextureWidth
+            outputHeight = nextTextureHeight
             delegate?.didUpdateOutputWH(w, h)
         }
     }

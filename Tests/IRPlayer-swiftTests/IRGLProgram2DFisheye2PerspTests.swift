@@ -60,6 +60,20 @@ final class IRGLProgram2DFisheye2PerspTests: XCTestCase {
         XCTAssertEqual(delegate.outputSizes.map { "\($0.width)x\($0.height)" }, ["1280x720"])
     }
 
+    func testPerspShaderParamsHugeTextureUpdateDoesNotBuildOutput() {
+        let params = IRGLFish2PerspShaderParams()
+        let delegate = ShaderParamsDelegateSpy()
+        params.delegate = delegate
+
+        params.updateTextureWidth(Int.max, height: 960)
+
+        XCTAssertEqual(params.textureWidth, -1)
+        XCTAssertEqual(params.textureHeight, -1)
+        XCTAssertEqual(params.outputWidth, 1024)
+        XCTAssertEqual(params.outputHeight, -1)
+        XCTAssertTrue(delegate.outputSizes.isEmpty)
+    }
+
     func testVerticalBoundsScrollIgnoresInvalidFishRadius() {
         let program = IRGLProgram2DFisheye2Persp()
         guard let params = program.metalFish2PerspParams else {

@@ -68,11 +68,6 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         return (Int(outputWidth), Int(outputHeight))
     }
 
-    static func boundedGLint(from value: Double) -> GLint? {
-        guard value.isFinite, value >= Double(GLint.min), value <= Double(GLint.max) else { return nil }
-        return GLint(value)
-    }
-
     static func pixelMapTextureCount(antialias: GLint) -> Int? {
         guard antialias > 0 else { return nil }
 

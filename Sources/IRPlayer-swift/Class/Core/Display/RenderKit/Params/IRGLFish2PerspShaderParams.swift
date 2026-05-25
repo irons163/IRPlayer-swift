@@ -60,8 +60,13 @@ class IRGLFish2PerspShaderParams: IRGLShaderParams {
     }
 
     override func updateTextureWidth(_ w: Int, height h: Int) {
-        textureWidth = GLint(w)
-        textureHeight = GLint(h)
+        guard let nextTextureWidth = Self.boundedGLint(from: Double(w)),
+              let nextTextureHeight = Self.boundedGLint(from: Double(h)) else {
+            return
+        }
+
+        textureWidth = nextTextureWidth
+        textureHeight = nextTextureHeight
         updateOutputWH()
         delegate?.didUpdateOutputWH(Int(outputWidth), Int(outputHeight))
     }
