@@ -237,7 +237,10 @@ class IRFFVideoToolBox {
     }
 
     static func convertedNALBlockPayload(memoryBlock: UnsafeMutablePointer<UInt8>?, demuxSize: Int32, packetSize: Int32) -> ConvertedNALBlockPayload? {
-        guard let memoryBlock, demuxSize > 0, packetSize > 0 else { return nil }
+        guard let memoryBlock,
+              demuxSize > 0,
+              packetSize > 0,
+              packetSize <= demuxSize else { return nil }
         return ConvertedNALBlockPayload(memoryBlock: memoryBlock, blockLength: Int(demuxSize), dataLength: Int(packetSize))
     }
 
