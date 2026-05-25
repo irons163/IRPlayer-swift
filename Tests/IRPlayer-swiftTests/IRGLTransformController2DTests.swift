@@ -94,6 +94,18 @@ final class IRGLTransformController2DTests: XCTestCase {
         XCTAssertEqual(controller.getScope().scaleY, 1, accuracy: 0.0001)
     }
 
+    func testUpdateIgnoresInvalidFocalPoints() {
+        let controller = IRGLTransformController2D(viewportWidth: 100, viewportHeight: 100)
+
+        controller.update(fx: .nan, fy: .infinity, sx: 2, sy: 2)
+
+        assertFinite(controller.getModelViewProjectionMatrix())
+        XCTAssertEqual(controller.getScope().offsetX, 0, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().offsetY, 0, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().scaleX, 1, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().scaleY, 1, accuracy: 0.0001)
+    }
+
     private func assertFinite(
         _ matrix: simd_float4x4,
         file: StaticString = #filePath,
