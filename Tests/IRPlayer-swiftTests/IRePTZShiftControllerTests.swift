@@ -44,6 +44,22 @@ final class IRePTZShiftControllerTests: XCTestCase {
         XCTAssertEqual(program.panCalls[0].x, 45, accuracy: 0.0001)
         XCTAssertEqual(program.panCalls[0].y, -80, accuracy: 0.0001)
     }
+
+    func testShiftDegreeDefaultsNonFiniteConfigurationToZero() {
+        let controller = IRePTZShiftController()
+        let program = PanRecordingProgram()
+        controller.program = program
+        controller.panAngle = .nan
+        controller.tiltAngle = 90
+        controller.panFactor = 1
+        controller.tiltFactor = .infinity
+
+        controller.shiftDegreeX(45, degreeY: 15)
+
+        XCTAssertEqual(program.panCalls.count, 1)
+        XCTAssertEqual(program.panCalls[0].x, 0)
+        XCTAssertEqual(program.panCalls[0].y, 0)
+    }
 }
 
 private final class PanRecordingProgram: IRGLProgram2D {
