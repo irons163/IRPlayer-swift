@@ -119,20 +119,43 @@ extension IRGLProjectionVR {
                 let first = i * (IRGLProjectionVR.slices_count + 1) + j
                 let second = first + IRGLProjectionVR.slices_count + 1
 
-                IRGLProjectionVR.index_buffer_data?[index] = GLushort(first)
+                guard let firstIndex = Self.glIndex(first),
+                      let secondIndex = Self.glIndex(second),
+                      let firstNextIndex = Self.glIndex(first + 1),
+                      let secondNextIndex = Self.glIndex(second + 1) else {
+                    Self.releaseVRData()
+                    return
+                }
+
+                IRGLProjectionVR.index_buffer_data?[index] = firstIndex
                 index += 1
-                IRGLProjectionVR.index_buffer_data?[index] = GLushort(second)
+                IRGLProjectionVR.index_buffer_data?[index] = secondIndex
                 index += 1
-                IRGLProjectionVR.index_buffer_data?[index] = GLushort(first + 1)
+                IRGLProjectionVR.index_buffer_data?[index] = firstNextIndex
                 index += 1
 
-                IRGLProjectionVR.index_buffer_data?[index] = GLushort(second)
+                IRGLProjectionVR.index_buffer_data?[index] = secondIndex
                 index += 1
-                IRGLProjectionVR.index_buffer_data?[index] = GLushort(second + 1)
+                IRGLProjectionVR.index_buffer_data?[index] = secondNextIndex
                 index += 1
-                IRGLProjectionVR.index_buffer_data?[index] = GLushort(first + 1)
+                IRGLProjectionVR.index_buffer_data?[index] = firstNextIndex
                 index += 1
             }
         }
+    }
+
+    private static func releaseVRData() {
+        index_buffer_data?.deallocate()
+        vertex_buffer_data?.deallocate()
+        texture_buffer_data?.deallocate()
+
+        index_buffer_data = nil
+        vertex_buffer_data = nil
+        texture_buffer_data = nil
+    }
+
+    static func glIndex(_ value: Int) -> GLushort? {
+        guard value >= 0, value <= Int(GLushort.max) else { return nil }
+        return GLushort(value)
     }
 }
