@@ -49,3 +49,19 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         )
     }
 }
+
+final class IRMetalFisheyeMeshTests: XCTestCase {
+
+    func testBufferByteLengthRejectsInvalidOrOverflowingInputs() {
+        XCTAssertNil(IRMetalFisheyeMesh.bufferByteLength(elementCount: 0, stride: MemoryLayout<UInt16>.stride))
+        XCTAssertNil(IRMetalFisheyeMesh.bufferByteLength(elementCount: 1, stride: 0))
+        XCTAssertNil(IRMetalFisheyeMesh.bufferByteLength(elementCount: Int.max, stride: 2))
+    }
+
+    func testBufferByteLengthCalculatesStrideStorage() {
+        XCTAssertEqual(
+            IRMetalFisheyeMesh.bufferByteLength(elementCount: 4, stride: MemoryLayout<UInt16>.stride),
+            8
+        )
+    }
+}

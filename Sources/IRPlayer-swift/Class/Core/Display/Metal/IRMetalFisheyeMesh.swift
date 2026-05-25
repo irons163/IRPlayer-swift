@@ -28,8 +28,8 @@ final class IRMetalFisheyeMesh {
             vertices.append(Vertex(position: positions[i], texCoord: texcoords[i]))
         }
 
-        let vertexLength = vertices.count * MemoryLayout<Vertex>.stride
-        let indexLength = indices.count * MemoryLayout<UInt16>.stride
+        guard let vertexLength = Self.bufferByteLength(elementCount: vertices.count, stride: MemoryLayout<Vertex>.stride),
+              let indexLength = Self.bufferByteLength(elementCount: indices.count, stride: MemoryLayout<UInt16>.stride) else { return nil }
 
         guard let vBuffer = device.makeBuffer(bytes: vertices, length: vertexLength, options: .storageModeShared) else { return nil }
         guard let iBuffer = device.makeBuffer(bytes: indices, length: indexLength, options: .storageModeShared) else { return nil }
@@ -97,8 +97,8 @@ final class IRMetalFisheyeMesh {
             }
         }
 
-        let vertexLength = vertices.count * MemoryLayout<Vertex>.stride
-        let indexLength = indices.count * MemoryLayout<UInt16>.stride
+        guard let vertexLength = Self.bufferByteLength(elementCount: vertices.count, stride: MemoryLayout<Vertex>.stride),
+              let indexLength = Self.bufferByteLength(elementCount: indices.count, stride: MemoryLayout<UInt16>.stride) else { return nil }
 
         guard let vBuffer = device.makeBuffer(bytes: vertices, length: vertexLength, options: .storageModeShared) else { return nil }
         guard let iBuffer = device.makeBuffer(bytes: indices, length: indexLength, options: .storageModeShared) else { return nil }
@@ -109,8 +109,8 @@ final class IRMetalFisheyeMesh {
     }
 
     private static func resolveParams(textureWidth: Float, textureHeight: Float, centerX: Float, centerY: Float, radius: Float) -> (Float, Float, Float, Float, Float) {
-        var tw = textureWidth
-        var th = textureHeight
+        let tw = textureWidth
+        let th = textureHeight
         var cx = centerX
         var cy = centerY
         var cr = radius
@@ -126,5 +126,14 @@ final class IRMetalFisheyeMesh {
         }
 
         return (tw, th, cx, cy, cr)
+    }
+
+    static func bufferByteLength(elementCount: Int, stride: Int) -> Int? {
+        guard elementCount > 0, stride > 0 else { return nil }
+
+        let (byteLength, overflow) = elementCount.multipliedReportingOverflow(by: stride)
+        guard !overflow, byteLength > 0 else { return nil }
+
+        return byteLength
     }
 }
