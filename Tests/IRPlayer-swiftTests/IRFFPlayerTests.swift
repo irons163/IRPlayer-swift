@@ -77,4 +77,14 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertFalse(final.hasRemainingFrameBytes)
     }
 
+    func testAudioCopyPlanCopiesOnlyWholeFrames() throws {
+        let plan = try XCTUnwrap(
+            IRFFPlayer.audioCopyPlan(frameSize: 10, outputOffset: 0, remainingFrames: 2, numberOfChannels: 2)
+        )
+
+        XCTAssertEqual(plan.bytesToCopy, 8)
+        XCTAssertEqual(plan.framesToCopy, 1)
+        XCTAssertTrue(plan.hasRemainingFrameBytes)
+    }
+
 }

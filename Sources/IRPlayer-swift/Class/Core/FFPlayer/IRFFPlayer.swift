@@ -133,7 +133,8 @@ class IRFFPlayer: NSObject {
         let (requestedBytes, requestedBytesOverflow) = Int(remainingFrames).multipliedReportingOverflow(by: frameSizeOf)
         guard !requestedBytesOverflow else { return nil }
 
-        let bytesToCopy = min(requestedBytes, bytesLeft)
+        let boundedBytesToCopy = min(requestedBytes, bytesLeft)
+        let bytesToCopy = boundedBytesToCopy - (boundedBytesToCopy % frameSizeOf)
         let framesToCopy = bytesToCopy / frameSizeOf
         guard bytesToCopy > 0, framesToCopy > 0 else { return nil }
 
