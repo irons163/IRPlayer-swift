@@ -35,3 +35,18 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertEqual(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2), 24)
     }
 }
+
+final class IRPLFImageTests: XCTestCase {
+
+    func testRGBDataByteCountRejectsInvalidOrOverflowingInputs() {
+        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 0, width: 4, height: 4))
+        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 12, width: 0, height: 4))
+        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 12, width: 4, height: 0))
+        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: Int.max, width: 4, height: 2))
+    }
+
+    func testRGBDataByteCountRequiresRowsWideEnoughForRGBPixels() {
+        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 11, width: 4, height: 2))
+        XCTAssertEqual(IRPLFImageRGBDataByteCount(linesize: 12, width: 4, height: 2), 24)
+    }
+}
