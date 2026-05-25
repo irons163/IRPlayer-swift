@@ -42,6 +42,19 @@ final class IRAVPlayerTests: XCTestCase {
         ]))
     }
 
+    func testSeekTimeConvertsFiniteNonNegativeSeconds() throws {
+        let time = try XCTUnwrap(IRAVPlayer.seekTime(for: 1.25))
+
+        XCTAssertTrue(time.isValid)
+        XCTAssertEqual(CMTimeGetSeconds(time), 1.25, accuracy: 0.0001)
+    }
+
+    func testSeekTimeRejectsInvalidSeconds() {
+        XCTAssertNil(IRAVPlayer.seekTime(for: -0.1))
+        XCTAssertNil(IRAVPlayer.seekTime(for: .nan))
+        XCTAssertNil(IRAVPlayer.seekTime(for: .infinity))
+    }
+
     func testSetupAVPlayerItemIgnoresMissingAsset() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)

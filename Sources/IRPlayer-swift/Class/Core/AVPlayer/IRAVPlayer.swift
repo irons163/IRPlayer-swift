@@ -161,13 +161,15 @@ extension IRAVPlayer {
     }
 
     func seek(to time: TimeInterval, completionHandler: ((Bool) -> Void)? = nil) {
-        guard let avPlayerItem = avPlayerItem, avPlayerItem.status == .readyToPlay else { return }
+        guard let seekTime = Self.seekTime(for: time),
+              let avPlayerItem = avPlayerItem,
+              avPlayerItem.status == .readyToPlay else { return }
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.setPlayIfNeeded()
             self.seeking = true
-            avPlayerItem.seek(to: CMTimeMakeWithSeconds(time, preferredTimescale: Int32(NSEC_PER_SEC))) { finished in
+            avPlayerItem.seek(to: seekTime) { finished in
                 DispatchQueue.main.async {
                     self.seeking = false
                     self.playIfNeeded()
@@ -176,6 +178,13 @@ extension IRAVPlayer {
                 }
             }
         }
+    }
+
+    static func seekTime(for time: TimeInterval) -> CMTime? {
+        guard time.isFinite, time >= 0 else { return nil }
+        let seekTime = CMTimeMakeWithSeconds(time, preferredTimescale: Int32(NSEC_PER_SEC))
+        guard seekTime.isValid else { return nil }
+        return seekTime
     }
 
     func stop() {
