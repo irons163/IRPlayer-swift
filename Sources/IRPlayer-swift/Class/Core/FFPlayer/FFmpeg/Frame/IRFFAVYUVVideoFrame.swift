@@ -41,6 +41,10 @@ import IRFFMpeg
         let linesizeY = frame.pointee.linesize.0
         let linesizeU = frame.pointee.linesize.1
         let linesizeV = frame.pointee.linesize.2
+        guard linesizeY > 0, linesizeU > 0, linesizeV > 0 else {
+            flush()
+            return
+        }
 
         channelLinesize[IRYUVChannel.luma.rawValue] = Int32(linesizeY)
         channelLinesize[IRYUVChannel.chromaB.rawValue] = Int32(linesizeU)

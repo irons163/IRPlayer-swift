@@ -24,6 +24,36 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertNil(frame.image())
     }
 
+    func testSetFrameDataRejectsNonPositivePlaneLinesizes() {
+        var y = [UInt8](repeating: 1, count: 16)
+        var u = [UInt8](repeating: 2, count: 4)
+        var v = [UInt8](repeating: 3, count: 4)
+        var avFrame = AVFrame()
+        avFrame.format = 0
+        avFrame.linesize.0 = -4
+        avFrame.linesize.1 = 2
+        avFrame.linesize.2 = 2
+        let frame = IRFFAVYUVVideoFrame()
+
+        y.withUnsafeMutableBufferPointer { yBuffer in
+            u.withUnsafeMutableBufferPointer { uBuffer in
+                v.withUnsafeMutableBufferPointer { vBuffer in
+                    avFrame.data.0 = yBuffer.baseAddress
+                    avFrame.data.1 = uBuffer.baseAddress
+                    avFrame.data.2 = vBuffer.baseAddress
+                    withUnsafePointer(to: &avFrame) { pointer in
+                        frame.setFrameData(pointer, width: 4, height: 4)
+                    }
+                }
+            }
+        }
+
+        XCTAssertEqual(frame.width, 0)
+        XCTAssertEqual(frame.height, 0)
+        XCTAssertEqual(frame.size, 0)
+        XCTAssertNil(frame.image())
+    }
+
     func testYUVChannelFilterNeedSizeCheckedRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 0, height: 4, channelCount: 1))
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 4, height: 0, channelCount: 1))
