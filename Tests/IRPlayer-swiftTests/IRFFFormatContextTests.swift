@@ -55,6 +55,18 @@ final class IRFFFormatContextTests: XCTestCase {
         XCTAssertEqual(IRFFFormatContext.videoAspect(width: -1, height: 1080), 0)
     }
 
+    func testSeekTimestampConvertsSecondsToFFmpegTimebase() {
+        XCTAssertEqual(IRFFFormatContext.seekTimestamp(for: 1.5), 1_500_000)
+        XCTAssertEqual(IRFFFormatContext.seekTimestamp(for: 0), 0)
+    }
+
+    func testSeekTimestampRejectsInvalidOrOverflowingTimes() {
+        XCTAssertNil(IRFFFormatContext.seekTimestamp(for: -0.1))
+        XCTAssertNil(IRFFFormatContext.seekTimestamp(for: .nan))
+        XCTAssertNil(IRFFFormatContext.seekTimestamp(for: .infinity))
+        XCTAssertNil(IRFFFormatContext.seekTimestamp(for: Double(Int64.max)))
+    }
+
     func testInterruptCallbackIgnoresMissingContextAndUsesDelegateDecision() {
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: nil), 0)
 

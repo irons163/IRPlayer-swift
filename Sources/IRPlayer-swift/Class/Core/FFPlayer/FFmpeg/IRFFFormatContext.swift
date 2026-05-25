@@ -275,8 +275,19 @@ public class IRFFFormatContext {
         return error
     }
 
+    static func seekTimestamp(for time: TimeInterval) -> Int64? {
+        guard time.isFinite, time >= 0 else { return nil }
+        let timestamp = time * Double(AV_TIME_BASE)
+        guard timestamp.isFinite,
+              timestamp >= 0,
+              timestamp <= Double(Int64.max) else {
+            return nil
+        }
+        return Int64(timestamp)
+    }
+
     func seekFile(withFFTimebase time: TimeInterval) {
-        let ts = Int64(time * Double(AV_TIME_BASE))
+        guard let ts = Self.seekTimestamp(for: time) else { return }
         av_seek_frame(formatContext, -1, ts, AVSEEK_FLAG_BACKWARD)
     }
 
