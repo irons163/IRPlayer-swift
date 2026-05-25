@@ -12,6 +12,12 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         try assertThreeByteNALPayload([0, 0, 5, 1, 2], isValid: false)
     }
 
+    func testNALPayloadAdvanceValidationUsesRemainingByteCount() {
+        XCTAssertTrue(IRFFVideoToolBox.nalPayloadCanAdvance(nalSize: 2, remainingByteCount: 2))
+        XCTAssertFalse(IRFFVideoToolBox.nalPayloadCanAdvance(nalSize: 3, remainingByteCount: 2))
+        XCTAssertFalse(IRFFVideoToolBox.nalPayloadCanAdvance(nalSize: 0, remainingByteCount: -1))
+    }
+
     func testPacketPayloadRejectsMissingOrEmptyPacketData() {
         var packet = AVPacket()
         packet.size = 4

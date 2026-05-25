@@ -254,6 +254,11 @@ class IRFFVideoToolBox {
         return DecodeFramePayload(session: session, sampleBuffer: sampleBuffer)
     }
 
+    static func nalPayloadCanAdvance(nalSize: UInt32, remainingByteCount: Int) -> Bool {
+        guard remainingByteCount >= 0 else { return false }
+        return UInt64(nalSize) <= UInt64(remainingByteCount)
+    }
+
     static func threeByteNALUnitsAreBounded(in payload: PacketPayload) -> Bool {
         var cursor = payload.data
         let end = payload.end
@@ -265,8 +270,10 @@ class IRFFVideoToolBox {
             let nalSize = (UInt32(cursor[0]) << 16) | (UInt32(cursor[1]) << 8) | UInt32(cursor[2])
             cursor = nalSizeEnd
 
+            guard Self.nalPayloadCanAdvance(nalSize: nalSize, remainingByteCount: cursor.distance(to: end)) else {
+                return false
+            }
             let nalEnd = cursor.advanced(by: Int(nalSize))
-            guard nalEnd <= end else { return false }
             cursor = nalEnd
         }
 
