@@ -101,6 +101,13 @@ final class IRFFAudioDecoderTests: XCTestCase {
         )
     }
 
+    func testResampleRatioRoundsUpFractionalSamplingExpansion() {
+        XCTAssertEqual(
+            IRFFAudioDecoder.resampleRatio(outputSamplingRate: 72_000, inputSamplingRate: 48_000, outputChannelCount: 2, inputChannelCount: 2),
+            4
+        )
+    }
+
     func testResampleFrameCapacityRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRFFAudioDecoder.resampleFrameCapacity(inputFrameCount: 0, ratio: 2))
         XCTAssertNil(IRFFAudioDecoder.resampleFrameCapacity(inputFrameCount: 1024, ratio: 0))
