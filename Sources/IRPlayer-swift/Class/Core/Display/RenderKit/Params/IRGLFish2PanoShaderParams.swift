@@ -88,6 +88,25 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         return capacity
     }
 
+    static func pixelMapUVOffset(outputWidth: GLint, outputHeight: GLint, x: Int, y: Int) -> Int? {
+        guard outputWidth > 0, outputHeight > 0, x >= 0, y >= 0 else { return nil }
+
+        let width = Int(outputWidth)
+        let height = Int(outputHeight)
+        guard x < width, y < height else { return nil }
+        guard pixelMapCapacity(outputWidth: outputWidth, outputHeight: outputHeight) != nil else { return nil }
+
+        let (rowOffset, rowOffsetOverflow) = width.multipliedReportingOverflow(by: y)
+        guard !rowOffsetOverflow else { return nil }
+
+        let (pixelIndex, pixelIndexOverflow) = rowOffset.addingReportingOverflow(x)
+        guard !pixelIndexOverflow else { return nil }
+
+        let (uvOffset, uvOffsetOverflow) = pixelIndex.multipliedReportingOverflow(by: 2)
+        guard !uvOffsetOverflow else { return nil }
+        return uvOffset
+    }
+
     func initPixelMaps() {
         let transX = transformX * DTOR
         let transY = transformY * DTOR
@@ -123,6 +142,9 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     }
 
     func setPixelFactors(_ latitude: Float, _ longitude: Float, _ index: Int, _ x: Int, _ y: Int, _ transX: Float, _ transY: Float, _ transZ: Float, _ raperture: Float) {
+        guard let uvOffset = Self.pixelMapUVOffset(outputWidth: outputWidth, outputHeight: outputHeight, x: x, y: y) else {
+            return
+        }
         var p = XYZ(x: cos(latitude) * cos(longitude), y: cos(latitude) * sin(longitude), z: sin(latitude))
 
         if transX != 0 { p = PRotateX(p, transX) }
@@ -135,20 +157,20 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
 
         let u = Float(fishcenterx) + Float(fishradiush) * r * cos(theta)
         if u < 0 || u >= Float(textureWidth) {
-            pixUV?[index]?[(Int(outputWidth) * y + x) * 2] = -1
-            pixUV?[index]?[(Int(outputWidth) * y + x) * 2 + 1] = -1
+            pixUV?[index]?[uvOffset] = -1
+            pixUV?[index]?[uvOffset + 1] = -1
             return
         }
 
         let v = Float(textureHeight) - Float(fishcentery) + Float(fishradiush) * r * sin(theta)
         if v < 0 || v >= Float(textureHeight) {
-            pixUV?[index]?[(Int(outputWidth) * y + x) * 2] = -1
-            pixUV?[index]?[(Int(outputWidth) * y + x) * 2 + 1] = -1
+            pixUV?[index]?[uvOffset] = -1
+            pixUV?[index]?[uvOffset + 1] = -1
             return
         }
 
-        pixUV?[index]?[(Int(outputWidth) * y + x) * 2] = GLfloat(u)
-        pixUV?[index]?[(Int(outputWidth) * y + x) * 2 + 1] = GLfloat(v)
+        pixUV?[index]?[uvOffset] = GLfloat(u)
+        pixUV?[index]?[uvOffset + 1] = GLfloat(v)
     }
 
     func setDefaultValues() {

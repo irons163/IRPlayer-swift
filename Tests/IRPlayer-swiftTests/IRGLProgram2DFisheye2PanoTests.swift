@@ -89,6 +89,19 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(IRGLFish2PanoShaderParams.pixelMapCapacity(outputWidth: 10, outputHeight: 20), 400)
     }
 
+    func testPanoPixelMapUVOffsetRejectsOutOfBoundsOrOverflowingCoordinates() {
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 0, outputHeight: 10, x: 0, y: 0))
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 0, x: 0, y: 0))
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 10, x: -1, y: 0))
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 10, x: 10, y: 0))
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 10, x: 0, y: 10))
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: GLint.max, outputHeight: 2, x: 0, y: 1))
+    }
+
+    func testPanoPixelMapUVOffsetCalculatesInterleavedUVBaseIndex() {
+        XCTAssertEqual(IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 20, x: 3, y: 2), 46)
+    }
+
     func testNormalizedOffsetRejectsInvalidOutputWidth() {
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: 0))
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: -1))
