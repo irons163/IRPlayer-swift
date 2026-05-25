@@ -181,10 +181,22 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         guard let metalLayer = metalLayer else { return }
         let effectiveScale = scale * UIScreen.main.scale
         let size = CGSize(width: bounds.width * effectiveScale, height: bounds.height * effectiveScale)
-        guard size.width > 0, size.height > 0 else { return }
+        guard let pixelSize = Self.drawablePixelSize(from: size) else { return }
         metalLayer.drawableSize = size
-        backingWidth = Int(size.width)
-        backingHeight = Int(size.height)
+        backingWidth = pixelSize.width
+        backingHeight = pixelSize.height
+    }
+
+    static func drawablePixelSize(from size: CGSize) -> (width: Int, height: Int)? {
+        guard size.width.isFinite,
+              size.height.isFinite,
+              size.width > 0,
+              size.height > 0,
+              size.width <= CGFloat(Int.max),
+              size.height <= CGFloat(Int.max) else {
+            return nil
+        }
+        return (Int(size.width), Int(size.height))
     }
 
     public override var contentMode: UIView.ContentMode {

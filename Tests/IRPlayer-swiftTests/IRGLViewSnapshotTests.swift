@@ -47,6 +47,20 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(view.viewprotRange, CGRect(x: 0, y: 0, width: 320, height: 180))
     }
 
+    func testDrawablePixelSizeRejectsInvalidDimensions() {
+        XCTAssertNil(IRGLView.drawablePixelSize(from: CGSize(width: 0, height: 1)))
+        XCTAssertNil(IRGLView.drawablePixelSize(from: CGSize(width: 1, height: CGFloat.nan)))
+        XCTAssertNil(IRGLView.drawablePixelSize(from: CGSize(width: CGFloat.infinity, height: 1)))
+        XCTAssertNil(IRGLView.drawablePixelSize(from: CGSize(width: CGFloat(Int.max) * 2, height: 1)))
+    }
+
+    func testDrawablePixelSizeConvertsFinitePositiveDimensions() {
+        let size = IRGLView.drawablePixelSize(from: CGSize(width: 320.9, height: 180.2))
+
+        XCTAssertEqual(size?.width, 320)
+        XCTAssertEqual(size?.height, 180)
+    }
+
     func testTexUVTextureLayoutRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRGLView.texUVTextureLayout(width: 0, height: 1))
         XCTAssertNil(IRGLView.texUVTextureLayout(width: 1, height: 0))
