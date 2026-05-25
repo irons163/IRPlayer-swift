@@ -18,7 +18,10 @@ let package = Package(
             name: "IRPlayerSwift",
             dependencies: ["IRPlayerObjc", "IRFFMpeg"],
             path: "Sources",
-            exclude: ["IRPlayer-swift/ThirdParty", "IRPlayer-swift/Objc", "IRPlayer-swift/OpenGL"],
+            exclude: ["IRPlayer-swift/ThirdParty", "IRPlayer-swift/Objc"],
+            resources: [
+                .process("IRPlayer-swift/Class/Core/Display/Metal/IRMetalShaders.metal")
+            ],
             swiftSettings: [
                 .define("IRPLATFORM_TARGET_OS_IPHONE_OR_TV"),
                 .define("IRPLATFORM_TARGET_OS_MAC_OR_IPHONE"),
@@ -34,6 +37,7 @@ let package = Package(
         ),
         .target(
             name: "IRPlayerObjc",
+            dependencies: ["libavutil"],
             path: "Sources/IRPlayer-swift/Objc",
             cSettings: [
                 .define("IR_USE_METAL")
@@ -89,4 +93,3 @@ let package = Package(
         )
     ]
 )
-

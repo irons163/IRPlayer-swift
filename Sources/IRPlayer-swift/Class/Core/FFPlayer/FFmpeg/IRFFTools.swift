@@ -36,7 +36,8 @@ func IRPlayerLog(_ text: String) {
 
 func IRFFLog(context: UnsafeMutableRawPointer?, level: Int32, format: UnsafePointer<CChar>, args: CVaListPointer) {
 #if IRFFFFmpegLogEnable
-    let message = NSString(format: NSString(utf8String: format)! as String, arguments: args) as String
+    guard let formatString = String(validatingUTF8: format) else { return }
+    let message = NSString(format: formatString, arguments: args) as String
     print("IRFFLog: \(message)")
 #endif
 }
@@ -63,7 +64,7 @@ func IRFFStreamGetTimebase(_ stream: UnsafePointer<AVStream>, defaultTimebase: D
     } else {
         timebase = defaultTimebase
     }
-    return timebase
+    return timebase.isFinite && timebase > 0 ? timebase : 1.0
 }
 
 func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Double {
@@ -72,10 +73,12 @@ func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Do
         fps = av_q2d(stream.pointee.avg_frame_rate)
     } else if stream.pointee.r_frame_rate.den > 0 && stream.pointee.r_frame_rate.num > 0 {
         fps = av_q2d(stream.pointee.r_frame_rate)
-    } else {
+    } else if timebase > 0 {
         fps = 1.0 / timebase
+    } else {
+        fps = 1.0
     }
-    return fps
+    return fps.isFinite && fps > 0 ? fps : 1.0
 }
 
 func IRFFFoundationBrigeOfAVDictionary(_ avDictionary: OpaquePointer?) -> [String: String]? {

@@ -7,6 +7,12 @@
 
 import UIKit
 
+struct IRBouncePathGeometry {
+    let start: CGPoint
+    let control: CGPoint
+    let end: CGPoint
+}
+
 @objc public enum IRScrollDirectionType: Int {
     case none
     case left
@@ -26,23 +32,52 @@ import UIKit
         return targetView?.bounds.size.height ?? 0
     }
 
+    @nonobjc static func bouncePathGeometry(amount: CGFloat, direction type: IRScrollDirectionType, targetSize: CGSize) -> IRBouncePathGeometry {
+        let targetViewWidth = targetSize.width
+        let targetViewHeight = targetSize.height
+        let bounceWidth = min(targetViewWidth / 10, targetViewHeight / 10)
+
+        switch type {
+        case .left:
+            return IRBouncePathGeometry(start: CGPoint(x: targetViewWidth, y: 0),
+                                        control: CGPoint(x: max(targetViewWidth + amount, targetViewWidth - bounceWidth), y: targetViewHeight / 2),
+                                        end: CGPoint(x: targetViewWidth, y: targetViewHeight))
+        case .right:
+            return IRBouncePathGeometry(start: .zero,
+                                        control: CGPoint(x: min(amount, bounceWidth), y: targetViewHeight / 2),
+                                        end: CGPoint(x: 0, y: targetViewHeight))
+        case .up:
+            return IRBouncePathGeometry(start: CGPoint(x: 0, y: targetViewHeight),
+                                        control: CGPoint(x: targetViewWidth / 2, y: max(targetViewHeight + amount, targetViewHeight - bounceWidth)),
+                                        end: CGPoint(x: targetViewWidth, y: targetViewHeight))
+        case .down:
+            return IRBouncePathGeometry(start: .zero,
+                                        control: CGPoint(x: targetViewWidth / 2, y: min(amount, bounceWidth)),
+                                        end: CGPoint(x: targetViewWidth, y: 0))
+        default:
+            return IRBouncePathGeometry(start: .zero, control: .zero, end: .zero)
+        }
+    }
+
     public func addBounceToView(_ view: UIView) {
         self.targetView = view
         createLine()
     }
 
     private func createLine() {
-        horizontalLineLayer = CAShapeLayer()
-        horizontalLineLayer?.strokeColor = UIColor(white: 0.333, alpha: 0.5).cgColor
-        horizontalLineLayer?.lineWidth = 0.0
-        horizontalLineLayer?.fillColor = UIColor(white: 0.333, alpha: 0.5).cgColor
-        targetView?.layer.addSublayer(horizontalLineLayer!)
+        let horizontalLineLayer = CAShapeLayer()
+        horizontalLineLayer.strokeColor = UIColor(white: 0.333, alpha: 0.5).cgColor
+        horizontalLineLayer.lineWidth = 0.0
+        horizontalLineLayer.fillColor = UIColor(white: 0.333, alpha: 0.5).cgColor
+        targetView?.layer.addSublayer(horizontalLineLayer)
+        self.horizontalLineLayer = horizontalLineLayer
 
-        verticalLineLayer = CAShapeLayer()
-        verticalLineLayer?.strokeColor = UIColor(white: 0.333, alpha: 0.5).cgColor
-        verticalLineLayer?.lineWidth = 0.0
-        verticalLineLayer?.fillColor = UIColor(white: 0.333, alpha: 0.5).cgColor
-        targetView?.layer.addSublayer(verticalLineLayer!)
+        let verticalLineLayer = CAShapeLayer()
+        verticalLineLayer.strokeColor = UIColor(white: 0.333, alpha: 0.5).cgColor
+        verticalLineLayer.lineWidth = 0.0
+        verticalLineLayer.fillColor = UIColor(white: 0.333, alpha: 0.5).cgColor
+        targetView?.layer.addSublayer(verticalLineLayer)
+        self.verticalLineLayer = verticalLineLayer
     }
 
     public func removeAndAddAnimate(with scrollValue: CGFloat, byScrollDirection type: IRScrollDirectionType) {
@@ -82,38 +117,18 @@ import UIKit
     }
 
     private func getLinePath(withAmount amount: CGFloat, byScrollDirection type: IRScrollDirectionType) -> UIBezierPath {
-        let bounceWidth = min(targetViewWidth / 10, targetViewHeight / 10)
-        var startPoint = CGPoint.zero
-        var midControlPoint = CGPoint.zero
-        var endPoint = CGPoint.zero
-
-        switch type {
-        case .left:
-            startPoint = CGPoint(x: targetViewWidth, y: 0)
-            midControlPoint = CGPoint(x: max(targetViewWidth + amount, targetViewWidth - bounceWidth), y: targetViewHeight / 2)
-            endPoint = CGPoint(x: targetViewWidth, y: targetViewHeight)
-        case .right:
-            startPoint = .zero
-            midControlPoint = CGPoint(x: min(amount, bounceWidth), y: targetViewHeight / 2)
-            endPoint = CGPoint(x: 0, y: targetViewHeight)
-        case .up:
-            startPoint = CGPoint(x: 0, y: targetViewHeight)
-            midControlPoint = CGPoint(x: targetViewWidth / 2, y: max(targetViewHeight + amount, targetViewHeight - bounceWidth))
-            endPoint = CGPoint(x: targetViewWidth, y: targetViewHeight)
-        case .down:
-            startPoint = .zero
-            midControlPoint = CGPoint(x: targetViewWidth / 2, y: min(amount, bounceWidth))
-            endPoint = CGPoint(x: targetViewWidth, y: 0)
-        default:
+        guard type != .none else {
             return UIBezierPath()
         }
+        let geometry = Self.bouncePathGeometry(amount: amount,
+                                               direction: type,
+                                               targetSize: CGSize(width: targetViewWidth, height: targetViewHeight))
 
         let path = UIBezierPath()
-        path.move(to: startPoint)
-        path.addQuadCurve(to: endPoint, controlPoint: midControlPoint)
+        path.move(to: geometry.start)
+        path.addQuadCurve(to: geometry.end, controlPoint: geometry.control)
         path.close()
 
         return path
     }
 }
-

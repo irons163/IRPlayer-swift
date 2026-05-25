@@ -76,8 +76,8 @@ import simd
         let maxContentOffsetX = Float(scope.w) * (scope.scaleX)
         let maxContentOffsetY = Float(scope.h) * (scope.scaleY)
 
-        let wideDegreeX = scopeRange?.maxLng ?? 0 - (scopeRange?.minLng ?? 0)
-        let wideDegreeY = scopeRange?.maxLat ?? 0 - (scopeRange?.minLat ?? 0)
+        let wideDegreeX = scopeRange?.wideDegreeX ?? 0
+        let wideDegreeY = scopeRange?.wideDegreeY ?? 0
 
         unitX = wideDegreeX == 0 ? 0 : (maxContentOffsetX) / wideDegreeX
         unitY = wideDegreeY == 0 ? 0 : (maxContentOffsetY) / wideDegreeY
@@ -87,6 +87,9 @@ import simd
 
     override func update(fx: Float, fy: Float, sx: Float, sy: Float) {
         let scope2d = scope
+        guard scope2d.w > 0, scope2d.h > 0 else { return }
+        guard fx.isFinite, fy.isFinite else { return }
+        guard sx.isFinite, sy.isFinite, sx > 0, sy > 0 else { return }
 
         var scaleX = sx
         var scaleY = sy
@@ -200,6 +203,16 @@ import simd
             scope.h = h
             updateToDefault()
         } else {
+            guard w > 0, h > 0 else {
+                reset()
+                scope.w = w
+                scope.h = h
+                updateVertices()
+                defaultTransformScaleX = oldDefaultScaleX
+                defaultTransformScaleY = oldDefaultScaleY
+                return
+            }
+
             scope.w = w
             scope.h = h
 

@@ -1,0 +1,100 @@
+import CoreGraphics
+import XCTest
+@testable import IRPlayer_swift
+
+final class IRGLProgram2DTests: XCTestCase {
+
+    func testTouchedInProgramUsesViewportRange() {
+        let program = IRGLProgram2D(
+            pixelFormat: .RGB_IRPixelFormat,
+            viewportRange: CGRect(x: 10, y: 20, width: 100, height: 80),
+            parameter: nil
+        )
+
+        XCTAssertTrue(program.touchedInProgram(CGPoint(x: 60, y: 40)))
+        XCTAssertFalse(program.touchedInProgram(CGPoint(x: 9, y: 40)))
+        XCTAssertFalse(program.touchedInProgram(CGPoint(x: 60, y: 101)))
+    }
+
+    func testOutputSizeFollowsShaderParams() {
+        let program = IRGLProgram2D()
+
+        program.shaderParams2D?.updateTextureWidth(640, height: 360)
+
+        XCTAssertEqual(program.getOutputSize(), CGSize(width: 640, height: 360))
+    }
+
+    func testCalculateViewportReturnsZeroWithoutTransformController() {
+        let program = IRGLProgram2D(
+            pixelFormat: .RGB_IRPixelFormat,
+            viewportRange: CGRect(x: 10, y: 20, width: 100, height: 80),
+            parameter: nil
+        )
+
+        XCTAssertEqual(program.calculateViewport(), .zero)
+    }
+
+    func testViewportSizeRejectsNonFiniteOrOverflowingDimensions() {
+        XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: CGFloat.nan, height: 10)))
+        XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: 10, height: CGFloat.infinity)))
+        XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: CGFloat(Int.max) * 2, height: 10)))
+        XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: 10, height: CGFloat(Int.max) * 2)))
+    }
+
+    func testViewportSizeConvertsFiniteNonNegativeDimensions() {
+        let size = IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: 320.9, height: 180.2))
+
+        XCTAssertEqual(size?.width, 320)
+        XCTAssertEqual(size?.height, 180)
+    }
+
+    func testSetViewportRangeIgnoresInvalidDimensionsWhenResettingTransform() {
+        let program = IRGLProgram2D()
+        let transformController = IRGLTransformController2D(viewportWidth: 320, viewportHeight: 180)
+        program.tramsformController = transformController
+
+        program.setViewportRange(CGRect(x: 0, y: 0, width: CGFloat.infinity, height: 180))
+
+        XCTAssertEqual(transformController.getScope().w, 320)
+        XCTAssertEqual(transformController.getScope().h, 180)
+    }
+
+    func testDidScrollNotifiesDelegateForBoundsStatuses() {
+        let program = IRGLProgram2D()
+        let delegate = ProgramDelegateSpy()
+        program.delegate = delegate
+        let transformController = IRGLTransformController()
+
+        program.didScroll(status: [.toMaxX], transformController: transformController)
+        program.didScroll(status: [.toMinY], transformController: transformController)
+        program.didScroll(status: [.toMaxX, .toMinY], transformController: transformController)
+        program.didScroll(status: [.fail], transformController: transformController)
+
+        XCTAssertEqual(delegate.bounds, [.horizontal, .vertical, .both])
+        XCTAssertTrue(delegate.programs.allSatisfy { $0 === program })
+    }
+
+    func testOutputSizeUpdateIgnoresZeroDimensionsWhenScalingTransform() {
+        let program = IRGLProgram2D()
+        let transformController = IRGLTransformController2D(viewportWidth: 320, viewportHeight: 180)
+        program.tramsformController = transformController
+
+        program.didUpdateOutputWH(0, 0)
+
+        let defaultScale = transformController.getDefaultTransformScale()
+        XCTAssertTrue(defaultScale.x.isFinite)
+        XCTAssertTrue(defaultScale.y.isFinite)
+        XCTAssertEqual(defaultScale.x, 1, accuracy: 0.0001)
+        XCTAssertEqual(defaultScale.y, 1, accuracy: 0.0001)
+    }
+}
+
+private final class ProgramDelegateSpy: IRGLProgramDelegate {
+    private(set) var bounds: [IRGLTransformController.ScrollToBounds] = []
+    private(set) var programs: [IRGLProgram2D] = []
+
+    func didScrollToBounds(_ bounds: IRGLTransformController.ScrollToBounds, withProgram program: IRGLProgram2D) {
+        self.bounds.append(bounds)
+        programs.append(program)
+    }
+}

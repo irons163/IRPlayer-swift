@@ -22,16 +22,30 @@ class IRFFMetadata {
     var numberOfBytes: Int64
     var numberOfFrames: Int64
 
-    init(avDictionary: AVDictionary) {
+    convenience init(avDictionary: AVDictionary) {
         let dic = IRFFFoundationBrigeOfAVDictionary(avDictionary.rawPointer)
-        self.language = dic?["language"] as? String ?? ""
-        self.BPS = (dic?["BPS"] as? NSNumber)?.int64Value ?? 0
-        self.duration = dic?["DURATION"] as? String ?? ""
-        self.numberOfBytes = (dic?["NUMBER_OF_BYTES"] as? NSNumber)?.int64Value ?? 0
-        self.numberOfFrames = (dic?["NUMBER_OF_FRAMES"] as? NSNumber)?.int64Value ?? 0
+        self.init(dictionary: dic ?? [:])
+    }
+
+    init(dictionary: [String: Any]) {
+        self.language = dictionary["language"] as? String ?? ""
+        self.BPS = Self.int64Value(dictionary["BPS"])
+        self.duration = dictionary["DURATION"] as? String ?? ""
+        self.numberOfBytes = Self.int64Value(dictionary["NUMBER_OF_BYTES"])
+        self.numberOfFrames = Self.int64Value(dictionary["NUMBER_OF_FRAMES"])
     }
 
     static func metadata(with avDictionary: AVDictionary) -> IRFFMetadata {
         return IRFFMetadata(avDictionary: avDictionary)
+    }
+
+    private static func int64Value(_ value: Any?) -> Int64 {
+        if let value = value as? NSNumber {
+            return value.int64Value
+        }
+        if let value = value as? String {
+            return Int64(value) ?? 0
+        }
+        return 0
     }
 }
