@@ -79,6 +79,14 @@ final class IRFFFormatContextTests: XCTestCase {
         XCTAssertEqual(IRFFFormatContext.durationSeconds(from: -1), 0)
     }
 
+    func testBitrateKbpsConvertsPositiveValues() {
+        XCTAssertEqual(IRFFFormatContext.bitrateKbps(from: 1_500), 1.5, accuracy: 0.0001)
+    }
+
+    func testBitrateKbpsRejectsNegativeValues() {
+        XCTAssertEqual(IRFFFormatContext.bitrateKbps(from: -1), 0)
+    }
+
     func testInterruptCallbackIgnoresMissingContextAndUsesDelegateDecision() {
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: nil), 0)
 

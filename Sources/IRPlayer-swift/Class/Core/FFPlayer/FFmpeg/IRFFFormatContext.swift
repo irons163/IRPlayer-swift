@@ -29,7 +29,7 @@ public class IRFFFormatContext {
         guard let formatContext = formatContext else {
             return 0
         }
-        return Double(formatContext.pointee.bit_rate) / 1000.0
+        return Self.bitrateKbps(from: formatContext.pointee.bit_rate)
     }
     var duration: TimeInterval {
         guard let formatContext = formatContext else {
@@ -77,6 +77,12 @@ public class IRFFFormatContext {
         guard duration >= 0 else { return 0 }
         let seconds = TimeInterval(duration) / TimeInterval(AV_TIME_BASE)
         return seconds.isFinite ? seconds : 0
+    }
+
+    static func bitrateKbps(from bitRate: Int64) -> TimeInterval {
+        guard bitRate >= 0 else { return 0 }
+        let bitrate = TimeInterval(bitRate) / 1000.0
+        return bitrate.isFinite ? bitrate : 0
     }
 
     func setupSync() {
