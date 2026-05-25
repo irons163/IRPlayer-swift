@@ -90,10 +90,17 @@ class IRFFPacketQueue: NSObject {
     private static func accountedDuration(for packet: AVPacket,
                                            fallbackDuration: TimeInterval,
                                            timebase: TimeInterval) -> TimeInterval {
-        if packet.duration > 0 {
-            return Double(packet.duration) * timebase
+        if packet.duration > 0, timebase.isFinite, timebase > 0 {
+            let duration = Double(packet.duration) * timebase
+            guard duration.isFinite, duration > 0 else {
+                return 0
+            }
+            return duration
         }
-        return max(0, fallbackDuration)
+        guard fallbackDuration.isFinite, fallbackDuration > 0 else {
+            return 0
+        }
+        return fallbackDuration
     }
 
     private static func accountedSize(for packet: AVPacket) -> Int {

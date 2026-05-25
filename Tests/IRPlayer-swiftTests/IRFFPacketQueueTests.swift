@@ -60,6 +60,23 @@ final class IRFFPacketQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 20)
     }
 
+    func testPacketQueueIgnoresNonFiniteFallbackDurations() {
+        let queue = IRFFPacketQueue.packetQueue(withTimebase: 0.001)
+        let malformed = makePacket(size: 10, duration: 0)
+        let valid = makePacket(size: 20, duration: 0)
+
+        queue.putPacket(malformed, duration: .infinity)
+        queue.putPacket(valid, duration: 0.5)
+
+        XCTAssertEqual(queue.duration, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 30)
+
+        _ = queue.getPacket()
+
+        XCTAssertEqual(queue.duration, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 20)
+    }
+
     private func makePacket(size: Int32, duration: Int64) -> AVPacket {
         var packet = AVPacket()
         packet.size = size
