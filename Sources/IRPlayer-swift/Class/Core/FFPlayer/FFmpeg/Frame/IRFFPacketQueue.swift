@@ -37,7 +37,7 @@ class IRFFPacketQueue: NSObject {
         }
         let packetDuration = Self.accountedDuration(for: packet, fallbackDuration: duration, timebase: timebase)
         packets.append(IRFFPacketQueueEntry(packet: packet, duration: packetDuration))
-        size += Int(packet.size)
+        size += Self.accountedSize(for: packet)
         self.duration += packetDuration
         condition.signal()
         condition.unlock()
@@ -56,7 +56,7 @@ class IRFFPacketQueue: NSObject {
         }
         let entry = packets.removeFirst()
         packet = entry.packet
-        size -= Int(packet.size)
+        size -= Self.accountedSize(for: packet)
         if size < 0 || count <= 0 {
             size = 0
         }
@@ -94,6 +94,10 @@ class IRFFPacketQueue: NSObject {
             return Double(packet.duration) * timebase
         }
         return max(0, fallbackDuration)
+    }
+
+    private static func accountedSize(for packet: AVPacket) -> Int {
+        return max(0, Int(packet.size))
     }
 }
 

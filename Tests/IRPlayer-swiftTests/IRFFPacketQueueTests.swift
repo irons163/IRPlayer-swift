@@ -45,6 +45,21 @@ final class IRFFPacketQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 20)
     }
 
+    func testPacketQueueIgnoresNegativePacketSizesForByteAccounting() {
+        let queue = IRFFPacketQueue.packetQueue(withTimebase: 0.001)
+        let malformed = makePacket(size: -10, duration: 250)
+        let valid = makePacket(size: 20, duration: 500)
+
+        queue.putPacket(malformed, duration: 10)
+        queue.putPacket(valid, duration: 10)
+
+        XCTAssertEqual(queue.size, 20)
+
+        _ = queue.getPacket()
+
+        XCTAssertEqual(queue.size, 20)
+    }
+
     private func makePacket(size: Int32, duration: Int64) -> AVPacket {
         var packet = AVPacket()
         packet.size = size
