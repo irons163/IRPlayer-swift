@@ -31,3 +31,21 @@ final class IRGLShaderParamsTests: XCTestCase {
         )
     }
 }
+
+final class IRMetalRendererPixelFormatTests: XCTestCase {
+
+    func testRGBTextureLayoutRejectsInvalidOrOverflowingInputs() {
+        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 0, height: 1, linesize: 4, byteCount: 4))
+        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 1, height: 0, linesize: 4, byteCount: 4))
+        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: Int.max, height: 2, linesize: Int.max, byteCount: Int.max))
+    }
+
+    func testRGBTextureLayoutRequiresExpectedBGRABytesPerRowAndBufferSize() {
+        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 2, height: 2, linesize: 7, byteCount: 16))
+        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 2, height: 2, linesize: 8, byteCount: 15))
+        XCTAssertEqual(
+            IRMetalRenderer.rgbTextureLayout(width: 2, height: 2, linesize: 8, byteCount: 16)?.bytesPerRow,
+            8
+        )
+    }
+}

@@ -134,10 +134,12 @@ extension IRMetalRenderer {
     func makeRGBTexture(from rgbFrame: IRVideoFrameRGB) -> MTLTexture? {
         let width = rgbFrame.width
         let height = rgbFrame.height
-        guard width > 0, height > 0 else { return nil }
-        let bytesPerRow = Int(rgbFrame.linesize)
-        guard bytesPerRow == width * 4 else { return nil }
-        guard rgbFrame.rgb.count >= bytesPerRow * height else { return nil }
+        guard let layout = Self.rgbTextureLayout(
+            width: width,
+            height: height,
+            linesize: Int(rgbFrame.linesize),
+            byteCount: rgbFrame.rgb.count
+        ) else { return nil }
 
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false)
         descriptor.usage = .shaderRead
@@ -145,11 +147,23 @@ extension IRMetalRenderer {
 
         rgbFrame.rgb.withUnsafeBytes { rawBuffer in
             if let base = rawBuffer.baseAddress {
-                texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: base, bytesPerRow: bytesPerRow)
+                texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: base, bytesPerRow: layout.bytesPerRow)
             }
         }
 
         return texture
+    }
+
+    static func rgbTextureLayout(width: Int, height: Int, linesize: Int, byteCount: Int) -> (bytesPerRow: Int, totalByteCount: Int)? {
+        guard width > 0, height > 0, linesize > 0, byteCount >= 0 else { return nil }
+
+        let (expectedBytesPerRow, rowOverflow) = width.multipliedReportingOverflow(by: 4)
+        guard !rowOverflow, expectedBytesPerRow > 0, linesize == expectedBytesPerRow else { return nil }
+
+        let (totalByteCount, totalOverflow) = expectedBytesPerRow.multipliedReportingOverflow(by: height)
+        guard !totalOverflow, totalByteCount > 0, byteCount >= totalByteCount else { return nil }
+
+        return (bytesPerRow: expectedBytesPerRow, totalByteCount: totalByteCount)
     }
 
     func makeTexture(width: Int, height: Int, pixelFormat: MTLPixelFormat, bytes: UnsafeRawPointer) -> MTLTexture? {
