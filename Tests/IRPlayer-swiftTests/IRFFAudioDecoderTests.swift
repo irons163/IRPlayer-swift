@@ -73,6 +73,36 @@ final class IRFFAudioDecoderTests: XCTestCase {
 
         XCTAssertEqual(duration, 1, accuracy: 0.0001)
     }
+
+    func testResampleRatioRejectsInvalidAudioInfo() {
+        XCTAssertNil(IRFFAudioDecoder.resampleRatio(outputSamplingRate: 0, inputSamplingRate: 48_000, outputChannelCount: 2, inputChannelCount: 2))
+        XCTAssertNil(IRFFAudioDecoder.resampleRatio(outputSamplingRate: .infinity, inputSamplingRate: 48_000, outputChannelCount: 2, inputChannelCount: 2))
+        XCTAssertNil(IRFFAudioDecoder.resampleRatio(outputSamplingRate: 48_000, inputSamplingRate: 0, outputChannelCount: 2, inputChannelCount: 2))
+        XCTAssertNil(IRFFAudioDecoder.resampleRatio(outputSamplingRate: 48_000, inputSamplingRate: 48_000, outputChannelCount: 0, inputChannelCount: 2))
+        XCTAssertNil(IRFFAudioDecoder.resampleRatio(outputSamplingRate: 48_000, inputSamplingRate: 48_000, outputChannelCount: 2, inputChannelCount: 0))
+        XCTAssertNil(IRFFAudioDecoder.resampleRatio(outputSamplingRate: Float64(Int.max), inputSamplingRate: 1, outputChannelCount: 2, inputChannelCount: 2))
+    }
+
+    func testResampleRatioClampsUpsamplingFactors() {
+        XCTAssertEqual(
+            IRFFAudioDecoder.resampleRatio(outputSamplingRate: 24_000, inputSamplingRate: 48_000, outputChannelCount: 1, inputChannelCount: 2),
+            2
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.resampleRatio(outputSamplingRate: 48_000, inputSamplingRate: 24_000, outputChannelCount: 4, inputChannelCount: 2),
+            8
+        )
+    }
+
+    func testResampleFrameCapacityRejectsInvalidOrOverflowingInputs() {
+        XCTAssertNil(IRFFAudioDecoder.resampleFrameCapacity(inputFrameCount: 0, ratio: 2))
+        XCTAssertNil(IRFFAudioDecoder.resampleFrameCapacity(inputFrameCount: 1024, ratio: 0))
+        XCTAssertNil(IRFFAudioDecoder.resampleFrameCapacity(inputFrameCount: Int32.max, ratio: 2))
+    }
+
+    func testResampleFrameCapacityCalculatesInt32Capacity() {
+        XCTAssertEqual(IRFFAudioDecoder.resampleFrameCapacity(inputFrameCount: 1024, ratio: 2), 2048)
+    }
 }
 
 final class IRFFAudioFrameTests: XCTestCase {

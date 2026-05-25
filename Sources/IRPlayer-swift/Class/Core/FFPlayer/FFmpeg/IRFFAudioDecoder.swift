@@ -99,6 +99,36 @@ class IRFFAudioDecoder {
         return duration.isFinite && duration > 0 ? duration : nil
     }
 
+    static func resampleRatio(outputSamplingRate: Float64, inputSamplingRate: Int32, outputChannelCount: UInt32, inputChannelCount: Int32) -> Int? {
+        guard outputSamplingRate.isFinite,
+              outputSamplingRate > 0,
+              inputSamplingRate > 0,
+              outputChannelCount > 0,
+              inputChannelCount > 0 else {
+            return nil
+        }
+
+        let samplingRatioValue = outputSamplingRate / Float64(inputSamplingRate)
+        guard samplingRatioValue.isFinite, samplingRatioValue < Float64(Int.max) else { return nil }
+
+        let samplingRatio = max(1, Int(samplingRatioValue))
+        let channelRatio = max(1, Int(outputChannelCount) / Int(inputChannelCount))
+        let (audioRatio, audioRatioOverflow) = samplingRatio.multipliedReportingOverflow(by: channelRatio)
+        guard !audioRatioOverflow else { return nil }
+
+        let (ratio, ratioOverflow) = audioRatio.multipliedReportingOverflow(by: 2)
+        guard !ratioOverflow, ratio > 0 else { return nil }
+        return ratio
+    }
+
+    static func resampleFrameCapacity(inputFrameCount: Int32, ratio: Int) -> Int32? {
+        guard inputFrameCount > 0, ratio > 0, ratio <= Int(Int32.max) else { return nil }
+
+        let (capacity, overflow) = Int(inputFrameCount).multipliedReportingOverflow(by: ratio)
+        guard !overflow, capacity > 0, capacity <= Int(Int32.max) else { return nil }
+        return Int32(capacity)
+    }
+
     static func inputChannelCapacity(from codecContext: UnsafeMutablePointer<AVCodecContext>?) -> Int? {
         guard let channels = codecContext?.pointee.channels, channels > 0 else { return nil }
         return Int(channels)
@@ -171,12 +201,21 @@ class IRFFAudioDecoder {
         var audioDataBuffer: UnsafeMutableRawPointer
 
         if let audioSwrContext = audioSwrContext {
-            let ratio = max(1, Int(samplingRate / Float64(codecContext?.pointee.sample_rate ?? 1))) * max(1, Int(channelCount / UInt32(codecContext?.pointee.channels ?? 1))) * 2
-            let bufferSize = av_samples_get_buffer_size(nil, Int32(channelCount), tempFrame.pointee.nb_samples * Int32(ratio), AV_SAMPLE_FMT_S16, 1)
+            guard let ratio = Self.resampleRatio(outputSamplingRate: samplingRate,
+                                                 inputSamplingRate: codecContext?.pointee.sample_rate ?? 0,
+                                                 outputChannelCount: channelCount,
+                                                 inputChannelCount: codecContext?.pointee.channels ?? 0),
+                  let frameCapacity = Self.resampleFrameCapacity(inputFrameCount: tempFrame.pointee.nb_samples, ratio: ratio) else {
+                return nil
+            }
+            let bufferSize = av_samples_get_buffer_size(nil, Int32(channelCount), frameCapacity, AV_SAMPLE_FMT_S16, 1)
+            guard bufferSize > 0 else { return nil }
 
             if audioSwrBuffer == nil || audioSwrBufferSize < bufferSize {
-                audioSwrBufferSize = Int(bufferSize)
-                audioSwrBuffer = realloc(audioSwrBuffer, audioSwrBufferSize)
+                let requestedBufferSize = Int(bufferSize)
+                guard let newBuffer = realloc(audioSwrBuffer, requestedBufferSize) else { return nil }
+                audioSwrBuffer = newBuffer
+                audioSwrBufferSize = requestedBufferSize
             }
 
 //            var outputBuffer = [audioSwrBuffer, nil].map { UnsafeMutablePointer<UInt8>($0) }
@@ -201,7 +240,7 @@ class IRFFAudioDecoder {
                 }
             }
 
-            numberOfFrames = Int(swr_convert(audioSwrContext, &outputBuffer, tempFrame.pointee.nb_samples * Int32(ratio), inputPointer, tempFrame.pointee.nb_samples))
+            numberOfFrames = Int(swr_convert(audioSwrContext, &outputBuffer, frameCapacity, inputPointer, tempFrame.pointee.nb_samples))
             let error: Error? = IRFFCheckError(Int32(numberOfFrames))
             if error != nil {
                 IRFFErrorLog("audio codec error : \(String(describing: error))")
