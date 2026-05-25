@@ -212,9 +212,12 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func resetAllViewport(w: Float, h: Float, resetTransform: Bool) {
-        viewprotRange = CGRect(x: 0, y: 0, width: Int(w), height: Int(h))
+        guard w.isFinite, h.isFinite, w >= 0, h >= 0 else { return }
+        let viewportRange = CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h))
+        guard let viewportSize = IRGLProgram2D.viewportSize(from: viewportRange) else { return }
+        viewprotRange = CGRect(x: 0, y: 0, width: viewportSize.width, height: viewportSize.height)
         mode?.program?.setViewportRange(viewprotRange, resetTransform: resetTransform)
-        metalFisheyeController?.resetViewport(width: Int(w), height: Int(h), resetTransform: resetTransform)
+        metalFisheyeController?.resetViewport(width: viewportSize.width, height: viewportSize.height, resetTransform: resetTransform)
         render(nil)
     }
 

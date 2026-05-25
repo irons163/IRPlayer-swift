@@ -30,6 +30,23 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertTrue(secondMode.program != nil)
     }
 
+    func testResetAllViewportConvertsFiniteDimensions() {
+        let view = IRGLView(frame: .zero)
+
+        view.resetAllViewport(w: 320.9, h: 180.2, resetTransform: false)
+
+        XCTAssertEqual(view.viewprotRange, CGRect(x: 0, y: 0, width: 320, height: 180))
+    }
+
+    func testResetAllViewportIgnoresInvalidDimensions() {
+        let view = IRGLView(frame: .zero)
+        view.resetAllViewport(w: 320, h: 180, resetTransform: false)
+
+        view.resetAllViewport(w: .infinity, h: 180, resetTransform: false)
+
+        XCTAssertEqual(view.viewprotRange, CGRect(x: 0, y: 0, width: 320, height: 180))
+    }
+
     func testTexUVTextureLayoutRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRGLView.texUVTextureLayout(width: 0, height: 1))
         XCTAssertNil(IRGLView.texUVTextureLayout(width: 1, height: 0))
