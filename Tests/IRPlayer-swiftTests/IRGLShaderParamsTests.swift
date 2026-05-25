@@ -91,6 +91,16 @@ final class IRMetalFisheyeMeshTests: XCTestCase {
             8
         )
     }
+
+    func testIndexValueRejectsValuesOutsideUInt16Range() {
+        XCTAssertNil(IRMetalFisheyeMesh.indexValue(-1))
+        XCTAssertNil(IRMetalFisheyeMesh.indexValue(Int(UInt16.max) + 1))
+    }
+
+    func testIndexValueConvertsUInt16RepresentableValues() {
+        XCTAssertEqual(IRMetalFisheyeMesh.indexValue(0), 0)
+        XCTAssertEqual(IRMetalFisheyeMesh.indexValue(Int(UInt16.max)), UInt16.max)
+    }
 }
 
 final class IRMetalDistortionMeshTests: XCTestCase {

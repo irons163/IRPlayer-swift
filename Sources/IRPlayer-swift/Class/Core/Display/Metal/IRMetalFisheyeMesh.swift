@@ -88,12 +88,16 @@ final class IRMetalFisheyeMesh {
             let i1 = i + 1
             for j in 0..<slices {
                 let j1 = j + 1
-                indices.append(UInt16(i * iMax + j))
-                indices.append(UInt16(i1 * iMax + j))
-                indices.append(UInt16(i1 * iMax + j1))
-                indices.append(UInt16(i * iMax + j))
-                indices.append(UInt16(i1 * iMax + j1))
-                indices.append(UInt16(i * iMax + j1))
+                guard let first = Self.indexValue(i * iMax + j),
+                      let second = Self.indexValue(i1 * iMax + j),
+                      let third = Self.indexValue(i1 * iMax + j1),
+                      let fourth = Self.indexValue(i * iMax + j1) else { return nil }
+                indices.append(first)
+                indices.append(second)
+                indices.append(third)
+                indices.append(first)
+                indices.append(third)
+                indices.append(fourth)
             }
         }
 
@@ -135,5 +139,10 @@ final class IRMetalFisheyeMesh {
         guard !overflow, byteLength > 0 else { return nil }
 
         return byteLength
+    }
+
+    static func indexValue(_ value: Int) -> UInt16? {
+        guard value >= 0, value <= Int(UInt16.max) else { return nil }
+        return UInt16(value)
     }
 }
