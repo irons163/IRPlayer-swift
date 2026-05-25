@@ -30,7 +30,8 @@ class IRFFFrameQueue: NSObject {
     }
 
     static func accountedDuration(for frame: IRFFFrame) -> TimeInterval {
-        return max(0, frame.duration)
+        guard frame.duration.isFinite, frame.duration > 0 else { return 0 }
+        return frame.duration
     }
 
     static func accountedSize(for frame: IRFFFrame) -> Int {
