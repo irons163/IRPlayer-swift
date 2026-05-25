@@ -111,4 +111,9 @@ final class IRSensorTests: XCTestCase {
         XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat(45), previous: CGFloat(15)), 30, accuracy: 0.0001)
         XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat(-20), previous: CGFloat(15)), -35, accuracy: 0.0001)
     }
+
+    func testMotionDeltaDefaultsNonFiniteInputsToZero() {
+        XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat.nan, previous: CGFloat(15)), 0)
+        XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat(15), previous: CGFloat.infinity), 0)
+    }
 }

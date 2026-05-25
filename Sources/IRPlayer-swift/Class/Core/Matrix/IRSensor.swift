@@ -127,6 +127,9 @@ class IRSensor {
     }
 
     static func normalizedMotionDelta(current: CGFloat, previous: CGFloat) -> CGFloat {
+        guard current.isFinite, previous.isFinite else {
+            return 0
+        }
         let delta = current - previous
         if delta < -180 {
             return 360 + delta
