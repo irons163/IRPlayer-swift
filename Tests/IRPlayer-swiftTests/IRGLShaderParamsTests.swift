@@ -49,6 +49,28 @@ final class IRGLShaderParamsTests: XCTestCase {
 
 final class IRMetalRendererPixelFormatTests: XCTestCase {
 
+    func testComputeScaleRejectsInvalidSizes() {
+        XCTAssertEqual(
+            IRMetalRenderer.computeScale(contentMode: .scaleAspectFit, frameSize: CGSize(width: CGFloat.nan, height: 100), drawableSize: CGSize(width: 100, height: 100)),
+            CGSize(width: 1, height: 1)
+        )
+        XCTAssertEqual(
+            IRMetalRenderer.computeScale(contentMode: .scaleAspectFill, frameSize: CGSize(width: 100, height: 100), drawableSize: CGSize(width: CGFloat.infinity, height: 100)),
+            CGSize(width: 1, height: 1)
+        )
+    }
+
+    func testComputeScaleCalculatesAspectFitAndFill() {
+        XCTAssertEqual(
+            IRMetalRenderer.computeScale(contentMode: .scaleAspectFit, frameSize: CGSize(width: 400, height: 200), drawableSize: CGSize(width: 100, height: 100)),
+            CGSize(width: 1, height: 0.5)
+        )
+        XCTAssertEqual(
+            IRMetalRenderer.computeScale(contentMode: .scaleAspectFill, frameSize: CGSize(width: 400, height: 200), drawableSize: CGSize(width: 100, height: 100)),
+            CGSize(width: 2, height: 1)
+        )
+    }
+
     func testRGBTextureLayoutRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 0, height: 1, linesize: 4, byteCount: 4))
         XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 1, height: 0, linesize: 4, byteCount: 4))
