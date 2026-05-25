@@ -34,6 +34,31 @@ final class IRGLProgram2DTests: XCTestCase {
         XCTAssertEqual(program.calculateViewport(), .zero)
     }
 
+    func testViewportSizeRejectsNonFiniteOrOverflowingDimensions() {
+        XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: CGFloat.nan, height: 10)))
+        XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: 10, height: CGFloat.infinity)))
+        XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: CGFloat(Int.max) * 2, height: 10)))
+        XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: 10, height: CGFloat(Int.max) * 2)))
+    }
+
+    func testViewportSizeConvertsFiniteNonNegativeDimensions() {
+        let size = IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: 320.9, height: 180.2))
+
+        XCTAssertEqual(size?.width, 320)
+        XCTAssertEqual(size?.height, 180)
+    }
+
+    func testSetViewportRangeIgnoresInvalidDimensionsWhenResettingTransform() {
+        let program = IRGLProgram2D()
+        let transformController = IRGLTransformController2D(viewportWidth: 320, viewportHeight: 180)
+        program.tramsformController = transformController
+
+        program.setViewportRange(CGRect(x: 0, y: 0, width: CGFloat.infinity, height: 180))
+
+        XCTAssertEqual(transformController.getScope().w, 320)
+        XCTAssertEqual(transformController.getScope().h, 180)
+    }
+
     func testDidScrollNotifiesDelegateForBoundsStatuses() {
         let program = IRGLProgram2D()
         let delegate = ProgramDelegateSpy()

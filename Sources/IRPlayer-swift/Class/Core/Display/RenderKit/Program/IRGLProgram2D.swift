@@ -53,6 +53,20 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
         self.shouldUpdateToDefaultWhenOutputSizeChanged = true
     }
 
+    static func viewportSize(from viewportRange: CGRect) -> (width: Int, height: Int)? {
+        let width = viewportRange.width
+        let height = viewportRange.height
+        guard width.isFinite,
+              height.isFinite,
+              width >= 0,
+              height >= 0,
+              width <= CGFloat(Int.max),
+              height <= CGFloat(Int.max) else {
+            return nil
+        }
+        return (Int(width), Int(height))
+    }
+
     func initShaderParams() {
         shaderParams2D = IRGLShaderParams()
         shaderParams2D?.delegate = self
@@ -60,7 +74,8 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
 
     func setViewportRange(_ viewportRange: CGRect, resetTransform: Bool = true) {
         self.viewprotRange = viewportRange
-        transformController?.resetViewport(width: Int(viewportRange.width), height: Int(viewportRange.height), resetTransform: resetTransform)
+        guard let viewportSize = Self.viewportSize(from: viewportRange) else { return }
+        transformController?.resetViewport(width: viewportSize.width, height: viewportSize.height, resetTransform: resetTransform)
     }
 
     func setDefaultScale(_ scale: Float) {
