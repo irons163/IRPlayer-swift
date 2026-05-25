@@ -126,6 +126,8 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     override func scroll(dx: Float, dy: Float) {
+        guard dx.isFinite, dy.isFinite else { return }
+
         let oldLng = scope.lng
         let oldLat = scope.lat
 

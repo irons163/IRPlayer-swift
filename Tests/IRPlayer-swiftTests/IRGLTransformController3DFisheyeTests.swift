@@ -91,6 +91,16 @@ final class IRGLTransformController3DFisheyeTests: XCTestCase {
         XCTAssertEqual(controller.getScope().scaleY, 1, accuracy: 0.0001)
     }
 
+    func testScrollIgnoresNonFiniteDeltas() {
+        let controller = IRGLTransformController3DFisheye(viewportWidth: 100, viewportHeight: 100, tileType: .up)
+
+        controller.scroll(dx: .nan, dy: .infinity)
+
+        assertFinite(controller.getModelViewProjectionMatrix())
+        XCTAssertEqual(controller.getScope().lng, 0, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().lat, 0, accuracy: 0.0001)
+    }
+
     private func assertFinite(
         _ matrix: simd_float4x4,
         file: StaticString = #filePath,
