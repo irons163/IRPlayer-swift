@@ -85,6 +85,11 @@ public class IRFFFormatContext {
         return bitrate.isFinite ? bitrate : 0
     }
 
+    static func presentationSize(width: Int32, height: Int32) -> CGSize {
+        guard width > 0, height > 0 else { return .zero }
+        return CGSize(width: CGFloat(width), height: CGFloat(height))
+    }
+
     func setupSync() {
         self.error = openStream()
         if error != nil { return }
@@ -202,7 +207,7 @@ public class IRFFFormatContext {
                         self.videoEnable = true
                         self.videoTimebase = IRFFStreamGetTimebase(stream, defaultTimebase: 0.00004)
                         self.videoFPS = IRFFStreamGetFPS(stream, timebase: self.videoTimebase)
-                        self.videoPresentationSize = CGSize(width: CGFloat(codecContext?.pointee.width ?? 0), height: CGFloat(codecContext?.pointee.height ?? 0))
+                        self.videoPresentationSize = Self.presentationSize(width: codecContext?.pointee.width ?? 0, height: codecContext?.pointee.height ?? 0)
                         self.videoAspect = Self.videoAspect(width: codecContext?.pointee.width ?? 0, height: codecContext?.pointee.height ?? 0)
                         self.videoCodecContext = codecContext
                         break

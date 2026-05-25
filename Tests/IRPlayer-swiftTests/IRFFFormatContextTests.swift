@@ -55,6 +55,13 @@ final class IRFFFormatContextTests: XCTestCase {
         XCTAssertEqual(IRFFFormatContext.videoAspect(width: -1, height: 1080), 0)
     }
 
+    func testVideoPresentationSizeRejectsInvalidDimensions() {
+        XCTAssertEqual(IRFFFormatContext.presentationSize(width: 1920, height: 1080), CGSize(width: 1920, height: 1080))
+        XCTAssertEqual(IRFFFormatContext.presentationSize(width: 0, height: 1080), .zero)
+        XCTAssertEqual(IRFFFormatContext.presentationSize(width: 1920, height: 0), .zero)
+        XCTAssertEqual(IRFFFormatContext.presentationSize(width: -1, height: 1080), .zero)
+    }
+
     func testSeekTimestampConvertsSecondsToFFmpegTimebase() {
         XCTAssertEqual(IRFFFormatContext.seekTimestamp(for: 1.5), 1_500_000)
         XCTAssertEqual(IRFFFormatContext.seekTimestamp(for: 0), 0)
