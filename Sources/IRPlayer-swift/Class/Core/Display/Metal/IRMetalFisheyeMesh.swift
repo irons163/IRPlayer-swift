@@ -112,7 +112,7 @@ final class IRMetalFisheyeMesh {
         indexCount = indices.count
     }
 
-    private static func resolveParams(textureWidth: Float, textureHeight: Float, centerX: Float, centerY: Float, radius: Float) -> (Float, Float, Float, Float, Float) {
+    static func resolveParams(textureWidth: Float, textureHeight: Float, centerX: Float, centerY: Float, radius: Float) -> (textureWidth: Float, textureHeight: Float, centerX: Float, centerY: Float, radius: Float) {
         let tw = textureWidth
         let th = textureHeight
         var cx = centerX
