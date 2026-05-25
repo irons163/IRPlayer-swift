@@ -28,7 +28,9 @@ final class IRMetalDistortionMesh {
     let indexCount: Int
 
     init?(device: MTLDevice, modelType: IRDistortionModelType) {
-        let mesh = IRMetalDistortionMesh.buildMesh(modelType: modelType)
+        guard let mesh = IRMetalDistortionMesh.buildMesh(modelType: modelType) else {
+            return nil
+        }
         guard !mesh.vertices.isEmpty, !mesh.indices.isEmpty else {
             return nil
         }
@@ -45,7 +47,7 @@ final class IRMetalDistortionMesh {
         self.indexCount = mesh.indices.count
     }
 
-    private static func buildMesh(modelType: IRDistortionModelType) -> (vertices: [IRMetalDistortionVertex], indices: [UInt16]) {
+    private static func buildMesh(modelType: IRDistortionModelType) -> (vertices: [IRMetalDistortionVertex], indices: [UInt16])? {
         var xEyeOffsetScreen: Float = 0.523064613
         let yEyeOffsetScreen: Float = 0.80952388
         let viewportWidthTexture: Float = 1.43138313
@@ -133,8 +135,10 @@ final class IRMetalDistortionMesh {
                         vertexOffset -= 1
                     }
                 }
-                indices.append(UInt16(vertexOffset))
-                indices.append(UInt16(vertexOffset + cols))
+                guard let first = Self.indexValue(vertexOffset),
+                      let second = Self.indexValue(vertexOffset + cols) else { return nil }
+                indices.append(first)
+                indices.append(second)
             }
             vertexOffset += cols
         }
@@ -183,5 +187,10 @@ final class IRMetalDistortionMesh {
         guard !overflow, byteLength > 0 else { return nil }
 
         return byteLength
+    }
+
+    static func indexValue(_ value: Int) -> UInt16? {
+        guard value >= 0, value <= Int(UInt16.max) else { return nil }
+        return UInt16(value)
     }
 }

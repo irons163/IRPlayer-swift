@@ -117,6 +117,16 @@ final class IRMetalDistortionMeshTests: XCTestCase {
             8
         )
     }
+
+    func testIndexValueRejectsValuesOutsideUInt16Range() {
+        XCTAssertNil(IRMetalDistortionMesh.indexValue(-1))
+        XCTAssertNil(IRMetalDistortionMesh.indexValue(Int(UInt16.max) + 1))
+    }
+
+    func testIndexValueConvertsUInt16RepresentableValues() {
+        XCTAssertEqual(IRMetalDistortionMesh.indexValue(0), 0)
+        XCTAssertEqual(IRMetalDistortionMesh.indexValue(Int(UInt16.max)), UInt16.max)
+    }
 }
 
 final class IRMetalRendererDistortionTests: XCTestCase {
