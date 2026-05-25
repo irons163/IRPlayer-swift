@@ -59,13 +59,18 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     static func outputSize(forTextureWidth textureWidth: Int, height textureHeight: Int) -> (width: Int, height: Int)? {
         guard textureWidth > 0, textureHeight > 0 else { return nil }
 
-        let outputWidth = GLint(1.422222222222222 * Double(textureWidth))
-        let vapertureRadians = GLfloat(60.0) * DTOR
+        guard let outputWidth = boundedGLint(from: 1.422222222222222 * Double(textureWidth)) else { return nil }
+        let vapertureRadians = Double(60.0 * DTOR)
         let halfVaperture = 0.5 * vapertureRadians
-        let deltaLongitudeRadians = 0.5 * (GLfloat(360.0) * DTOR)
-        let outputHeight = GLint(Float(outputWidth) * tan(halfVaperture) / deltaLongitudeRadians)
+        let deltaLongitudeRadians = 0.5 * Double(360.0 * DTOR)
+        guard let outputHeight = boundedGLint(from: Double(outputWidth) * tan(halfVaperture) / deltaLongitudeRadians) else { return nil }
         guard outputWidth > 0, outputHeight > 0 else { return nil }
         return (Int(outputWidth), Int(outputHeight))
+    }
+
+    static func boundedGLint(from value: Double) -> GLint? {
+        guard value.isFinite, value >= Double(GLint.min), value <= Double(GLint.max) else { return nil }
+        return GLint(value)
     }
 
     static func pixelMapTextureCount(antialias: GLint) -> Int? {
@@ -192,9 +197,14 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     }
 
     override func updateTextureWidth(_ w: Int, height h: Int) {
-        if textureWidth != GLint(w) || textureHeight != GLint(h) {
-            textureWidth = GLint(w)
-            textureHeight = GLint(h)
+        guard let nextTextureWidth = Self.boundedGLint(from: Double(w)),
+              let nextTextureHeight = Self.boundedGLint(from: Double(h)) else {
+            return
+        }
+
+        if textureWidth != nextTextureWidth || textureHeight != nextTextureHeight {
+            textureWidth = nextTextureWidth
+            textureHeight = nextTextureHeight
             fishcenterx = textureWidth / 2
             fishcentery = textureHeight / 2
             fishradiush = textureWidth / 2

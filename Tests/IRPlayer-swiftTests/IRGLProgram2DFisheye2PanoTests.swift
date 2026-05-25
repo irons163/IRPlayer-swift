@@ -54,11 +54,26 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertTrue(delegate.outputSizes.isEmpty)
     }
 
+    func testPanoShaderParamsHugeTextureUpdateDoesNotBuildOutputMap() {
+        let params = IRGLFish2PanoShaderParams()
+        let delegate = ShaderParamsDelegateSpy()
+        params.delegate = delegate
+
+        params.updateTextureWidth(Int.max, height: 480)
+
+        XCTAssertEqual(params.textureWidth, 0)
+        XCTAssertEqual(params.textureHeight, 0)
+        XCTAssertEqual(params.outputWidth, 1024)
+        XCTAssertEqual(params.outputHeight, 0)
+        XCTAssertTrue(delegate.outputSizes.isEmpty)
+    }
+
     func testPanoOutputSizeRejectsInvalidTextureDimensions() {
         XCTAssertNil(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 0, height: 480))
         XCTAssertNil(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: 0))
         XCTAssertNil(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: -640, height: 480))
         XCTAssertNil(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: -480))
+        XCTAssertNil(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: Int.max, height: 480))
     }
 
     func testPanoOutputSizeUsesExpectedAspectForValidTextureDimensions() throws {
