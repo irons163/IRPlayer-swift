@@ -29,4 +29,17 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertTrue(view.getCurrentRenderMode() === secondMode)
         XCTAssertTrue(secondMode.program != nil)
     }
+
+    func testTexUVTextureLayoutRejectsInvalidOrOverflowingInputs() {
+        XCTAssertNil(IRGLView.texUVTextureLayout(width: 0, height: 1))
+        XCTAssertNil(IRGLView.texUVTextureLayout(width: 1, height: 0))
+        XCTAssertNil(IRGLView.texUVTextureLayout(width: Int.max, height: 2))
+    }
+
+    func testTexUVTextureLayoutCalculatesRGFloatRows() {
+        let layout = IRGLView.texUVTextureLayout(width: 3, height: 2)
+
+        XCTAssertEqual(layout?.bytesPerRow, 24)
+        XCTAssertEqual(layout?.totalByteCount, 48)
+    }
 }

@@ -732,17 +732,30 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                          contentMode: effectiveContentMode)
     }
 
+    static func texUVTextureLayout(width: Int, height: Int) -> (bytesPerRow: Int, totalByteCount: Int)? {
+        guard width > 0, height > 0 else { return nil }
+
+        let bytesPerTexel = MemoryLayout<Float>.size * 2
+        let (bytesPerRow, rowOverflow) = width.multipliedReportingOverflow(by: bytesPerTexel)
+        guard !rowOverflow, bytesPerRow > 0 else { return nil }
+
+        let (totalByteCount, totalOverflow) = bytesPerRow.multipliedReportingOverflow(by: height)
+        guard !totalOverflow, totalByteCount > 0 else { return nil }
+
+        return (bytesPerRow: bytesPerRow, totalByteCount: totalByteCount)
+    }
+
     private func makeTexUVTexture(width: Int, height: Int, data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {
-        guard let device = device else { return nil }
+        guard let device = device,
+              let layout = Self.texUVTextureLayout(width: width, height: height) else { return nil }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float,
                                                                   width: width,
                                                                   height: height,
                                                                   mipmapped: false)
         descriptor.usage = .shaderRead
         guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-        let bytesPerRow = width * MemoryLayout<Float>.size * 2
         let region = MTLRegionMake2D(0, 0, width, height)
-        texture.replace(region: region, mipmapLevel: 0, withBytes: data, bytesPerRow: bytesPerRow)
+        texture.replace(region: region, mipmapLevel: 0, withBytes: data, bytesPerRow: layout.bytesPerRow)
         return texture
     }
 
