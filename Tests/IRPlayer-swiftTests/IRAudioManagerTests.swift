@@ -28,6 +28,13 @@ final class IRAudioManagerNotificationTests: XCTestCase {
         XCTAssertFalse(interruptionCalled)
         XCTAssertFalse(routeChangeCalled)
     }
+
+    func testUnsignedIntegerRejectsNegativeNumericPayloads() {
+        XCTAssertNil(IRAudioManager.unsignedInteger(from: -1))
+        XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: -1)))
+        XCTAssertEqual(IRAudioManager.unsignedInteger(from: UInt(3)), 3)
+        XCTAssertEqual(IRAudioManager.unsignedInteger(from: NSNumber(value: 4)), 4)
+    }
 }
 
 final class IRAudioManagerRenderTests: XCTestCase {

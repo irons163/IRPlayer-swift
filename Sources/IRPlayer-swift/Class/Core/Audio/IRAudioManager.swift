@@ -132,11 +132,11 @@ class IRAudioManager: NSObject {
 
     @objc private func audioSessionInterruptionHandler(_ notification: Notification) {
         guard let handlerTarget = handlerTarget, let interruptionHandler = interruptionHandler else { return }
-        guard let rawType = unsignedInteger(from: notification.userInfo?[AVAudioSessionInterruptionTypeKey]),
+        guard let rawType = Self.unsignedInteger(from: notification.userInfo?[AVAudioSessionInterruptionTypeKey]),
               let avType = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
         let type: IRAudioManagerInterruptionType = (avType == .ended) ? .ended : .begin
         var option: IRAudioManagerInterruptionOption = .none
-        if let avOption = unsignedInteger(from: notification.userInfo?[AVAudioSessionInterruptionOptionKey]) {
+        if let avOption = Self.unsignedInteger(from: notification.userInfo?[AVAudioSessionInterruptionOptionKey]) {
             if avOption == AVAudioSession.InterruptionOptions.shouldResume.rawValue {
                 option = .shouldResume
             }
@@ -146,22 +146,23 @@ class IRAudioManager: NSObject {
 
     @objc private func audioSessionRouteChangeHandler(_ notification: Notification) {
         guard let handlerTarget = handlerTarget, let routeChangeHandler = routeChangeHandler else { return }
-        guard let rawReason = unsignedInteger(from: notification.userInfo?[AVAudioSessionRouteChangeReasonKey]),
+        guard let rawReason = Self.unsignedInteger(from: notification.userInfo?[AVAudioSessionRouteChangeReasonKey]),
               let avReason = AVAudioSession.RouteChangeReason(rawValue: rawReason) else { return }
         if avReason == .oldDeviceUnavailable {
             routeChangeHandler(handlerTarget, self, .oldDeviceUnavailable)
         }
     }
 
-    private func unsignedInteger(from value: Any?) -> UInt? {
+    static func unsignedInteger(from value: Any?) -> UInt? {
         if let value = value as? UInt {
             return value
         }
-        if let value = value as? NSNumber {
-            return value.uintValue
-        }
         if let value = value as? Int, value >= 0 {
             return UInt(value)
+        }
+        if let value = value as? NSNumber {
+            guard value.int64Value >= 0 else { return nil }
+            return UInt(value.uint64Value)
         }
         return nil
     }
