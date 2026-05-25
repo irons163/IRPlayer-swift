@@ -74,6 +74,21 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertEqual(duration, 1, accuracy: 0.0001)
     }
 
+    func testSWROutputInfoRejectsInvalidAudioInfo() {
+        XCTAssertNil(IRFFAudioDecoder.swrOutputInfo(samplingRate: 0, channelCount: 2))
+        XCTAssertNil(IRFFAudioDecoder.swrOutputInfo(samplingRate: .nan, channelCount: 2))
+        XCTAssertNil(IRFFAudioDecoder.swrOutputInfo(samplingRate: Float64(Int32.max) + 1, channelCount: 2))
+        XCTAssertNil(IRFFAudioDecoder.swrOutputInfo(samplingRate: 48_000, channelCount: 0))
+        XCTAssertNil(IRFFAudioDecoder.swrOutputInfo(samplingRate: 48_000, channelCount: UInt32(Int32.max) + 1))
+    }
+
+    func testSWROutputInfoConvertsValidAudioInfo() throws {
+        let info = try XCTUnwrap(IRFFAudioDecoder.swrOutputInfo(samplingRate: 48_000.9, channelCount: 2))
+
+        XCTAssertEqual(info.samplingRate, 48_000)
+        XCTAssertEqual(info.channelCount, 2)
+    }
+
     func testDecodedFrameDurationUsesFiniteTickDuration() {
         let duration = IRFFAudioDecoder.decodedFrameDuration(ticks: 480, timebase: 0.001, fallbackDuration: 1)
 

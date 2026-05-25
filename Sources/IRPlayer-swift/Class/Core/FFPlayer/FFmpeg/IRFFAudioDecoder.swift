@@ -50,8 +50,9 @@ class IRFFAudioDecoder {
 
     private func setupSwsContext() {
         reloadAudioOutputInfo()
+        guard let outputInfo = Self.swrOutputInfo(samplingRate: samplingRate, channelCount: channelCount) else { return }
 
-        audioSwrContext = swr_alloc_set_opts(nil, av_get_default_channel_layout(Int32(channelCount)), AV_SAMPLE_FMT_S16, Int32(samplingRate), av_get_default_channel_layout(codecContext?.pointee.channels ?? 0), codecContext?.pointee.sample_fmt ?? AV_SAMPLE_FMT_NONE, codecContext?.pointee.sample_rate ?? 0, 0, nil)
+        audioSwrContext = swr_alloc_set_opts(nil, av_get_default_channel_layout(outputInfo.channelCount), AV_SAMPLE_FMT_S16, outputInfo.samplingRate, av_get_default_channel_layout(codecContext?.pointee.channels ?? 0), codecContext?.pointee.sample_fmt ?? AV_SAMPLE_FMT_NONE, codecContext?.pointee.sample_rate ?? 0, 0, nil)
 
         let result = swr_init(audioSwrContext)
         let error: Error? = IRFFCheckError(result)
@@ -97,6 +98,18 @@ class IRFFAudioDecoder {
 
         let duration = Double(sampleByteCount) / bytesPerSecond
         return duration.isFinite && duration > 0 ? duration : nil
+    }
+
+    static func swrOutputInfo(samplingRate: Float64, channelCount: UInt32) -> (samplingRate: Int32, channelCount: Int32)? {
+        guard samplingRate.isFinite,
+              samplingRate > 0,
+              samplingRate <= Float64(Int32.max),
+              channelCount > 0,
+              channelCount <= UInt32(Int32.max) else {
+            return nil
+        }
+
+        return (Int32(samplingRate), Int32(channelCount))
     }
 
     static func decodedFrameDuration(ticks: Int64, timebase: TimeInterval, fallbackDuration: TimeInterval?) -> TimeInterval {
@@ -219,14 +232,15 @@ class IRFFAudioDecoder {
         var audioDataBuffer: UnsafeMutableRawPointer
 
         if let audioSwrContext = audioSwrContext {
-            guard let ratio = Self.resampleRatio(outputSamplingRate: samplingRate,
+            guard let outputInfo = Self.swrOutputInfo(samplingRate: samplingRate, channelCount: channelCount),
+                  let ratio = Self.resampleRatio(outputSamplingRate: samplingRate,
                                                  inputSamplingRate: codecContext?.pointee.sample_rate ?? 0,
                                                  outputChannelCount: channelCount,
                                                  inputChannelCount: codecContext?.pointee.channels ?? 0),
                   let frameCapacity = Self.resampleFrameCapacity(inputFrameCount: tempFrame.pointee.nb_samples, ratio: ratio) else {
                 return nil
             }
-            let bufferSize = av_samples_get_buffer_size(nil, Int32(channelCount), frameCapacity, AV_SAMPLE_FMT_S16, 1)
+            let bufferSize = av_samples_get_buffer_size(nil, outputInfo.channelCount, frameCapacity, AV_SAMPLE_FMT_S16, 1)
             guard bufferSize > 0 else { return nil }
 
             if audioSwrBuffer == nil || audioSwrBufferSize < bufferSize {
