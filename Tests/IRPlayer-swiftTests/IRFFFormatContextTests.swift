@@ -100,7 +100,7 @@ final class IRFFFormatContextTests: XCTestCase {
         let context = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
         let delegate = FormatContextInterruptDelegate(shouldInterrupt: true)
         context.delegate = delegate
-        let refCon = UnsafeMutableRawPointer(Unmanaged.passUnretained(context).toOpaque())
+        let refCon = IRFFFormatContext.interruptOpaquePointer(for: context)
 
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 1)
 

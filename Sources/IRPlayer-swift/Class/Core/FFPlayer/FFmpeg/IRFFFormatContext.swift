@@ -90,6 +90,10 @@ public class IRFFFormatContext {
         return CGSize(width: CGFloat(width), height: CGFloat(height))
     }
 
+    static func interruptOpaquePointer(for context: IRFFFormatContext) -> UnsafeMutableRawPointer {
+        return UnsafeMutableRawPointer(Unmanaged.passUnretained(context).toOpaque())
+    }
+
     func setupSync() {
         self.error = openStream()
         if error != nil { return }
@@ -122,7 +126,7 @@ public class IRFFFormatContext {
         }
 
         formatContext?.pointee.interrupt_callback.callback = ffmpeg_interrupt_callback
-        formatContext?.pointee.interrupt_callback.opaque = unsafeBitCast(self, to: UnsafeMutableRawPointer.self)
+        formatContext?.pointee.interrupt_callback.opaque = Self.interruptOpaquePointer(for: self)
 
         var opts = AVDictionary(rawPointer: nil)
         if videoFormat == .rtsp {
