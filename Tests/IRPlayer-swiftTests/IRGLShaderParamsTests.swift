@@ -63,6 +63,18 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
             8
         )
     }
+
+    func testMakeRGBTextureRejectsLinesizeThatCannotFitBytesPerRow() throws {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let renderer = IRMetalRenderer(device: device) else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        let frame = IRVideoFrameRGB(linesize: UInt(Int.max) + 1, rgb: Data([0, 0, 0, 0]))
+        frame.width = 1
+        frame.height = 1
+
+        XCTAssertNil(renderer.makeRGBTexture(from: frame))
+    }
 }
 
 final class IRMetalFisheyeMeshTests: XCTestCase {

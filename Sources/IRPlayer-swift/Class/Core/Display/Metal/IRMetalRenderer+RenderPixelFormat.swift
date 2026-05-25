@@ -134,10 +134,11 @@ extension IRMetalRenderer {
     func makeRGBTexture(from rgbFrame: IRVideoFrameRGB) -> MTLTexture? {
         let width = rgbFrame.width
         let height = rgbFrame.height
+        guard let bytesPerRow = IRVideoFrameRGB.bytesPerRow(from: rgbFrame.linesize) else { return nil }
         guard let layout = Self.rgbTextureLayout(
             width: width,
             height: height,
-            linesize: Int(rgbFrame.linesize),
+            linesize: bytesPerRow,
             byteCount: rgbFrame.rgb.count
         ) else { return nil }
 
