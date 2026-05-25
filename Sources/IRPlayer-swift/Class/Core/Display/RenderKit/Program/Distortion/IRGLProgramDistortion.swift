@@ -19,8 +19,9 @@ import Foundation
 
     override func setViewportRange(_ viewportRange: CGRect, resetTransform: Bool) {
         super.setViewportRange(viewportRange, resetTransform: resetTransform)
-        transformControllerDistortion?.resetViewport(width: Int(viewportRange.size.width) / 2,
-                                                    height: Int(viewportRange.size.height),
+        guard let viewportSize = Self.viewportSize(from: viewportRange) else { return }
+        transformControllerDistortion?.resetViewport(width: viewportSize.width / 2,
+                                                    height: viewportSize.height,
                                                     resetTransform: false)
     }
 
