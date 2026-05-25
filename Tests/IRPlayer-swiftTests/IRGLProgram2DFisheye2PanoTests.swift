@@ -68,6 +68,27 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(outputSize.height, 167)
     }
 
+    func testPanoPixelMapTextureCountRejectsInvalidOrOverflowingAntialias() {
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapTextureCount(antialias: 0))
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapTextureCount(antialias: -1))
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapTextureCount(antialias: GLint.max))
+    }
+
+    func testPanoPixelMapTextureCountSquaresAntialias() {
+        XCTAssertEqual(IRGLFish2PanoShaderParams.pixelMapTextureCount(antialias: 1), 1)
+        XCTAssertEqual(IRGLFish2PanoShaderParams.pixelMapTextureCount(antialias: 3), 9)
+    }
+
+    func testPanoPixelMapCapacityRejectsInvalidOrOverflowingDimensions() {
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapCapacity(outputWidth: 0, outputHeight: 10))
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapCapacity(outputWidth: 10, outputHeight: 0))
+        XCTAssertNil(IRGLFish2PanoShaderParams.pixelMapCapacity(outputWidth: GLint.max, outputHeight: 2))
+    }
+
+    func testPanoPixelMapCapacityCountsUVPairs() {
+        XCTAssertEqual(IRGLFish2PanoShaderParams.pixelMapCapacity(outputWidth: 10, outputHeight: 20), 400)
+    }
+
     func testNormalizedOffsetRejectsInvalidOutputWidth() {
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: 0))
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: -1))

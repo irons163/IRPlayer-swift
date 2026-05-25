@@ -37,8 +37,7 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
 
     func consumePixUVIfReady() -> [UnsafeMutablePointer<GLfloat>]? {
         guard metalPixUVReady else { return nil }
-        let texnum = Int(antialias * antialias)
-        guard texnum > 0 else { return nil }
+        guard let texnum = Self.pixelMapTextureCount(antialias: antialias) else { return nil }
         guard let pixUV = pixUV else { return nil }
 
         var result: [UnsafeMutablePointer<GLfloat>] = []
@@ -67,6 +66,26 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         let outputHeight = GLint(Float(outputWidth) * tan(halfVaperture) / deltaLongitudeRadians)
         guard outputWidth > 0, outputHeight > 0 else { return nil }
         return (Int(outputWidth), Int(outputHeight))
+    }
+
+    static func pixelMapTextureCount(antialias: GLint) -> Int? {
+        guard antialias > 0 else { return nil }
+
+        let antialiasCount = Int(antialias)
+        let (textureCount, overflow) = antialiasCount.multipliedReportingOverflow(by: antialiasCount)
+        guard !overflow, textureCount > 0, textureCount <= Int(Int32.max) else { return nil }
+        return textureCount
+    }
+
+    static func pixelMapCapacity(outputWidth: GLint, outputHeight: GLint) -> Int? {
+        guard outputWidth > 0, outputHeight > 0 else { return nil }
+
+        let (pixelCount, pixelCountOverflow) = Int(outputWidth).multipliedReportingOverflow(by: Int(outputHeight))
+        guard !pixelCountOverflow else { return nil }
+
+        let (capacity, capacityOverflow) = pixelCount.multipliedReportingOverflow(by: 2)
+        guard !capacityOverflow, capacity > 0, capacity <= Int(Int32.max) else { return nil }
+        return capacity
     }
 
     func initPixelMaps() {
@@ -184,10 +203,13 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         transformZ = -90.0
 
         DispatchQueue.global(qos: .userInitiated).async {
-            let texnum = max(Int(self.antialias * self.antialias), 1)
+            guard let texnum = Self.pixelMapTextureCount(antialias: self.antialias),
+                  let pixelMapCapacity = Self.pixelMapCapacity(outputWidth: self.outputWidth, outputHeight: self.outputHeight) else {
+                return
+            }
             self.pixUV = .allocate(capacity: texnum)
             for i in 0..<texnum {
-                self.pixUV?[i] = .allocate(capacity: Int(self.outputWidth * self.outputHeight * 2))
+                self.pixUV?[i] = .allocate(capacity: pixelMapCapacity)
             }
             self.initPixelMaps()
             self.useTexUVs = true
