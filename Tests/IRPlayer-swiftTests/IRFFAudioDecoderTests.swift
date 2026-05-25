@@ -74,6 +74,25 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertEqual(duration, 1, accuracy: 0.0001)
     }
 
+    func testDecodedFrameDurationUsesFiniteTickDuration() {
+        let duration = IRFFAudioDecoder.decodedFrameDuration(ticks: 480, timebase: 0.001, fallbackDuration: 1)
+
+        XCTAssertEqual(duration, 0.48, accuracy: 0.0001)
+    }
+
+    func testDecodedFrameDurationFallsBackWhenTicksAreMissing() {
+        let duration = IRFFAudioDecoder.decodedFrameDuration(ticks: 0, timebase: 0.001, fallbackDuration: 0.25)
+
+        XCTAssertEqual(duration, 0.25, accuracy: 0.0001)
+    }
+
+    func testDecodedFrameDurationRejectsInvalidTimingValues() {
+        XCTAssertEqual(IRFFAudioDecoder.decodedFrameDuration(ticks: 480, timebase: .infinity, fallbackDuration: 0.25), 0.25)
+        XCTAssertEqual(IRFFAudioDecoder.decodedFrameDuration(ticks: -480, timebase: 0.001, fallbackDuration: 0.25), 0.25)
+        XCTAssertEqual(IRFFAudioDecoder.decodedFrameDuration(ticks: 0, timebase: 0.001, fallbackDuration: .nan), 0)
+        XCTAssertEqual(IRFFAudioDecoder.decodedFrameDuration(ticks: 0, timebase: 0.001, fallbackDuration: nil), 0)
+    }
+
     func testResampleRatioRejectsInvalidAudioInfo() {
         XCTAssertNil(IRFFAudioDecoder.resampleRatio(outputSamplingRate: 0, inputSamplingRate: 48_000, outputChannelCount: 2, inputChannelCount: 2))
         XCTAssertNil(IRFFAudioDecoder.resampleRatio(outputSamplingRate: .infinity, inputSamplingRate: 48_000, outputChannelCount: 2, inputChannelCount: 2))

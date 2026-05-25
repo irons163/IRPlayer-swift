@@ -99,6 +99,20 @@ class IRFFAudioDecoder {
         return duration.isFinite && duration > 0 ? duration : nil
     }
 
+    static func decodedFrameDuration(ticks: Int64, timebase: TimeInterval, fallbackDuration: TimeInterval?) -> TimeInterval {
+        if ticks > 0, timebase.isFinite, timebase > 0 {
+            let duration = Double(ticks) * timebase
+            if duration.isFinite, duration > 0 {
+                return duration
+            }
+        }
+
+        guard let fallbackDuration, fallbackDuration.isFinite, fallbackDuration > 0 else {
+            return 0
+        }
+        return fallbackDuration
+    }
+
     static func resampleRatio(outputSamplingRate: Float64, inputSamplingRate: Int32, outputChannelCount: UInt32, inputChannelCount: Int32) -> Int? {
         guard outputSamplingRate.isFinite,
               outputSamplingRate > 0,
@@ -267,7 +281,6 @@ class IRFFAudioDecoder {
         }
         
         audioFrame.position = Double(tempFrame.pointee.best_effort_timestamp) * timebase
-        audioFrame.duration = Double(tempFrame.pointee.duration) * timebase
 
         guard let numberOfElements = Self.sampleElementCount(numberOfFrames: numberOfFrames, channelCount: channelCount) else {
             return nil
@@ -276,10 +289,8 @@ class IRFFAudioDecoder {
             return nil
         }
         audioFrame.setSamplesLength(sampleByteCount)
-        if audioFrame.duration == 0,
-           let fallbackDuration = Self.fallbackDuration(sampleByteCount: sampleByteCount, channelCount: channelCount, samplingRate: samplingRate) {
-            audioFrame.duration = fallbackDuration
-        }
+        let fallbackDuration = Self.fallbackDuration(sampleByteCount: sampleByteCount, channelCount: channelCount, samplingRate: samplingRate)
+        audioFrame.duration = Self.decodedFrameDuration(ticks: tempFrame.pointee.duration, timebase: timebase, fallbackDuration: fallbackDuration)
         guard let samples = audioFrame.samples else { return nil }
 
         var scale: Float32 = 1.0 / Float32(Int16.max)
