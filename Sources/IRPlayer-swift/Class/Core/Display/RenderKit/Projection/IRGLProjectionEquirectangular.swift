@@ -156,17 +156,24 @@ class IRGLProjectionEquirectangular: IRGLProjection {
                     index = 0
                     bufferNum += 1
                 }
-                indexBuffer[index] = Int16(i * iMax + j)
+                guard let first = Self.indexValue(i * iMax + j),
+                      let second = Self.indexValue(i1 * iMax + j),
+                      let third = Self.indexValue(i1 * iMax + j1),
+                      let fourth = Self.indexValue(i * iMax + j1) else {
+                    releaseBuffers()
+                    return
+                }
+                indexBuffer[index] = first
                 index += 1
-                indexBuffer[index] = Int16(i1 * iMax + j)
+                indexBuffer[index] = second
                 index += 1
-                indexBuffer[index] = Int16(i1 * iMax + j1)
+                indexBuffer[index] = third
                 index += 1
-                indexBuffer[index] = Int16(i * iMax + j)
+                indexBuffer[index] = first
                 index += 1
-                indexBuffer[index] = Int16(i1 * iMax + j1)
+                indexBuffer[index] = third
                 index += 1
-                indexBuffer[index] = Int16(i * iMax + j1)
+                indexBuffer[index] = fourth
                 index += 1
             }
         }
@@ -270,5 +277,10 @@ class IRGLProjectionEquirectangular: IRGLProjection {
         guard !overflow, count > 0 else { return nil }
 
         return count
+    }
+
+    static func indexValue(_ value: Int) -> Int16? {
+        guard value >= Int(Int16.min), value <= Int(Int16.max) else { return nil }
+        return Int16(value)
     }
 }

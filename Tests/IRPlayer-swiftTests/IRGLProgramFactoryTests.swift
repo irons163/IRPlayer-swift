@@ -179,6 +179,16 @@ final class IRGLProjectionEquirectangularTests: XCTestCase {
         }
     }
 
+    func testIndexValueRejectsValuesOutsideInt16Range() {
+        XCTAssertNil(IRGLProjectionEquirectangular.indexValue(Int(Int16.min) - 1))
+        XCTAssertNil(IRGLProjectionEquirectangular.indexValue(Int(Int16.max) + 1))
+    }
+
+    func testIndexValueConvertsInt16RepresentableValues() {
+        XCTAssertEqual(IRGLProjectionEquirectangular.indexValue(0), 0)
+        XCTAssertEqual(IRGLProjectionEquirectangular.indexValue(Int(Int16.max)), Int16.max)
+    }
+
     func testProjectionExportMeshSurvivesParameterUpdate() throws {
         let projection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: 720, centerY: 540, radius: 520)
         let firstMesh = try XCTUnwrap(projection.exportMesh())
