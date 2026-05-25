@@ -19,8 +19,9 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
         self.frameClassName = frameClassName
         self.frameFactory = frameFactory ?? IRFFFramePool.makeFrameFactory(for: frameClassName)
         super.init()
-        unuseFrames.reserveCapacity(capacity)
-        usedFrames.reserveCapacity(capacity)
+        let reserveCapacity = Self.reserveCapacity(from: capacity)
+        unuseFrames.reserveCapacity(reserveCapacity)
+        usedFrames.reserveCapacity(reserveCapacity)
     }
 
     static func videoPool() -> IRFFFramePool {
@@ -37,6 +38,10 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
 
     static func pool(withCapacity number: Int, frameClassName: AnyClass) -> IRFFFramePool {
         return IRFFFramePool(capacity: number, frameClassName: frameClassName)
+    }
+
+    static func reserveCapacity(from capacity: Int) -> Int {
+        return max(0, capacity)
     }
 
     private static func makeFrameFactory(for frameClassName: AnyClass) -> () -> IRFFFrame? {

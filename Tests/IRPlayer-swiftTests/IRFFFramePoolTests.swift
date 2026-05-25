@@ -11,6 +11,12 @@ final class IRFFFramePoolTests: XCTestCase {
         XCTAssertTrue(audioFrame is IRFFAudioFrame)
     }
 
+    func testFramePoolReserveCapacityRejectsNegativeValues() {
+        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: 2), 2)
+        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: 0), 0)
+        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: -1), 0)
+    }
+
     func testFramePoolMovesFramesThroughUsedPlayingAndUnuseBuckets() throws {
         let pool = IRFFFramePool.pool(withCapacity: 2, frameClassName: IRFFFrame.self)
         let frame = try XCTUnwrap(pool.getUnuseFrame())
