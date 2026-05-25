@@ -73,15 +73,20 @@ class IRGLProjectionEquirectangular: IRGLProjection {
         }
 
         let iMax = slices + 1
-        nVertices = iMax * iMax
-        guard nVertices <= Int.max else {
+        guard let vertexCount = Self.elementCount(baseCount: iMax, components: iMax),
+              let vertexCapacity = Self.elementCount(baseCount: vertexCount, components: 3),
+              let vectorCapacity = Self.elementCount(baseCount: vertexCount, components: 2),
+              let sliceSquareCount = Self.elementCount(baseCount: slices, components: slices),
+              let totalIndices = Self.elementCount(baseCount: sliceSquareCount, components: 6) else {
             print("nSlices \(slices) too big for vertex")
             return
         }
+        releaseBuffers()
 
-        mVertices = UnsafeMutablePointer<Float>.allocate(capacity: nVertices * 3)
-        mVectors = UnsafeMutablePointer<Float>.allocate(capacity: nVertices * 2)
-        mTotalIndices = slices * slices * 6
+        nVertices = vertexCount
+        mVertices = UnsafeMutablePointer<Float>.allocate(capacity: vertexCapacity)
+        mVectors = UnsafeMutablePointer<Float>.allocate(capacity: vectorCapacity)
+        mTotalIndices = totalIndices
         mIndices = UnsafeMutablePointer<UnsafeMutablePointer<Int16>>.allocate(capacity: indicesPerVertex)
         mNumIndices = UnsafeMutablePointer<Int>.allocate(capacity: indicesPerVertex)
 
@@ -118,15 +123,19 @@ class IRGLProjectionEquirectangular: IRGLProjection {
                 vLineBuffer2[vectorBase + 1] = (cr * cosi - cy) / th
             }
 
-            let mVerticesLength = Int(vLineBuffer.count * MemoryLayout<Float>.size)
-            let mVectorsLength = Int(vLineBuffer2.count * MemoryLayout<Float>.size)
-            memcpy(mVertices?.advanced(by: (Int(mVerticesPosition)/MemoryLayout<Float>.size)), vLineBuffer, Int(mVerticesLength))
-            memcpy(mVectors?.advanced(by: (Int(mVectorsPosition)/MemoryLayout<Float>.size)), vLineBuffer2, Int(mVectorsLength))
+            guard let mVerticesLength = Self.byteCount(elementCount: vLineBuffer.count, stride: MemoryLayout<Float>.size),
+                  let mVectorsLength = Self.byteCount(elementCount: vLineBuffer2.count, stride: MemoryLayout<Float>.size) else {
+                releaseBuffers()
+                return
+            }
+            memcpy(mVertices?.advanced(by: (mVerticesPosition / MemoryLayout<Float>.size)), vLineBuffer, mVerticesLength)
+            memcpy(mVectors?.advanced(by: (mVectorsPosition / MemoryLayout<Float>.size)), vLineBuffer2, mVectorsLength)
             mVerticesPosition += mVerticesLength
             mVectorsPosition += mVectorsLength
         }
 
         let indexBuffer = UnsafeMutablePointer<Int16>.allocate(capacity: getMaxItem(array: mNumIndices, size: indicesPerVertex))
+        defer { indexBuffer.deallocate() }
         var index = 0
         var bufferNum = 0
 
@@ -135,7 +144,11 @@ class IRGLProjectionEquirectangular: IRGLProjection {
             for j in 0..<slices {
                 let j1 = j + 1
                 if index >= mNumIndices?[bufferNum] ?? 0 {
-                    memcpy(mIndices?[bufferNum], indexBuffer, Int((mNumIndices?[bufferNum] ?? 0) * MemoryLayout<Int16>.size))
+                    guard let indexByteCount = Self.byteCount(elementCount: mNumIndices?[bufferNum] ?? 0, stride: MemoryLayout<Int16>.size) else {
+                        releaseBuffers()
+                        return
+                    }
+                    memcpy(mIndices?[bufferNum], indexBuffer, indexByteCount)
                     index = 0
                     bufferNum += 1
                 }
@@ -154,8 +167,11 @@ class IRGLProjectionEquirectangular: IRGLProjection {
             }
         }
 
-        memcpy(mIndices?[bufferNum], indexBuffer, (mNumIndices?[bufferNum] ?? 0) * MemoryLayout<Int16>.size)
-        free(indexBuffer)
+        guard let indexByteCount = Self.byteCount(elementCount: mNumIndices?[bufferNum] ?? 0, stride: MemoryLayout<Int16>.size) else {
+            releaseBuffers()
+            return
+        }
+        memcpy(mIndices?[bufferNum], indexBuffer, indexByteCount)
     }
 
     private func getMaxItem(array: UnsafeMutablePointer<Int>?, size: Int) -> Int {
@@ -183,13 +199,24 @@ class IRGLProjectionEquirectangular: IRGLProjection {
     }
 
     deinit {
-        for i in 0..<indicesPerVertex {
-            free(mIndices?[i])
+        releaseBuffers()
+    }
+
+    private func releaseBuffers() {
+        if let mIndices {
+            for i in 0..<indicesPerVertex {
+                mIndices[i].deallocate()
+            }
+            mIndices.deallocate()
         }
-        free(mIndices)
-        free(mVertices)
-        free(mVectors)
-        free(mNumIndices)
+        mVertices?.deallocate()
+        mVectors?.deallocate()
+        mNumIndices?.deallocate()
+
+        mIndices = nil
+        mVertices = nil
+        mVectors = nil
+        mNumIndices = nil
     }
 
     func exportMesh() -> (positions: [SIMD3<Float>], texcoords: [SIMD2<Float>], indices: [UInt16])? {
@@ -220,5 +247,23 @@ class IRGLProjectionEquirectangular: IRGLProjection {
         }
 
         return (positions, texcoords, indices)
+    }
+
+    static func elementCount(baseCount: Int, components: Int) -> Int? {
+        guard baseCount > 0, components > 0 else { return nil }
+
+        let (count, overflow) = baseCount.multipliedReportingOverflow(by: components)
+        guard !overflow, count > 0 else { return nil }
+
+        return count
+    }
+
+    static func byteCount(elementCount: Int, stride: Int) -> Int? {
+        guard elementCount > 0, stride > 0 else { return nil }
+
+        let (count, overflow) = elementCount.multipliedReportingOverflow(by: stride)
+        guard !overflow, count > 0 else { return nil }
+
+        return count
     }
 }

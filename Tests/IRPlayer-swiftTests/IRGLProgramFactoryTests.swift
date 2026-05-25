@@ -136,3 +136,51 @@ final class IRGLProgramFactoryTests: XCTestCase {
                            latmax: 80)
     }
 }
+
+final class IRGLProjectionEquirectangularTests: XCTestCase {
+
+    func testElementCountRejectsInvalidOrOverflowingInputs() {
+        XCTAssertNil(IRGLProjectionEquirectangular.elementCount(baseCount: 0, components: 3))
+        XCTAssertNil(IRGLProjectionEquirectangular.elementCount(baseCount: 1, components: 0))
+        XCTAssertNil(IRGLProjectionEquirectangular.elementCount(baseCount: Int.max, components: 2))
+    }
+
+    func testElementCountCalculatesComponentStorage() {
+        XCTAssertEqual(IRGLProjectionEquirectangular.elementCount(baseCount: 4, components: 3), 12)
+    }
+
+    func testByteCountRejectsInvalidOrOverflowingInputs() {
+        XCTAssertNil(IRGLProjectionEquirectangular.byteCount(elementCount: 0, stride: MemoryLayout<Float>.stride))
+        XCTAssertNil(IRGLProjectionEquirectangular.byteCount(elementCount: 1, stride: 0))
+        XCTAssertNil(IRGLProjectionEquirectangular.byteCount(elementCount: Int.max, stride: 2))
+    }
+
+    func testByteCountCalculatesStrideStorage() {
+        XCTAssertEqual(
+            IRGLProjectionEquirectangular.byteCount(elementCount: 4, stride: MemoryLayout<Float>.stride),
+            16
+        )
+    }
+
+    func testProjectionExportMeshSurvivesParameterUpdate() throws {
+        let projection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: 720, centerY: 540, radius: 520)
+        let firstMesh = try XCTUnwrap(projection.exportMesh())
+
+        projection.update(with: IRFisheyeParameter(width: 1440,
+                                                   height: 1080,
+                                                   up: false,
+                                                   rx: 500,
+                                                   ry: 500,
+                                                   cx: 720,
+                                                   cy: 540,
+                                                   latmax: 80))
+        let updatedMesh = try XCTUnwrap(projection.exportMesh())
+
+        XCTAssertEqual(firstMesh.positions.count, updatedMesh.positions.count)
+        XCTAssertEqual(firstMesh.texcoords.count, updatedMesh.texcoords.count)
+        XCTAssertEqual(firstMesh.indices.count, updatedMesh.indices.count)
+        XCTAssertFalse(updatedMesh.positions.isEmpty)
+        XCTAssertFalse(updatedMesh.texcoords.isEmpty)
+        XCTAssertFalse(updatedMesh.indices.isEmpty)
+    }
+}
