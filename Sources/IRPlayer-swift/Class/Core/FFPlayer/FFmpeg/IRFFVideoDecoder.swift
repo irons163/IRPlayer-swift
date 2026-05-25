@@ -236,7 +236,7 @@ class IRFFVideoDecoder {
 
         let videoFrame = framePool?.getUnuseFrame() as? IRFFAVYUVVideoFrame ?? IRFFAVYUVVideoFrame()
         videoFrame.setFrameData(frame, width: Int(codecContext.pointee.width), height: Int(codecContext.pointee.height))
-        videoFrame.position = Double(frame.pointee.best_effort_timestamp) * timebase
+        videoFrame.position = IRFFFrameTime.position(timestamp: frame.pointee.best_effort_timestamp, timebase: timebase)
 
         videoFrame.duration = Self.frameDuration(ticks: frame.pointee.duration,
                                                  repeatPicture: frame.pointee.repeat_pict,
@@ -251,11 +251,7 @@ class IRFFVideoDecoder {
         }
 
         let videoFrame = IRFFCVYUVVideoFrame(pixelBuffer: imageBuffer)
-        if packet.pts != IR_AV_NOPTS_VALUE {
-            videoFrame.position = TimeInterval(packet.pts) * timebase
-        } else {
-            videoFrame.position = TimeInterval(packet.dts)
-        }
+        videoFrame.position = IRFFFrameTime.packetPosition(pts: packet.pts, dts: packet.dts, timebase: timebase)
 
         videoFrame.duration = Self.frameDuration(ticks: packet.duration,
                                                  repeatPicture: 0,

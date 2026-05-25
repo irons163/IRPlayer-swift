@@ -294,7 +294,7 @@ class IRFFAudioDecoder {
             return nil
         }
         
-        audioFrame.position = Double(tempFrame.pointee.best_effort_timestamp) * timebase
+        audioFrame.position = IRFFFrameTime.position(timestamp: tempFrame.pointee.best_effort_timestamp, timebase: timebase)
 
         guard let numberOfElements = Self.sampleElementCount(numberOfFrames: numberOfFrames, channelCount: channelCount) else {
             return nil

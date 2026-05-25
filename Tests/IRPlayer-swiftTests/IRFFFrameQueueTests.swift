@@ -11,6 +11,24 @@ import XCTest
 
 final class IRFFFrameQueueTests: XCTestCase {
 
+    func testFrameTimePositionUsesFiniteTimestampAndTimebase() {
+        XCTAssertEqual(IRFFFrameTime.position(timestamp: 120, timebase: 0.001), 0.12, accuracy: 0.0001)
+    }
+
+    func testFrameTimePositionDefaultsInvalidTimestampOrTimebaseToZero() {
+        XCTAssertEqual(IRFFFrameTime.position(timestamp: Int64.min, timebase: 0.001), 0)
+        XCTAssertEqual(IRFFFrameTime.position(timestamp: 120, timebase: 0), 0)
+        XCTAssertEqual(IRFFFrameTime.position(timestamp: 120, timebase: .nan), 0)
+    }
+
+    func testFrameTimePacketPositionFallsBackFromMissingPTSToDTS() {
+        XCTAssertEqual(
+            IRFFFrameTime.packetPosition(pts: Int64.min, dts: 240, timebase: 0.001),
+            0.24,
+            accuracy: 0.0001
+        )
+    }
+
     func testFrameQueueTracksCountDurationAndSizeWhenPuttingAndFetchingFrames() {
         let queue = IRFFFrameQueue.frameQueue()
         let first = makeFrame(position: 0, duration: 0.25, size: 10)
