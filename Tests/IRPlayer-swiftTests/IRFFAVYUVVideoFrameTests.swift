@@ -64,3 +64,14 @@ final class IRPLFImageTests: XCTestCase {
         XCTAssertEqual(IRPLFImageRGBDataByteCount(linesize: 12, width: 4, height: 2), 24)
     }
 }
+
+final class IRVideoFrameRGBTests: XCTestCase {
+
+    func testAsImageReturnsNilWhenLinesizeCannotFitBytesPerRow() {
+        let frame = IRVideoFrameRGB(linesize: UInt(Int.max) + 1, rgb: Data([0, 0, 0]))
+        frame.width = 1
+        frame.height = 1
+
+        XCTAssertNil(frame.asImage())
+    }
+}
