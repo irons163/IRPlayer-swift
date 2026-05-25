@@ -112,7 +112,10 @@ class IRFFAudioDecoder {
         guard samplingRatioValue.isFinite, samplingRatioValue < Float64(Int.max) else { return nil }
 
         let samplingRatio = max(1, Int(samplingRatioValue))
-        let channelRatio = max(1, Int(outputChannelCount) / Int(inputChannelCount))
+        let inputChannels = Int(inputChannelCount)
+        let (roundedChannelNumerator, channelNumeratorOverflow) = Int(outputChannelCount).addingReportingOverflow(inputChannels - 1)
+        guard !channelNumeratorOverflow else { return nil }
+        let channelRatio = max(1, roundedChannelNumerator / inputChannels)
         let (audioRatio, audioRatioOverflow) = samplingRatio.multipliedReportingOverflow(by: channelRatio)
         guard !audioRatioOverflow else { return nil }
 
