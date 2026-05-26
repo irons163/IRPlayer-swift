@@ -490,15 +490,17 @@ protocol IRFFDecoderDelegate: AnyObject {
             return
         }
         let tempDuration: TimeInterval = formatContext?.audioEnable == true ? 8 : 15
-        var seekMaxTime = duration - (minBufferedDuration + tempDuration)
-        if seekMaxTime < seekMinTime { seekMaxTime = seekMinTime }
-        if time > seekMaxTime {
-            seekToTime = seekMaxTime
-        } else if time < seekMinTime {
-            seekToTime = seekMinTime
-        } else {
-            seekToTime = time
+        let seekMinTime: TimeInterval = self.seekMinTime
+        let rawSeekMaxTime = duration - (minBufferedDuration + tempDuration)
+        guard let clampedSeekTime = IRPlaybackTimePolicy.clampedSeekTime(
+            requested: time,
+            min: seekMinTime,
+            max: rawSeekMaxTime
+        ) else {
+            completeHandler?(false)
+            return
         }
+        seekToTime = clampedSeekTime
         self.progress = seekToTime
         self.seekCompleteHandler = completeHandler
         self.seeking = true
@@ -576,13 +578,12 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     private func checkBufferingStatus() {
-        if buffering {
-            if bufferedDuration >= minBufferedDuration || endOfFile {
-                buffering = false
-            }
-        } else if bufferedDuration <= 0.2 && !endOfFile {
-            buffering = true
-        }
+        buffering = IRPlaybackTimePolicy.bufferingState(
+            currentlyBuffering: buffering,
+            bufferedDuration: bufferedDuration,
+            minBufferedDuration: minBufferedDuration,
+            endOfFile: endOfFile
+        )
     }
 
     private func updateBufferedDurationByVideo() {
