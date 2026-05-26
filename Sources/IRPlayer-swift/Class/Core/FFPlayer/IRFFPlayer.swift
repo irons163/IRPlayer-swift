@@ -45,36 +45,38 @@ class IRFFPlayer: NSObject {
     var progress: TimeInterval = 0 {
         didSet {
             guard progress != oldValue else { return }
-            
-            var duration = self.duration
-            if progress <= 0.000001 || progress == duration {
-                IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: progress, total: duration), current: progress as NSNumber, total: duration as NSNumber)
-            } else {
-                let currentTime = Date().timeIntervalSince1970
-                if currentTime - self.lastPostProgressTime >= 1 {
-                    self.lastPostProgressTime = currentTime
-                    if decoder?.seekEnable == false {
-                        duration = progress
-                    }
-                    IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: progress, total: duration), current: progress as NSNumber, total: duration as NSNumber)
-                }
-            }
+
+            let decision = IRPlaybackTimePolicy.progressPostDecision(
+                progress: progress,
+                oldProgress: oldValue,
+                duration: duration,
+                lastPostTime: lastPostProgressTime,
+                now: Date().timeIntervalSince1970,
+                seekEnabled: decoder?.seekEnable != false
+            )
+            guard decision.shouldPost else { return }
+            lastPostProgressTime = decision.nextLastPostTime
+            IRPlayerNotification.postPlayer(
+                abstractPlayer,
+                progressPercent: IRPlaybackTimePolicy.percent(current: decision.current, total: decision.total),
+                current: decision.current as NSNumber,
+                total: decision.total as NSNumber
+            )
         }
     }
 
     var playableTime: TimeInterval = 0 {
         didSet {
-            var newPlayableTime = playableTime
             let duration = self.duration
-            if newPlayableTime > duration {
-                newPlayableTime = duration
-            } else if newPlayableTime < 0 {
-                newPlayableTime = 0
-            }
-
+            let newPlayableTime = IRPlaybackTimePolicy.clampedPlayableTime(playableTime, duration: duration)
             if playableTime != newPlayableTime {
                 playableTime = newPlayableTime
-                IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: IRPlayerNotificationPayload.timePercent(current: playableTime, total: duration), current: playableTime as NSNumber, total: duration as NSNumber)
+                IRPlayerNotification.postPlayer(
+                    abstractPlayer,
+                    playablePercent: IRPlaybackTimePolicy.percent(current: playableTime, total: duration),
+                    current: playableTime as NSNumber,
+                    total: duration as NSNumber
+                )
             }
         }
     }
