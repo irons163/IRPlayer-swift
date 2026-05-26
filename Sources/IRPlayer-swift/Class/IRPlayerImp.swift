@@ -302,12 +302,12 @@ public class IRPlayerImp: NSObject {
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         UIApplication.shared.isIdleTimerDisabled = true
 #endif
-        switch self.decoderType {
+        switch IRPlayerLifecyclePolicy.commandTarget(for: self.decoderType) {
         case .avPlayer:
             self.avPlayer.play()
         case .ffmpeg:
             self.ffPlayer.play()
-        default:
+        case .none:
             break
         }
     }
@@ -316,12 +316,12 @@ public class IRPlayerImp: NSObject {
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         UIApplication.shared.isIdleTimerDisabled = false
 #endif
-        switch self.decoderType {
+        switch IRPlayerLifecyclePolicy.commandTarget(for: self.decoderType) {
         case .avPlayer:
             self.avPlayer.pause()
         case .ffmpeg:
             self.ffPlayer.pause()
-        default:
+        case .none:
             break
         }
     }
@@ -405,27 +405,25 @@ public extension IRPlayerImp {
         self.decoderType = self.decoder.decoderTypeForContentURL(contentURL: self.contentURL)
         self.videoType = videoType
 
-        switch self.decoderType {
+        let replacementPlan = IRPlayerLifecyclePolicy.replacementPlan(
+            for: self.decoderType,
+            hasAVPlayer: self._avPlayer != nil,
+            hasFFPlayer: self._ffPlayer != nil
+        )
+
+        if replacementPlan.stopAVPlayer { self.avPlayer.stop() }
+        if replacementPlan.stopFFPlayer { self.ffPlayer.stop() }
+
+        switch replacementPlan.replaceTarget {
         case .avPlayer:
-            if self._ffPlayer != nil {
-                self.ffPlayer.stop()
-            }
             self.avPlayer.replaceVideo()
         case .ffmpeg:
-            if self._avPlayer != nil {
-                self.avPlayer.stop()
-            }
             self.ffPlayer.replaceVideo()
             if self.videoInput?.outputType == .decoder {
                 self.videoInput?.videoOutput = self.ffPlayer.decoder
             }
-        case .error, .none:
-            if self._avPlayer != nil {
-                self.avPlayer.stop()
-            }
-            if self._ffPlayer != nil {
-                self.ffPlayer.stop()
-            }
+        case .none:
+            break
         }
     }
 }
@@ -499,34 +497,23 @@ extension IRPlayerImp {
     }
 
     func applicationDidEnterBackground(_ notification: NSNotification) {
-        switch self.backgroundMode {
-        case .nothing, .continuing:
+        switch IRPlayerLifecyclePolicy.backgroundAction(mode: self.backgroundMode, state: self.state) {
+        case .pauseAndRememberAutoPlay:
+            self.needAutoPlay = true
+            self.pause()
+        case .none:
             break
-        case .autoPlayAndPause:
-            switch self.state {
-            case .playing, .buffering:
-                self.needAutoPlay = true
-                self.pause()
-            default:
-                break
-            }
         }
     }
 
     func applicationWillEnterForeground(_ notification: NSNotification) {
-        switch self.backgroundMode {
-        case .nothing, .continuing:
+        switch IRPlayerLifecyclePolicy.foregroundAction(mode: self.backgroundMode, state: self.state, needAutoPlay: self.needAutoPlay) {
+        case .playAndClearAutoPlay:
+            self.needAutoPlay = false
+            self.play()
+            self.lastForegroundTimeInterval = NSDate().timeIntervalSince1970
+        case .none:
             break
-        case .autoPlayAndPause:
-            switch self.state {
-            case .suspend:
-                guard self.needAutoPlay == true else { break }
-                self.needAutoPlay = false
-                self.play()
-                self.lastForegroundTimeInterval = NSDate().timeIntervalSince1970
-            default:
-                break
-            }
         }
     }
 }
