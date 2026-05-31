@@ -113,7 +113,6 @@ final class IRMetalRenderer {
         library = try? device.makeDefaultLibrary()
         #endif
         guard let library = library else {
-            print("IRMetalRenderer: failed to load default Metal library")
             return
         }
 

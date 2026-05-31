@@ -123,7 +123,6 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                 }
             }
             if ciContext == nil {
-                print("Failed to setup Metal context")
                 return
             }
             updateDrawableSize(scale: 1.0)
@@ -131,7 +130,6 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
         viewprotRange = CGRect(x: 0, y: 0, width: backingWidth, height: backingHeight)
         setupModes()
-        print("OK setup Metal")
     }
 
     func close() {
