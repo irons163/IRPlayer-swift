@@ -39,6 +39,18 @@ final class IRAudioManagerNotificationTests: XCTestCase {
 
 final class IRAudioManagerRenderTests: XCTestCase {
 
+    func testRegisterAudioSessionDoesNotPrintDebugDiagnostics() {
+        let manager = IRAudioManager()
+
+        let output = captureStandardOutput {
+            _ = manager.registerAudioSession()
+            manager.unregisterAudioSession()
+        }
+
+        XCTAssertFalse(output.contains("IRAudioManager did error"))
+        XCTAssertFalse(output.contains("IRAudioManager did warning"))
+    }
+
     func testRequiredAudioGraphRejectsMissingGraph() {
         let result = IRAudioManager.requiredAudioGraph(nil, domain: "missing graph")
 
