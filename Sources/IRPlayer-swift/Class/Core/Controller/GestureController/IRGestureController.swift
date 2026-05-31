@@ -202,11 +202,8 @@ class IRGestureController: NSObject, UIGestureRecognizerDelegate {
         if gestureRecognizer == panGR {
             guard let panGestureRecognizer = gestureRecognizer as? UIPanGestureRecognizer else { return true }
             let translation = panGestureRecognizer.translation(in: targetView)
-            let x = abs(translation.x)
-            let y = abs(translation.y)
-            if x < y && disablePanMovingDirection.contains(.vertical) { // up and down moving direction.
-                return false
-            } else if x > y && disablePanMovingDirection.contains(.horizontal) { // left and right moving direction.
+            let axis = IRGesturePolicy.panMovingAxis(forTranslation: translation)
+            if IRGesturePolicy.isPanMovingAxisDisabled(axis, disabledAxes: disablePanMovingDirection) {
                 return false
             }
         }
@@ -270,11 +267,8 @@ class IRGestureController: NSObject, UIGestureRecognizerDelegate {
         if gestureRecognizer == panGR {
             guard let panGestureRecognizer = gestureRecognizer as? UIPanGestureRecognizer else { return true }
             let translation = panGestureRecognizer.translation(in: targetView)
-            let x = abs(translation.x)
-            let y = abs(translation.y)
-            if x < y && disablePanMovingDirection.contains(.vertical) {
-                return true
-            } else if x > y && disablePanMovingDirection.contains(.horizontal) {
+            let axis = IRGesturePolicy.panMovingAxis(forTranslation: translation)
+            if IRGesturePolicy.isPanMovingAxisDisabled(axis, disabledAxes: disablePanMovingDirection) {
                 return true
             }
         }
