@@ -87,9 +87,9 @@ class IRFFPacketQueue: NSObject {
         condition.unlock()
     }
 
-    private static func accountedDuration(for packet: AVPacket,
-                                           fallbackDuration: TimeInterval,
-                                           timebase: TimeInterval) -> TimeInterval {
+    static func accountedDuration(for packet: AVPacket,
+                                  fallbackDuration: TimeInterval,
+                                  timebase: TimeInterval) -> TimeInterval {
         if packet.duration > 0, timebase.isFinite, timebase > 0 {
             let duration = Double(packet.duration) * timebase
             guard duration.isFinite, duration > 0 else {

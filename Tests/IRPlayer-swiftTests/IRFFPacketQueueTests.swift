@@ -77,6 +77,26 @@ final class IRFFPacketQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 20)
     }
 
+    func testAccountedDurationUsesPacketDurationOnlyWithValidTimebase() {
+        let packet = makePacket(size: 10, duration: 250)
+
+        XCTAssertEqual(
+            IRFFPacketQueue.accountedDuration(for: packet, fallbackDuration: 10, timebase: 0.001),
+            0.25,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            IRFFPacketQueue.accountedDuration(for: packet, fallbackDuration: 10, timebase: 0),
+            10,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            IRFFPacketQueue.accountedDuration(for: packet, fallbackDuration: 10, timebase: .nan),
+            10,
+            accuracy: 0.0001
+        )
+    }
+
     private func makePacket(size: Int32, duration: Int64) -> AVPacket {
         var packet = AVPacket()
         packet.size = size
