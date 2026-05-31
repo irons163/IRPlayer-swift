@@ -62,6 +62,66 @@ final class IRGLProgram2DTests: XCTestCase {
         XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.fail]), .none)
     }
 
+    func testOutputScaleDecisionMapsAspectFitAndFill() throws {
+        let fit = try XCTUnwrap(IRGLProgram2D.outputScaleDecision(
+            outputWidth: 400,
+            outputHeight: 200,
+            viewportWidth: 100,
+            viewportHeight: 100,
+            contentMode: .scaleAspectFit,
+            shouldUpdateToDefaultWhenOutputSizeChanged: true
+        ))
+        XCTAssertEqual(fit.scaleX, 1, accuracy: 0.0001)
+        XCTAssertEqual(fit.scaleY, 0.5, accuracy: 0.0001)
+        XCTAssertTrue(fit.shouldUpdateToDefault)
+
+        let fill = try XCTUnwrap(IRGLProgram2D.outputScaleDecision(
+            outputWidth: 400,
+            outputHeight: 200,
+            viewportWidth: 100,
+            viewportHeight: 100,
+            contentMode: .scaleAspectFill,
+            shouldUpdateToDefaultWhenOutputSizeChanged: false
+        ))
+        XCTAssertEqual(fill.scaleX, 2, accuracy: 0.0001)
+        XCTAssertEqual(fill.scaleY, 1, accuracy: 0.0001)
+        XCTAssertFalse(fill.shouldUpdateToDefault)
+    }
+
+    func testOutputScaleDecisionRejectsInvalidOrUnscaledInputs() {
+        XCTAssertNil(IRGLProgram2D.outputScaleDecision(
+            outputWidth: 0,
+            outputHeight: 200,
+            viewportWidth: 100,
+            viewportHeight: 100,
+            contentMode: .scaleAspectFit,
+            shouldUpdateToDefaultWhenOutputSizeChanged: true
+        ))
+        XCTAssertNil(IRGLProgram2D.outputScaleDecision(
+            outputWidth: 400,
+            outputHeight: 200,
+            viewportWidth: 100,
+            viewportHeight: 100,
+            contentMode: .scaleToFill,
+            shouldUpdateToDefaultWhenOutputSizeChanged: true
+        ))
+    }
+
+    func testOutputScaleDecisionSkipsDefaultUpdateWhenOutputMatchesViewportScale() throws {
+        let decision = try XCTUnwrap(IRGLProgram2D.outputScaleDecision(
+            outputWidth: 100,
+            outputHeight: 100,
+            viewportWidth: 100,
+            viewportHeight: 100,
+            contentMode: .scaleAspectFit,
+            shouldUpdateToDefaultWhenOutputSizeChanged: true
+        ))
+
+        XCTAssertEqual(decision.scaleX, 1, accuracy: 0.0001)
+        XCTAssertEqual(decision.scaleY, 1, accuracy: 0.0001)
+        XCTAssertFalse(decision.shouldUpdateToDefault)
+    }
+
     func testSetViewportRangeIgnoresInvalidDimensionsWhenResettingTransform() {
         let program = IRGLProgram2D()
         let transformController = IRGLTransformController2D(viewportWidth: 320, viewportHeight: 180)
