@@ -143,4 +143,15 @@ final class IRSensorTests: XCTestCase {
         XCTAssertNil(IRSensor.motionScrollShift(dx: CGFloat.nan, dy: CGFloat(1)))
         XCTAssertNil(IRSensor.motionScrollShift(dx: CGFloat(1), dy: CGFloat.infinity))
     }
+
+    func testReferenceAttitudePolicyCapturesMissingReferenceWithoutDebugOutput() {
+        let output = captureStandardOutput {
+            let policy = IRSensor.referenceAttitudePolicy(hasReferenceAttitude: false)
+
+            XCTAssertTrue(policy.shouldCaptureReferenceAttitude)
+            XCTAssertFalse(policy.shouldScroll)
+        }
+
+        XCTAssertEqual(output, "")
+    }
 }
