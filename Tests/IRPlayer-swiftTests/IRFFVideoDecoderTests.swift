@@ -97,6 +97,49 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertNil(IRFFVideoDecoder.decodeIdleSleepInterval(paused: false))
     }
 
+    func testShouldCreateYUVFrameRequiresFrameAndAllPlanes() {
+        XCTAssertFalse(
+            IRFFVideoDecoder.shouldCreateYUVFrame(
+                hasFrame: false,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true
+            )
+        )
+        XCTAssertFalse(
+            IRFFVideoDecoder.shouldCreateYUVFrame(
+                hasFrame: true,
+                hasLuma: false,
+                hasChromaB: true,
+                hasChromaR: true
+            )
+        )
+        XCTAssertFalse(
+            IRFFVideoDecoder.shouldCreateYUVFrame(
+                hasFrame: true,
+                hasLuma: true,
+                hasChromaB: false,
+                hasChromaR: true
+            )
+        )
+        XCTAssertFalse(
+            IRFFVideoDecoder.shouldCreateYUVFrame(
+                hasFrame: true,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: false
+            )
+        )
+        XCTAssertTrue(
+            IRFFVideoDecoder.shouldCreateYUVFrame(
+                hasFrame: true,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true
+            )
+        )
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var codecContext = AVCodecContext()
 

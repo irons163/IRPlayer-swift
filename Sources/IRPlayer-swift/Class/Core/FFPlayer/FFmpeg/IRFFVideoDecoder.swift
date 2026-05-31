@@ -138,6 +138,13 @@ class IRFFVideoDecoder {
         return paused ? 0.01 : nil
     }
 
+    static func shouldCreateYUVFrame(hasFrame: Bool,
+                                     hasLuma: Bool,
+                                     hasChromaB: Bool,
+                                     hasChromaR: Bool) -> Bool {
+        return hasFrame && hasLuma && hasChromaB && hasChromaR
+    }
+
     func getFrameSync() -> IRFFVideoFrame? {
         return frameQueue.getFrameSync() as? IRFFVideoFrame
     }
@@ -255,7 +262,12 @@ class IRFFVideoDecoder {
     }
 
     private func videoFrameFromTempFrame() -> IRFFAVYUVVideoFrame? {
-        guard let frame = tempFrame, frame.pointee.data.0 != nil, frame.pointee.data.1 != nil, frame.pointee.data.2 != nil else {
+        guard Self.shouldCreateYUVFrame(
+            hasFrame: tempFrame != nil,
+            hasLuma: tempFrame?.pointee.data.0 != nil,
+            hasChromaB: tempFrame?.pointee.data.1 != nil,
+            hasChromaR: tempFrame?.pointee.data.2 != nil
+        ), let frame = tempFrame else {
             return nil
         }
 
