@@ -52,4 +52,20 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertEqual(error.code, IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
         XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
     }
+
+    func testReleaseDoesNotPrintDebugOutput() {
+        var decoder: IRFFDecoder? = IRFFDecoder(
+            contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),
+            videoFormat: .mpeg4,
+            videoOutput: nil,
+            audioOutput: nil
+        )
+        XCTAssertNotNil(decoder)
+
+        let output = captureStandardOutput {
+            decoder = nil
+        }
+
+        XCTAssertEqual(output, "")
+    }
 }
