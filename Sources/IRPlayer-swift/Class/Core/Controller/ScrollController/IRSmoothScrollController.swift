@@ -27,7 +27,7 @@ import UIKit
         super.init()
         self.targetView = targetView
         self.bounce = IRBounceController()
-        self.bounce?.addBounceToView(self.targetView!)
+        self.bounce?.addBounceToView(targetView)
 
         self.timer = CADisplayLink(target: self, selector: #selector(tick(_:)))
         self.timer?.add(to: .main, forMode: .default)
@@ -61,7 +61,7 @@ import UIKit
 
         if finalPoint == alreadyPoint {
             self.resetSmoothScroll()
-            delegate?.glViewDidEndDecelerating(self.targetView!)
+            delegate?.glViewDidEndDecelerating(self.targetView)
         }
     }
 
@@ -74,14 +74,10 @@ import UIKit
     }
 
     func calculateSmoothScroll(velocity: CGPoint) {
-        let magnitude = sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y))
-        let slideMult = magnitude / 200
-        IRPlayerImp.Logger.libraryLogger.debug("magnitude: \(magnitude), slideMult: \(slideMult)")
-
         self.resetSmoothScroll()
-        let slideFactor = 0.05 * slideMult // Increase for more of a slide
-        finalPoint = CGPoint(x: velocity.x * slideFactor, y: velocity.y * slideFactor)
-        slideDuration = slideFactor * 2
+        let target = Self.smoothScrollTarget(for: velocity)
+        finalPoint = target.point
+        slideDuration = target.duration
     }
 
     func scrollBy(dx: Float, dy: Float) {
@@ -101,6 +97,18 @@ import UIKit
 
         finalPoint = CGPoint(x: CGFloat(degreeX), y: CGFloat(-degreeY))
         slideDuration = 0.5
+    }
+
+    static func smoothScrollTarget(for velocity: CGPoint) -> (point: CGPoint, duration: CGFloat) {
+        guard velocity.x.isFinite, velocity.y.isFinite else {
+            return (point: .zero, duration: 0)
+        }
+        let magnitude = sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y))
+        let slideFactor = 0.05 * (magnitude / 200)
+        return (
+            point: CGPoint(x: velocity.x * slideFactor, y: velocity.y * slideFactor),
+            duration: slideFactor * 2
+        )
     }
 }
 

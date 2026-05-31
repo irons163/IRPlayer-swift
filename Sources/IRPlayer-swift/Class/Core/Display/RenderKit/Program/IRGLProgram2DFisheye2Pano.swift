@@ -9,7 +9,7 @@ import Foundation
 
 @objcMembers public class IRGLProgram2DFisheye2Pano: IRGLProgram2D {
 
-    private var fish2Pano: IRGLFish2PanoShaderParams!
+    private var fish2Pano: IRGLFish2PanoShaderParams?
 
     var metalFish2PanoParams: IRGLFish2PanoShaderParams? {
         return fish2Pano
@@ -19,23 +19,45 @@ import Foundation
 
     override var contentMode: IRGLRenderContentMode {
         didSet {
-            if self.contentMode != oldValue {
-                updateTextureWidth(Int(fish2Pano.textureWidth), height: Int(fish2Pano.textureHeight))
+            if self.contentMode != oldValue,
+               let textureSize = Self.textureSize(from: fish2Pano) {
+                updateTextureWidth(textureSize.width, height: textureSize.height)
             }
         }
     }
 
     override func initShaderParams() {
         fish2Pano = IRGLFish2PanoShaderParams()
-        fish2Pano.delegate = self
+        fish2Pano?.delegate = self
+    }
+
+    static func textureSize(from params: IRGLFish2PanoShaderParams?) -> (width: Int, height: Int)? {
+        guard let params else { return nil }
+        return (Int(params.textureWidth), Int(params.textureHeight))
+    }
+
+    static func normalizedOffsetX(currentOffset: Float, delta: Float, outputWidth: GLint) -> Float? {
+        guard outputWidth > 0, currentOffset.isFinite, delta.isFinite else { return nil }
+
+        let width = Float(outputWidth)
+        var offset = currentOffset - delta
+        while offset > width || offset < -width {
+            if offset > width {
+                offset -= width
+            } else if offset < -width {
+                offset += width
+            }
+        }
+        return offset
     }
 
     override func updateTextureWidth(_ w: Int, height h: Int) {
         super.updateTextureWidth(w, height: h)
-        fish2Pano.updateTextureWidth(w, height: h)
+        fish2Pano?.updateTextureWidth(w, height: h)
     }
 
     override func setRenderFrame(_ frame: IRFFVideoFrame) {
+        guard let fish2Pano else { return }
         if frame.width != fish2Pano.textureWidth || frame.height != fish2Pano.textureHeight {
             fish2Pano.updateTextureWidth(frame.width, height: frame.height)
         }
@@ -48,20 +70,22 @@ import Foundation
 
     override public func doScrollHorizontal(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) -> Bool {
         if status.contains(.toMaxX) || status.contains(.toMinX) {
-            guard let transformController = tramsformController,
+            guard let fish2Pano,
+                  let transformController = tramsformController,
                   transformController.getScope().w != 0,
                   transformController.getScope().scaleX != 0 else {
                 return false
             }
             let width = Float(fish2Pano.outputWidth) / Float(transformController.getScope().w)
-            fish2Pano.offsetX -= (willScrollX / transformController.getScope().scaleX * width)
-            while Int32(fish2Pano.offsetX) > fish2Pano.outputWidth || fish2Pano.offsetX < -Float(fish2Pano.outputWidth) {
-                if fish2Pano.offsetX > Float(fish2Pano.outputWidth) {
-                    fish2Pano.offsetX -= Float(fish2Pano.outputWidth)
-                } else if fish2Pano.offsetX < -Float(fish2Pano.outputWidth) {
-                    fish2Pano.offsetX += Float(fish2Pano.outputWidth)
-                }
+            let delta = willScrollX / transformController.getScope().scaleX * width
+            guard let offsetX = Self.normalizedOffsetX(
+                currentOffset: fish2Pano.offsetX,
+                delta: delta,
+                outputWidth: fish2Pano.outputWidth
+            ) else {
+                return false
             }
+            fish2Pano.offsetX = offsetX
             return false
         }
         return true

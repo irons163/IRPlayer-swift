@@ -32,8 +32,6 @@ extension IRMetalRenderer {
         offscreenEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
 
         let halfWidth = drawableSize.width / 2.0
-        let halfSize = CGSize(width: halfWidth, height: drawableSize.height)
-
         func renderHalf(originX: Double, isLeft: Bool) -> Bool {
             // Distortion expects the offscreen texture to fill each eye half.
             var scaleVector = SIMD2<Float>(1.0, 1.0)
@@ -74,11 +72,9 @@ extension IRMetalRenderer {
                                         znear: 0,
                                         zfar: 1))
 
-        let scissorHeight = max(Int(drawableSize.height), 0)
-        let leftWidth = max(Int(halfWidth), 0)
-        let rightWidth = max(Int(drawableSize.width) - leftWidth, 0)
+        guard let scissorRects = Self.distortionScissorRects(drawableSize: drawableSize) else { return false }
 
-        encoder.setScissorRect(MTLScissorRect(x: 0, y: 0, width: leftWidth, height: scissorHeight))
+        encoder.setScissorRect(scissorRects.left)
         encoder.setVertexBuffer(leftMesh.vertexBuffer, offset: 0, index: 0)
         encoder.drawIndexedPrimitives(type: MTLPrimitiveType.triangleStrip,
                                       indexCount: leftMesh.indexCount,
@@ -86,7 +82,7 @@ extension IRMetalRenderer {
                                       indexBuffer: leftMesh.indexBuffer,
                                       indexBufferOffset: 0)
 
-        encoder.setScissorRect(MTLScissorRect(x: leftWidth, y: 0, width: rightWidth, height: scissorHeight))
+        encoder.setScissorRect(scissorRects.right)
         encoder.setVertexBuffer(rightMesh.vertexBuffer, offset: 0, index: 0)
         encoder.drawIndexedPrimitives(type: MTLPrimitiveType.triangleStrip,
                                       indexCount: rightMesh.indexCount,
@@ -101,19 +97,39 @@ extension IRMetalRenderer {
     }
 
     private func makeDistortionOffscreenTexture(size: CGSize) -> MTLTexture? {
-        guard size.width > 0, size.height > 0 else { return nil }
+        guard let textureSize = Self.distortionTextureSize(from: size) else { return nil }
         if let texture = distortionOffscreenTexture,
            distortionOffscreenSize == size {
             return texture
         }
-        let width = Int(size.width)
-        let height = Int(size.height)
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false)
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: textureSize.width, height: textureSize.height, mipmapped: false)
         descriptor.usage = [.renderTarget, .shaderRead]
         guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
         distortionOffscreenTexture = texture
         distortionOffscreenSize = size
         return texture
+    }
+
+    static func distortionTextureSize(from size: CGSize) -> (width: Int, height: Int)? {
+        guard size.width.isFinite,
+              size.height.isFinite,
+              size.width > 0,
+              size.height > 0,
+              size.width <= CGFloat(Int.max),
+              size.height <= CGFloat(Int.max) else {
+            return nil
+        }
+        return (Int(size.width), Int(size.height))
+    }
+
+    static func distortionScissorRects(drawableSize: CGSize) -> (left: MTLScissorRect, right: MTLScissorRect)? {
+        guard let textureSize = distortionTextureSize(from: drawableSize) else { return nil }
+        let leftWidth = textureSize.width / 2
+        let rightWidth = textureSize.width - leftWidth
+        return (
+            MTLScissorRect(x: 0, y: 0, width: leftWidth, height: textureSize.height),
+            MTLScissorRect(x: leftWidth, y: 0, width: rightWidth, height: textureSize.height)
+        )
     }
 
 }

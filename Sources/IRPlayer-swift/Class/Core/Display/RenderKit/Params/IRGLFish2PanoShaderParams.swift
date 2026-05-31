@@ -37,8 +37,7 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
 
     func consumePixUVIfReady() -> [UnsafeMutablePointer<GLfloat>]? {
         guard metalPixUVReady else { return nil }
-        let texnum = Int(antialias * antialias)
-        guard texnum > 0 else { return nil }
+        guard let texnum = Self.pixelMapTextureCount(antialias: antialias) else { return nil }
         guard let pixUV = pixUV else { return nil }
 
         var result: [UnsafeMutablePointer<GLfloat>] = []
@@ -55,6 +54,57 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     override init() {
         super.init()
         setDefaultValues()
+    }
+
+    static func outputSize(forTextureWidth textureWidth: Int, height textureHeight: Int) -> (width: Int, height: Int)? {
+        guard textureWidth > 0, textureHeight > 0 else { return nil }
+
+        guard let outputWidth = boundedGLint(from: 1.422222222222222 * Double(textureWidth)) else { return nil }
+        let vapertureRadians = Double(60.0 * DTOR)
+        let halfVaperture = 0.5 * vapertureRadians
+        let deltaLongitudeRadians = 0.5 * Double(360.0 * DTOR)
+        guard let outputHeight = boundedGLint(from: Double(outputWidth) * tan(halfVaperture) / deltaLongitudeRadians) else { return nil }
+        guard outputWidth > 0, outputHeight > 0 else { return nil }
+        return (Int(outputWidth), Int(outputHeight))
+    }
+
+    static func pixelMapTextureCount(antialias: GLint) -> Int? {
+        guard antialias > 0 else { return nil }
+
+        let antialiasCount = Int(antialias)
+        let (textureCount, overflow) = antialiasCount.multipliedReportingOverflow(by: antialiasCount)
+        guard !overflow, textureCount > 0, textureCount <= Int(Int32.max) else { return nil }
+        return textureCount
+    }
+
+    static func pixelMapCapacity(outputWidth: GLint, outputHeight: GLint) -> Int? {
+        guard outputWidth > 0, outputHeight > 0 else { return nil }
+
+        let (pixelCount, pixelCountOverflow) = Int(outputWidth).multipliedReportingOverflow(by: Int(outputHeight))
+        guard !pixelCountOverflow else { return nil }
+
+        let (capacity, capacityOverflow) = pixelCount.multipliedReportingOverflow(by: 2)
+        guard !capacityOverflow, capacity > 0, capacity <= Int(Int32.max) else { return nil }
+        return capacity
+    }
+
+    static func pixelMapUVOffset(outputWidth: GLint, outputHeight: GLint, x: Int, y: Int) -> Int? {
+        guard outputWidth > 0, outputHeight > 0, x >= 0, y >= 0 else { return nil }
+
+        let width = Int(outputWidth)
+        let height = Int(outputHeight)
+        guard x < width, y < height else { return nil }
+        guard pixelMapCapacity(outputWidth: outputWidth, outputHeight: outputHeight) != nil else { return nil }
+
+        let (rowOffset, rowOffsetOverflow) = width.multipliedReportingOverflow(by: y)
+        guard !rowOffsetOverflow else { return nil }
+
+        let (pixelIndex, pixelIndexOverflow) = rowOffset.addingReportingOverflow(x)
+        guard !pixelIndexOverflow else { return nil }
+
+        let (uvOffset, uvOffsetOverflow) = pixelIndex.multipliedReportingOverflow(by: 2)
+        guard !uvOffsetOverflow else { return nil }
+        return uvOffset
     }
 
     func initPixelMaps() {
@@ -92,6 +142,9 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     }
 
     func setPixelFactors(_ latitude: Float, _ longitude: Float, _ index: Int, _ x: Int, _ y: Int, _ transX: Float, _ transY: Float, _ transZ: Float, _ raperture: Float) {
+        guard let uvOffset = Self.pixelMapUVOffset(outputWidth: outputWidth, outputHeight: outputHeight, x: x, y: y) else {
+            return
+        }
         var p = XYZ(x: cos(latitude) * cos(longitude), y: cos(latitude) * sin(longitude), z: sin(latitude))
 
         if transX != 0 { p = PRotateX(p, transX) }
@@ -104,20 +157,20 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
 
         let u = Float(fishcenterx) + Float(fishradiush) * r * cos(theta)
         if u < 0 || u >= Float(textureWidth) {
-            pixUV?[index]?[(Int(outputWidth) * y + x) * 2] = -1
-            pixUV?[index]?[(Int(outputWidth) * y + x) * 2 + 1] = -1
+            pixUV?[index]?[uvOffset] = -1
+            pixUV?[index]?[uvOffset + 1] = -1
             return
         }
 
         let v = Float(textureHeight) - Float(fishcentery) + Float(fishradiush) * r * sin(theta)
         if v < 0 || v >= Float(textureHeight) {
-            pixUV?[index]?[(Int(outputWidth) * y + x) * 2] = -1
-            pixUV?[index]?[(Int(outputWidth) * y + x) * 2 + 1] = -1
+            pixUV?[index]?[uvOffset] = -1
+            pixUV?[index]?[uvOffset + 1] = -1
             return
         }
 
-        pixUV?[index]?[(Int(outputWidth) * y + x) * 2] = GLfloat(u)
-        pixUV?[index]?[(Int(outputWidth) * y + x) * 2 + 1] = GLfloat(v)
+        pixUV?[index]?[uvOffset] = GLfloat(u)
+        pixUV?[index]?[uvOffset + 1] = GLfloat(v)
     }
 
     func setDefaultValues() {
@@ -139,15 +192,20 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     }
 
     override func updateTextureWidth(_ w: Int, height h: Int) {
-        if textureWidth != GLint(w) || textureHeight != GLint(h) {
-            textureWidth = GLint(w)
-            textureHeight = GLint(h)
+        guard let nextTextureWidth = Self.boundedGLint(from: Double(w)),
+              let nextTextureHeight = Self.boundedGLint(from: Double(h)) else {
+            return
+        }
+
+        if textureWidth != nextTextureWidth || textureHeight != nextTextureHeight {
+            textureWidth = nextTextureWidth
+            textureHeight = nextTextureHeight
             fishcenterx = textureWidth / 2
             fishcentery = textureHeight / 2
             fishradiush = textureWidth / 2
             fishradiusv = textureHeight / 2
 
-            if w != 0 && h != 0 {
+            if Self.outputSize(forTextureWidth: w, height: h) != nil {
                 updateOutputWH()
                 delegate?.didUpdateOutputWH(Int(outputWidth), Int(outputHeight))
             }
@@ -161,24 +219,24 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         long1 = 0.0
         long2 = 360.0
 
-        let long1Radians = long1 * DTOR
-        let long2Radians = long2 * DTOR
-        let deltaLongitudeRadians = 0.5 * (long2Radians - long1Radians)
-        let vapertureRadians = vaperture * DTOR
-        let halfVaperture = 0.5 * vapertureRadians
-
-        outputWidth = GLint(1.422222222222222 * Double(textureWidth))
-        outputHeight = GLint(Float(outputWidth) * tan(halfVaperture) / deltaLongitudeRadians)
+        guard let size = Self.outputSize(forTextureWidth: Int(textureWidth), height: Int(textureHeight)) else {
+            return
+        }
+        outputWidth = GLint(size.width)
+        outputHeight = GLint(size.height)
 
         enableTransformX = 1
         enableTransformZ = 1
         transformZ = -90.0
 
         DispatchQueue.global(qos: .userInitiated).async {
-            let texnum = max(Int(self.antialias * self.antialias), 1)
+            guard let texnum = Self.pixelMapTextureCount(antialias: self.antialias),
+                  let pixelMapCapacity = Self.pixelMapCapacity(outputWidth: self.outputWidth, outputHeight: self.outputHeight) else {
+                return
+            }
             self.pixUV = .allocate(capacity: texnum)
             for i in 0..<texnum {
-                self.pixUV?[i] = .allocate(capacity: Int(self.outputWidth * self.outputHeight * 2))
+                self.pixUV?[i] = .allocate(capacity: pixelMapCapacity)
             }
             self.initPixelMaps()
             self.useTexUVs = true

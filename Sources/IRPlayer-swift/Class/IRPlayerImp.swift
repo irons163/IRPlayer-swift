@@ -50,6 +50,13 @@ enum IRPlayerBackgroundMode: Int, Hashable, Equatable, Sendable, RawRepresentabl
     case continuing
 }
 
+enum IRPlayerVolume {
+    static func normalizedFloat(from volume: CGFloat?) -> Float {
+        guard let volume = volume, volume.isFinite else { return 0 }
+        return Float(volume)
+    }
+}
+
 // Mark: - IRPlayerImp
 @objcMembers
 public class IRPlayerImp: NSObject {
@@ -165,7 +172,7 @@ public class IRPlayerImp: NSObject {
     public var playableBufferInterval: TimeInterval = 2.0 {
         didSet {
             if self._ffPlayer != nil {
-                self.ffPlayer.reloadVolume()
+                self.ffPlayer.reloadPlayableBufferInterval()
             }
         }
     }
@@ -196,17 +203,15 @@ public class IRPlayerImp: NSObject {
     private var decoderType: IRDecoderType?
     private var _avPlayer: IRAVPlayer?
     private var avPlayer: IRAVPlayer {
-        if self._avPlayer == nil {
-            self._avPlayer = IRAVPlayer(abstractPlayer: self)
-        }
-        return self._avPlayer!
+        let player = Self.makeAVPlayerIfNeeded(self._avPlayer, abstractPlayer: self)
+        self._avPlayer = player
+        return player
     }
     private var _ffPlayer: IRFFPlayer?
     private var ffPlayer: IRFFPlayer {
-        if self._ffPlayer == nil {
-            self._ffPlayer = IRFFPlayer.init(abstractPlayer: self)
-        }
-        return self._ffPlayer!
+        let player = Self.makeFFPlayerIfNeeded(self._ffPlayer, abstractPlayer: self)
+        self._ffPlayer = player
+        return player
     }
     private var gestureControl: IRGLGestureController?
     private var sensor: IRSensor?
@@ -236,6 +241,14 @@ public class IRPlayerImp: NSObject {
 
     public class func player() -> IRPlayerImp {
         return IRPlayerImp()
+    }
+
+    static func makeAVPlayerIfNeeded(_ player: IRAVPlayer?, abstractPlayer: IRPlayerImp) -> IRAVPlayer {
+        return player ?? IRAVPlayer(abstractPlayer: abstractPlayer)
+    }
+
+    static func makeFFPlayerIfNeeded(_ player: IRFFPlayer?, abstractPlayer: IRPlayerImp) -> IRFFPlayer {
+        return player ?? IRFFPlayer(abstractPlayer: abstractPlayer)
     }
 
     deinit {
@@ -293,12 +306,12 @@ public class IRPlayerImp: NSObject {
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         UIApplication.shared.isIdleTimerDisabled = true
 #endif
-        switch self.decoderType {
+        switch IRPlayerLifecyclePolicy.commandTarget(for: self.decoderType) {
         case .avPlayer:
             self.avPlayer.play()
         case .ffmpeg:
             self.ffPlayer.play()
-        default:
+        case .none:
             break
         }
     }
@@ -307,12 +320,12 @@ public class IRPlayerImp: NSObject {
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         UIApplication.shared.isIdleTimerDisabled = false
 #endif
-        switch self.decoderType {
+        switch IRPlayerLifecyclePolicy.commandTarget(for: self.decoderType) {
         case .avPlayer:
             self.avPlayer.pause()
         case .ffmpeg:
             self.ffPlayer.pause()
-        default:
+        case .none:
             break
         }
     }
@@ -357,7 +370,7 @@ public class IRPlayerImp: NSObject {
                 self.sensor = IRSensor()
                 self.sensor?.targetView = displayView
                 self.sensor?.smoothScroll = self.gestureControl?.smoothScroll
-                self.sensor?.resetUnit()
+                _ = self.sensor?.resetUnit()
             }
             self.viewGravityMode = .resizeAspect
             self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
@@ -400,27 +413,25 @@ public extension IRPlayerImp {
         self.decoderType = self.decoder.decoderTypeForContentURL(contentURL: self.contentURL)
         self.videoType = videoType
 
-        switch self.decoderType {
+        let replacementPlan = IRPlayerLifecyclePolicy.replacementPlan(
+            for: self.decoderType,
+            hasAVPlayer: self._avPlayer != nil,
+            hasFFPlayer: self._ffPlayer != nil
+        )
+
+        if replacementPlan.stopAVPlayer { self.avPlayer.stop() }
+        if replacementPlan.stopFFPlayer { self.ffPlayer.stop() }
+
+        switch replacementPlan.replaceTarget {
         case .avPlayer:
-            if self._ffPlayer != nil {
-                self.ffPlayer.stop()
-            }
             self.avPlayer.replaceVideo()
         case .ffmpeg:
-            if self._avPlayer != nil {
-                self.avPlayer.stop()
-            }
             self.ffPlayer.replaceVideo()
             if self.videoInput?.outputType == .decoder {
                 self.videoInput?.videoOutput = self.ffPlayer.decoder
             }
-        case .error, .none:
-            if self._avPlayer != nil {
-                self.avPlayer.stop()
-            }
-            if self._ffPlayer != nil {
-                self.ffPlayer.stop()
-            }
+        case .none:
+            break
         }
     }
 }
@@ -494,34 +505,23 @@ extension IRPlayerImp {
     }
 
     func applicationDidEnterBackground(_ notification: NSNotification) {
-        switch self.backgroundMode {
-        case .nothing, .continuing:
+        switch IRPlayerLifecyclePolicy.backgroundAction(mode: self.backgroundMode, state: self.state) {
+        case .pauseAndRememberAutoPlay:
+            self.needAutoPlay = true
+            self.pause()
+        case .none:
             break
-        case .autoPlayAndPause:
-            switch self.state {
-            case .playing, .buffering:
-                self.needAutoPlay = true
-                self.pause()
-            default:
-                break
-            }
         }
     }
 
     func applicationWillEnterForeground(_ notification: NSNotification) {
-        switch self.backgroundMode {
-        case .nothing, .continuing:
+        switch IRPlayerLifecyclePolicy.foregroundAction(mode: self.backgroundMode, state: self.state, needAutoPlay: self.needAutoPlay) {
+        case .playAndClearAutoPlay:
+            self.needAutoPlay = false
+            self.play()
+            self.lastForegroundTimeInterval = NSDate().timeIntervalSince1970
+        case .none:
             break
-        case .autoPlayAndPause:
-            switch self.state {
-            case .suspend:
-                guard self.needAutoPlay == true else { break }
-                self.needAutoPlay = false
-                self.play()
-                self.lastForegroundTimeInterval = NSDate().timeIntervalSince1970
-            default:
-                break
-            }
         }
     }
 }
@@ -568,7 +568,7 @@ extension IRPlayerImp: IRGLViewDelegate {
     }
 
     public func glViewDidEndZooming(_ glView: IRGLView?, atScale scale: CGFloat) {
-        self.sensor?.resetUnit()
+        _ = self.sensor?.resetUnit()
     }
 
     public func glViewWillBeginDragging(_ glView: IRGLView?) {
@@ -577,7 +577,7 @@ extension IRPlayerImp: IRGLViewDelegate {
 
     public func glViewDidEndDragging(_ glView: IRGLView?, willDecelerate decelerate: Bool) {
         if !decelerate {
-            self.sensor?.resetUnit()
+            _ = self.sensor?.resetUnit()
         }
     }
 

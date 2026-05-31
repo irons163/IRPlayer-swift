@@ -130,7 +130,8 @@ class IRGestureController: NSObject, UIGestureRecognizerDelegate {
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer == panGR {
-            let translation = (gestureRecognizer as! UIPanGestureRecognizer).translation(in: targetView)
+            guard let panGestureRecognizer = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+            let translation = panGestureRecognizer.translation(in: targetView)
             let x = abs(translation.x)
             let y = abs(translation.y)
             if x < y && disablePanMovingDirection.contains(.vertical) { // up and down moving direction.
@@ -155,7 +156,11 @@ class IRGestureController: NSObject, UIGestureRecognizerDelegate {
         }
 
         let locationPoint = touch.location(in: touch.view)
-        panLocation = locationPoint.x > targetView!.bounds.size.width / 2 ? .right : .left
+        if let targetView = targetView {
+            panLocation = locationPoint.x > targetView.bounds.size.width / 2 ? .right : .left
+        } else {
+            panLocation = .unknown
+        }
 
         switch type {
         case .unknown: break
@@ -192,7 +197,8 @@ class IRGestureController: NSObject, UIGestureRecognizerDelegate {
         }
 
         if gestureRecognizer == panGR {
-            let translation = (gestureRecognizer as! UIPanGestureRecognizer).translation(in: targetView)
+            guard let panGestureRecognizer = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+            let translation = panGestureRecognizer.translation(in: targetView)
             let x = abs(translation.x)
             let y = abs(translation.y)
             if x < y && disablePanMovingDirection.contains(.vertical) {

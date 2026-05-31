@@ -53,6 +53,20 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
         self.shouldUpdateToDefaultWhenOutputSizeChanged = true
     }
 
+    static func viewportSize(from viewportRange: CGRect) -> (width: Int, height: Int)? {
+        let width = viewportRange.width
+        let height = viewportRange.height
+        guard width.isFinite,
+              height.isFinite,
+              width >= 0,
+              height >= 0,
+              width <= CGFloat(Int.max),
+              height <= CGFloat(Int.max) else {
+            return nil
+        }
+        return (Int(width), Int(height))
+    }
+
     func initShaderParams() {
         shaderParams2D = IRGLShaderParams()
         shaderParams2D?.delegate = self
@@ -60,7 +74,8 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
 
     func setViewportRange(_ viewportRange: CGRect, resetTransform: Bool = true) {
         self.viewprotRange = viewportRange
-        transformController?.resetViewport(width: Int(viewportRange.width), height: Int(viewportRange.height), resetTransform: resetTransform)
+        guard let viewportSize = Self.viewportSize(from: viewportRange) else { return }
+        transformController?.resetViewport(width: viewportSize.width, height: viewportSize.height, resetTransform: resetTransform)
     }
 
     func setDefaultScale(_ scale: Float) {
@@ -192,8 +207,11 @@ extension IRGLProgram2D: IRGLShaderParamsDelegate {
         if let transformController = transformController {
             let width = Double(w)
             let height = Double(h)
-            let dH = Double(transformController.getScope().h) / height
-            let dW = Double(transformController.getScope().w) / width
+            let viewportWidth = Double(transformController.getScope().w)
+            let viewportHeight = Double(transformController.getScope().h)
+            guard width > 0, height > 0, viewportWidth > 0, viewportHeight > 0 else { return }
+            let dH = viewportHeight / height
+            let dW = viewportWidth / width
             var dd: Double
 
             switch contentMode {
@@ -208,8 +226,8 @@ extension IRGLProgram2D: IRGLShaderParamsDelegate {
             }
 
             if dd > 0 {
-                let sy = height * dd / Double(transformController.getScope().h)
-                let sx = width * dd / Double(transformController.getScope().w)
+                let sy = height * dd / viewportHeight
+                let sx = width * dd / viewportWidth
 
                 transformController.setupDefaultTransform(scaleX: Float(sx), scaleY: Float(sy))
 

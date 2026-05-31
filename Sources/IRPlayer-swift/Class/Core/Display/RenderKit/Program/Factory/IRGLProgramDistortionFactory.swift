@@ -9,7 +9,7 @@ import Foundation
 
 class IRGLProgramDistortionFactory: IRGLProgram2DFactory {
 
-    override func createIRGLProgram(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2D {
+    override func createIRGLProgram(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2D? {
         return IRGLProgramFactory.createIRGLProgramDistortion(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
     }
 }

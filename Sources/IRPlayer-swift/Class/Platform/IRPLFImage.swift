@@ -24,9 +24,23 @@ func IRPLFImageWithRGBData(_ rgbData: UnsafePointer<UInt8>, linesize: Int, width
     return image
 }
 
+func IRPLFImageRGBDataByteCount(linesize: Int, width: Int, height: Int) -> Int? {
+    guard linesize > 0, width > 0, height > 0 else { return nil }
+
+    let (minimumLineSize, minimumLineSizeOverflow) = width.multipliedReportingOverflow(by: 3)
+    guard !minimumLineSizeOverflow, linesize >= minimumLineSize else { return nil }
+
+    let (byteCount, byteCountOverflow) = linesize.multipliedReportingOverflow(by: height)
+    guard !byteCountOverflow else { return nil }
+    return byteCount
+}
+
 // Function to create CGImage from RGB data buffer
 func IRPLFImageCGImageWithRGBData(_ rgbData: UnsafePointer<UInt8>, linesize: Int, width: Int, height: Int) -> CGImage? {
-    guard let data = CFDataCreate(kCFAllocatorDefault, rgbData, linesize * height) else { return nil }
+    guard let byteCount = IRPLFImageRGBDataByteCount(linesize: linesize, width: width, height: height),
+          let data = CFDataCreate(kCFAllocatorDefault, rgbData, byteCount) else {
+        return nil
+    }
     guard let provider = CGDataProvider(data: data) else {
         return nil
     }

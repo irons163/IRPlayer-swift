@@ -14,13 +14,13 @@ class IRAVPlayer: NSObject {
     static let avMediaSelectionOptionTrackIDKey = "MediaSelectionOptionsPersistentID"
     static let AVAssetLoadKeys: [String] = ["tracks", "playable"]
 
-    weak var abstractPlayer: IRPlayerImp!
+    weak var abstractPlayer: IRPlayerImp?
 
     var seeking = false
 
     var playBackTimeObserver: Any?
-    var avPlayer: AVPlayer!
-    var avPlayerItem: AVPlayerItem!
+    var avPlayer: AVPlayer?
+    var avPlayerItem: AVPlayerItem?
     var avAsset: AVURLAsset?
     var avOutput: AVPlayerItemVideoOutput?
     var readyToPlayTime: TimeInterval = 0
@@ -57,7 +57,7 @@ class IRAVPlayer: NSObject {
             if playableTime != oldValue,
                let abstractPlayer = abstractPlayer {
                 let duration = self.duration
-                IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: playableTime/duration as NSNumber, current: playableTime as NSNumber, total: duration as NSNumber)
+                IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: IRPlayerNotificationPayload.timePercent(current: playableTime, total: duration), current: playableTime as NSNumber, total: duration as NSNumber)
             }
         }
     }
@@ -66,7 +66,7 @@ class IRAVPlayer: NSObject {
         self.abstractPlayer = abstractPlayer
         super.init()
 //        self.abstractPlayer.displayView?.avplayer = self
-        self.abstractPlayer.displayView?.irPixelFormat = .NV12_IRPixelFormat
+        abstractPlayer.displayView?.irPixelFormat = .NV12_IRPixelFormat
 
         setupDisplayLink()
     }
@@ -88,6 +88,7 @@ extension IRAVPlayer {
         }
 
         tryReplaceVideo()
+        guard let avPlayer = avPlayer else { return }
 
         switch state {
         case .none:
@@ -103,7 +104,7 @@ extension IRAVPlayer {
             guard let self = self else { return }
             switch self.state {
             case .buffering, .playing, .readyToPlay:
-                self.avPlayer.play()
+                self.avPlayer?.play()
             default:
                 break
             }
@@ -131,6 +132,7 @@ extension IRAVPlayer {
 
     func setPlayIfNeeded() {
         if state == .playing || state == .buffering {
+            guard let avPlayer = avPlayer else { return }
             state = .buffering
             needPlay = true
             avPlayer.pause()
@@ -143,6 +145,7 @@ extension IRAVPlayer {
 
     func playIfNeeded() {
         if needPlay {
+            guard let avPlayer = avPlayer else { return }
             state = .playing
             avPlayer.play()
             needPlay = false
@@ -151,19 +154,22 @@ extension IRAVPlayer {
 
     func pause() {
         guard state != .failed else { return }
+        guard let avPlayer = avPlayer else { return }
         state = .suspend
         cancelPlayIfNeeded()
         avPlayer.pause()
     }
 
     func seek(to time: TimeInterval, completionHandler: ((Bool) -> Void)? = nil) {
-        guard avPlayerItem.status == .readyToPlay else { return }
+        guard let seekTime = Self.seekTime(for: time),
+              let avPlayerItem = avPlayerItem,
+              avPlayerItem.status == .readyToPlay else { return }
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.setPlayIfNeeded()
             self.seeking = true
-            self.avPlayerItem.seek(to: CMTimeMakeWithSeconds(time, preferredTimescale: Int32(NSEC_PER_SEC))) { finished in
+            avPlayerItem.seek(to: seekTime) { finished in
                 DispatchQueue.main.async {
                     self.seeking = false
                     self.playIfNeeded()
@@ -174,16 +180,31 @@ extension IRAVPlayer {
         }
     }
 
+    static func seekTime(for time: TimeInterval) -> CMTime? {
+        guard time.isFinite, time >= 0 else { return nil }
+        let seekTime = CMTimeMakeWithSeconds(time, preferredTimescale: Int32(NSEC_PER_SEC))
+        guard seekTime.isValid else { return nil }
+        return seekTime
+    }
+
+    static func finiteSeconds(from time: CMTime) -> TimeInterval {
+        let seconds = CMTimeGetSeconds(time)
+        guard seconds.isFinite else { return 0 }
+        return seconds
+    }
+
     func stop() {
         replaceEmpty()
     }
 
     var progress: TimeInterval {
-        return CMTimeGetSeconds(avPlayerItem.currentTime())
+        guard let avPlayerItem = avPlayerItem else { return 0 }
+        return Self.finiteSeconds(from: avPlayerItem.currentTime())
     }
 
     var duration: TimeInterval {
-        return CMTimeGetSeconds(avPlayerItem.duration)
+        guard let avPlayerItem = avPlayerItem else { return 0 }
+        return Self.finiteSeconds(from: avPlayerItem.duration)
     }
 
     var bitrate: TimeInterval {
@@ -195,7 +216,9 @@ extension IRAVPlayer {
 extension IRAVPlayer {
 
     func reloadVolume() {
-        avPlayer.volume = Float(abstractPlayer.volume)
+        guard let avPlayer = avPlayer,
+              let abstractPlayer = abstractPlayer else { return }
+        avPlayer.volume = IRPlayerVolume.normalizedFloat(from: abstractPlayer.volume)
     }
 
     func reloadPlayableTime() {
@@ -205,8 +228,8 @@ extension IRAVPlayer {
             return
         }
 
-        let start = CMTimeGetSeconds(range.start)
-        let duration = CMTimeGetSeconds(range.duration)
+        let start = Self.finiteSeconds(from: range.start)
+        let duration = Self.finiteSeconds(from: range.duration)
         playableTime = start + duration
     }
 
@@ -216,7 +239,8 @@ extension IRAVPlayer {
 
     func snapshotAtCurrentTime() -> IRPLFImage? {
         guard let avAsset = avAsset,
-              abstractPlayer.videoType == .normal else { return nil }
+              let avPlayerItem = avPlayerItem,
+              abstractPlayer?.videoType == .normal else { return nil }
 
         let imageGenerator = AVAssetImageGenerator(asset: avAsset)
         imageGenerator.appliesPreferredTrackTransform = true
@@ -234,7 +258,8 @@ extension IRAVPlayer {
 
     func pixelBufferAtCurrentTime() -> CVPixelBuffer? {
         guard !seeking else { return nil }
-        guard let avOutput = avOutput,
+        guard let avPlayerItem = avPlayerItem,
+              let avOutput = avOutput,
               avOutput.hasNewPixelBuffer(forItemTime: avPlayerItem.currentTime()) else {
             return nil
         }
@@ -266,7 +291,7 @@ extension IRAVPlayer {
 
         videoFrame.position = -1
         videoFrame.duration = -1
-        abstractPlayer.displayView?.render(videoFrame)
+        abstractPlayer?.displayView?.render(videoFrame)
     }
 }
 
@@ -297,43 +322,14 @@ extension IRAVPlayer {
 
             case .failed:
                 IRPlayerImp.Logger.libraryLogger.warning("IRAVPlayer item status failed")
-                readyToPlayTime = 0
-                let errorInfo = IRError()
-
-                if let playerItemError = avPlayerItem.error {
-                    errorInfo.error = playerItemError as NSError
-
-                    if let extendedLogData = avPlayerItem.errorLog()?.extendedLogData(), extendedLogData.count > 0 {
-                        errorInfo.extendedLogData = extendedLogData
-                        errorInfo.extendedLogDataStringEncoding = String.Encoding(rawValue: avPlayerItem.errorLog()?.extendedLogDataStringEncoding ?? 0).rawValue
-                    }
-
-                    if let errorEvents = avPlayerItem.errorLog()?.events {
-                        errorInfo.errorEvents = errorEvents.map { event in
-                            let errorEvent = IRErrorEvent()
-                            errorEvent.date = event.date
-                            errorEvent.URI = event.uri
-                            errorEvent.serverAddress = event.serverAddress
-                            errorEvent.playbackSessionID = event.playbackSessionID
-                            errorEvent.errorStatusCode = event.errorStatusCode
-                            errorEvent.errorDomain = event.errorDomain
-                            errorEvent.errorComment = event.errorComment
-                            return errorEvent
-                        }
-                    }
-                } else if let playerError = avPlayer.error {
-                    errorInfo.error = playerError as NSError
-                } else {
-                    errorInfo.error = NSError(domain: "AVPlayer playback error", code: -1, userInfo: nil)
-                }
-
-                abstractPlayer.error = errorInfo
-                state = .failed
-                // Assuming IRPlayerNotification is adapted to Swift
-                IRPlayerNotification.postPlayer(abstractPlayer, error: errorInfo)
-
+                failPlayback(with: playbackErrorInfo())
+                
             @unknown default:
-                fatalError()
+                let errorInfo = IRError()
+                errorInfo.error = NSError(domain: "AVPlayer item status unknown", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "AVPlayerItem reported an unknown status."
+                ])
+                failPlayback(with: errorInfo)
             }
 
         case "playbackBufferEmpty":
@@ -343,6 +339,7 @@ extension IRAVPlayer {
 
         case "loadedTimeRanges":
             reloadPlayableTime()
+            guard let abstractPlayer = abstractPlayer else { return }
             let interval = playableTime - progress
             let residue = duration - progress
             if interval > abstractPlayer.playableBufferInterval {
@@ -363,6 +360,54 @@ extension IRAVPlayer {
     func avAssetPrepareFailed(error: Error?) {
         IRPlayerImp.Logger.libraryLogger.warning("\(#function) - AVAsset load failed: \(error?.localizedDescription ?? "Unknown error")")
     }
+
+    private func playbackErrorInfo() -> IRError {
+        readyToPlayTime = 0
+        return Self.playbackErrorInfo(playerItem: avPlayerItem, player: avPlayer)
+    }
+
+    static func playbackErrorInfo(playerItem: AVPlayerItem?, player: AVPlayer?) -> IRError {
+        let errorInfo = IRError()
+
+        if let playerItemError = playerItem?.error {
+            errorInfo.error = playerItemError as NSError
+
+            if let extendedLogData = playerItem?.errorLog()?.extendedLogData(), extendedLogData.count > 0 {
+                errorInfo.extendedLogData = extendedLogData
+                errorInfo.extendedLogDataStringEncoding = String.Encoding(rawValue: playerItem?.errorLog()?.extendedLogDataStringEncoding ?? 0).rawValue
+            }
+
+            if let errorEvents = playerItem?.errorLog()?.events {
+                errorInfo.errorEvents = errorEvents.map { event in
+                    let errorEvent = IRErrorEvent()
+                    errorEvent.date = event.date
+                    errorEvent.URI = event.uri
+                    errorEvent.serverAddress = event.serverAddress
+                    errorEvent.playbackSessionID = event.playbackSessionID
+                    errorEvent.errorStatusCode = event.errorStatusCode
+                    errorEvent.errorDomain = event.errorDomain
+                    errorEvent.errorComment = event.errorComment
+                    return errorEvent
+                }
+            }
+        } else if let playerError = player?.error {
+            errorInfo.error = playerError as NSError
+        } else {
+            errorInfo.error = NSError(domain: "AVPlayer playback error", code: -1, userInfo: nil)
+        }
+
+        return errorInfo
+    }
+
+    private func failPlayback(with errorInfo: IRError) {
+        guard let abstractPlayer = abstractPlayer else {
+            state = .failed
+            return
+        }
+        abstractPlayer.error = errorInfo
+        state = .failed
+        IRPlayerNotification.postPlayer(abstractPlayer, error: errorInfo)
+    }
 }
 
 extension IRAVPlayer {
@@ -375,7 +420,8 @@ extension IRAVPlayer {
 
     func replaceVideo() {
         replaceEmpty()
-        guard let contentURL = abstractPlayer.contentURL else { return }
+        guard let abstractPlayer = abstractPlayer,
+              let contentURL = abstractPlayer.contentURL else { return }
 
         avAsset = AVURLAsset(url: contentURL as URL)
         avAsset?.resourceLoader.setDelegate(self, queue: DispatchQueue(label: "IRAVPlayer.AssetResourceLoaderDelegateQueue"))
@@ -421,7 +467,7 @@ extension IRAVPlayer {
 extension IRAVPlayer: AVAssetResourceLoaderDelegate {
     
     func resourceLoader(_ resourceLoader: AVAssetResourceLoader, shouldWaitForLoadingOfRequestedResource loadingRequest: AVAssetResourceLoadingRequest) -> Bool {
-        guard let contentHeaders = abstractPlayer.contentHeaders, !contentHeaders.isEmpty else {
+        guard let contentHeaders = abstractPlayer?.contentHeaders, !contentHeaders.isEmpty else {
             return false
         }
         
@@ -459,9 +505,10 @@ extension IRAVPlayer {
         playBackTimeObserver = avPlayer?.addPeriodicTimeObserver(forInterval: CMTimeMake(value: 1, timescale: 1), queue: .main) { [weak self] time in
             guard let strongSelf = self else { return }
             if strongSelf.state == .playing {
-                let current = CMTimeGetSeconds(time)
+                guard let abstractPlayer = strongSelf.abstractPlayer else { return }
+                let current = Self.finiteSeconds(from: time)
                 let duration = strongSelf.duration
-                IRPlayerNotification.postPlayer(strongSelf.abstractPlayer, progressPercent: current / duration as NSNumber, current: current as NSNumber, total: duration as NSNumber)
+                IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: current, total: duration), current: current as NSNumber, total: duration as NSNumber)
             }
         }
         reloadVolume()
@@ -480,10 +527,15 @@ extension IRAVPlayer {
     }
 
     func setupAVPlayerItem(autoLoadedAsset: Bool) {
+        guard let avAsset = avAsset else {
+            avPlayerItem = nil
+            return
+        }
+
         if autoLoadedAsset {
-            avPlayerItem = AVPlayerItem(asset: avAsset!, automaticallyLoadedAssetKeys: Self.AVAssetLoadKeys)
+            avPlayerItem = AVPlayerItem(asset: avAsset, automaticallyLoadedAssetKeys: Self.AVAssetLoadKeys)
         } else {
-            avPlayerItem = AVPlayerItem(asset: avAsset!)
+            avPlayerItem = AVPlayerItem(asset: avAsset)
         }
 
         avPlayerItem?.addObserver(self, forKeyPath: "status", options: [], context: nil)
@@ -521,7 +573,8 @@ extension IRAVPlayer {
         ]
         avOutput = AVPlayerItemVideoOutput(pixelBufferAttributes: pixelBufferAttributes)
         avOutput?.requestNotificationOfMediaDataChange(withAdvanceInterval: IRAVPlayer.pixelBufferRequestInterval)
-        avPlayerItem?.add(avOutput!)
+        guard let avOutput = avOutput else { return }
+        avPlayerItem?.add(avOutput)
 
         IRPlayerImp.Logger.libraryLogger.debug("IRAVPlayer add output success") // Assuming IRPlayerLog is a custom logging function. Replace with your logging mechanism.
     }
@@ -542,8 +595,10 @@ extension IRAVPlayer {
 extension IRAVPlayer {
 
     func replaceEmpty() {
-        IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: 0, current: 0, total: 0)
-        IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: 0, current: 0, total: 0)
+        if let abstractPlayer = abstractPlayer {
+            IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: 0, current: 0, total: 0)
+            IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: 0, current: 0, total: 0)
+        }
         avAsset?.cancelLoading()
         avAsset = nil
         cleanOutput()
@@ -567,10 +622,10 @@ extension IRAVPlayer {
         tracks.forEach { track in
             if track.mediaType == .video {
                 videoEnable = true
-                videoTracks.append(playerTrack(from: track)!)
+                videoTracks.append(playerTrack(from: track))
             } else if track.mediaType == .audio {
                 audioEnable = true
-                audioTracks.append(playerTrack(from: track)!)
+                audioTracks.append(playerTrack(from: track))
             }
         }
 
@@ -583,8 +638,7 @@ extension IRAVPlayer {
 
     private func setupDefaultTrack(for characteristic: AVMediaCharacteristic, from tracks: [IRPlayerTrack]) {
         guard let group = avAsset?.mediaSelectionGroup(forMediaCharacteristic: characteristic) else { return }
-        let trackID = (group.defaultOption?.propertyList as? [String: Any])?[IRAVPlayer.avMediaSelectionOptionTrackIDKey] as? Int ?? -1
-        let defaultTrack = tracks.first { $0.index == trackID } ?? tracks.first
+        let defaultTrack = Self.defaultTrack(from: tracks, propertyList: group.defaultOption?.propertyList)
         if characteristic == .visual {
             videoTrack = defaultTrack
         } else if characteristic == .audible {
@@ -611,10 +665,7 @@ extension IRAVPlayer {
               let group = avAsset?.mediaSelectionGroup(forMediaCharacteristic: .audible) else { return }
 
         if let option = group.options.first(where: { option in
-            if let trackID = (group.defaultOption?.propertyList as? [String: Any])?[IRAVPlayer.avMediaSelectionOptionTrackIDKey] as? Int {
-                return trackID == audioTrackIndex
-            }
-            return false
+            return Self.mediaSelectionTrackID(from: option.propertyList) == audioTrackIndex
         }) {
             avPlayerItem?.select(option, in: group)
             if let track = audioTracks.first(where: { $0.index == audioTrackIndex }) {
@@ -623,11 +674,38 @@ extension IRAVPlayer {
         }
     }
 
-    func playerTrack(from track: AVAssetTrack) -> IRPlayerTrack? {
+    func playerTrack(from track: AVAssetTrack) -> IRPlayerTrack {
         let obj = IRPlayerTrack()
         obj.index = Int(track.trackID)
-        obj.name = track.languageCode!
+        obj.name = Self.trackName(languageCode: track.languageCode, trackID: track.trackID)
         return obj
+    }
+
+    static func trackName(languageCode: String?, trackID: CMPersistentTrackID) -> String {
+        guard let languageCode, !languageCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "Track \(trackID)"
+        }
+        return languageCode
+    }
+
+    static func mediaSelectionTrackID(from propertyList: Any?) -> Int? {
+        guard let propertyList = propertyList as? [String: Any],
+              let value = propertyList[avMediaSelectionOptionTrackIDKey] else { return nil }
+
+        if let value = value as? Int {
+            return value
+        }
+        if let value = value as? NSNumber {
+            return value.intValue
+        }
+        return nil
+    }
+
+    static func defaultTrack(from tracks: [IRPlayerTrack], propertyList: Any?) -> IRPlayerTrack? {
+        guard let trackID = mediaSelectionTrackID(from: propertyList) else {
+            return tracks.first
+        }
+        return tracks.first { $0.index == trackID } ?? tracks.first
     }
 
 }

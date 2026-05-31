@@ -12,7 +12,7 @@ import Foundation
     public static func createIRGLProgram2D(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2D {
         let program = IRGLProgram2D(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
-            program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
+            program.tramsformController = makeTransformController2D(viewportRange: viewportRange)
             program.tramsformController?.delegate = program
         }
         program.mapProjection = IRGLProjectionOrthographic(textureWidth: 0, height: 0)
@@ -22,7 +22,7 @@ import Foundation
     public static func createIRGLProgram2DFisheye2Pano(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2DFisheye2Pano {
         let program = IRGLProgram2DFisheye2Pano(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
-            program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
+            program.tramsformController = makeTransformController2D(viewportRange: viewportRange)
             program.tramsformController?.delegate = program
 
             let oldScaleRange = program.tramsformController?.scaleRange
@@ -38,7 +38,7 @@ import Foundation
     public static func createIRGLProgram2DFisheye2Persp(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2DFisheye2Persp {
         let program = IRGLProgram2DFisheye2Persp(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
-            program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
+            program.tramsformController = makeTransformController2D(viewportRange: viewportRange)
             program.tramsformController?.delegate = program
         }
         program.mapProjection = IRGLProjectionOrthographic(textureWidth: 0, height: 0)
@@ -46,23 +46,18 @@ import Foundation
     }
 
     public static func createIRGLProgram3DFisheye(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram3DFisheye? {
-        var parameter = parameter
-        if parameter == nil {
-            parameter = IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
-        } else if !(parameter is IRFisheyeParameter) {
+        guard let fisheyeParameter = makeFisheyeParameter(from: parameter) else {
             IRPlayerImp.Logger.libraryLogger.warning("createIRGLProgram failed.")
             return nil
         }
 
-        let fp = parameter as! IRFisheyeParameter
-
-        let program = IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!)
+        let program = IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter)
         if program.tramsformController == nil {
-            program.tramsformController = IRGLTransformController3DFisheye(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .backward)
+            program.tramsformController = makeFisheyeTransformController(viewportRange: viewportRange, tileType: .backward)
             program.tramsformController?.delegate = program
 
             let oldScopeRange = program.tramsformController?.scopeRange ?? IRGLScopeRange(minLat: 0, maxLat: 0, minLng: 0, maxLng: 0, defaultLat: 0, defaultLng: 0)
-            let newMaxLat = oldScopeRange.maxLat > 0 ? fp.latmax : fp.latmax - 90.0
+            let newMaxLat = oldScopeRange.maxLat > 0 ? fisheyeParameter.latmax : fisheyeParameter.latmax - 90.0
             var newDefaultLat = oldScopeRange.defaultLat
             if newDefaultLat > newMaxLat || newDefaultLat < oldScopeRange.minLat {
                 newDefaultLat = (newMaxLat + oldScopeRange.minLat) / 2
@@ -74,7 +69,7 @@ import Foundation
             let adjustedScopeRange = IRGLScopeRange(minLat: scopeRange.minLat, maxLat: scopeRange.maxLat, minLng: scopeRange.minLng, maxLng: scopeRange.maxLng, defaultLat: -40, defaultLng: 90)
             program.tramsformController?.scopeRange = adjustedScopeRange
         }
-        program.mapProjection = IRGLProjectionEquirectangular(textureWidth: fp.width, height: fp.height, centerX: fp.cx, centerY: fp.cy, radius: fp.ry)
+        program.mapProjection = IRGLProjectionEquirectangular(textureWidth: fisheyeParameter.width, height: fisheyeParameter.height, centerX: fisheyeParameter.cx, centerY: fisheyeParameter.cy, radius: fisheyeParameter.ry)
         return program
     }
 
@@ -87,7 +82,7 @@ import Foundation
         ]
         let program = IRGLProgramMulti4P(programs: programs_4p, viewprotRange: viewportRange)
         if program.tramsformController == nil {
-            program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
+            program.tramsformController = makeTransformController2D(viewportRange: viewportRange)
             program.tramsformController?.delegate = program
         }
 
@@ -110,38 +105,33 @@ import Foundation
     }
 
     public static func createIRGLProgram3DFisheye4P(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramMulti4P? {
-        var parameter = parameter
-        if parameter == nil {
-            parameter = IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
-        } else if !(parameter is IRFisheyeParameter) {
+        guard let fisheyeParameter = makeFisheyeParameter(from: parameter) else {
             IRPlayerImp.Logger.libraryLogger.warning("createIRGLProgram failed.")
             return nil
         }
 
-        let fp = parameter as! IRFisheyeParameter
-
         let programs_4p = [
-            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!),
-            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!),
-            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!),
-            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter!)
+            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter),
+            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter),
+            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter),
+            IRGLProgram3DFisheye(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: fisheyeParameter)
         ]
 
         let program = IRGLProgramMulti4P(programs: programs_4p, viewprotRange: viewportRange)
         if program.tramsformController == nil {
-            program.tramsformController = IRGLTransformController2D(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height))
+            program.tramsformController = makeTransformController2D(viewportRange: viewportRange)
             program.tramsformController?.delegate = program
         }
 
-        let mapProjection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: fp.cx, centerY: fp.cy, radius: fp.ry)
+        let mapProjection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: fisheyeParameter.cx, centerY: fisheyeParameter.cy, radius: fisheyeParameter.ry)
 
         for (index, program) in programs_4p.enumerated() {
             if program.tramsformController == nil {
-                program.tramsformController = IRGLTransformController3DFisheye(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .backward)
+                program.tramsformController = makeFisheyeTransformController(viewportRange: viewportRange, tileType: .backward)
                 program.tramsformController?.delegate = program
 
                 let oldScopeRange = program.tramsformController?.scopeRange
-                let newMaxLat = (oldScopeRange?.maxLat ?? 0 > 0) ? fp.latmax : fp.latmax - 90.0
+                let newMaxLat = (oldScopeRange?.maxLat ?? 0 > 0) ? fisheyeParameter.latmax : fisheyeParameter.latmax - 90.0
                 var newDefaultLat = oldScopeRange?.defaultLat ?? 0
                 if newDefaultLat > newMaxLat || newDefaultLat < oldScopeRange?.minLat ?? 0 {
                     newDefaultLat = (newMaxLat + (oldScopeRange?.minLat ?? 0)) / 2
@@ -172,10 +162,25 @@ import Foundation
         return program
     }
 
+    private static func makeFisheyeParameter(from parameter: IRMediaParameter?) -> IRFisheyeParameter? {
+        guard let parameter = parameter else {
+            return IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
+        }
+        guard let fisheyeParameter = parameter as? IRFisheyeParameter else {
+            print("createIRGLProgram failed.")
+            return nil
+        }
+        return fisheyeParameter
+    }
+
     public static func createIRGLProgramVR(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramVR {
         let program = IRGLProgramVR(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
-            let transformController = IRGLTransformControllerVR(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .up)
+            guard let viewportSize = IRGLProgram2D.viewportSize(from: viewportRange) else {
+                program.mapProjection = IRGLProjectionVR(textureWidth: 0, height: 0)
+                return program
+            }
+            let transformController = IRGLTransformControllerVR(viewportWidth: viewportSize.width, viewportHeight: viewportSize.height, tileType: .up)
             transformController.rc = 1
             transformController.fov = 30
             transformController.updateVertices()
@@ -195,7 +200,11 @@ import Foundation
     public static func createIRGLProgramDistortion(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramDistortion {
         let program = IRGLProgramDistortion(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
-            let transformController = IRGLTransformControllerDistortion(viewportWidth: Int(viewportRange.size.width), viewportHeight: Int(viewportRange.size.height), tileType: .up)
+            guard let viewportSize = IRGLProgram2D.viewportSize(from: viewportRange) else {
+                program.mapProjection = IRGLProjectionVR(textureWidth: 0, height: 0)
+                return program
+            }
+            let transformController = IRGLTransformControllerDistortion(viewportWidth: viewportSize.width, viewportHeight: viewportSize.height, tileType: .up)
             transformController.rc = 1
             transformController.fov = 30
             transformController.updateVertices()
@@ -210,5 +219,15 @@ import Foundation
         }
         program.mapProjection = IRGLProjectionVR(textureWidth: 0, height: 0)
         return program
+    }
+
+    private static func makeTransformController2D(viewportRange: CGRect) -> IRGLTransformController2D? {
+        guard let viewportSize = IRGLProgram2D.viewportSize(from: viewportRange) else { return nil }
+        return IRGLTransformController2D(viewportWidth: viewportSize.width, viewportHeight: viewportSize.height)
+    }
+
+    private static func makeFisheyeTransformController(viewportRange: CGRect, tileType: IRGLScope3D.TiltType) -> IRGLTransformController3DFisheye? {
+        guard let viewportSize = IRGLProgram2D.viewportSize(from: viewportRange) else { return nil }
+        return IRGLTransformController3DFisheye(viewportWidth: viewportSize.width, viewportHeight: viewportSize.height, tileType: tileType)
     }
 }

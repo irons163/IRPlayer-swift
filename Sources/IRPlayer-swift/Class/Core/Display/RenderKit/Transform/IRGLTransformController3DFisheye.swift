@@ -48,7 +48,7 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
         scope.w = width
         scope.h = height
 
-        let aspectRatio = Float(width) / Float(height)
+        let aspectRatio = Self.aspectRatio(width: width, height: height)
         let fovyRadians = fov * .pi / 180.0
         projectMatrix = IRMatrix4.makePerspective(fovyRadians, aspectRatio, 1.0, 1000.0)
         viewMatrix = IRMatrix4.identity()
@@ -102,6 +102,7 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     func updateBy(fx: Float, fy: Float, sx: Float, sy: Float, renew: Bool) {
+        guard sx.isFinite, sy.isFinite, sx > 0, sy > 0 else { return }
         let oldScale = scope.scaleX 
         if sx <= 1.0 {
             scope.scaleX = 1
@@ -115,7 +116,7 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
         if oldScale != scope.scaleX {
             let newFov = atan(Double(tanbase) / Double(scope.scaleX )) * 2
             fov = Float(newFov * (180 / .pi))
-            let aspectRatio = Float(scope.w ) / Float(scope.h )
+            let aspectRatio = Self.aspectRatio(width: scope.w, height: scope.h)
             let fovyRadians = fov * .pi / 180.0
             projectMatrix = IRMatrix4.makePerspective(fovyRadians, aspectRatio, 1.0, 1000.0)
             updateVertices()
@@ -125,6 +126,8 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     override func scroll(dx: Float, dy: Float) {
+        guard dx.isFinite, dy.isFinite else { return }
+
         let oldLng = scope.lng
         let oldLat = scope.lat
 
@@ -232,7 +235,7 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
         scope.h = h
         defaultTransformScaleX = oldDefaultScaleX
         defaultTransformScaleY = oldDefaultScaleY
-        let aspectRatio = Float(w) / Float(h)
+        let aspectRatio = Self.aspectRatio(width: w, height: h)
         let fovyRadians = fov * .pi / 180.0
         projectMatrix = IRMatrix4.makePerspective(fovyRadians, aspectRatio, 1.0, 1000.0)
         viewMatrix = IRMatrix4.identity()
@@ -270,5 +273,10 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
         viewMatrix = IRMatrix4.makeLookAt(SIMD3<Float>(camera[0], camera[1], camera[2]),
                                           SIMD3<Float>(0, 0, 0),
                                           SIMD3<Float>(0, 1, 0))
+    }
+
+    static func aspectRatio(width: Int, height: Int) -> Float {
+        guard width > 0, height > 0 else { return 1.0 }
+        return Float(width) / Float(height)
     }
 }

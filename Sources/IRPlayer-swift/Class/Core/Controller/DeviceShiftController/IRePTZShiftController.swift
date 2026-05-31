@@ -26,21 +26,20 @@ public class IRePTZShiftController {
     func shiftDegreeX(_ degreeX: Float, degreeY: Float) {
         guard enabled else { return }
 
-        var adjustedDegreeX = degreeX
-        var adjustedDegreeY = degreeY
-
-        if panAngle == 0 {
-            adjustedDegreeX = 0
-        } else {
-            adjustedDegreeX = degreeX * panFactor * 360 / panAngle
-        }
-
-        if tiltAngle == 0 {
-            adjustedDegreeY = 0
-        } else {
-            adjustedDegreeY = degreeY * tiltFactor * 360 / tiltAngle
-        }
+        let adjustedDegreeX = Self.adjustedDegree(degreeX, angle: panAngle, factor: panFactor)
+        let adjustedDegreeY = Self.adjustedDegree(degreeY, angle: tiltAngle, factor: tiltFactor)
 
         program?.didPanByDegreeX(adjustedDegreeX, degreeY: adjustedDegreeY)
+    }
+
+    static func adjustedDegree(_ degree: Float, angle: Float, factor: Float) -> Float {
+        guard degree.isFinite, angle.isFinite, factor.isFinite, angle != 0 else {
+            return 0
+        }
+        let adjustedDegree = degree * factor * 360 / angle
+        guard adjustedDegree.isFinite else {
+            return 0
+        }
+        return adjustedDegree
     }
 }
