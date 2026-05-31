@@ -15,6 +15,20 @@ final class IRFFPlayerTests: XCTestCase {
         withExtendedLifetime(abstractPlayer) {}
     }
 
+    func testReleaseDoesNotPrintDebugOutput() {
+        let abstractPlayer = IRPlayerImp.player()
+        abstractPlayer.manager = nil
+        var ffPlayer: IRFFPlayer? = IRFFPlayer.player(with: abstractPlayer)
+        XCTAssertNotNil(ffPlayer)
+
+        let output = captureStandardOutput {
+            ffPlayer = nil
+        }
+
+        XCTAssertEqual(output, "")
+        withExtendedLifetime(abstractPlayer) {}
+    }
+
     func testPlayableBufferIntervalReloadsFFmpegDecoderBufferDuration() throws {
         let player = IRPlayerImp.player()
         player.decoder = IRPlayerDecoder.FFmpegDecoder()
