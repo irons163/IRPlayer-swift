@@ -8,6 +8,20 @@
 import Foundation
 import UIKit
 
+enum IRGLGesturePolicy {
+    static func renderPoint(from point: CGPoint, viewHeight: CGFloat, screenScale: CGFloat) -> CGPoint {
+        guard point.x.isFinite,
+              point.y.isFinite,
+              viewHeight.isFinite,
+              screenScale.isFinite,
+              screenScale > 0 else {
+            return .zero
+        }
+        return CGPoint(x: point.x * screenScale,
+                       y: (viewHeight - point.y) * screenScale)
+    }
+}
+
 @objc public protocol IRGLViewDelegate: AnyObject {
     func glViewDidEndDragging(_ view: IRGLView?, willDecelerate: Bool)
     func glViewWillBeginDragging(_ view: IRGLView?)
