@@ -294,7 +294,6 @@ class IRFFVideoToolBox {
 
     deinit {
         self.flush()
-        print("IRFFVideoToolBox release")
     }
 
     static func handleOutputCallback(refCon: UnsafeMutableRawPointer?, status: OSStatus, imageBuffer: CVImageBuffer?) {
