@@ -78,7 +78,6 @@
 		B5E94F0E2D0B21F800149265 /* IRGLRenderMode2DFisheye2Pano.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D902D0B21F800149265 /* IRGLRenderMode2DFisheye2Pano.swift */; };
 		B5E94F102D0B21F800149265 /* IRGLProgramVRFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DAD2D0B21F800149265 /* IRGLProgramVRFactory.swift */; };
 		B5E94F112D0B21F800149265 /* IRPlayerImp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E1D2D0B21F800149265 /* IRPlayerImp.swift */; };
-		B5E950572F68A02800149265 /* IRPlayerLifecyclePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950562F68A02800149265 /* IRPlayerLifecyclePolicy.swift */; };
 		B5E94F122D0B21F800149265 /* IRFisheyeParameter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D6F2D0B21F800149265 /* IRFisheyeParameter.swift */; };
 		B5E94F132D0B21F800149265 /* IRFFTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DFD2D0B21F800149265 /* IRFFTools.swift */; };
 		B5E94F142D0B21F800149265 /* IRFFAVYUVVideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DEE2D0B21F800149265 /* IRFFAVYUVVideoFrame.swift */; };
@@ -122,11 +121,6 @@
 		B5E950052F68A00300149265 /* IRModelPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950042F68A00300149265 /* IRModelPayloadTests.swift */; };
 		B5E950072F68A00400149265 /* IRPlayerNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950062F68A00400149265 /* IRPlayerNotificationTests.swift */; };
 		B5E950092F68A00500149265 /* IRFFFrameQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */; };
-		B5E950492F68A02200149265 /* IRFFPacketQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */; };
-		B5E950532F68A02600149265 /* IRFFVideoDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */; };
-		B5E950552F68A02700149265 /* IRPlayerLifecyclePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950542F68A02700149265 /* IRPlayerLifecyclePolicyTests.swift */; };
-		B5E9504B2F68A02300149265 /* IRFFMetadataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9504A2F68A02300149265 /* IRFFMetadataTests.swift */; };
-		B5E9504D2F68A02400149265 /* IRFFTrackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */; };
 		B5E9500B2F68A00600149265 /* IRGLRenderModeFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */; };
 		B5E9500D2F68A00700149265 /* IRMatrix4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */; };
 		B5E9500F2F68A00800149265 /* IRAudioManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500E2F68A00800149265 /* IRAudioManagerTests.swift */; };
@@ -149,14 +143,20 @@
 		B5E950372F68A01900149265 /* IRGLProgram2DTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950362F68A01900149265 /* IRGLProgram2DTests.swift */; };
 		B5E950392F68A01A00149265 /* IRGLTransformController2DTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950382F68A01A00149265 /* IRGLTransformController2DTests.swift */; };
 		B5E9503B2F68A01B00149265 /* IRGLTransformController3DFisheyeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9503A2F68A01B00149265 /* IRGLTransformController3DFisheyeTests.swift */; };
-			B5E9503D2F68A01C00149265 /* IRGLTransformControllerVRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9503C2F68A01C00149265 /* IRGLTransformControllerVRTests.swift */; };
-			B5E9503F2F68A01D00149265 /* IRGLProgramFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9503E2F68A01D00149265 /* IRGLProgramFactoryTests.swift */; };
-			B5E950412F68A01E00149265 /* IRGLProgramMulti4PTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */; };
-			B5E950432F68A01F00149265 /* IRGLScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950422F68A01F00149265 /* IRGLScopeTests.swift */; };
-			B5E950452F68A02000149265 /* IRGLRenderModeBuildTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950442F68A02000149265 /* IRGLRenderModeBuildTests.swift */; };
-			B5E950472F68A02100149265 /* IRGLRenderStrategyFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950462F68A02100149265 /* IRGLRenderStrategyFactoryTests.swift */; };
-			B5E950512F68A02500149265 /* IRGLProgramDistortionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950502F68A02500149265 /* IRGLProgramDistortionTests.swift */; };
-			D1B25EAB2804376100F79DCC /* IRPlayer_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */; };
+		B5E9503D2F68A01C00149265 /* IRGLTransformControllerVRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9503C2F68A01C00149265 /* IRGLTransformControllerVRTests.swift */; };
+		B5E9503F2F68A01D00149265 /* IRGLProgramFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9503E2F68A01D00149265 /* IRGLProgramFactoryTests.swift */; };
+		B5E950412F68A01E00149265 /* IRGLProgramMulti4PTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */; };
+		B5E950432F68A01F00149265 /* IRGLScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950422F68A01F00149265 /* IRGLScopeTests.swift */; };
+		B5E950452F68A02000149265 /* IRGLRenderModeBuildTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950442F68A02000149265 /* IRGLRenderModeBuildTests.swift */; };
+		B5E950472F68A02100149265 /* IRGLRenderStrategyFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950462F68A02100149265 /* IRGLRenderStrategyFactoryTests.swift */; };
+		B5E950492F68A02200149265 /* IRFFPacketQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */; };
+		B5E9504B2F68A02300149265 /* IRFFMetadataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9504A2F68A02300149265 /* IRFFMetadataTests.swift */; };
+		B5E9504D2F68A02400149265 /* IRFFTrackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */; };
+		B5E950512F68A02500149265 /* IRGLProgramDistortionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950502F68A02500149265 /* IRGLProgramDistortionTests.swift */; };
+		B5E950532F68A02600149265 /* IRFFVideoDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */; };
+		B5E950552F68A02700149265 /* IRPlayerLifecyclePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950542F68A02700149265 /* IRPlayerLifecyclePolicyTests.swift */; };
+		B5E950572F68A02800149265 /* IRPlayerLifecyclePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950562F68A02800149265 /* IRPlayerLifecyclePolicy.swift */; };
+		D1B25EAB2804376100F79DCC /* IRPlayer_swift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -183,6 +183,9 @@
 		4A9D78962F65855F00CDB43B /* IRMetalRenderer+RenderMesh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderMesh.swift"; sourceTree = "<group>"; };
 		4A9D78972F65855F00CDB43B /* IRMetalRenderer+RenderPixelFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderPixelFormat.swift"; sourceTree = "<group>"; };
 		4A9D78A42F658FD300CDB43B /* IRGLRenderAdapters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderAdapters.swift; sourceTree = "<group>"; };
+		786754B82FCC6E970025FE47 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = AGENTS.md; path = /Users/igor/Development/Sources/Carson/ios/AGENTS.md; sourceTree = "<absolute>"; };
+		786754BA2FCC6EFA0025FE47 /* 2026-05-26-player-lifecycle-policy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-05-26-player-lifecycle-policy.md"; sourceTree = "<group>"; };
+		786754BC2FCC6EFA0025FE47 /* 2026-05-26-player-lifecycle-policy-design.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-05-26-player-lifecycle-policy-design.md"; sourceTree = "<group>"; };
 		B559AA5C2D15C603007A9F9F /* package.xcworkspace */ = {isa = PBXFileReference; lastKnownFileType = wrapper.workspace; path = package.xcworkspace; sourceTree = "<group>"; };
 		B559AA5F2D15C603007A9F9F /* IRFFMpeg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IRFFMpeg.h; sourceTree = "<group>"; };
 		B559AA612D15C603007A9F9F /* libavcodec.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libavcodec.xcframework; sourceTree = "<group>"; };
@@ -276,7 +279,6 @@
 		B5E94E1B2D0B21F800149265 /* IRPlayerAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerAction.swift; sourceTree = "<group>"; };
 		B5E94E1C2D0B21F800149265 /* IRPlayerDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerDecoder.swift; sourceTree = "<group>"; };
 		B5E94E1D2D0B21F800149265 /* IRPlayerImp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerImp.swift; sourceTree = "<group>"; };
-		B5E950562F68A02800149265 /* IRPlayerLifecyclePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerLifecyclePolicy.swift; sourceTree = "<group>"; };
 		B5E94E1E2D0B21F800149265 /* IRPlayerTrack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerTrack.swift; sourceTree = "<group>"; };
 		B5E94EC02D0B21F800149265 /* IRPlayer_swift.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IRPlayer_swift.h; sourceTree = "<group>"; };
 		B5E94EC12D0B21F800149265 /* IRPlayer_swift.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = IRPlayer_swift.docc; sourceTree = "<group>"; };
@@ -286,11 +288,6 @@
 		B5E950042F68A00300149265 /* IRModelPayloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRModelPayloadTests.swift; sourceTree = "<group>"; };
 		B5E950062F68A00400149265 /* IRPlayerNotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerNotificationTests.swift; sourceTree = "<group>"; };
 		B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueueTests.swift; sourceTree = "<group>"; };
-		B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueueTests.swift; sourceTree = "<group>"; };
-		B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoDecoderTests.swift; sourceTree = "<group>"; };
-		B5E950542F68A02700149265 /* IRPlayerLifecyclePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerLifecyclePolicyTests.swift; sourceTree = "<group>"; };
-		B5E9504A2F68A02300149265 /* IRFFMetadataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFMetadataTests.swift; sourceTree = "<group>"; };
-		B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFTrackTests.swift; sourceTree = "<group>"; };
 		B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderModeFactoryTests.swift; sourceTree = "<group>"; };
 		B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMatrix4Tests.swift; sourceTree = "<group>"; };
 		B5E9500E2F68A00800149265 /* IRAudioManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAudioManagerTests.swift; sourceTree = "<group>"; };
@@ -314,13 +311,19 @@
 		B5E950382F68A01A00149265 /* IRGLTransformController2DTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformController2DTests.swift; sourceTree = "<group>"; };
 		B5E9503A2F68A01B00149265 /* IRGLTransformController3DFisheyeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformController3DFisheyeTests.swift; sourceTree = "<group>"; };
 		B5E9503C2F68A01C00149265 /* IRGLTransformControllerVRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformControllerVRTests.swift; sourceTree = "<group>"; };
-			B5E9503E2F68A01D00149265 /* IRGLProgramFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramFactoryTests.swift; sourceTree = "<group>"; };
-			B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti4PTests.swift; sourceTree = "<group>"; };
-			B5E950422F68A01F00149265 /* IRGLScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLScopeTests.swift; sourceTree = "<group>"; };
-			B5E950442F68A02000149265 /* IRGLRenderModeBuildTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderModeBuildTests.swift; sourceTree = "<group>"; };
-			B5E950462F68A02100149265 /* IRGLRenderStrategyFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderStrategyFactoryTests.swift; sourceTree = "<group>"; };
-			B5E950502F68A02500149265 /* IRGLProgramDistortionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramDistortionTests.swift; sourceTree = "<group>"; };
-			D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IRPlayer_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		B5E9503E2F68A01D00149265 /* IRGLProgramFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramFactoryTests.swift; sourceTree = "<group>"; };
+		B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti4PTests.swift; sourceTree = "<group>"; };
+		B5E950422F68A01F00149265 /* IRGLScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLScopeTests.swift; sourceTree = "<group>"; };
+		B5E950442F68A02000149265 /* IRGLRenderModeBuildTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderModeBuildTests.swift; sourceTree = "<group>"; };
+		B5E950462F68A02100149265 /* IRGLRenderStrategyFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderStrategyFactoryTests.swift; sourceTree = "<group>"; };
+		B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueueTests.swift; sourceTree = "<group>"; };
+		B5E9504A2F68A02300149265 /* IRFFMetadataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFMetadataTests.swift; sourceTree = "<group>"; };
+		B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFTrackTests.swift; sourceTree = "<group>"; };
+		B5E950502F68A02500149265 /* IRGLProgramDistortionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramDistortionTests.swift; sourceTree = "<group>"; };
+		B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoDecoderTests.swift; sourceTree = "<group>"; };
+		B5E950542F68A02700149265 /* IRPlayerLifecyclePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerLifecyclePolicyTests.swift; sourceTree = "<group>"; };
+		B5E950562F68A02800149265 /* IRPlayerLifecyclePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerLifecyclePolicy.swift; sourceTree = "<group>"; };
+		D1B25EA02804376000F79DCC /* IRPlayer_swift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IRPlayer_swift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1B25EAA2804376100F79DCC /* IRPlayer-swiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "IRPlayer-swiftTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -369,6 +372,47 @@
 				4A9CA7E92F63848500B90A0E /* IRMetalDistortionMesh.swift */,
 			);
 			path = Metal;
+			sourceTree = "<group>";
+		};
+		786754B92FCC6E9A0025FE47 /* New Group */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = "New Group";
+			sourceTree = "<group>";
+		};
+		786754BB2FCC6EFA0025FE47 /* plans */ = {
+			isa = PBXGroup;
+			children = (
+				786754BA2FCC6EFA0025FE47 /* 2026-05-26-player-lifecycle-policy.md */,
+			);
+			path = plans;
+			sourceTree = "<group>";
+		};
+		786754BD2FCC6EFA0025FE47 /* specs */ = {
+			isa = PBXGroup;
+			children = (
+				786754BC2FCC6EFA0025FE47 /* 2026-05-26-player-lifecycle-policy-design.md */,
+			);
+			path = specs;
+			sourceTree = "<group>";
+		};
+		786754BE2FCC6EFA0025FE47 /* superpowers */ = {
+			isa = PBXGroup;
+			children = (
+				786754BB2FCC6EFA0025FE47 /* plans */,
+				786754BD2FCC6EFA0025FE47 /* specs */,
+			);
+			path = superpowers;
+			sourceTree = "<group>";
+		};
+		786754BF2FCC6EFA0025FE47 /* docs */ = {
+			isa = PBXGroup;
+			children = (
+				786754BE2FCC6EFA0025FE47 /* superpowers */,
+				786754B82FCC6E970025FE47 /* AGENTS.md */,
+			);
+			path = docs;
 			sourceTree = "<group>";
 		};
 		B559AA5D2D15C603007A9F9F /* xcode */ = {
@@ -785,12 +829,12 @@
 				B5E9504A2F68A02300149265 /* IRFFMetadataTests.swift */,
 				B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */,
 				B5E950262F68A01400149265 /* IRGLGestureControllerTests.swift */,
-					B5E950242F68A01300149265 /* IRGLProgram2DFisheye2PanoTests.swift */,
-					B5E950302F68A01600149265 /* IRGLProgram2DFisheye2PerspTests.swift */,
-					B5E950362F68A01900149265 /* IRGLProgram2DTests.swift */,
-					B5E950502F68A02500149265 /* IRGLProgramDistortionTests.swift */,
-					B5E9503E2F68A01D00149265 /* IRGLProgramFactoryTests.swift */,
-					B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */,
+				B5E950242F68A01300149265 /* IRGLProgram2DFisheye2PanoTests.swift */,
+				B5E950302F68A01600149265 /* IRGLProgram2DFisheye2PerspTests.swift */,
+				B5E950362F68A01900149265 /* IRGLProgram2DTests.swift */,
+				B5E950502F68A02500149265 /* IRGLProgramDistortionTests.swift */,
+				B5E9503E2F68A01D00149265 /* IRGLProgramFactoryTests.swift */,
+				B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */,
 				B5E950442F68A02000149265 /* IRGLRenderModeBuildTests.swift */,
 				B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */,
 				B5E950462F68A02100149265 /* IRGLRenderStrategyFactoryTests.swift */,
@@ -831,6 +875,8 @@
 		D1B25E962804376000F79DCC = {
 			isa = PBXGroup;
 			children = (
+				786754BF2FCC6EFA0025FE47 /* docs */,
+				786754B92FCC6E9A0025FE47 /* New Group */,
 				B5E94FED2D0B220400149265 /* Tests */,
 				B5E94EC72D0B21F800149265 /* Sources */,
 				D1B25EA12804376000F79DCC /* Products */,
@@ -1081,12 +1127,12 @@
 				B5E9504B2F68A02300149265 /* IRFFMetadataTests.swift in Sources */,
 				B5E9504D2F68A02400149265 /* IRFFTrackTests.swift in Sources */,
 				B5E950272F68A01400149265 /* IRGLGestureControllerTests.swift in Sources */,
-					B5E950252F68A01300149265 /* IRGLProgram2DFisheye2PanoTests.swift in Sources */,
-					B5E950312F68A01600149265 /* IRGLProgram2DFisheye2PerspTests.swift in Sources */,
-					B5E950372F68A01900149265 /* IRGLProgram2DTests.swift in Sources */,
-					B5E950512F68A02500149265 /* IRGLProgramDistortionTests.swift in Sources */,
-					B5E9503F2F68A01D00149265 /* IRGLProgramFactoryTests.swift in Sources */,
-					B5E950412F68A01E00149265 /* IRGLProgramMulti4PTests.swift in Sources */,
+				B5E950252F68A01300149265 /* IRGLProgram2DFisheye2PanoTests.swift in Sources */,
+				B5E950312F68A01600149265 /* IRGLProgram2DFisheye2PerspTests.swift in Sources */,
+				B5E950372F68A01900149265 /* IRGLProgram2DTests.swift in Sources */,
+				B5E950512F68A02500149265 /* IRGLProgramDistortionTests.swift in Sources */,
+				B5E9503F2F68A01D00149265 /* IRGLProgramFactoryTests.swift in Sources */,
+				B5E950412F68A01E00149265 /* IRGLProgramMulti4PTests.swift in Sources */,
 				B5E950452F68A02000149265 /* IRGLRenderModeBuildTests.swift in Sources */,
 				B5E9500B2F68A00600149265 /* IRGLRenderModeFactoryTests.swift in Sources */,
 				B5E950472F68A02100149265 /* IRGLRenderStrategyFactoryTests.swift in Sources */,
