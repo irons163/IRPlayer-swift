@@ -23,12 +23,40 @@ import IRFFMpeg
         return .avyuvVideo
     }
 
+    static func shouldAcceptFrameData(width: Int,
+                                      height: Int,
+                                      hasLuma: Bool,
+                                      hasChromaB: Bool,
+                                      hasChromaR: Bool,
+                                      linesizeY: Int32,
+                                      linesizeU: Int32,
+                                      linesizeV: Int32) -> Bool {
+        return width > 0
+            && height > 0
+            && hasLuma
+            && hasChromaB
+            && hasChromaR
+            && linesizeY > 0
+            && linesizeU > 0
+            && linesizeV > 0
+    }
+
     func setFrameData(_ frame: UnsafePointer<AVFrame>, width: Int, height: Int) {
-        guard width > 0,
-              height > 0,
-              let luma = frame.pointee.data.0,
-              let chromaB = frame.pointee.data.1,
-              let chromaR = frame.pointee.data.2 else {
+        let linesizeY = frame.pointee.linesize.0
+        let linesizeU = frame.pointee.linesize.1
+        let linesizeV = frame.pointee.linesize.2
+        guard Self.shouldAcceptFrameData(
+            width: width,
+            height: height,
+            hasLuma: frame.pointee.data.0 != nil,
+            hasChromaB: frame.pointee.data.1 != nil,
+            hasChromaR: frame.pointee.data.2 != nil,
+            linesizeY: linesizeY,
+            linesizeU: linesizeU,
+            linesizeV: linesizeV
+        ), let luma = frame.pointee.data.0,
+           let chromaB = frame.pointee.data.1,
+           let chromaR = frame.pointee.data.2 else {
             flush()
             return
         }
@@ -37,14 +65,6 @@ import IRFFMpeg
 
         self.width = width
         self.height = height
-
-        let linesizeY = frame.pointee.linesize.0
-        let linesizeU = frame.pointee.linesize.1
-        let linesizeV = frame.pointee.linesize.2
-        guard linesizeY > 0, linesizeU > 0, linesizeV > 0 else {
-            flush()
-            return
-        }
 
         channelLinesize[IRYUVChannel.luma.rawValue] = Int32(linesizeY)
         channelLinesize[IRYUVChannel.chromaB.rawValue] = Int32(linesizeU)

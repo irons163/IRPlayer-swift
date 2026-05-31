@@ -54,6 +54,57 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertNil(frame.image())
     }
 
+    func testShouldAcceptFrameDataRequiresDimensionsPlanesAndLinesizes() {
+        XCTAssertFalse(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 0,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertFalse(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: false,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertFalse(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 0,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertTrue(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+    }
+
     func testYUVChannelFilterNeedSizeCheckedRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 0, height: 4, channelCount: 1))
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 4, height: 0, channelCount: 1))
