@@ -82,6 +82,43 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
         }
     }
 
+    static func outputScaleDecision(
+        outputWidth: Int,
+        outputHeight: Int,
+        viewportWidth: Int,
+        viewportHeight: Int,
+        contentMode: IRGLRenderContentMode,
+        shouldUpdateToDefaultWhenOutputSizeChanged: Bool
+    ) -> (scaleX: Float, scaleY: Float, shouldUpdateToDefault: Bool)? {
+        let width = Double(outputWidth)
+        let height = Double(outputHeight)
+        let viewportWidth = Double(viewportWidth)
+        let viewportHeight = Double(viewportHeight)
+        guard width > 0, height > 0, viewportWidth > 0, viewportHeight > 0 else { return nil }
+
+        let heightRatio = viewportHeight / height
+        let widthRatio = viewportWidth / width
+        let scaleRatio: Double
+
+        switch contentMode {
+        case .scaleAspectFit:
+            scaleRatio = min(heightRatio, widthRatio)
+        case .scaleAspectFill:
+            scaleRatio = max(heightRatio, widthRatio)
+        case .scaleToFill:
+            scaleRatio = 0
+        @unknown default:
+            scaleRatio = 0
+        }
+
+        guard scaleRatio > 0 else { return nil }
+
+        let scaleY = Float(height * scaleRatio / viewportHeight)
+        let scaleX = Float(width * scaleRatio / viewportWidth)
+        let shouldUpdateToDefault = (heightRatio != 1 || widthRatio != 1) && shouldUpdateToDefaultWhenOutputSizeChanged
+        return (scaleX, scaleY, shouldUpdateToDefault)
+    }
+
     func initShaderParams() {
         shaderParams2D = IRGLShaderParams()
         shaderParams2D?.delegate = self
