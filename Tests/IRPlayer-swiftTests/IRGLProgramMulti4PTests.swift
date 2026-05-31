@@ -11,6 +11,44 @@ import XCTest
 
 final class IRGLProgramMulti4PTests: XCTestCase {
 
+    func testViewportRangesPolicySplitsMultiDisplayIntoQuadrants() {
+        let ranges = IRGLProgramMulti4P.viewportRanges(
+            in: CGRect(x: 0, y: 0, width: 400, height: 200),
+            displayMode: .multiDisplay,
+            programCount: 4,
+            selectedIndex: nil
+        )
+
+        XCTAssertEqual(ranges, expectedQuadrants())
+    }
+
+    func testViewportRangesPolicyShowsOnlySelectedProgramInSingleDisplay() {
+        let ranges = IRGLProgramMulti4P.viewportRanges(
+            in: CGRect(x: 0, y: 0, width: 400, height: 200),
+            displayMode: .singleDisplay,
+            programCount: 4,
+            selectedIndex: 2
+        )
+
+        XCTAssertEqual(ranges, [
+            .zero,
+            .zero,
+            CGRect(x: 0, y: 0, width: 400, height: 200),
+            .zero
+        ])
+    }
+
+    func testViewportRangesPolicyHidesAllProgramsForMissingSingleSelection() {
+        let ranges = IRGLProgramMulti4P.viewportRanges(
+            in: CGRect(x: 0, y: 0, width: 400, height: 200),
+            displayMode: .singleDisplay,
+            programCount: 4,
+            selectedIndex: nil
+        )
+
+        XCTAssertEqual(ranges, [.zero, .zero, .zero, .zero])
+    }
+
     func testTouchSelectsProgramInMatchingQuadrant() {
         let program = makeProgram()
 
