@@ -242,35 +242,21 @@ extension IRGLProgram2D: IRGLShaderParamsDelegate {
 
     public func didUpdateOutputWH(_ w: Int, _ h: Int) {
         if let transformController = transformController {
-            let width = Double(w)
-            let height = Double(h)
-            let viewportWidth = Double(transformController.getScope().w)
-            let viewportHeight = Double(transformController.getScope().h)
-            guard width > 0, height > 0, viewportWidth > 0, viewportHeight > 0 else { return }
-            let dH = viewportHeight / height
-            let dW = viewportWidth / width
-            var dd: Double
-
-            switch contentMode {
-            case .scaleAspectFit:
-                dd = min(dH, dW)
-            case .scaleAspectFill:
-                dd = max(dH, dW)
-            case .scaleToFill:
-                dd = 0
-            @unknown default:
-                dd = 0
+            guard let decision = Self.outputScaleDecision(
+                outputWidth: w,
+                outputHeight: h,
+                viewportWidth: transformController.getScope().w,
+                viewportHeight: transformController.getScope().h,
+                contentMode: contentMode,
+                shouldUpdateToDefaultWhenOutputSizeChanged: shouldUpdateToDefaultWhenOutputSizeChanged
+            ) else {
+                return
             }
 
-            if dd > 0 {
-                let sy = height * dd / viewportHeight
-                let sx = width * dd / viewportWidth
+            transformController.setupDefaultTransform(scaleX: decision.scaleX, scaleY: decision.scaleY)
 
-                transformController.setupDefaultTransform(scaleX: Float(sx), scaleY: Float(sy))
-
-                if (dH != 1 || dW != 1) && shouldUpdateToDefaultWhenOutputSizeChanged {
-                    transformController.updateToDefault()
-                }
+            if decision.shouldUpdateToDefault {
+                transformController.updateToDefault()
             }
         }
     }
