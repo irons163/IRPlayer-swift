@@ -17,13 +17,17 @@ protocol IRGLRenderInternal: IRGLRender {
     func render(frame: IRFFVideoFrame,
                 to drawable: CAMetalDrawable,
                 contentMode: IRGLRenderContentMode,
-                drawableSize: CGSize) -> Bool
+                drawableSize: CGSize,
+                zoomScale: Float,
+                translation: SIMD2<Float>) -> Bool
 
     func renderMulti(frame: IRFFVideoFrame,
                      to drawable: CAMetalDrawable,
                      drawableSize: CGSize,
                      viewports: [CGRect],
-                     contentModes: [IRGLRenderContentMode]) -> Bool
+                     contentModes: [IRGLRenderContentMode],
+                     zoomScales: [Float],
+                     translations: [SIMD2<Float>]) -> Bool
 
     func renderClear(to drawable: CAMetalDrawable)
 
@@ -35,7 +39,8 @@ protocol IRGLRenderInternal: IRGLRender {
                          viewport: CGRect,
                          contentMode: IRGLRenderContentMode,
                          outputSize: CGSize,
-                         zoomScale: Float) -> Bool
+                         zoomScale: Float,
+                         translation: SIMD2<Float>) -> Bool
 
     func renderDistortion(frame: IRFFVideoFrame,
                           leftMesh: IRMetalDistortionMesh,

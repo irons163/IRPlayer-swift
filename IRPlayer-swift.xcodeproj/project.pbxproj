@@ -183,7 +183,8 @@
 		4A9D78962F65855F00CDB43B /* IRMetalRenderer+RenderMesh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderMesh.swift"; sourceTree = "<group>"; };
 		4A9D78972F65855F00CDB43B /* IRMetalRenderer+RenderPixelFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderPixelFormat.swift"; sourceTree = "<group>"; };
 		4A9D78A42F658FD300CDB43B /* IRGLRenderAdapters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderAdapters.swift; sourceTree = "<group>"; };
-		786754B82FCC6E970025FE47 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = AGENTS.md; path = /Users/igor/Development/Sources/Carson/ios/AGENTS.md; sourceTree = "<absolute>"; };
+		7845CC3A2FCC70400073A5E9 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = SOURCE_ROOT; };
+		7845CC3B2FCC70500073A5E9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
 		786754BA2FCC6EFA0025FE47 /* 2026-05-26-player-lifecycle-policy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-05-26-player-lifecycle-policy.md"; sourceTree = "<group>"; };
 		786754BC2FCC6EFA0025FE47 /* 2026-05-26-player-lifecycle-policy-design.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-05-26-player-lifecycle-policy-design.md"; sourceTree = "<group>"; };
 		B559AA5C2D15C603007A9F9F /* package.xcworkspace */ = {isa = PBXFileReference; lastKnownFileType = wrapper.workspace; path = package.xcworkspace; sourceTree = "<group>"; };
@@ -409,8 +410,9 @@
 		786754BF2FCC6EFA0025FE47 /* docs */ = {
 			isa = PBXGroup;
 			children = (
+				7845CC3B2FCC70500073A5E9 /* README.md */,
+				7845CC3A2FCC70400073A5E9 /* AGENTS.md */,
 				786754BE2FCC6EFA0025FE47 /* superpowers */,
-				786754B82FCC6E970025FE47 /* AGENTS.md */,
 			);
 			path = docs;
 			sourceTree = "<group>";

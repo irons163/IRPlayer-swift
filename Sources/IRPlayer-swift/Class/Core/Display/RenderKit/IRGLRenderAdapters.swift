@@ -24,20 +24,26 @@ private final class IRGLRenderAdapter: IRGLRenderInternal {
     func render(frame: IRFFVideoFrame,
                 to drawable: CAMetalDrawable,
                 contentMode: IRGLRenderContentMode,
-                drawableSize: CGSize) -> Bool {
-        renderer?.render(frame: frame, to: drawable, contentMode: contentMode, drawableSize: drawableSize) ?? false
+                drawableSize: CGSize,
+                zoomScale: Float,
+                translation: SIMD2<Float>) -> Bool {
+        renderer?.render(frame: frame, to: drawable, contentMode: contentMode, drawableSize: drawableSize, zoomScale: zoomScale, translation: translation) ?? false
     }
 
     func renderMulti(frame: IRFFVideoFrame,
                      to drawable: CAMetalDrawable,
                      drawableSize: CGSize,
                      viewports: [CGRect],
-                     contentModes: [IRGLRenderContentMode]) -> Bool {
+                     contentModes: [IRGLRenderContentMode],
+                     zoomScales: [Float],
+                     translations: [SIMD2<Float>]) -> Bool {
         renderer?.renderMulti(frame: frame,
                               to: drawable,
                               drawableSize: drawableSize,
                               viewports: viewports,
-                              contentModes: contentModes) ?? false
+                              contentModes: contentModes,
+                              zoomScales: zoomScales,
+                              translations: translations) ?? false
     }
 
     func renderClear(to drawable: CAMetalDrawable) {
@@ -52,7 +58,8 @@ private final class IRGLRenderAdapter: IRGLRenderInternal {
                          viewport: CGRect,
                          contentMode: IRGLRenderContentMode,
                          outputSize: CGSize,
-                         zoomScale: Float) -> Bool {
+                         zoomScale: Float,
+                         translation: SIMD2<Float>) -> Bool {
         renderer?.renderFish2Pano(frame: frame,
                                  params: params,
                                  texUVTextures: texUVTextures,
@@ -61,7 +68,8 @@ private final class IRGLRenderAdapter: IRGLRenderInternal {
                                  viewport: viewport,
                                  contentMode: contentMode,
                                  outputSize: outputSize,
-                                 zoomScale: zoomScale) ?? false
+                                  zoomScale: zoomScale,
+                                  translation: translation) ?? false
     }
 
     func renderDistortion(frame: IRFFVideoFrame,
@@ -121,16 +129,20 @@ extension IRGLRenderNV12: IRGLRenderInternal {
     func render(frame: IRFFVideoFrame,
                 to drawable: CAMetalDrawable,
                 contentMode: IRGLRenderContentMode,
-                drawableSize: CGSize) -> Bool {
-        adapter.render(frame: frame, to: drawable, contentMode: contentMode, drawableSize: drawableSize)
+                drawableSize: CGSize,
+                zoomScale: Float,
+                translation: SIMD2<Float>) -> Bool {
+        adapter.render(frame: frame, to: drawable, contentMode: contentMode, drawableSize: drawableSize, zoomScale: zoomScale, translation: translation)
     }
 
     func renderMulti(frame: IRFFVideoFrame,
                      to drawable: CAMetalDrawable,
                      drawableSize: CGSize,
                      viewports: [CGRect],
-                     contentModes: [IRGLRenderContentMode]) -> Bool {
-        adapter.renderMulti(frame: frame, to: drawable, drawableSize: drawableSize, viewports: viewports, contentModes: contentModes)
+                     contentModes: [IRGLRenderContentMode],
+                     zoomScales: [Float],
+                     translations: [SIMD2<Float>]) -> Bool {
+        adapter.renderMulti(frame: frame, to: drawable, drawableSize: drawableSize, viewports: viewports, contentModes: contentModes, zoomScales: zoomScales, translations: translations)
     }
 
     func renderClear(to drawable: CAMetalDrawable) {
@@ -145,7 +157,8 @@ extension IRGLRenderNV12: IRGLRenderInternal {
                          viewport: CGRect,
                          contentMode: IRGLRenderContentMode,
                          outputSize: CGSize,
-                         zoomScale: Float) -> Bool {
+                         zoomScale: Float,
+                         translation: SIMD2<Float>) -> Bool {
         adapter.renderFish2Pano(frame: frame,
                               params: params,
                               texUVTextures: texUVTextures,
@@ -154,7 +167,8 @@ extension IRGLRenderNV12: IRGLRenderInternal {
                               viewport: viewport,
                               contentMode: contentMode,
                               outputSize: outputSize,
-                              zoomScale: zoomScale)
+                               zoomScale: zoomScale,
+                               translation: translation)
     }
 
     func renderDistortion(frame: IRFFVideoFrame,
@@ -214,16 +228,20 @@ extension IRGLRenderYUV: IRGLRenderInternal {
     func render(frame: IRFFVideoFrame,
                 to drawable: CAMetalDrawable,
                 contentMode: IRGLRenderContentMode,
-                drawableSize: CGSize) -> Bool {
-        adapter.render(frame: frame, to: drawable, contentMode: contentMode, drawableSize: drawableSize)
+                drawableSize: CGSize,
+                zoomScale: Float,
+                translation: SIMD2<Float>) -> Bool {
+        adapter.render(frame: frame, to: drawable, contentMode: contentMode, drawableSize: drawableSize, zoomScale: zoomScale, translation: translation)
     }
 
     func renderMulti(frame: IRFFVideoFrame,
                      to drawable: CAMetalDrawable,
                      drawableSize: CGSize,
                      viewports: [CGRect],
-                     contentModes: [IRGLRenderContentMode]) -> Bool {
-        adapter.renderMulti(frame: frame, to: drawable, drawableSize: drawableSize, viewports: viewports, contentModes: contentModes)
+                     contentModes: [IRGLRenderContentMode],
+                     zoomScales: [Float],
+                     translations: [SIMD2<Float>]) -> Bool {
+        adapter.renderMulti(frame: frame, to: drawable, drawableSize: drawableSize, viewports: viewports, contentModes: contentModes, zoomScales: zoomScales, translations: translations)
     }
 
     func renderClear(to drawable: CAMetalDrawable) {
@@ -238,7 +256,8 @@ extension IRGLRenderYUV: IRGLRenderInternal {
                          viewport: CGRect,
                          contentMode: IRGLRenderContentMode,
                          outputSize: CGSize,
-                         zoomScale: Float) -> Bool {
+                         zoomScale: Float,
+                         translation: SIMD2<Float>) -> Bool {
         adapter.renderFish2Pano(frame: frame,
                               params: params,
                               texUVTextures: texUVTextures,
@@ -247,7 +266,8 @@ extension IRGLRenderYUV: IRGLRenderInternal {
                               viewport: viewport,
                               contentMode: contentMode,
                               outputSize: outputSize,
-                              zoomScale: zoomScale)
+                               zoomScale: zoomScale,
+                               translation: translation)
     }
 
     func renderDistortion(frame: IRFFVideoFrame,
