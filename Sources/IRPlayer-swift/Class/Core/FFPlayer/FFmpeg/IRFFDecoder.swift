@@ -361,6 +361,10 @@ protocol IRFFDecoderDelegate: AnyObject {
         return Self.frameInterval(forFPS: fps)
     }
 
+    static func shouldAcceptVideoFrame(currentPosition: TimeInterval?, nextPosition: TimeInterval?) -> Bool {
+        return (currentPosition ?? 0) <= (nextPosition ?? 0)
+    }
+
     private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
         guard fps.isFinite, fps > 0 else { return nil }
         let interval = 1.0 / fps
@@ -515,7 +519,8 @@ protocol IRFFDecoderDelegate: AnyObject {
                     updateBufferedDurationByVideo()
                 }
                 let newFrame = videoDecoder?.getFrameSync()
-                if currentVideoFrame?.position ?? 0 > newFrame?.position ?? 0 {
+                if !Self.shouldAcceptVideoFrame(currentPosition: currentVideoFrame?.position,
+                                                nextPosition: newFrame?.position) {
                     continue
                 }
                 currentVideoFrame = newFrame
@@ -533,7 +538,8 @@ protocol IRFFDecoderDelegate: AnyObject {
                     updateBufferedDurationByVideo()
                 }
                 let newFrame = videoDecoder?.getFrameSync()
-                if currentVideoFrame?.position ?? 0 > newFrame?.position ?? 0 {
+                if !Self.shouldAcceptVideoFrame(currentPosition: currentVideoFrame?.position,
+                                                nextPosition: newFrame?.position) {
                     continue
                 }
                 currentVideoFrame = newFrame

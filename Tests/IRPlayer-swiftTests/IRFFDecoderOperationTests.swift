@@ -248,6 +248,14 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertEqual(IRFFDecoder.standaloneVideoSleepDuration(frameDuration: 0.04, fps: 0), 0.04)
     }
 
+    func testShouldAcceptVideoFramePreservesForwardProgressOrdering() {
+        XCTAssertTrue(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: nil, nextPosition: nil))
+        XCTAssertTrue(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: nil, nextPosition: 0.5))
+        XCTAssertTrue(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: 1.0, nextPosition: 1.0))
+        XCTAssertTrue(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: 1.0, nextPosition: 1.5))
+        XCTAssertFalse(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: 1.0, nextPosition: 0.5))
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),
