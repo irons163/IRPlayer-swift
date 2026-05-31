@@ -20,6 +20,11 @@ class IRFFPlayer: NSObject {
         let shouldSeekToStart: Bool
     }
 
+    struct BufferingTransition: Equatable {
+        let nextState: IRPlayerState
+        let hasPreparedOnce: Bool
+    }
+
     enum ReplaceVideoReadiness {
         case ready
         case missingRequiredInput
@@ -140,6 +145,22 @@ class IRFFPlayer: NSObject {
         case .failed, .readyToPlay, .finished, .playing, .buffering:
             return .suspend
         }
+    }
+
+    static func bufferingTransition(isBuffering: Bool, isPlaying: Bool, hasPreparedOnce: Bool) -> BufferingTransition {
+        guard !isBuffering else {
+            return BufferingTransition(nextState: .buffering, hasPreparedOnce: hasPreparedOnce)
+        }
+
+        if isPlaying {
+            return BufferingTransition(nextState: .playing, hasPreparedOnce: hasPreparedOnce)
+        }
+
+        if !hasPreparedOnce {
+            return BufferingTransition(nextState: .readyToPlay, hasPreparedOnce: true)
+        }
+
+        return BufferingTransition(nextState: .suspend, hasPreparedOnce: hasPreparedOnce)
     }
 
     static func audioSilenceByteCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
@@ -272,18 +293,13 @@ extension IRFFPlayer: IRFFDecoderDelegate {
     }
 
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBuffering buffering: Bool) {
-        if buffering {
-            self.state = .buffering
-        } else {
-            if self.playing {
-                self.state = .playing
-            } else if !self.prepareToken {
-                self.state = .readyToPlay
-                self.prepareToken = true
-            } else {
-                self.state = .suspend
-            }
-        }
+        let transition = Self.bufferingTransition(
+            isBuffering: buffering,
+            isPlaying: playing,
+            hasPreparedOnce: prepareToken
+        )
+        state = transition.nextState
+        prepareToken = transition.hasPreparedOnce
     }
 
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBufferedDuration bufferedDuration: TimeInterval) {

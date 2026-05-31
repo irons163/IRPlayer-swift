@@ -140,4 +140,23 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertEqual(IRFFPlayer.pauseTransition(from: .buffering), .suspend)
     }
 
+    func testBufferingTransitionMapsDecoderBufferingStateAndPrepareToken() {
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: true, isPlaying: false, hasPreparedOnce: false),
+            IRFFPlayer.BufferingTransition(nextState: .buffering, hasPreparedOnce: false)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: false, isPlaying: true, hasPreparedOnce: false),
+            IRFFPlayer.BufferingTransition(nextState: .playing, hasPreparedOnce: false)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: false, isPlaying: false, hasPreparedOnce: false),
+            IRFFPlayer.BufferingTransition(nextState: .readyToPlay, hasPreparedOnce: true)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: false, isPlaying: false, hasPreparedOnce: true),
+            IRFFPlayer.BufferingTransition(nextState: .suspend, hasPreparedOnce: true)
+        )
+    }
+
 }
