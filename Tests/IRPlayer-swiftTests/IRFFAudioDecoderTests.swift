@@ -181,4 +181,10 @@ final class IRFFAudioFrameTests: XCTestCase {
         XCTAssertEqual(IRFFAudioFrame.sampleCapacity(forByteLength: MemoryLayout<Float>.size), 1)
         XCTAssertEqual(IRFFAudioFrame.sampleCapacity(forByteLength: MemoryLayout<Float>.size + 1), 2)
     }
+
+    func testShouldAllocateSampleBufferOnlyWhenCapacityIsTooSmall() {
+        XCTAssertFalse(IRFFAudioFrame.shouldAllocateSampleBuffer(currentCapacity: 4, requiredCapacity: 4))
+        XCTAssertFalse(IRFFAudioFrame.shouldAllocateSampleBuffer(currentCapacity: 5, requiredCapacity: 4))
+        XCTAssertTrue(IRFFAudioFrame.shouldAllocateSampleBuffer(currentCapacity: 3, requiredCapacity: 4))
+    }
 }

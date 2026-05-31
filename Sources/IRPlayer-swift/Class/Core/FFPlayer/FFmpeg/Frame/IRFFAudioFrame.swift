@@ -23,7 +23,7 @@ import Foundation
             return
         }
 
-        if bufferSize < sampleCapacity {
+        if Self.shouldAllocateSampleBuffer(currentCapacity: bufferSize, requiredCapacity: sampleCapacity) {
             if bufferSize > 0, let samples = samples {
                 samples.deallocate()
             }
@@ -49,5 +49,9 @@ import Foundation
 
         let capacity = adjustedByteLength / floatSize
         return capacity > 0 ? capacity : nil
+    }
+
+    static func shouldAllocateSampleBuffer(currentCapacity: Int, requiredCapacity: Int) -> Bool {
+        return currentCapacity < requiredCapacity
     }
 }
