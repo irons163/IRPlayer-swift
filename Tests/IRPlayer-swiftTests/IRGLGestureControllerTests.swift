@@ -56,6 +56,46 @@ final class IRGLGestureControllerTests: XCTestCase {
         XCTAssertEqual(target.duration, 0)
     }
 
+    func testSmoothScrollPolicyCalculatesEaseOutMovementStep() throws {
+        let step = try XCTUnwrap(
+            IRSmoothScrollPolicy.step(finalPoint: CGPoint(x: 100, y: 50),
+                                      alreadyPoint: CGPoint(x: 20, y: 5),
+                                      elapsed: 0.25,
+                                      duration: 1.0)
+        )
+
+        XCTAssertEqual(step.move.x, 23.75, accuracy: 0.0001)
+        XCTAssertEqual(step.move.y, 16.875, accuracy: 0.0001)
+        XCTAssertEqual(step.alreadyPoint.x, 43.75, accuracy: 0.0001)
+        XCTAssertEqual(step.alreadyPoint.y, 21.875, accuracy: 0.0001)
+        XCTAssertFalse(step.isFinished)
+    }
+
+    func testSmoothScrollPolicyClampsElapsedTimeAndMarksFinished() throws {
+        let step = try XCTUnwrap(
+            IRSmoothScrollPolicy.step(finalPoint: CGPoint(x: 100, y: 50),
+                                      alreadyPoint: CGPoint(x: 43.75, y: 21.875),
+                                      elapsed: 2.0,
+                                      duration: 1.0)
+        )
+
+        XCTAssertEqual(step.move.x, 56.25, accuracy: 0.0001)
+        XCTAssertEqual(step.move.y, 28.125, accuracy: 0.0001)
+        XCTAssertEqual(step.alreadyPoint, CGPoint(x: 100, y: 50))
+        XCTAssertTrue(step.isFinished)
+    }
+
+    func testSmoothScrollPolicyRejectsInvalidTiming() {
+        XCTAssertNil(IRSmoothScrollPolicy.step(finalPoint: CGPoint(x: 10, y: 10),
+                                              alreadyPoint: .zero,
+                                              elapsed: 0.1,
+                                              duration: 0))
+        XCTAssertNil(IRSmoothScrollPolicy.step(finalPoint: CGPoint(x: 10, y: 10),
+                                              alreadyPoint: .zero,
+                                              elapsed: CGFloat.nan,
+                                              duration: 1))
+    }
+
     func testClearingCurrentModeClearsSmoothScrollMode() {
         let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
         let smoothScroll = IRSmoothScrollController(targetView: view)
