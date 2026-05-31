@@ -183,7 +183,30 @@
 		4A9D78962F65855F00CDB43B /* IRMetalRenderer+RenderMesh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderMesh.swift"; sourceTree = "<group>"; };
 		4A9D78972F65855F00CDB43B /* IRMetalRenderer+RenderPixelFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderPixelFormat.swift"; sourceTree = "<group>"; };
 		4A9D78A42F658FD300CDB43B /* IRGLRenderAdapters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderAdapters.swift; sourceTree = "<group>"; };
-		7845CC3A2FCC70400073A5E9 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = SOURCE_ROOT; };
+		783947A62FCCA710007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947A72FCCA735007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947A82FCCA753007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947A92FCCA75E007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947AA2FCCA769007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947AB2FCCA776007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947AC2FCCA7A0007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947AD2FCCA7AA007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947AE2FCCA7B7007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947AF2FCCA7C5007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B02FCCA7D1007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B12FCCA7F5007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B22FCCA7FE007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B32FCCA80B007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B42FCCA81A007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B52FCCA834007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B62FCCA83F007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B72FCCA84C007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B82FCCA85D007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947B92FCCA867007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947BA2FCCA873007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947BB2FCCA8B1007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947BC2FCCA8BA007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		783947BD2FCCAA5D007ED691 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
 		7845CC3B2FCC70500073A5E9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
 		786754BA2FCC6EFA0025FE47 /* 2026-05-26-player-lifecycle-policy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-05-26-player-lifecycle-policy.md"; sourceTree = "<group>"; };
 		786754BC2FCC6EFA0025FE47 /* 2026-05-26-player-lifecycle-policy-design.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-05-26-player-lifecycle-policy-design.md"; sourceTree = "<group>"; };
@@ -360,6 +383,7 @@
 		4A5170982F5DB698009F8BBA /* Metal */ = {
 			isa = PBXGroup;
 			children = (
+				783947B42FCCA81A007ED691 /* AGENTS.md */,
 				4A9D78902F65855F00CDB43B /* IRMetalPixelRenderer.swift */,
 				4A9D78922F65855F00CDB43B /* IRMetalRenderer+Render2D.swift */,
 				4A9D78932F65855F00CDB43B /* IRMetalRenderer+RenderDistortion.swift */,
@@ -403,8 +427,8 @@
 		786754BF2FCC6EFA0025FE47 /* docs */ = {
 			isa = PBXGroup;
 			children = (
+				783947BC2FCCA8BA007ED691 /* AGENTS.md */,
 				7845CC3B2FCC70500073A5E9 /* README.md */,
-				7845CC3A2FCC70400073A5E9 /* AGENTS.md */,
 				786754BE2FCC6EFA0025FE47 /* superpowers */,
 			);
 			path = docs;
@@ -479,6 +503,7 @@
 		B5E94D6C2D0B21F800149265 /* Audio */ = {
 			isa = PBXGroup;
 			children = (
+				783947A82FCCA753007ED691 /* AGENTS.md */,
 				B5E94D6B2D0B21F800149265 /* IRAudioManager.swift */,
 			);
 			path = Audio;
@@ -487,6 +512,7 @@
 		B5E94D6E2D0B21F800149265 /* AVPlayer */ = {
 			isa = PBXGroup;
 			children = (
+				783947A92FCCA75E007ED691 /* AGENTS.md */,
 				B5E94D6D2D0B21F800149265 /* IRAVPlayer.swift */,
 			);
 			path = AVPlayer;
@@ -495,6 +521,7 @@
 		B5E94D712D0B21F800149265 /* Config */ = {
 			isa = PBXGroup;
 			children = (
+				783947AA2FCCA769007ED691 /* AGENTS.md */,
 				B5E94D6F2D0B21F800149265 /* IRFisheyeParameter.swift */,
 				B5E94D702D0B21F800149265 /* IRMediaParameter.swift */,
 			);
@@ -537,6 +564,7 @@
 		B5E94D7D2D0B21F800149265 /* Controller */ = {
 			isa = PBXGroup;
 			children = (
+				783947AB2FCCA776007ED691 /* AGENTS.md */,
 				B5E94D732D0B21F800149265 /* Bounce */,
 				B5E94D772D0B21F800149265 /* DeviceShiftController */,
 				B5E94D7A2D0B21F800149265 /* GestureController */,
@@ -548,6 +576,7 @@
 		B5E94D982D0B21F800149265 /* Mode */ = {
 			isa = PBXGroup;
 			children = (
+				783947AE2FCCA7B7007ED691 /* AGENTS.md */,
 				B5E94D8E2D0B21F800149265 /* IRGLRenderMode.swift */,
 				B5E94D8F2D0B21F800149265 /* IRGLRenderMode2D.swift */,
 				B5E94D902D0B21F800149265 /* IRGLRenderMode2DFisheye2Pano.swift */,
@@ -563,6 +592,7 @@
 		B5E94DA22D0B21F800149265 /* Params */ = {
 			isa = PBXGroup;
 			children = (
+				783947AF2FCCA7C5007ED691 /* AGENTS.md */,
 				B5E94D9B2D0B21F800149265 /* IRGLFish2PanoShaderParams.swift */,
 				B5E94D9E2D0B21F800149265 /* IRGLFish2PerspShaderParams.swift */,
 				B5E94DA12D0B21F800149265 /* IRGLShaderParams.swift */,
@@ -603,6 +633,7 @@
 		B5E94DB92D0B21F800149265 /* Program */ = {
 			isa = PBXGroup;
 			children = (
+				783947B02FCCA7D1007ED691 /* AGENTS.md */,
 				B5E94DA62D0B21F800149265 /* Distortion */,
 				B5E94DAE2D0B21F800149265 /* Factory */,
 				B5E94DB22D0B21F800149265 /* VR */,
@@ -619,6 +650,7 @@
 		B5E94DC82D0B21F800149265 /* Projection */ = {
 			isa = PBXGroup;
 			children = (
+				783947B12FCCA7F5007ED691 /* AGENTS.md */,
 				B5E94DBB2D0B21F800149265 /* IRGLProjection.swift */,
 				B5E94DC12D0B21F800149265 /* IRGLProjectionEquirectangular.swift */,
 				B5E94DC42D0B21F800149265 /* IRGLProjectionOrthographic.swift */,
@@ -630,6 +662,7 @@
 		B5E94DD02D0B21F800149265 /* Scope */ = {
 			isa = PBXGroup;
 			children = (
+				783947B22FCCA7FE007ED691 /* AGENTS.md */,
 				B5E94DCE2D0B21F800149265 /* IRGLScope2D.swift */,
 				B5E94DCF2D0B21F800149265 /* IRGLScope3D.swift */,
 			);
@@ -639,6 +672,7 @@
 		B5E94DE02D0B21F800149265 /* Transform */ = {
 			isa = PBXGroup;
 			children = (
+				783947B32FCCA80B007ED691 /* AGENTS.md */,
 				B5E94DD32D0B21F800149265 /* IRGLTransformController.swift */,
 				B5E94DD62D0B21F800149265 /* IRGLTransformController2D.swift */,
 				B5E94DD92D0B21F800149265 /* IRGLTransformController3DFisheye.swift */,
@@ -651,6 +685,7 @@
 		B5E94DEB2D0B21F800149265 /* RenderKit */ = {
 			isa = PBXGroup;
 			children = (
+				783947AD2FCCA7AA007ED691 /* AGENTS.md */,
 				B5E94D982D0B21F800149265 /* Mode */,
 				B5E94DA22D0B21F800149265 /* Params */,
 				B5E94DB92D0B21F800149265 /* Program */,
@@ -668,6 +703,7 @@
 		B5E94DEC2D0B21F800149265 /* Display */ = {
 			isa = PBXGroup;
 			children = (
+				783947AC2FCCA7A0007ED691 /* AGENTS.md */,
 				B5E94DEB2D0B21F800149265 /* RenderKit */,
 				4A5170982F5DB698009F8BBA /* Metal */,
 			);
@@ -677,6 +713,7 @@
 		B5E94DF62D0B21F800149265 /* Frame */ = {
 			isa = PBXGroup;
 			children = (
+				783947B72FCCA84C007ED691 /* AGENTS.md */,
 				B5E94DED2D0B21F800149265 /* IRFFAudioFrame.swift */,
 				B5E94DEE2D0B21F800149265 /* IRFFAVYUVVideoFrame.swift */,
 				B5E94DEF2D0B21F800149265 /* IRFFCVYUVVideoFrame.swift */,
@@ -693,6 +730,7 @@
 		B5E94E042D0B21F800149265 /* FFmpeg */ = {
 			isa = PBXGroup;
 			children = (
+				783947B62FCCA83F007ED691 /* AGENTS.md */,
 				B5E94DF62D0B21F800149265 /* Frame */,
 				B5E94DF72D0B21F800149265 /* IRFFAudioDecoder.swift */,
 				B5E94DF82D0B21F800149265 /* IRFFDecoder.swift */,
@@ -710,6 +748,7 @@
 		B5E94E082D0B21F800149265 /* FFPlayer */ = {
 			isa = PBXGroup;
 			children = (
+				783947B52FCCA834007ED691 /* AGENTS.md */,
 				B5E94E042D0B21F800149265 /* FFmpeg */,
 				B5E94E052D0B21F800149265 /* IRFFPlayer.h */,
 				B5E94E072D0B21F800149265 /* IRFFPlayer.swift */,
@@ -720,6 +759,7 @@
 		B5E94E0C2D0B21F800149265 /* Matrix */ = {
 			isa = PBXGroup;
 			children = (
+				783947B82FCCA85D007ED691 /* AGENTS.md */,
 				B5E94E0B2D0B21F800149265 /* IRSensor.swift */,
 			);
 			path = Matrix;
@@ -728,6 +768,7 @@
 		B5E94E112D0B21F800149265 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
+				783947B92FCCA867007ED691 /* AGENTS.md */,
 				B5E94E0F2D0B21F800149265 /* IRFFMpegErrorUtil.swift */,
 				B5E94F990000000000000001 /* IRPhotoSaver.swift */,
 				B5E94E102D0B21F800149265 /* IRYUVTools.swift */,
@@ -754,6 +795,7 @@
 		B5E94E1A2D0B21F800149265 /* Platform */ = {
 			isa = PBXGroup;
 			children = (
+				783947BA2FCCA873007ED691 /* AGENTS.md */,
 				B5E94E162D0B21F800149265 /* IRPLFImage.swift */,
 				B5E94E192D0B21F800149265 /* IRPLFView.swift */,
 			);
@@ -763,6 +805,7 @@
 		B5E94E1F2D0B21F800149265 /* Class */ = {
 			isa = PBXGroup;
 			children = (
+				783947A72FCCA735007ED691 /* AGENTS.md */,
 				B5E94E132D0B21F800149265 /* Core */,
 				B5E94E1A2D0B21F800149265 /* Platform */,
 				B5E94E1B2D0B21F800149265 /* IRPlayerAction.swift */,
@@ -797,6 +840,7 @@
 		B5E94EC72D0B21F800149265 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				783947A62FCCA710007ED691 /* AGENTS.md */,
 				B5E94EC62D0B21F800149265 /* IRPlayer-swift */,
 			);
 			path = Sources;
@@ -851,6 +895,7 @@
 		B5E94FED2D0B220400149265 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				783947BD2FCCAA5D007ED691 /* AGENTS.md */,
 				B5E94FEC2D0B220400149265 /* IRPlayer-swiftTests */,
 			);
 			path = Tests;
@@ -870,6 +915,7 @@
 		D1B25E962804376000F79DCC = {
 			isa = PBXGroup;
 			children = (
+				783947BB2FCCA8B1007ED691 /* AGENTS.md */,
 				786754BF2FCC6EFA0025FE47 /* docs */,
 				B5E94FED2D0B220400149265 /* Tests */,
 				B5E94EC72D0B21F800149265 /* Sources */,
