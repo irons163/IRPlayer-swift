@@ -48,6 +48,12 @@ final class IRFFFormatContextTests: XCTestCase {
         }
     }
 
+    func testDictionaryOptionApplicationRequiresNonNegativeResult() {
+        XCTAssertTrue(IRFFFormatContext.dictionaryOptionWasApplied(0))
+        XCTAssertTrue(IRFFFormatContext.dictionaryOptionWasApplied(1))
+        XCTAssertFalse(IRFFFormatContext.dictionaryOptionWasApplied(-1))
+    }
+
     func testVideoAspectUsesFiniteRatioAndFallsBackForInvalidDimensions() {
         XCTAssertEqual(IRFFFormatContext.videoAspect(width: 1920, height: 1080), 16.0 / 9.0, accuracy: 0.0001)
         XCTAssertEqual(IRFFFormatContext.videoAspect(width: 0, height: 1080), 0)
