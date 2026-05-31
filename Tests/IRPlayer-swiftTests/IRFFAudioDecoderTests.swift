@@ -168,6 +168,12 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertFalse(IRFFAudioDecoder.shouldDecodeFrame(hasFrame: true, hasPrimaryData: false))
         XCTAssertTrue(IRFFAudioDecoder.shouldDecodeFrame(hasFrame: true, hasPrimaryData: true))
     }
+
+    func testDirectOutputSampleFormatRequiresS16() {
+        XCTAssertTrue(IRFFAudioDecoder.canUseDirectOutput(sampleFormat: AV_SAMPLE_FMT_S16))
+        XCTAssertFalse(IRFFAudioDecoder.canUseDirectOutput(sampleFormat: AV_SAMPLE_FMT_FLT))
+        XCTAssertFalse(IRFFAudioDecoder.canUseDirectOutput(sampleFormat: AV_SAMPLE_FMT_NONE))
+    }
 }
 
 final class IRFFAudioFrameTests: XCTestCase {

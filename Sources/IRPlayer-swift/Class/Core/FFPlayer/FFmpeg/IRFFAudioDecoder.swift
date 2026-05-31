@@ -188,6 +188,10 @@ class IRFFAudioDecoder {
         return hasFrame && hasPrimaryData
     }
 
+    static func canUseDirectOutput(sampleFormat: AVSampleFormat) -> Bool {
+        return sampleFormat == AV_SAMPLE_FMT_S16
+    }
+
     func duration() -> TimeInterval {
         return frameQueue.duration
     }
@@ -297,7 +301,7 @@ class IRFFAudioDecoder {
             guard let swrBuffer = Self.audioDataBuffer(fromSwrBuffer: audioSwrBuffer) else { return nil }
             audioDataBuffer = swrBuffer
         } else {
-            if codecContext?.pointee.sample_fmt != AV_SAMPLE_FMT_S16 {
+            if !Self.canUseDirectOutput(sampleFormat: codecContext?.pointee.sample_fmt ?? AV_SAMPLE_FMT_NONE) {
                 IRFFErrorLog("audio format error")
                 return nil
             }
