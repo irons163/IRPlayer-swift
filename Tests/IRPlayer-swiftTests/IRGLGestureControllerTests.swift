@@ -241,6 +241,19 @@ final class IRGLGestureControllerTests: XCTestCase {
         let rotationRecognizers = view.gestureRecognizers?.filter { $0 is UIRotationGestureRecognizer } ?? []
         XCTAssertTrue(rotationRecognizers.isEmpty)
     }
+
+    func testGestureCallbacksDoNotWriteDebugOutput() {
+        let gestureController = IRGLGestureController()
+
+        let output = captureStandardOutput {
+            gestureController.handlePan(UIPanGestureRecognizer())
+            gestureController.handlePinch(UIPinchGestureRecognizer())
+            gestureController.handleRotate(UIRotationGestureRecognizer())
+            gestureController.handleDoubleTap(UITapGestureRecognizer())
+        }
+
+        XCTAssertEqual(output, "")
+    }
 }
 
 final class IRBounceControllerTests: XCTestCase {
