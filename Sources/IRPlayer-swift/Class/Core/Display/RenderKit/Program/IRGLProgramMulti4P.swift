@@ -65,25 +65,19 @@ enum IRGLProgramMultiMode {
     }
 
     override func dispatchViewprotRange(_ viewprotRange: CGRect, resetTransform: Bool) {
-        for i in 0..<programs.count {
-            let program = programs[i]
+        let selectedIndex = touchedProgram.flatMap { selectedProgram in
+            programs.firstIndex { $0 === selectedProgram }
+        }
+        let ranges = Self.viewportRanges(
+            in: viewprotRange,
+            displayMode: displayMode,
+            programCount: programs.count,
+            selectedIndex: selectedIndex
+        )
+        let shouldResetTransform = displayMode == .multiDisplay ? resetTransform : false
 
-            if displayMode == .multiDisplay {
-                let viewportWidth = viewprotRange.size.width / 2.0
-                let viewportHeight = viewprotRange.size.height / 2.0
-
-                program.setViewportRange(CGRect(x: CGFloat(i % 2) * viewportWidth, y: CGFloat(i / 2) * viewportHeight, width: viewportWidth, height: viewportHeight), resetTransform: resetTransform)
-
-            } else if displayMode == .singleDisplay {
-                let viewportWidth = viewprotRange.size.width
-                let viewportHeight = viewprotRange.size.height
-
-                if program == touchedProgram {
-                    program.setViewportRange(CGRect(x: 0, y: 0, width: viewportWidth, height: viewportHeight), resetTransform: false)
-                } else {
-                    program.setViewportRange(CGRect(x: 0, y: 0, width: 0, height: 0), resetTransform: false)
-                }
-            }
+        for (program, range) in zip(programs, ranges) {
+            program.setViewportRange(range, resetTransform: shouldResetTransform)
         }
     }
 
@@ -140,26 +134,12 @@ enum IRGLProgramMultiMode {
             return
         }
 
-        let viewportWidth = self.viewprotRange.size.width
-        let viewportHeight = self.viewprotRange.size.height
-
         if displayMode == .multiDisplay {
             displayMode = .singleDisplay
         } else if displayMode == .singleDisplay {
             displayMode = .multiDisplay
         }
 
-        for i in 0..<programs.count {
-            let program = programs[i]
-            if displayMode == .multiDisplay {
-                self.setViewportRange(self.viewprotRange, resetTransform: false)
-            } else if displayMode == .singleDisplay {
-                if program == touchedProgram {
-                    program.setViewportRange(CGRect(x: 0, y: 0, width: viewportWidth, height: viewportHeight), resetTransform: false)
-                } else {
-                    program.setViewportRange(CGRect(x: 0, y: 0, width: 0, height: 0), resetTransform: false)
-                }
-            }
-        }
+        dispatchViewprotRange(self.viewprotRange, resetTransform: false)
     }
 }
