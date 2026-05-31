@@ -75,15 +75,18 @@ enum IRSmoothScrollPolicy {
             startTimestamp = sender.timestamp
         }
 
-        let duration = min(slideDuration, CGFloat(sender.timestamp - startTimestamp))
-        var percentage = duration / slideDuration
-        percentage = -1 * percentage * (percentage - 2) // quadratic easing out
+        let elapsed = CGFloat(sender.timestamp - startTimestamp)
+        guard let step = IRSmoothScrollPolicy.step(finalPoint: finalPoint,
+                                                   alreadyPoint: alreadyPoint,
+                                                   elapsed: elapsed,
+                                                   duration: slideDuration) else {
+            resetSmoothScroll()
+            return
+        }
 
-        let moveX = finalPoint.x * percentage - alreadyPoint.x
-        let moveY = finalPoint.y * percentage - alreadyPoint.y
-
-        alreadyPoint.x += moveX
-        alreadyPoint.y += moveY
+        let moveX = step.move.x
+        let moveY = step.move.y
+        alreadyPoint = step.alreadyPoint
 
         if self.isPaned {
             self.targetView?.scroll(byDx: Float(moveX * UIScreen.main.scale), dy: Float(-moveY * UIScreen.main.scale))
@@ -92,7 +95,7 @@ enum IRSmoothScrollPolicy {
             self.targetView?.render(nil)
         }
 
-        if finalPoint == alreadyPoint {
+        if step.isFinished {
             self.resetSmoothScroll()
             delegate?.glViewDidEndDecelerating(self.targetView)
         }
