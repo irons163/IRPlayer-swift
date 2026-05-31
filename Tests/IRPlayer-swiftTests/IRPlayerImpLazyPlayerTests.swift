@@ -41,4 +41,15 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
         XCTAssertEqual(output, "")
         withExtendedLifetime(player) {}
     }
+
+    func testReleaseDoesNotPrintDebugOutput() {
+        var player: IRPlayerImp? = IRPlayerImp.player()
+        XCTAssertNotNil(player)
+
+        let output = captureStandardOutput {
+            player = nil
+        }
+
+        XCTAssertEqual(output, "")
+    }
 }
