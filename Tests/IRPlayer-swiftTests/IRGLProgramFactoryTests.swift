@@ -11,6 +11,56 @@ import XCTest
 
 final class IRGLProgramFactoryTests: XCTestCase {
 
+    func testFactoryPolicyExpandsMaximumScaleWithoutChangingDefaults() {
+        let range = IRGLScaleRange(minScaleX: 0.5,
+                                   minScaleY: 0.75,
+                                   maxScaleX: 4,
+                                   maxScaleY: 5,
+                                   defaultScaleX: 1.25,
+                                   defaultScaleY: 1.5)
+
+        let expanded = IRGLProgramFactoryPolicy.expandedScaleRange(from: range, multiplier: 1.5)
+
+        XCTAssertEqual(expanded.minScaleX, 0.5)
+        XCTAssertEqual(expanded.minScaleY, 0.75)
+        XCTAssertEqual(expanded.maxScaleX, 6)
+        XCTAssertEqual(expanded.maxScaleY, 7.5)
+        XCTAssertEqual(expanded.defaultScaleX, 1.25)
+        XCTAssertEqual(expanded.defaultScaleY, 1.5)
+    }
+
+    func testFactoryPolicyClampsFisheyeScopeToParameterLatitude() {
+        let range = IRGLScopeRange(minLat: -90,
+                                   maxLat: 90,
+                                   minLng: -180,
+                                   maxLng: 180,
+                                   defaultLat: 120,
+                                   defaultLng: 20)
+
+        let adjusted = IRGLProgramFactoryPolicy.fisheyeScopeRange(from: range, latmax: 80)
+
+        XCTAssertEqual(adjusted.minLat, -90)
+        XCTAssertEqual(adjusted.maxLat, 80)
+        XCTAssertEqual(adjusted.minLng, -180)
+        XCTAssertEqual(adjusted.maxLng, 180)
+        XCTAssertEqual(adjusted.defaultLat, -5)
+        XCTAssertEqual(adjusted.defaultLng, 20)
+    }
+
+    func testFactoryPolicyAppliesSingleAndFourPanelDefaults() {
+        let range = IRGLScopeRange(minLat: -90,
+                                   maxLat: 80,
+                                   minLng: -180,
+                                   maxLng: 180,
+                                   defaultLat: -5,
+                                   defaultLng: 20)
+
+        XCTAssertEqual(IRGLProgramFactoryPolicy.defaultFisheyeScope(from: range, panelIndex: nil).defaultLng, 90)
+        XCTAssertEqual((0..<4).map { IRGLProgramFactoryPolicy.defaultFisheyeScope(from: range, panelIndex: $0).defaultLng },
+                       [90, 180, 270, 0])
+        XCTAssertEqual(IRGLProgramFactoryPolicy.defaultFisheyeScope(from: range, panelIndex: nil).defaultLat, -40)
+    }
+
     func test2DProgramFactoryAttaches2DControllerAndOrthographicProjection() {
         let parameter = IRMediaParameter(width: 320, height: 180)
         let viewport = CGRect(x: 4, y: 8, width: 160, height: 90)
