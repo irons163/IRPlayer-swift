@@ -11,6 +11,19 @@ import CoreVideo
 import simd
 import QuartzCore
 
+enum IRMetalRuntimeDebugOutput {
+    #if IRMetalRuntimeDebugOutputEnable
+    static let isEnabled = true
+    #else
+    static let isEnabled = false
+    #endif
+
+    static func write(_ message: @autoclosure () -> String) {
+        guard isEnabled else { return }
+        print(message())
+    }
+}
+
 final class IRMetalRenderer {
     struct Fish2PanoParams {
         var fishwidth: Int32
@@ -140,8 +153,7 @@ final class IRMetalRenderer {
             do {
                 pipelineNV12 = try device.makeRenderPipelineState(descriptor: descriptor)
             } catch {
-                print("Metal Pipeline Error: \(error)")
-                // 這裡通常會印出：Vertex shader output doesn't match fragment shader input
+                IRMetalRuntimeDebugOutput.write("Metal Pipeline Error: \(error)")
             }
         }
 
@@ -153,7 +165,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineI420 = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineI420 == nil {
-                print("IRMetalRenderer: failed to create I420 pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create I420 pipeline")
             }
         }
 
@@ -165,7 +177,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineRGB = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineRGB == nil {
-                print("IRMetalRenderer: failed to create RGB pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create RGB pipeline")
             }
         }
 
@@ -177,7 +189,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor3D
             pipelineNV12Mesh = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineNV12Mesh == nil {
-                print("IRMetalRenderer: failed to create NV12 mesh pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create NV12 mesh pipeline")
             }
         }
 
@@ -189,7 +201,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor3D
             pipelineI420Mesh = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineI420Mesh == nil {
-                print("IRMetalRenderer: failed to create I420 mesh pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create I420 mesh pipeline")
             }
         }
 
@@ -201,7 +213,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor3D
             pipelineRGBMesh = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineRGBMesh == nil {
-                print("IRMetalRenderer: failed to create RGB mesh pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create RGB mesh pipeline")
             }
         }
 
@@ -213,7 +225,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineNV12Fish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineNV12Fish2Pano == nil {
-                print("IRMetalRenderer: failed to create NV12 fish2pano pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create NV12 fish2pano pipeline")
             }
         }
 
@@ -225,7 +237,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineI420Fish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineI420Fish2Pano == nil {
-                print("IRMetalRenderer: failed to create I420 fish2pano pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create I420 fish2pano pipeline")
             }
         }
 
@@ -237,7 +249,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineRGBFish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineRGBFish2Pano == nil {
-                print("IRMetalRenderer: failed to create RGB fish2pano pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create RGB fish2pano pipeline")
             }
         }
 
@@ -249,7 +261,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptorDistortion
             pipelineDistortion = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineDistortion == nil {
-                print("IRMetalRenderer: failed to create distortion pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create distortion pipeline")
             }
         }
     }

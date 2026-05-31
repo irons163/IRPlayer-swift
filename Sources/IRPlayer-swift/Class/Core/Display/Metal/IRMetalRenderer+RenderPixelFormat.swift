@@ -21,7 +21,7 @@ extension IRMetalRenderer {
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
         let format = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        print("IRMetalRenderer: CVPixelBuffer format=\(format)")
+        IRMetalRuntimeDebugOutput.write("IRMetalRenderer: CVPixelBuffer format=\(format)")
         guard format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange ||
               format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else {
             return false
@@ -34,7 +34,7 @@ extension IRMetalRenderer {
         CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, pixelBuffer, nil, .rg8Unorm, width / 2, height / 2, 1, &uvTextureRef)
 
         guard let yTextureRef = yTextureRef, let uvTextureRef = uvTextureRef else {
-            print("IRMetalRenderer: failed to create CVMetalTexture")
+            IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create CVMetalTexture")
             return false
         }
         guard let yTexture = CVMetalTextureGetTexture(yTextureRef), let uvTexture = CVMetalTextureGetTexture(uvTextureRef) else { return false }
