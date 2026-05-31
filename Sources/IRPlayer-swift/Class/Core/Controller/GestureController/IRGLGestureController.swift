@@ -9,6 +9,19 @@ import Foundation
 import UIKit
 
 enum IRGLGesturePolicy {
+    enum PanAction: Equatable {
+        case begin
+        case update
+        case endWithDeceleration
+        case cancel
+    }
+
+    enum ContinuousAction: Equatable {
+        case begin
+        case update
+        case end
+    }
+
     static func renderPoint(from point: CGPoint, viewHeight: CGFloat, screenScale: CGFloat) -> CGPoint {
         guard point.x.isFinite,
               point.y.isFinite,
@@ -19,6 +32,30 @@ enum IRGLGesturePolicy {
         }
         return CGPoint(x: point.x * screenScale,
                        y: (viewHeight - point.y) * screenScale)
+    }
+
+    static func panAction(for state: UIGestureRecognizer.State) -> PanAction {
+        switch state {
+        case .cancelled, .failed:
+            return .cancel
+        case .ended:
+            return .endWithDeceleration
+        case .began:
+            return .begin
+        default:
+            return .update
+        }
+    }
+
+    static func continuousAction(for state: UIGestureRecognizer.State) -> ContinuousAction {
+        switch state {
+        case .cancelled, .ended, .failed:
+            return .end
+        case .began:
+            return .begin
+        default:
+            return .update
+        }
     }
 }
 
@@ -88,25 +125,25 @@ class IRGLGestureController: IRGestureController {
         smoothScroll?.isPaned = true
         smoothScroll?.resetSmoothScroll()
 
-        switch gr.state {
-        case .cancelled, .failed:
+        switch IRGLGesturePolicy.panAction(for: gr.state) {
+        case .cancel:
             isTouchedInProgram = false
             delegate?.glViewDidEndDragging(targetGLView, willDecelerate: false)
 
-        case .ended:
+        case .endWithDeceleration:
             isTouchedInProgram = false
             let velocity = gr.velocity(in: targetView)
             smoothScroll?.calculateSmoothScroll(velocity: velocity)
             delegate?.glViewDidEndDragging(targetGLView, willDecelerate: velocity == .zero)
 
-        case .began:
+        case .begin:
             let touchedPoint = gr.location(in: targetView)
             let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
                                                             viewHeight: targetView?.frame.size.height ?? 0,
                                                             screenScale: UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
-        default:
+        case .update:
             guard isTouchedInProgram else { return }
             delegate?.glViewWillBeginDragging(targetGLView)
             let screenOffset = gr.translation(in: targetView)
@@ -119,18 +156,18 @@ class IRGLGestureController: IRGestureController {
     @objc override func handlePinch(_ sender: UIPinchGestureRecognizer) {
         super.handlePinch(sender)
 
-        switch sender.state {
-        case .cancelled, .ended, .failed:
+        switch IRGLGesturePolicy.continuousAction(for: sender.state) {
+        case .end:
             isTouchedInProgram = false
 
-        case .began:
+        case .begin:
             let touchedPoint = sender.location(in: targetView)
             let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
                                                             viewHeight: targetView?.frame.size.height ?? 0,
                                                             screenScale: UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
-        default:
+        case .update:
             guard isTouchedInProgram, sender.numberOfTouches >= 2 else { return }
 
             let p1 = sender.location(ofTouch: 0, in: targetView)
@@ -147,18 +184,18 @@ class IRGLGestureController: IRGestureController {
     }
 
     @objc func handleRotate(_ gr: UIRotationGestureRecognizer) {
-        switch gr.state {
-        case .cancelled, .ended, .failed:
+        switch IRGLGesturePolicy.continuousAction(for: gr.state) {
+        case .end:
             isTouchedInProgram = false
 
-        case .began:
+        case .begin:
             let touchedPoint = gr.location(in: targetView)
             let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
                                                             viewHeight: targetView?.frame.size.height ?? 0,
                                                             screenScale: UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
-        default:
+        case .update:
             guard isTouchedInProgram else { return }
 
             delegate?.glViewWillBeginDragging(targetGLView)

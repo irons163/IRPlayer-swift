@@ -83,6 +83,24 @@ final class IRGLGestureControllerTests: XCTestCase {
         )
     }
 
+    func testGesturePolicyMapsPanRecognizerStatesToActions() {
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .began), .begin)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .changed), .update)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .possible), .update)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .ended), .endWithDeceleration)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .cancelled), .cancel)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .failed), .cancel)
+    }
+
+    func testGesturePolicyMapsContinuousRecognizerStatesToActions() {
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .began), .begin)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .changed), .update)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .possible), .update)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .ended), .end)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .cancelled), .end)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .failed), .end)
+    }
+
     func testSmoothScrollTargetScalesVelocityMagnitudeIntoDistanceAndDuration() {
         let target = IRSmoothScrollController.smoothScrollTarget(for: CGPoint(x: 300, y: 400))
 
