@@ -181,10 +181,22 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         guard let metalLayer = metalLayer else { return }
         let effectiveScale = scale * UIScreen.main.scale
         let size = CGSize(width: bounds.width * effectiveScale, height: bounds.height * effectiveScale)
-        guard size.width > 0, size.height > 0 else { return }
+        guard let pixelSize = Self.drawablePixelSize(from: size) else { return }
         metalLayer.drawableSize = size
-        backingWidth = Int(size.width)
-        backingHeight = Int(size.height)
+        backingWidth = pixelSize.width
+        backingHeight = pixelSize.height
+    }
+
+    static func drawablePixelSize(from size: CGSize) -> (width: Int, height: Int)? {
+        guard size.width.isFinite,
+              size.height.isFinite,
+              size.width > 0,
+              size.height > 0,
+              size.width <= CGFloat(Int.max),
+              size.height <= CGFloat(Int.max) else {
+            return nil
+        }
+        return (Int(size.width), Int(size.height))
     }
 
     public override var contentMode: UIView.ContentMode {
@@ -212,9 +224,12 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func resetAllViewport(w: Float, h: Float, resetTransform: Bool) {
-        viewprotRange = CGRect(x: 0, y: 0, width: Int(w), height: Int(h))
+        guard w.isFinite, h.isFinite, w >= 0, h >= 0 else { return }
+        let viewportRange = CGRect(x: 0, y: 0, width: CGFloat(w), height: CGFloat(h))
+        guard let viewportSize = IRGLProgram2D.viewportSize(from: viewportRange) else { return }
+        viewprotRange = CGRect(x: 0, y: 0, width: viewportSize.width, height: viewportSize.height)
         mode?.program?.setViewportRange(viewprotRange, resetTransform: resetTransform)
-        metalFisheyeController?.resetViewport(width: Int(w), height: Int(h), resetTransform: resetTransform)
+        metalFisheyeController?.resetViewport(width: viewportSize.width, height: viewportSize.height, resetTransform: resetTransform)
         render(nil)
     }
 
@@ -400,7 +415,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         }
 
         if let yuvFrame = frame as? IRFFAVYUVVideoFrame {
-            let image = yuvFrame.image()
+            guard let image = yuvFrame.image() else { return nil }
             return CIImage(image: image)
         }
 
@@ -428,7 +443,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     func setupModes() {
         initModes()
         contentMode = .scaleAspectFit
-        choose(renderMode: modes.first, withImmediatelyRenderOnce: false)
+        _ = choose(renderMode: modes.first, withImmediatelyRenderOnce: false)
     }
 
     func getRenderModes() -> [IRGLRenderMode] {
@@ -498,14 +513,17 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func createImageFromFramebuffer() -> UIImage {
-        var image: UIImage?
         let size = layer.bounds.size
+        guard size.width > 0, size.height > 0 else {
+            return UIImage()
+        }
         UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        defer {
+            UIGraphicsEndImageContext()
+        }
         let containerRect = layer.bounds
         drawHierarchy(in: containerRect, afterScreenUpdates: false)
-        image = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        return image!
+        return UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
     }
 
     func cleanEmptyBuffer() {
@@ -729,17 +747,30 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                          contentMode: effectiveContentMode)
     }
 
+    static func texUVTextureLayout(width: Int, height: Int) -> (bytesPerRow: Int, totalByteCount: Int)? {
+        guard width > 0, height > 0 else { return nil }
+
+        let bytesPerTexel = MemoryLayout<Float>.size * 2
+        let (bytesPerRow, rowOverflow) = width.multipliedReportingOverflow(by: bytesPerTexel)
+        guard !rowOverflow, bytesPerRow > 0 else { return nil }
+
+        let (totalByteCount, totalOverflow) = bytesPerRow.multipliedReportingOverflow(by: height)
+        guard !totalOverflow, totalByteCount > 0 else { return nil }
+
+        return (bytesPerRow: bytesPerRow, totalByteCount: totalByteCount)
+    }
+
     private func makeTexUVTexture(width: Int, height: Int, data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {
-        guard let device = device else { return nil }
+        guard let device = device,
+              let layout = Self.texUVTextureLayout(width: width, height: height) else { return nil }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float,
                                                                   width: width,
                                                                   height: height,
                                                                   mipmapped: false)
         descriptor.usage = .shaderRead
         guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-        let bytesPerRow = width * MemoryLayout<Float>.size * 2
         let region = MTLRegionMake2D(0, 0, width, height)
-        texture.replace(region: region, mipmapLevel: 0, withBytes: data, bytesPerRow: bytesPerRow)
+        texture.replace(region: region, mipmapLevel: 0, withBytes: data, bytesPerRow: layout.bytesPerRow)
         return texture
     }
 
@@ -1010,31 +1041,61 @@ private final class IRGLRenderStrategyFisheye: IRGLRenderStrategyBase {}
 private final class IRGLRenderStrategyVR: IRGLRenderStrategyBase {}
 private final class IRGLRenderStrategyMulti4P: IRGLRenderStrategyBase {}
 
+enum IRGLRenderStrategyKind {
+    case twoD
+    case fish2Pano
+    case distortion
+    case fisheye
+    case vr
+    case multi4P
+}
+
 final class IRGLRenderStrategyFactory {
-    static func make(for renderMode: IRGLRenderMode, renderer: IRMetalRenderer) -> IRGLRenderInternal {
+    static func strategyKind(for renderMode: IRGLRenderMode) -> IRGLRenderStrategyKind {
         if renderMode is IRGLRenderModeDistortion {
-            return IRGLRenderStrategyDistortion(renderer: renderer)
+            return .distortion
         }
         if renderMode is IRGLRenderMode2DFisheye2Pano {
-            return IRGLRenderStrategyFish2Pano(renderer: renderer)
+            return .fish2Pano
         }
         if renderMode is IRGLRenderModeVR {
-            return IRGLRenderStrategyVR(renderer: renderer)
+            return .vr
         }
         if renderMode is IRGLRenderModeMulti4P {
-            return IRGLRenderStrategyMulti4P(renderer: renderer)
+            return .multi4P
         }
         if renderMode is IRGLRenderMode3DFisheye {
-            return IRGLRenderStrategyFisheye(renderer: renderer)
+            return .fisheye
         }
-        return IRGLRenderStrategy2D(renderer: renderer)
+        return .twoD
+    }
+
+    static func make(for renderMode: IRGLRenderMode, renderer: IRMetalRenderer) -> IRGLRenderInternal {
+        switch strategyKind(for: renderMode) {
+        case .distortion:
+            return IRGLRenderStrategyDistortion(renderer: renderer)
+        case .fish2Pano:
+            return IRGLRenderStrategyFish2Pano(renderer: renderer)
+        case .vr:
+            return IRGLRenderStrategyVR(renderer: renderer)
+        case .multi4P:
+            return IRGLRenderStrategyMulti4P(renderer: renderer)
+        case .fisheye:
+            return IRGLRenderStrategyFisheye(renderer: renderer)
+        case .twoD:
+            return IRGLRenderStrategy2D(renderer: renderer)
+        }
     }
 }
 
 extension IRGLRenderMode {
     
     func buildIRGLProgram(pixelFormat: IRPixelFormat, viewprotRange: CGRect, parameter: IRMediaParameter?) {
-        let program = programFactory.createIRGLProgram(pixelFormat: pixelFormat, viewportRange: viewprotRange, parameter: parameter)
+        guard let program = programFactory.createIRGLProgram(pixelFormat: pixelFormat, viewportRange: viewprotRange, parameter: parameter) else {
+            self.program = nil
+            self.shiftController.program = nil
+            return
+        }
         self.program = program
         self.shiftController.program = program
 //        self.defaultScale = self.defaultScale

@@ -18,6 +18,26 @@ enum IRFFVideoToolBoxErrorCode: Error {
 }
 
 class IRFFVideoToolBox {
+    struct PacketPayload {
+        let data: UnsafeMutablePointer<UInt8>
+        let size: Int32
+
+        var end: UnsafeMutablePointer<UInt8> {
+            data.advanced(by: Int(size))
+        }
+    }
+
+    struct ConvertedNALBlockPayload {
+        let memoryBlock: UnsafeMutablePointer<UInt8>
+        let blockLength: Int
+        let dataLength: Int
+    }
+
+    struct DecodeFramePayload {
+        let session: VTDecompressionSession
+        let sampleBuffer: CMSampleBuffer
+    }
+
     private var codecContext: UnsafeMutablePointer<AVCodecContext>
     private var vtSession: VTDecompressionSession?
     private var formatDescription: CMFormatDescription?
@@ -68,6 +88,9 @@ class IRFFVideoToolBox {
                 if self.formatDescription == nil {
                     throw IRFFVideoToolBoxErrorCode.createFormatDescription
                 }
+                guard let formatDescription = Self.requiredFormatDescription(self.formatDescription) else {
+                    throw IRFFVideoToolBoxErrorCode.createFormatDescription
+                }
 
                 let destinationPixelBufferAttributes: [CFString: Any] = [
                     kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
@@ -83,7 +106,7 @@ class IRFFVideoToolBox {
 
                 let status = VTDecompressionSessionCreate(
                     allocator: kCFAllocatorDefault,
-                    formatDescription: self.formatDescription!,
+                    formatDescription: formatDescription,
                     decoderSpecification: nil,
                     imageBufferAttributes: destinationPixelBufferAttributes as CFDictionary,
                     outputCallback: &outputCallbackRecord,
@@ -119,6 +142,7 @@ class IRFFVideoToolBox {
 
     func sendPacket(_ packet: AVPacket) -> Bool {
         guard self.trySetupVTSession() else { return false }
+        guard let packetPayload = Self.packetPayload(for: packet) else { return false }
         self.cleanDecodeInfo()
 
         var result = false
@@ -126,14 +150,16 @@ class IRFFVideoToolBox {
         var status: OSStatus = noErr
 
         if self.needConvertNALSize3To4 {
+            guard Self.threeByteNALUnitsAreBounded(in: packetPayload) else { return false }
+
             var ioContext: UnsafeMutablePointer<AVIOContext>?
             if avio_open_dyn_buf(&ioContext) < 0 {
                 status = -1900
             } else {
                 var nalSize: UInt32 = 0
-                let end = packet.data?.advanced(by: Int(packet.size))
-                var nalStart = packet.data!
-                while nalStart < end! {
+                let end = packetPayload.end
+                var nalStart = packetPayload.data
+                while nalStart < end {
                     nalSize = (UInt32(nalStart[0]) << 16) | (UInt32(nalStart[1]) << 8) | UInt32(nalStart[2])
                     avio_wb32(ioContext, nalSize)
                     nalStart += 3
@@ -142,14 +168,15 @@ class IRFFVideoToolBox {
                 }
                 var demuxBuffer: UnsafeMutablePointer<UInt8>?
                 let demuxSize = avio_close_dyn_buf(ioContext, &demuxBuffer)
+                guard let convertedPayload = Self.convertedNALBlockPayload(memoryBlock: demuxBuffer, demuxSize: demuxSize, packetSize: packetPayload.size) else { return false }
                 status = CMBlockBufferCreateWithMemoryBlock(
                     allocator: nil,
-                    memoryBlock: demuxBuffer!,
-                    blockLength: Int(demuxSize),
+                    memoryBlock: convertedPayload.memoryBlock,
+                    blockLength: convertedPayload.blockLength,
                     blockAllocator: kCFAllocatorNull,
                     customBlockSource: nil,
                     offsetToData: 0,
-                    dataLength: Int(packet.size),
+                    dataLength: convertedPayload.dataLength,
                     flags: 0,
                     blockBufferOut: &blockBuffer
                 )
@@ -157,18 +184,19 @@ class IRFFVideoToolBox {
         } else {
             status = CMBlockBufferCreateWithMemoryBlock(
                 allocator: nil,
-                memoryBlock: packet.data!,
-                blockLength: Int(packet.size),
+                memoryBlock: packetPayload.data,
+                blockLength: Int(packetPayload.size),
                 blockAllocator: kCFAllocatorNull,
                 customBlockSource: nil,
                 offsetToData: 0,
-                dataLength: Int(packet.size),
+                dataLength: Int(packetPayload.size),
                 flags: 0,
                 blockBufferOut: &blockBuffer
             )
         }
 
         if status == noErr {
+            guard let formatDescription = Self.requiredFormatDescription(self.formatDescription) else { return false }
             var sampleBuffer: CMSampleBuffer?
             status = CMSampleBufferCreate(
                 allocator: nil,
@@ -176,7 +204,7 @@ class IRFFVideoToolBox {
                 dataReady: true,
                 makeDataReadyCallback: nil,
                 refcon: nil,
-                formatDescription: self.formatDescription!,
+                formatDescription: formatDescription,
                 sampleCount: 1,
                 sampleTimingEntryCount: 0,
                 sampleTimingArray: nil,
@@ -186,9 +214,10 @@ class IRFFVideoToolBox {
             )
 
             if status == noErr {
+                guard let decodePayload = Self.decodeFramePayload(session: self.vtSession, sampleBuffer: sampleBuffer) else { return false }
                 status = VTDecompressionSessionDecodeFrame(
-                    self.vtSession!,
-                    sampleBuffer: sampleBuffer!,
+                    decodePayload.session,
+                    sampleBuffer: decodePayload.sampleBuffer,
                     flags: [],
                     frameRefcon: nil,
                     infoFlagsOut: nil
@@ -200,6 +229,55 @@ class IRFFVideoToolBox {
             }
         }
         return result
+    }
+
+    static func packetPayload(for packet: AVPacket) -> PacketPayload? {
+        guard let data = packet.data, packet.size > 0 else { return nil }
+        return PacketPayload(data: data, size: packet.size)
+    }
+
+    static func convertedNALBlockPayload(memoryBlock: UnsafeMutablePointer<UInt8>?, demuxSize: Int32, packetSize: Int32) -> ConvertedNALBlockPayload? {
+        guard let memoryBlock,
+              demuxSize > 0,
+              packetSize > 0,
+              packetSize <= demuxSize else { return nil }
+        return ConvertedNALBlockPayload(memoryBlock: memoryBlock, blockLength: Int(demuxSize), dataLength: Int(packetSize))
+    }
+
+    static func requiredFormatDescription(_ formatDescription: CMFormatDescription?) -> CMFormatDescription? {
+        guard let formatDescription else { return nil }
+        return formatDescription
+    }
+
+    static func decodeFramePayload(session: VTDecompressionSession?, sampleBuffer: CMSampleBuffer?) -> DecodeFramePayload? {
+        guard let session, let sampleBuffer else { return nil }
+        return DecodeFramePayload(session: session, sampleBuffer: sampleBuffer)
+    }
+
+    static func nalPayloadCanAdvance(nalSize: UInt32, remainingByteCount: Int) -> Bool {
+        guard remainingByteCount >= 0 else { return false }
+        return UInt64(nalSize) <= UInt64(remainingByteCount)
+    }
+
+    static func threeByteNALUnitsAreBounded(in payload: PacketPayload) -> Bool {
+        var cursor = payload.data
+        let end = payload.end
+
+        while cursor < end {
+            let nalSizeEnd = cursor.advanced(by: 3)
+            guard nalSizeEnd <= end else { return false }
+
+            let nalSize = (UInt32(cursor[0]) << 16) | (UInt32(cursor[1]) << 8) | UInt32(cursor[2])
+            cursor = nalSizeEnd
+
+            guard Self.nalPayloadCanAdvance(nalSize: nalSize, remainingByteCount: cursor.distance(to: end)) else {
+                return false
+            }
+            let nalEnd = cursor.advanced(by: Int(nalSize))
+            cursor = nalEnd
+        }
+
+        return true
     }
 
     func imageBuffer() -> CVImageBuffer? {
@@ -219,6 +297,34 @@ class IRFFVideoToolBox {
         IRPlayerImp.Logger.libraryLogger.debug("IRFFVideoToolBox release")
     }
 
+    static func handleOutputCallback(refCon: UnsafeMutableRawPointer?, status: OSStatus, imageBuffer: CVImageBuffer?) {
+        guard let refCon else { return }
+        let videoToolBox = Unmanaged<IRFFVideoToolBox>.fromOpaque(refCon).takeUnretainedValue()
+        videoToolBox.decodeStatus = status
+        videoToolBox.decodeOutput = imageBuffer
+    }
+
+    static func makeFormatDescriptionExtensions(extradata: UnsafePointer<UInt8>, extradataSize: Int32) -> CFDictionary {
+        let pixelAspectRatio: [String: Any] = [
+            "HorizontalSpacing": 0,
+            "VerticalSpacing": 0
+        ]
+
+        let atoms: [String: Any] = [
+            "avcC": CFDataCreate(nil, extradata, CFIndex(extradataSize)) as Any
+        ]
+
+        let extensions: [String: Any] = [
+            "CVImageBufferChromaLocationBottomField": "left" as CFString,
+            "CVImageBufferChromaLocationTopField": "left" as CFString,
+            "FullRangeVideo": false,
+            "CVPixelAspectRatio": pixelAspectRatio,
+            "SampleDescriptionExtensionAtoms": atoms
+        ]
+
+        return extensions as CFDictionary
+    }
+
     private static let outputCallback: VTDecompressionOutputCallback = { (
         decompressionOutputRefCon: UnsafeMutableRawPointer?,
         sourceFrameRefCon: UnsafeMutableRawPointer?,
@@ -228,31 +334,14 @@ class IRFFVideoToolBox {
         presentationTimeStamp: CMTime,
         presentationDuration: CMTime
     ) in
-            let videoToolBox = Unmanaged<IRFFVideoToolBox>.fromOpaque(decompressionOutputRefCon!).takeUnretainedValue()
-            videoToolBox.decodeStatus = status
-            videoToolBox.decodeOutput = imageBuffer
+            IRFFVideoToolBox.handleOutputCallback(refCon: decompressionOutputRefCon, status: status, imageBuffer: imageBuffer)
     }
 
     private func createFormatDescription(codecType: CMVideoCodecType, width: Int32, height: Int32, extradata: UnsafePointer<UInt8>, extradataSize: Int32) -> CMFormatDescription? {
         var formatDescription: CMFormatDescription?
         var status: OSStatus
 
-        let par: CFMutableDictionary = [
-            "HorizontalSpacing": 0,
-            "VerticalSpacing": 0
-        ] as! CFMutableDictionary as CFMutableDictionary
-
-        let atoms: CFMutableDictionary = [
-            "avcC": CFDataCreate(nil, extradata, CFIndex(extradataSize))
-        ] as! CFMutableDictionary as CFMutableDictionary
-
-        let extensions: CFMutableDictionary = [
-            "CVImageBufferChromaLocationBottomField": "left" as CFString,
-            "CVImageBufferChromaLocationTopField": "left" as CFString,
-            "FullRangeVideo": false,
-            "CVPixelAspectRatio": par,
-            "SampleDescriptionExtensionAtoms": atoms
-        ] as! CFMutableDictionary
+        let extensions = Self.makeFormatDescriptionExtensions(extradata: extradata, extradataSize: extradataSize)
 
         status = CMVideoFormatDescriptionCreate(
             allocator: nil,

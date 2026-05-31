@@ -13,36 +13,30 @@ public class IRPlayerNotification: NSObject {
 
     public static func postPlayer(_ player: IRPlayerImp?, error: IRError?) {
         guard let player = player, let error = error else { return }
-        let userInfo: [String: Any] = [IRPlayerErrorKey: error]
+        let userInfo = IRPlayerNotificationPayload.error(error)
         player.error = error
         postNotification(name: IRPlayerErrorNotificationName, object: player, userInfo: userInfo)
     }
 
     public static func postPlayer(_ player: IRPlayerImp?, statePrevious previous: IRPlayerState, current: IRPlayerState) {
         guard let player = player else { return }
-        let userInfo: [String: Any] = [IRPlayerStatePreviousKey: previous, IRPlayerStateCurrentKey: current]
+        let userInfo = IRPlayerNotificationPayload.state(previous: previous, current: current)
         postNotification(name: IRPlayerStateChangeNotificationName, object: player, userInfo: userInfo)
     }
 
     public static func postPlayer(_ player: IRPlayerImp?, progressPercent percent: NSNumber?, current: NSNumber?, total: NSNumber?) {
         guard let player = player else { return }
-        let percentValue = percent ?? NSNumber(value: 0)
-        let currentValue = current ?? NSNumber(value: 0)
-        let totalValue = total ?? NSNumber(value: 0)
-        let userInfo: [String: Any] = [IRPlayerProgressPercentKey: percentValue, IRPlayerProgressCurrentKey: currentValue, IRPlayerProgressTotalKey: totalValue]
+        let userInfo = IRPlayerNotificationPayload.progress(percent: percent, current: current, total: total)
         postNotification(name: IRPlayerProgressChangeNotificationName, object: player, userInfo: userInfo)
     }
 
     public static func postPlayer(_ player: IRPlayerImp?, playablePercent percent: NSNumber?, current: NSNumber?, total: NSNumber?) {
         guard let player = player else { return }
-        let percentValue = percent ?? NSNumber(value: 0)
-        let currentValue = current ?? NSNumber(value: 0)
-        let totalValue = total ?? NSNumber(value: 0)
-        let userInfo: [String: Any] = [IRPlayerPlayablePercentKey: percentValue, IRPlayerPlayableCurrentKey: currentValue, IRPlayerPlayableTotalKey: totalValue]
+        let userInfo = IRPlayerNotificationPayload.playable(percent: percent, current: current, total: total)
         postNotification(name: IRPlayerPlayableChangeNotificationName, object: player, userInfo: userInfo)
     }
 
-    public static func postNotification(name: String, object: Any?, userInfo: [String: Any]?) {
+    public static func postNotification(name: String, object: Any?, userInfo: [AnyHashable: Any]?) {
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: Notification.Name(name), object: object, userInfo: userInfo)
         }

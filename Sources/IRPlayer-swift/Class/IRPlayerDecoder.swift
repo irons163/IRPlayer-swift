@@ -24,6 +24,36 @@ enum IRVideoFormat: String, Hashable, Equatable, Sendable, RawRepresentable {
     case rtsp
 }
 
+enum IRVideoFormatResolver {
+
+    static func format(for contentURL: NSURL?) -> IRVideoFormat {
+        guard let contentURL = contentURL else { return .error }
+
+        let path: String
+        if contentURL.isFileURL {
+            path = contentURL.path ?? ""
+        } else {
+            path = contentURL.absoluteString ?? ""
+        }
+
+        let normalizedPath = path.lowercased()
+        switch normalizedPath {
+        case _ where normalizedPath.hasPrefix("rtmp:"):
+            return .rtmp
+        case _ where normalizedPath.hasPrefix("rtsp:"):
+            return .rtsp
+        case _ where normalizedPath.contains(".flv"):
+            return .flv
+        case _ where normalizedPath.contains(".mp4"):
+            return .mpeg4
+        case _ where normalizedPath.contains(".m3u8"):
+            return .m3u8
+        default:
+            return .unknown
+        }
+    }
+}
+
 @objcMembers
 public class IRPlayerDecoder: NSObject {
 
@@ -69,29 +99,7 @@ public class IRPlayerDecoder: NSObject {
     }
 
     func formatForContentURL(contentURL: NSURL?) -> IRVideoFormat {
-        guard let contentURL = contentURL else { return .error }
-
-        let path: String
-        if contentURL.isFileURL {
-            path = contentURL.path ?? ""
-        } else {
-            path = contentURL.absoluteString ?? ""
-        }
-
-        switch path {
-        case _ where path.hasPrefix("rtmp:"):
-            return .rtmp
-        case _ where path.hasPrefix("rtsp:"):
-            return .rtsp
-        case _ where path.contains(".flv"):
-            return .flv
-        case _ where path.contains(".mp4"):
-            return .mpeg4
-        case _ where path.contains(".m3u8"):
-            return .m3u8
-        default:
-            return .unknown
-        }
+        return IRVideoFormatResolver.format(for: contentURL)
     }
 
     func decoderTypeForContentURL(contentURL: NSURL?) -> IRDecoderType {

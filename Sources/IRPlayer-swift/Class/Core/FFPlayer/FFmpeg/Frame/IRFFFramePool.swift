@@ -9,28 +9,46 @@ import Foundation
 
 class IRFFFramePool: NSObject, IRFFFrameDelegate {
     var frameClassName: AnyClass
+    private let frameFactory: () -> IRFFFrame?
     var lock = NSLock()
     var playingFrame: IRFFFrame?
     var unuseFrames = Set<IRFFFrame>()
     var usedFrames = Set<IRFFFrame>()
 
-    init(capacity: Int, frameClassName: AnyClass) {
+    init(capacity: Int, frameClassName: AnyClass, frameFactory: (() -> IRFFFrame?)? = nil) {
         self.frameClassName = frameClassName
+        self.frameFactory = frameFactory ?? IRFFFramePool.makeFrameFactory(for: frameClassName)
         super.init()
-        unuseFrames.reserveCapacity(capacity)
-        usedFrames.reserveCapacity(capacity)
+        let reserveCapacity = Self.reserveCapacity(from: capacity)
+        unuseFrames.reserveCapacity(reserveCapacity)
+        usedFrames.reserveCapacity(reserveCapacity)
     }
 
     static func videoPool() -> IRFFFramePool {
-        return IRFFFramePool(capacity: 60, frameClassName: NSClassFromString("IRPlayerSwift.IRFFAVYUVVideoFrame")!)
+        return IRFFFramePool(capacity: 60, frameClassName: IRFFAVYUVVideoFrame.self) {
+            IRFFAVYUVVideoFrame()
+        }
     }
 
     static func audioPool() -> IRFFFramePool {
-        return IRFFFramePool(capacity: 500, frameClassName: NSClassFromString("IRPlayerSwift.IRFFAudioFrame")!)
+        return IRFFFramePool(capacity: 500, frameClassName: IRFFAudioFrame.self) {
+            IRFFAudioFrame()
+        }
     }
 
     static func pool(withCapacity number: Int, frameClassName: AnyClass) -> IRFFFramePool {
         return IRFFFramePool(capacity: number, frameClassName: frameClassName)
+    }
+
+    static func reserveCapacity(from capacity: Int) -> Int {
+        return max(0, capacity)
+    }
+
+    private static func makeFrameFactory(for frameClassName: AnyClass) -> () -> IRFFFrame? {
+        return {
+            guard let frameClass = frameClassName as? NSObject.Type else { return nil }
+            return frameClass.init() as? IRFFFrame
+        }
     }
 
     var count: Int {
@@ -53,7 +71,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
             usedFrames.insert(frame)
             return frame
         } else {
-            let frame = frameClassName.alloc() as! IRFFFrame
+            guard let frame = frameFactory() else { return nil }
             frame.delegate = self
             usedFrames.insert(frame)
             return frame
@@ -85,7 +103,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
             unuseFrames.insert(playingFrame)
         }
         playingFrame = frame
-        usedFrames.remove(playingFrame!)
+        usedFrames.remove(frame)
         lock.unlock()
     }
 
@@ -93,7 +111,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
         guard let frame = frame, frame.isKind(of: frameClassName) else { return }
         lock.lock()
         if playingFrame == frame {
-            unuseFrames.insert(playingFrame!)
+            unuseFrames.insert(frame)
             playingFrame = nil
         }
         lock.unlock()
@@ -125,4 +143,5 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     deinit {
         IRPlayerImp.Logger.libraryLogger.debug("IRFFFramePool release")
     }
+    
 }

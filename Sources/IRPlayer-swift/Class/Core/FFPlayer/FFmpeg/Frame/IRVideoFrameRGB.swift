@@ -30,6 +30,10 @@ enum IRFrameFormat: String, Hashable, Equatable, Sendable, RawRepresentable {
     }
 
     func asImage() -> UIImage? {
+        guard let bytesPerRow = Self.bytesPerRow(from: linesize) else {
+            return nil
+        }
+
         guard let provider = CGDataProvider(data: rgb as CFData) else {
             return nil
         }
@@ -43,7 +47,7 @@ enum IRFrameFormat: String, Hashable, Equatable, Sendable, RawRepresentable {
             height: height,
             bitsPerComponent: 8,
             bitsPerPixel: 24,
-            bytesPerRow: Int(linesize),
+            bytesPerRow: bytesPerRow,
             space: colorSpace,
             bitmapInfo: CGBitmapInfo.byteOrderDefault,
             provider: provider,
@@ -56,5 +60,9 @@ enum IRFrameFormat: String, Hashable, Equatable, Sendable, RawRepresentable {
 
         return UIImage(cgImage: imageRef)
     }
-}
 
+    static func bytesPerRow(from linesize: UInt) -> Int? {
+        guard linesize <= UInt(Int.max) else { return nil }
+        return Int(linesize)
+    }
+}

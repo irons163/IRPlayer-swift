@@ -29,6 +29,15 @@ class IRFFFrameQueue: NSObject {
         return maxVideoDuration / 1.1
     }
 
+    static func accountedDuration(for frame: IRFFFrame) -> TimeInterval {
+        guard frame.duration.isFinite, frame.duration > 0 else { return 0 }
+        return frame.duration
+    }
+
+    static func accountedSize(for frame: IRFFFrame) -> Int {
+        return max(0, frame.size)
+    }
+
     func putFrame(_ frame: IRFFFrame?) {
         guard let frame = frame else { return }
         condition.lock()
@@ -37,8 +46,8 @@ class IRFFFrameQueue: NSObject {
             return
         }
         frames.append(frame)
-        duration += frame.duration
-        size += frame.size
+        duration += Self.accountedDuration(for: frame)
+        size += Self.accountedSize(for: frame)
         condition.signal()
         condition.unlock()
     }
@@ -61,10 +70,10 @@ class IRFFFrameQueue: NSObject {
             }
         }
         if !added {
-            frames.append(frame)
+            frames.insert(frame, at: 0)
         }
-        duration += frame.duration
-        size += frame.size
+        duration += Self.accountedDuration(for: frame)
+        size += Self.accountedSize(for: frame)
         condition.signal()
         condition.unlock()
     }
@@ -79,11 +88,11 @@ class IRFFFrameQueue: NSObject {
             condition.wait()
         }
         let frame = frames.removeFirst()
-        duration -= frame.duration
+        duration -= Self.accountedDuration(for: frame)
         if duration < 0 || count <= 0 {
             duration = 0
         }
-        size -= frame.size
+        size -= Self.accountedSize(for: frame)
         if size <= 0 || count <= 0 {
             size = 0
         }
@@ -98,11 +107,11 @@ class IRFFFrameQueue: NSObject {
             return nil
         }
         let frame = frames.removeFirst()
-        duration -= frame.duration
+        duration -= Self.accountedDuration(for: frame)
         if duration < 0 || count <= 0 {
             duration = 0
         }
-        size -= frame.size
+        size -= Self.accountedSize(for: frame)
         if size <= 0 || count <= 0 {
             size = 0
         }
@@ -126,4 +135,3 @@ class IRFFFrameQueue: NSObject {
         condition.unlock()
     }
 }
-

@@ -28,12 +28,16 @@ final class IRMetalDistortionMesh {
     let indexCount: Int
 
     init?(device: MTLDevice, modelType: IRDistortionModelType) {
-        let mesh = IRMetalDistortionMesh.buildMesh(modelType: modelType)
+        guard let mesh = IRMetalDistortionMesh.buildMesh(modelType: modelType) else {
+            return nil
+        }
         guard !mesh.vertices.isEmpty, !mesh.indices.isEmpty else {
             return nil
         }
-        let vertexLength = mesh.vertices.count * MemoryLayout<IRMetalDistortionVertex>.stride
-        let indexLength = mesh.indices.count * MemoryLayout<UInt16>.stride
+        guard let vertexLength = Self.bufferByteLength(elementCount: mesh.vertices.count, stride: MemoryLayout<IRMetalDistortionVertex>.stride),
+              let indexLength = Self.bufferByteLength(elementCount: mesh.indices.count, stride: MemoryLayout<UInt16>.stride) else {
+            return nil
+        }
         guard let vbuf = device.makeBuffer(bytes: mesh.vertices, length: vertexLength, options: .storageModeShared),
               let ibuf = device.makeBuffer(bytes: mesh.indices, length: indexLength, options: .storageModeShared) else {
             return nil
@@ -43,13 +47,13 @@ final class IRMetalDistortionMesh {
         self.indexCount = mesh.indices.count
     }
 
-    private static func buildMesh(modelType: IRDistortionModelType) -> (vertices: [IRMetalDistortionVertex], indices: [UInt16]) {
+    private static func buildMesh(modelType: IRDistortionModelType) -> (vertices: [IRMetalDistortionVertex], indices: [UInt16])? {
         var xEyeOffsetScreen: Float = 0.523064613
-        var yEyeOffsetScreen: Float = 0.80952388
-        var viewportWidthTexture: Float = 1.43138313
-        var viewportHeightTexture: Float = 1.51814604
+        let yEyeOffsetScreen: Float = 0.80952388
+        let viewportWidthTexture: Float = 1.43138313
+        let viewportHeightTexture: Float = 1.51814604
         var viewportXTexture: Float = 0
-        var viewportYTexture: Float = 0
+        let viewportYTexture: Float = 0
         let textureWidth: Float = 2.86276627
         let textureHeight: Float = 1.51814604
         var xEyeOffsetTexture: Float = 0.592283607
@@ -131,8 +135,10 @@ final class IRMetalDistortionMesh {
                         vertexOffset -= 1
                     }
                 }
-                indices.append(UInt16(vertexOffset))
-                indices.append(UInt16(vertexOffset + cols))
+                guard let first = Self.indexValue(vertexOffset),
+                      let second = Self.indexValue(vertexOffset + cols) else { return nil }
+                indices.append(first)
+                indices.append(second)
             }
             vertexOffset += cols
         }
@@ -172,5 +178,19 @@ final class IRMetalDistortionMesh {
 
     private static func clamp(value: Float, min: Float, max: Float) -> Float {
         return Swift.max(min, Swift.min(max, value))
+    }
+
+    static func bufferByteLength(elementCount: Int, stride: Int) -> Int? {
+        guard elementCount > 0, stride > 0 else { return nil }
+
+        let (byteLength, overflow) = elementCount.multipliedReportingOverflow(by: stride)
+        guard !overflow, byteLength > 0 else { return nil }
+
+        return byteLength
+    }
+
+    static func indexValue(_ value: Int) -> UInt16? {
+        guard value >= 0, value <= Int(UInt16.max) else { return nil }
+        return UInt16(value)
     }
 }

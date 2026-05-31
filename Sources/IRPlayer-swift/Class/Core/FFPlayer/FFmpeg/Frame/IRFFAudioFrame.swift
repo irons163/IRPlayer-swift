@@ -17,12 +17,18 @@ import Foundation
     }
 
     func setSamplesLength(_ samplesLength: Int) {
-        if bufferSize < samplesLength {
+        guard let sampleCapacity = Self.sampleCapacity(forByteLength: samplesLength) else {
+            size = 0
+            outputOffset = 0
+            return
+        }
+
+        if bufferSize < sampleCapacity {
             if bufferSize > 0, let samples = samples {
-                free(samples)
+                samples.deallocate()
             }
-            bufferSize = samplesLength
-            samples = UnsafeMutablePointer<Float>.allocate(capacity: bufferSize)
+            bufferSize = sampleCapacity
+            samples = UnsafeMutablePointer<Float>.allocate(capacity: sampleCapacity)
         }
         size = samplesLength
         outputOffset = 0
@@ -30,8 +36,18 @@ import Foundation
 
     deinit {
         if bufferSize > 0, let samples = samples {
-            free(samples)
+            samples.deallocate()
         }
     }
-}
 
+    static func sampleCapacity(forByteLength byteLength: Int) -> Int? {
+        guard byteLength > 0 else { return nil }
+
+        let floatSize = MemoryLayout<Float>.size
+        let (adjustedByteLength, overflow) = byteLength.addingReportingOverflow(floatSize - 1)
+        guard !overflow else { return nil }
+
+        let capacity = adjustedByteLength / floatSize
+        return capacity > 0 ? capacity : nil
+    }
+}
