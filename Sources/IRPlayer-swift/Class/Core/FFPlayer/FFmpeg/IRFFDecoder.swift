@@ -324,8 +324,10 @@ protocol IRFFDecoderDelegate: AnyObject {
                                               fps: TimeInterval) -> TimeInterval? {
         let sleepTime: TimeInterval
         if framePosition >= audioTimeClock {
-            sleepTime = (1.0 / fps) / 2
+            guard let frameInterval = Self.frameInterval(forFPS: fps) else { return nil }
+            sleepTime = frameInterval / 2
         } else if framePosition + frameDuration >= audioTimeClock {
+            guard frameDuration.isFinite, frameDuration > 0 else { return nil }
             sleepTime = frameDuration / 2
         } else {
             return nil
@@ -334,11 +336,18 @@ protocol IRFFDecoderDelegate: AnyObject {
         return sleepTime < 0.015 ? 0.015 : sleepTime
     }
 
-    static func standaloneVideoSleepDuration(frameDuration: TimeInterval, fps: TimeInterval) -> TimeInterval {
-        if frameDuration < 0.0001 {
-            return 1.0 / fps
+    static func standaloneVideoSleepDuration(frameDuration: TimeInterval, fps: TimeInterval) -> TimeInterval? {
+        if frameDuration.isFinite, frameDuration >= 0.0001 {
+            return frameDuration
         }
-        return frameDuration
+        return Self.frameInterval(forFPS: fps)
+    }
+
+    private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
+        guard fps.isFinite, fps > 0 else { return nil }
+        let interval = 1.0 / fps
+        guard interval.isFinite, interval > 0 else { return nil }
+        return interval
     }
 
     private func openFormatContext() {
@@ -516,8 +525,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                     if endOfFile {
                         updateBufferedDurationByVideo()
                     }
-                    let sleepTime = Self.standaloneVideoSleepDuration(frameDuration: currentFrame.duration, fps: videoDecoder?.fps ?? 1)
-                    Thread.sleep(forTimeInterval: sleepTime)
+                    if let sleepTime = Self.standaloneVideoSleepDuration(frameDuration: currentFrame.duration, fps: videoDecoder?.fps ?? 1) {
+                        Thread.sleep(forTimeInterval: sleepTime)
+                    }
                 } else if endOfFile {
                     updateBufferedDurationByVideo()
                 }
