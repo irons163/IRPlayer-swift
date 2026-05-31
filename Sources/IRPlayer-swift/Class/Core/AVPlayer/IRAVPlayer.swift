@@ -143,6 +143,15 @@ extension IRAVPlayer {
             return false
         }
     }
+
+    static func isActivePlaybackState(_ state: IRPlayerState) -> Bool {
+        switch state {
+        case .buffering, .playing:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 extension IRAVPlayer {
@@ -169,7 +178,7 @@ extension IRAVPlayer {
     }
 
     func setAutoPlayIfNeed() {
-        if state == .playing || state == .buffering {
+        if Self.isActivePlaybackState(state) {
             state = .suspend
             autoNeedPlay = true
             pause()
@@ -188,7 +197,7 @@ extension IRAVPlayer {
     }
 
     func setPlayIfNeeded() {
-        if state == .playing || state == .buffering {
+        if Self.isActivePlaybackState(state) {
             guard let avPlayer = avPlayer else { return }
             state = .buffering
             needPlay = true
