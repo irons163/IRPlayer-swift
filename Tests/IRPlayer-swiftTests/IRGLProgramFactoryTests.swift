@@ -111,6 +111,14 @@ final class IRGLProgramFactoryTests: XCTestCase {
         XCTAssertEqual(output, "")
     }
 
+    func testFisheyeParameterInitializationDoesNotWriteDebugOutput() {
+        let output = captureStandardOutput {
+            _ = makeFisheyeParameter()
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testFisheyeFactoryBuildsControllerProjectionAndAdjustedScope() throws {
         let parameter = makeFisheyeParameter()
         let viewport = CGRect(x: 0, y: 0, width: 320, height: 180)
