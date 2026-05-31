@@ -162,6 +162,12 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertFalse(IRFFAudioDecoder.shouldDecodePacket(hasData: false))
         XCTAssertTrue(IRFFAudioDecoder.shouldDecodePacket(hasData: true))
     }
+
+    func testShouldDecodeFrameRequiresFrameAndPrimaryData() {
+        XCTAssertFalse(IRFFAudioDecoder.shouldDecodeFrame(hasFrame: false, hasPrimaryData: true))
+        XCTAssertFalse(IRFFAudioDecoder.shouldDecodeFrame(hasFrame: true, hasPrimaryData: false))
+        XCTAssertTrue(IRFFAudioDecoder.shouldDecodeFrame(hasFrame: true, hasPrimaryData: true))
+    }
 }
 
 final class IRFFAudioFrameTests: XCTestCase {

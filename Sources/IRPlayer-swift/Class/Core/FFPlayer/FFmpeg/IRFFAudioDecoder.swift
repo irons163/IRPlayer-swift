@@ -184,6 +184,10 @@ class IRFFAudioDecoder {
         return hasData
     }
 
+    static func shouldDecodeFrame(hasFrame: Bool, hasPrimaryData: Bool) -> Bool {
+        return hasFrame && hasPrimaryData
+    }
+
     func duration() -> TimeInterval {
         return frameQueue.duration
     }
@@ -233,7 +237,10 @@ class IRFFAudioDecoder {
     }
 
     private func decode() -> IRFFAudioFrame? {
-        guard let tempFrame = tempFrame, tempFrame.pointee.data.0 != nil else { return nil }
+        guard Self.shouldDecodeFrame(hasFrame: tempFrame != nil, hasPrimaryData: tempFrame?.pointee.data.0 != nil),
+              let tempFrame else {
+            return nil
+        }
 
         reloadAudioOutputInfo()
 
