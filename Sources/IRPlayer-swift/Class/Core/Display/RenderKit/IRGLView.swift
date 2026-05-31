@@ -10,8 +10,9 @@ import Metal
 import QuartzCore
 import CoreImage
 import simd
+import OSLog
 
-enum IRDisplayRendererType: UInt {
+enum IRDisplayRendererType: UInt, Hashable, Equatable, Sendable, RawRepresentable {
     case empty
     case AVPlayerLayer
     case AVPlayerPixelBufferVR
@@ -121,7 +122,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                 }
             }
             if ciContext == nil {
-                print("Failed to setup Metal context")
+                IRPlayerImp.Logger.libraryLogger.error("Failed to setup Metal context")
                 return
             }
             updateDrawableSize(scale: 1.0)
@@ -129,7 +130,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
         viewprotRange = CGRect(x: 0, y: 0, width: backingWidth, height: backingHeight)
         setupModes()
-        print("OK setup Metal")
+        IRPlayerImp.Logger.libraryLogger.debug("OK setup Metal")
     }
 
     func close() {
@@ -1067,7 +1068,7 @@ private final class IRGLRenderStrategyFisheye: IRGLRenderStrategyBase {}
 private final class IRGLRenderStrategyVR: IRGLRenderStrategyBase {}
 private final class IRGLRenderStrategyMulti4P: IRGLRenderStrategyBase {}
 
-enum IRGLRenderStrategyKind {
+enum IRGLRenderStrategyKind: Hashable, Equatable, Sendable {
     case twoD
     case fish2Pano
     case distortion

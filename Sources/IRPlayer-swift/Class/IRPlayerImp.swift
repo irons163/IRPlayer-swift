@@ -21,8 +21,8 @@ import OSLog
 
 // player state
 @objc public enum IRPlayerState: Int, Hashable, Equatable, Sendable, RawRepresentable {
-    case none // normal
-    case buffering // virtual reality
+    case none
+    case buffering
     case readyToPlay
     case playing
     case suspend
@@ -57,7 +57,7 @@ enum IRPlayerVolume {
     }
 }
 
-// Mark: - IRPlayerImp
+// MARK: - IRPlayerImp
 @objcMembers
 public class IRPlayerImp: NSObject {
 
@@ -231,7 +231,7 @@ public class IRPlayerImp: NSObject {
         self.playableBufferInterval = 2
         self.viewAnimationHidden = true
         self.isLiveStream = false
-        self.volume = 1;
+        self.volume = 1
         super.init()
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         self.setupNotification()
@@ -404,7 +404,7 @@ public extension IRPlayerImp {
     func replaceVideoWithURL(contentURL: NSURL?,
                              videoType: IRVideoType = .normal,
                              videoInput: IRFFVideoInput? = nil) {
-        self.error = nil;
+        self.error = nil
         self.contentURL = contentURL
         self.videoInput = videoInput
         if let videoInput = self.videoInput {
@@ -451,7 +451,7 @@ extension IRPlayerImp {
             if let view = self.displayView {
                 self.gestureControl?.removeGesture(to: view)
             }
-            self.gestureControl = nil;
+            self.gestureControl = nil
         }
         if self.displayView != nil {
             self.displayView?.close()
@@ -487,7 +487,7 @@ extension IRPlayerImp {
             switch self?.state {
             case .playing, .buffering:
                 // fix : maybe receive interruption notification when enter foreground.
-                let timeInterval = NSDate().timeIntervalSince1970
+                let timeInterval = Date().timeIntervalSince1970
                 guard timeInterval - (self?.lastForegroundTimeInterval ?? 0) > 1.5 else { break }
                 self?.pause()
             default:
@@ -519,7 +519,7 @@ extension IRPlayerImp {
         case .playAndClearAutoPlay:
             self.needAutoPlay = false
             self.play()
-            self.lastForegroundTimeInterval = NSDate().timeIntervalSince1970
+            self.lastForegroundTimeInterval = Date().timeIntervalSince1970
         case .none:
             break
         }
@@ -527,7 +527,7 @@ extension IRPlayerImp {
 }
 #endif
 
-// Mark: - IRPlayer Action Category
+// MARK: - IRPlayer Action Category
 public extension IRPlayerImp {
 
     func registerPlayerNotification(target: Any?,
@@ -560,7 +560,7 @@ public extension IRPlayerImp {
     }
 }
 
-// Mark: - UIScrollViewDelegate
+// MARK: - IRGLViewDelegate
 extension IRPlayerImp: IRGLViewDelegate {
 
     public func glViewWillBeginZooming(_ glView: IRGLView?) {

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 @objcMembers public class IRGLProgramFactory: NSObject {
 
@@ -167,7 +168,7 @@ import Foundation
             return IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
         }
         guard let fisheyeParameter = parameter as? IRFisheyeParameter else {
-            print("createIRGLProgram failed.")
+            IRPlayerImp.Logger.libraryLogger.warning("createIRGLProgram failed.")
             return nil
         }
         return fisheyeParameter

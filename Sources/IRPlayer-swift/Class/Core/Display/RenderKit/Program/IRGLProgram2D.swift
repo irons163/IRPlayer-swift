@@ -12,7 +12,7 @@ protocol IRGLProgramDelegate: AnyObject {
     func didScrollToBounds(_ bounds: IRGLTransformController.ScrollToBounds, withProgram program: IRGLProgram2D)
 }
 
-@objc public enum IRGLRenderContentMode: Int {
+@objc public enum IRGLRenderContentMode: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case scaleAspectFit
     case scaleAspectFill
     case scaleToFill

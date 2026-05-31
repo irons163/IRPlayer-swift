@@ -10,18 +10,19 @@ import Metal
 import CoreVideo
 import simd
 import QuartzCore
+import OSLog
+import OSLog
 
 extension IRMetalRenderer {
 
     func renderNV12(cvFrame: IRFFCVYUVVideoFrame, encoder: MTLRenderCommandEncoder) -> Bool {
         guard let pipeline = pipelineNV12 else { return false }
-        guard let pixelBuffer = Optional.some(cvFrame.pixelBuffer) else { return false }
+        let pixelBuffer = cvFrame.pixelBuffer
         guard let textureCache = textureCache else { return false }
 
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
         let format = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        print("IRMetalRenderer: CVPixelBuffer format=\(format)")
         guard format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange ||
               format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else {
             return false
@@ -34,7 +35,7 @@ extension IRMetalRenderer {
         CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, pixelBuffer, nil, .rg8Unorm, width / 2, height / 2, 1, &uvTextureRef)
 
         guard let yTextureRef = yTextureRef, let uvTextureRef = uvTextureRef else {
-            print("IRMetalRenderer: failed to create CVMetalTexture")
+            IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create CVMetalTexture")
             return false
         }
         guard let yTexture = CVMetalTextureGetTexture(yTextureRef), let uvTexture = CVMetalTextureGetTexture(uvTextureRef) else { return false }

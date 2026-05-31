@@ -375,13 +375,6 @@
 			path = Metal;
 			sourceTree = "<group>";
 		};
-		786754B92FCC6E9A0025FE47 /* New Group */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = "New Group";
-			sourceTree = "<group>";
-		};
 		786754BB2FCC6EFA0025FE47 /* plans */ = {
 			isa = PBXGroup;
 			children = (
@@ -878,7 +871,6 @@
 			isa = PBXGroup;
 			children = (
 				786754BF2FCC6EFA0025FE47 /* docs */,
-				786754B92FCC6E9A0025FE47 /* New Group */,
 				B5E94FED2D0B220400149265 /* Tests */,
 				B5E94EC72D0B21F800149265 /* Sources */,
 				D1B25EA12804376000F79DCC /* Products */,
