@@ -124,4 +124,20 @@ final class IRSensorTests: XCTestCase {
             0
         )
     }
+
+    func testMotionScrollShiftConvertsFiniteDeltasWithoutDebugOutput() {
+        let output = captureStandardOutput {
+            let shift = IRSensor.motionScrollShift(dx: CGFloat(12.5), dy: CGFloat(-6.25))
+
+            XCTAssertEqual(shift?.degreeX, 12.5, accuracy: 0.0001)
+            XCTAssertEqual(shift?.degreeY, -6.25, accuracy: 0.0001)
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
+    func testMotionScrollShiftRejectsNonFiniteDeltas() {
+        XCTAssertNil(IRSensor.motionScrollShift(dx: CGFloat.nan, dy: CGFloat(1)))
+        XCTAssertNil(IRSensor.motionScrollShift(dx: CGFloat(1), dy: CGFloat.infinity))
+    }
 }
