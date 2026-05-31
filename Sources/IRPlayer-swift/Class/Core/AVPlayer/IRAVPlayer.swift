@@ -23,6 +23,12 @@ class IRAVPlayer: NSObject {
         case ignore
     }
 
+    enum AVAssetLoadDecision: Equatable {
+        case fail
+        case setupOutput
+        case ignore
+    }
+
     weak var abstractPlayer: IRPlayerImp?
 
     var seeking = false
@@ -475,20 +481,26 @@ extension IRAVPlayer {
             avAsset?.loadValuesAsynchronously(forKeys: Self.AVAssetLoadKeys) { [weak self] in
                 DispatchQueue.main.async {
                     guard let self = self else { return }
+                    var keyStatuses: [AVKeyValueStatus] = []
+                    var failureError: NSError?
                     for loadKey in Self.AVAssetLoadKeys {
                         var error: NSError? = nil
                         let keyStatus = self.avAsset?.statusOfValue(forKey: loadKey, error: &error)
-                        if keyStatus == .failed {
-                            self.avAssetPrepareFailed(error: error)
-                            print("AVAsset load failed: \(error?.localizedDescription ?? "")")
-                            return
+                        if let keyStatus {
+                            keyStatuses.append(keyStatus)
+                        }
+                        if keyStatus == .failed, failureError == nil {
+                            failureError = error
                         }
                     }
                     let trackStatus = self.avAsset?.statusOfValue(forKey: "tracks", error: nil)
-                    if trackStatus == .loaded {
+                    switch Self.avAssetLoadDecision(keyStatuses: keyStatuses, trackStatus: trackStatus) {
+                    case .fail:
+                        self.avAssetPrepareFailed(error: failureError)
+                    case .setupOutput:
                         self.setupOutput()
-                    } else {
-                        print("AVAsset load failed")
+                    case .ignore:
+                        break
                     }
                 }
             }
@@ -503,6 +515,16 @@ extension IRAVPlayer {
 }
 
 extension IRAVPlayer {
+
+    static func avAssetLoadDecision(keyStatuses: [AVKeyValueStatus], trackStatus: AVKeyValueStatus?) -> AVAssetLoadDecision {
+        if keyStatuses.contains(.failed) {
+            return .fail
+        }
+        if trackStatus == .loaded {
+            return .setupOutput
+        }
+        return .ignore
+    }
 
     func setupAVPlayer() {
         avPlayer = AVPlayer(playerItem: avPlayerItem)
