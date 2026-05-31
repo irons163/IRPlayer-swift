@@ -205,13 +205,16 @@ extension IRAVPlayer {
             self.seeking = true
             avPlayerItem.seek(to: seekTime) { finished in
                 DispatchQueue.main.async {
-                    self.seeking = false
-                    self.playIfNeeded()
-                    completionHandler?(finished)
-                    print("IRAVPlayer seek success")
+                    self.completeSeek(finished: finished, completionHandler: completionHandler)
                 }
             }
         }
+    }
+
+    func completeSeek(finished: Bool, completionHandler: ((Bool) -> Void)? = nil) {
+        seeking = false
+        playIfNeeded()
+        completionHandler?(finished)
     }
 
     static func seekTime(for time: TimeInterval) -> CMTime? {
