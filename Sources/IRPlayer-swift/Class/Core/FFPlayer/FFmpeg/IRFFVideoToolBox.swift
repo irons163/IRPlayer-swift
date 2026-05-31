@@ -236,7 +236,7 @@ class IRFFVideoToolBox {
                     infoFlagsOut: nil
                 )
 
-                if status == noErr, self.decodeStatus == noErr, self.decodeOutput != nil {
+                if Self.decodeFrameSucceeded(status: status, callbackStatus: self.decodeStatus, hasOutput: self.decodeOutput != nil) {
                     result = true
                 }
             }
@@ -272,6 +272,10 @@ class IRFFVideoToolBox {
     static func decodeFramePayload(session: VTDecompressionSession?, sampleBuffer: CMSampleBuffer?) -> DecodeFramePayload? {
         guard let session, let sampleBuffer else { return nil }
         return DecodeFramePayload(session: session, sampleBuffer: sampleBuffer)
+    }
+
+    static func decodeFrameSucceeded(status: OSStatus, callbackStatus: OSStatus, hasOutput: Bool) -> Bool {
+        status == noErr && callbackStatus == noErr && hasOutput
     }
 
     static func nalPayloadCanAdvance(nalSize: UInt32, remainingByteCount: Int) -> Bool {

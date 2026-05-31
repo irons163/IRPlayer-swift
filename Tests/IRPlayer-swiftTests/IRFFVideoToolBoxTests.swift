@@ -170,4 +170,11 @@ final class IRFFVideoToolBoxTests: XCTestCase {
     func testDecodeFramePayloadRejectsMissingInputs() {
         XCTAssertNil(IRFFVideoToolBox.decodeFramePayload(session: nil, sampleBuffer: nil))
     }
+
+    func testDecodeFrameSuccessRequiresAllStatusesAndOutput() {
+        XCTAssertTrue(IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: noErr, hasOutput: true))
+        XCTAssertFalse(IRFFVideoToolBox.decodeFrameSucceeded(status: -1, callbackStatus: noErr, hasOutput: true))
+        XCTAssertFalse(IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: -1, hasOutput: true))
+        XCTAssertFalse(IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: noErr, hasOutput: false))
+    }
 }
