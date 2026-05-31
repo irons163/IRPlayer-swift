@@ -590,10 +590,84 @@ extension IRPlayerImp: IRGLViewDelegate {
     }
 }
 
+// ******************************* MARK: - Logger Delegate
+
+/// Severity levels that mirror OSLog's level hierarchy.
+@objc public enum IRPlayerLogLevel: Int, Equatable, Hashable, Sendable {
+    case debug
+    case info
+    case warning
+    case error
+}
+
+/// Implement this protocol to intercept IRPlayer log messages and forward them
+/// to your own logging system. When a delegate is set it receives **all** log
+/// messages instead of (not in addition to) the built-in OSLog output.
+public protocol IRPlayerLoggerDelegate: AnyObject {
+    func irPlayer(didLog message: String, level: IRPlayerLogLevel, category: String)
+}
+
 // ******************************* MARK: - Constants
 
 public extension IRPlayerImp { enum Logger {} }
 public extension IRPlayerImp.Logger {
     static var subsystem = Bundle.main.bundleIdentifier ?? "IRPlayerImp"
-    static var libraryLogger = Logger(subsystem: subsystem, category: "library")
+
+    /// Set this delegate to receive all IRPlayer log messages in your own
+    /// logging system. Setting it to `nil` (the default) restores OSLog output.
+    nonisolated(unsafe) static weak var delegate: (any IRPlayerLoggerDelegate)?
+
+    static var libraryLogger = IRPlayerLogger(subsystem: subsystem, category: "library")
+}
+
+// ******************************* MARK: - IRPlayerLogger
+
+/// A thin logger wrapper that forwards messages to `IRPlayerImp.Logger.delegate`
+/// when one is set, and falls back to OSLog otherwise.
+/// It intentionally mirrors the `debug / info / warning / error` API of
+/// `OSLog.Logger` so all existing call sites remain unchanged.
+public struct IRPlayerLogger {
+    private let osLogger: Logger  // OSLog.Logger, available via `import OSLog`
+    private let category: String
+
+    public init(subsystem: String, category: String) {
+        self.osLogger = Logger(subsystem: subsystem, category: category)
+        self.category = category
+    }
+
+    public func debug(_ message: @autoclosure () -> String) {
+        let msg = message()
+        if let delegate = IRPlayerImp.Logger.delegate {
+            delegate.irPlayer(didLog: msg, level: .debug, category: category)
+        } else {
+            osLogger.debug("\(msg)")
+        }
+    }
+
+    public func info(_ message: @autoclosure () -> String) {
+        let msg = message()
+        if let delegate = IRPlayerImp.Logger.delegate {
+            delegate.irPlayer(didLog: msg, level: .info, category: category)
+        } else {
+            osLogger.info("\(msg)")
+        }
+    }
+
+    public func warning(_ message: @autoclosure () -> String) {
+        let msg = message()
+        if let delegate = IRPlayerImp.Logger.delegate {
+            delegate.irPlayer(didLog: msg, level: .warning, category: category)
+        } else {
+            osLogger.warning("\(msg)")
+        }
+    }
+
+    public func error(_ message: @autoclosure () -> String) {
+        let msg = message()
+        if let delegate = IRPlayerImp.Logger.delegate {
+            delegate.irPlayer(didLog: msg, level: .error, category: category)
+        } else {
+            osLogger.error("\(msg)")
+        }
+    }
 }

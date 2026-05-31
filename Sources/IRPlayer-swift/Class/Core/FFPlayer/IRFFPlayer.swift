@@ -9,7 +9,7 @@ import UIKit // For CGSize
 import AVFoundation // For NSTimeInterval
 
 class IRFFPlayer: NSObject {
-    struct AudioCopyPlan {
+    struct AudioCopyPlan: Equatable, Hashable, Sendable {
         let bytesToCopy: Int
         let framesToCopy: Int
         let hasRemainingFrameBytes: Bool
