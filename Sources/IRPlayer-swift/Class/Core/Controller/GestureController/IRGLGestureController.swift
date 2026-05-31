@@ -103,8 +103,9 @@ class IRGLGestureController: IRGestureController {
 
         case .began:
             let touchedPoint = gr.location(in: targetView)
-            let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                      y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+            let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                            viewHeight: targetView?.frame.size.height ?? 0,
+                                                            screenScale: UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         default:
@@ -128,8 +129,9 @@ class IRGLGestureController: IRGestureController {
 
         case .began:
             let touchedPoint = sender.location(in: targetView)
-            let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                      y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+            let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                            viewHeight: targetView?.frame.size.height ?? 0,
+                                                            screenScale: UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         default:
@@ -156,8 +158,9 @@ class IRGLGestureController: IRGestureController {
 
         case .began:
             let touchedPoint = gr.location(in: targetView)
-            let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                      y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+            let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                            viewHeight: targetView?.frame.size.height ?? 0,
+                                                            screenScale: UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         default:
@@ -183,8 +186,9 @@ class IRGLGestureController: IRGestureController {
 
         isTouchedInProgram = false
         let touchedPoint = gr.location(in: targetView)
-        let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                  y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+        let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                        viewHeight: targetView?.frame.size.height ?? 0,
+                                                        screenScale: UIScreen.main.scale)
         isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         guard isTouchedInProgram else { return }
@@ -214,8 +218,9 @@ class IRGLGestureController: IRGestureController {
         let shouldBegin = super.gestureRecognizerShouldBegin(gestureRecognizer)
 
         let touchedPoint = gestureRecognizer.location(in: targetView)
-        let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                  y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+        let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                        viewHeight: targetView?.frame.size.height ?? 0,
+                                                        screenScale: UIScreen.main.scale)
         isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         if (!doubleTapEnable), gestureRecognizer == doubleTapGR {
