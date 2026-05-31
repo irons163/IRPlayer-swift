@@ -4,6 +4,16 @@ import XCTest
 
 final class IRFFToolsTests: XCTestCase {
 
+    func testRuntimeDebugOutputIsSilentByDefault() {
+        XCTAssertFalse(IRFFRuntimeDebugOutput.isEnabled)
+
+        let output = captureStandardOutput {
+            IRFFRuntimeDebugOutput.write("runtime trace")
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testFFLogIgnoresInvalidUTF8FormatString() throws {
         let invalidFormat: [CChar] = [-1, 0]
 
