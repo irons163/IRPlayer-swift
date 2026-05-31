@@ -618,7 +618,6 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     deinit {
         closeFileAsync(false)
-        print("IRFFDecoder release")
     }
 }
 
