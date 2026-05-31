@@ -296,6 +296,24 @@ protocol IRFFDecoderDelegate: AnyObject {
         )
     }
 
+    static func packetBufferBackpressureSleepInterval(audioSize: Int,
+                                                      videoPacketSize: Int,
+                                                      maxBufferSize: Int = 20 * 1024 * 1024,
+                                                      paused: Bool) -> TimeInterval? {
+        guard audioSize >= 0,
+              videoPacketSize >= 0,
+              maxBufferSize > 0 else {
+            return nil
+        }
+        if audioSize >= maxBufferSize || videoPacketSize >= maxBufferSize {
+            return paused ? 0.5 : 0.1
+        }
+        guard videoPacketSize >= maxBufferSize - audioSize else {
+            return nil
+        }
+        return paused ? 0.5 : 0.1
+    }
+
     static func seekPreparation(requestedTime: TimeInterval,
                                 seekEnabled: Bool,
                                 hasError: Bool,
@@ -425,9 +443,9 @@ protocol IRFFDecoderDelegate: AnyObject {
             }
             let size: Int = Int(audioDecoder?.size() ?? 0)
             let packetSize = (videoDecoder?.packetSize() ?? 0)
-            let max_packet_buffer_size = 20 * 1024 * 1024
-            if size + packetSize >= max_packet_buffer_size {
-                let interval = paused ? 0.5 : 0.1
+            if let interval = Self.packetBufferBackpressureSleepInterval(audioSize: size,
+                                                                         videoPacketSize: packetSize,
+                                                                         paused: paused) {
                 IRFFRuntimeDebugOutput.write("read thread sleep: \(interval)")
                 Thread.sleep(forTimeInterval: interval)
                 continue

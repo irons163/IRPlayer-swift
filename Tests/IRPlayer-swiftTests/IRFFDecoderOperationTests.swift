@@ -68,6 +68,62 @@ final class IRFFDecoderOperationTests: XCTestCase {
         )
     }
 
+    func testPacketBufferBackpressureSleepIntervalUsesConfiguredThresholdAndPauseState() {
+        XCTAssertNil(
+            IRFFDecoder.packetBufferBackpressureSleepInterval(
+                audioSize: 3,
+                videoPacketSize: 6,
+                maxBufferSize: 10,
+                paused: false
+            )
+        )
+        XCTAssertEqual(
+            IRFFDecoder.packetBufferBackpressureSleepInterval(
+                audioSize: 4,
+                videoPacketSize: 6,
+                maxBufferSize: 10,
+                paused: false
+            ),
+            0.1
+        )
+        XCTAssertEqual(
+            IRFFDecoder.packetBufferBackpressureSleepInterval(
+                audioSize: 5,
+                videoPacketSize: 6,
+                maxBufferSize: 10,
+                paused: true
+            ),
+            0.5
+        )
+    }
+
+    func testPacketBufferBackpressureSleepIntervalRejectsInvalidSizes() {
+        XCTAssertNil(
+            IRFFDecoder.packetBufferBackpressureSleepInterval(
+                audioSize: -1,
+                videoPacketSize: 6,
+                maxBufferSize: 10,
+                paused: false
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoder.packetBufferBackpressureSleepInterval(
+                audioSize: 4,
+                videoPacketSize: -1,
+                maxBufferSize: 10,
+                paused: false
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoder.packetBufferBackpressureSleepInterval(
+                audioSize: 4,
+                videoPacketSize: 6,
+                maxBufferSize: 0,
+                paused: false
+            )
+        )
+    }
+
     func testSeekPreparationClampsRequestedTimeUsingAudioOrVideoTailBuffer() {
         XCTAssertEqual(
             IRFFDecoder.seekPreparation(
