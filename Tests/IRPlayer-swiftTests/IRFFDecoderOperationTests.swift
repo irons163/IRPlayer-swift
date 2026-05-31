@@ -351,6 +351,55 @@ final class IRFFDecoderOperationTests: XCTestCase {
         )
     }
 
+    func testAudioTrackSelectionSeekTargetRequiresRebuiltActiveAudioDecoder() {
+        XCTAssertNil(
+            IRFFDecoder.audioTrackSelectionSeekTarget(
+                selectionPending: false,
+                decoderWasReset: true,
+                hasAudioDecoder: true,
+                playbackFinished: false,
+                audioTimeClock: 12
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoder.audioTrackSelectionSeekTarget(
+                selectionPending: true,
+                decoderWasReset: false,
+                hasAudioDecoder: true,
+                playbackFinished: false,
+                audioTimeClock: 12
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoder.audioTrackSelectionSeekTarget(
+                selectionPending: true,
+                decoderWasReset: true,
+                hasAudioDecoder: false,
+                playbackFinished: false,
+                audioTimeClock: 12
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoder.audioTrackSelectionSeekTarget(
+                selectionPending: true,
+                decoderWasReset: true,
+                hasAudioDecoder: true,
+                playbackFinished: true,
+                audioTimeClock: 12
+            )
+        )
+        XCTAssertEqual(
+            IRFFDecoder.audioTrackSelectionSeekTarget(
+                selectionPending: true,
+                decoderWasReset: true,
+                hasAudioDecoder: true,
+                playbackFinished: false,
+                audioTimeClock: 12
+            ),
+            12
+        )
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),

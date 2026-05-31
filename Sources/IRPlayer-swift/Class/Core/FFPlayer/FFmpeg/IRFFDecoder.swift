@@ -403,6 +403,20 @@ protocol IRFFDecoderDelegate: AnyObject {
         )
     }
 
+    static func audioTrackSelectionSeekTarget(selectionPending: Bool,
+                                              decoderWasReset: Bool,
+                                              hasAudioDecoder: Bool,
+                                              playbackFinished: Bool,
+                                              audioTimeClock: TimeInterval) -> TimeInterval? {
+        guard selectionPending,
+              decoderWasReset,
+              hasAudioDecoder,
+              !playbackFinished else {
+            return nil
+        }
+        return audioTimeClock
+    }
+
     private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
         guard fps.isFinite, fps > 0 else { return nil }
         let interval = 1.0 / fps
@@ -471,14 +485,21 @@ protocol IRFFDecoderDelegate: AnyObject {
                 continue
             }
             if selectAudioTrack {
-                if formatContext?.selectAudioTrackIndex(selectAudioTrackIndex) == nil {
+                let decoderWasReset = formatContext?.selectAudioTrackIndex(selectAudioTrackIndex) == nil
+                if decoderWasReset {
                     audioDecoder?.destroy()
                     if let formatContext,
                        let audioCodecContext = Self.audioCodecContext(from: formatContext) {
                         audioDecoder = IRFFAudioDecoder.decoder(codecContext: audioCodecContext, timebase: formatContext.audioTimebase, delegate: self)
                     }
-                    if audioDecoder != nil, !playbackFinished {
-                        seek(to: audioTimeClock)
+                    if let seekTarget = Self.audioTrackSelectionSeekTarget(
+                        selectionPending: selectAudioTrack,
+                        decoderWasReset: decoderWasReset,
+                        hasAudioDecoder: audioDecoder != nil,
+                        playbackFinished: playbackFinished,
+                        audioTimeClock: audioTimeClock
+                    ) {
+                        seek(to: seekTarget)
                     }
                 }
                 selectAudioTrack = false
