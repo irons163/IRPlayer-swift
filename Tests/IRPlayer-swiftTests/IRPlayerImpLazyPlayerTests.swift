@@ -30,4 +30,15 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
 
         withExtendedLifetime((existingAVPlayer, createdAVPlayer, existingFFPlayer, createdFFPlayer, abstractPlayer)) {}
     }
+
+    func testScrollToBoundsDoesNotPrintDebugOutput() {
+        let player = IRPlayerImp.player()
+
+        let output = captureStandardOutput {
+            player.glViewDidScroll(toBounds: nil)
+        }
+
+        XCTAssertEqual(output, "")
+        withExtendedLifetime(player) {}
+    }
 }
