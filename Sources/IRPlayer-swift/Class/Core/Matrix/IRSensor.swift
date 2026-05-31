@@ -113,8 +113,8 @@ class IRSensor {
                     return
                 }
                 if doScroll {
-                    print("scrollBy dx: \(dx * UIScreen.main.scale), dy: \(dy * UIScreen.main.scale)")
-                    self.smoothScroll?.shiftDegreeX(Float(dx), degreeY: Float(dy))
+                    guard let shift = Self.motionScrollShift(dx: dx, dy: dy) else { return }
+                    self.smoothScroll?.shiftDegreeX(shift.degreeX, degreeY: shift.degreeY)
                 }
             }
         }
@@ -140,5 +140,10 @@ class IRSensor {
             return delta - 360
         }
         return delta
+    }
+
+    static func motionScrollShift(dx: CGFloat, dy: CGFloat) -> (degreeX: Float, degreeY: Float)? {
+        guard dx.isFinite, dy.isFinite else { return nil }
+        return (Float(dx), Float(dy))
     }
 }
