@@ -14,6 +14,15 @@ class IRAVPlayer: NSObject {
     static let avMediaSelectionOptionTrackIDKey = "MediaSelectionOptionsPersistentID"
     static let AVAssetLoadKeys: [String] = ["tracks", "playable"]
 
+    enum ItemStatusDecision: Equatable {
+        case buffer
+        case markReady
+        case playIfNeeded
+        case fail
+        case failUnknown
+        case ignore
+    }
+
     weak var abstractPlayer: IRPlayerImp?
 
     var seeking = false
@@ -77,6 +86,31 @@ class IRAVPlayer: NSObject {
         NotificationCenter.default.removeObserver(self)
         replaceEmpty()
         cleanAVPlayer()
+    }
+}
+
+extension IRAVPlayer {
+    static func itemStatusDecision(status: AVPlayerItem.Status, currentState: IRPlayerState) -> ItemStatusDecision {
+        switch status {
+        case .unknown:
+            return .buffer
+
+        case .readyToPlay:
+            switch currentState {
+            case .buffering, .playing:
+                return .playIfNeeded
+            case .suspend, .finished, .failed:
+                return .ignore
+            default:
+                return .markReady
+            }
+
+        case .failed:
+            return .fail
+
+        @unknown default:
+            return .failUnknown
+        }
     }
 }
 
@@ -302,33 +336,32 @@ extension IRAVPlayer {
 
         switch keyPath {
         case "status":
-            switch item.status {
-            case .unknown:
+            switch Self.itemStatusDecision(status: item.status, currentState: state) {
+            case .buffer:
                 state = .buffering
 
-            case .readyToPlay:
+            case .markReady:
                 setupTrackInfo()
-                print("IRAVPlayer item status ready to play")
                 readyToPlayTime = Date().timeIntervalSince1970
-                switch state {
-                case .buffering, .playing:
-                    playIfNeeded()
-                case .suspend, .finished, .failed:
-                    break
-                default:
-                    state = .readyToPlay
-                }
+                state = .readyToPlay
 
-            case .failed:
-                print("IRAVPlayer item status failed")
+            case .playIfNeeded:
+                setupTrackInfo()
+                readyToPlayTime = Date().timeIntervalSince1970
+                playIfNeeded()
+
+            case .fail:
                 failPlayback(with: playbackErrorInfo())
 
-            @unknown default:
+            case .failUnknown:
                 let errorInfo = IRError()
                 errorInfo.error = NSError(domain: "AVPlayer item status unknown", code: -1, userInfo: [
                     NSLocalizedDescriptionKey: "AVPlayerItem reported an unknown status."
                 ])
                 failPlayback(with: errorInfo)
+
+            case .ignore:
+                break
             }
 
         case "playbackBufferEmpty":
