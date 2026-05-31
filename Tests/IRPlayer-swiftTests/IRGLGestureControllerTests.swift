@@ -2,6 +2,40 @@ import UIKit
 import XCTest
 @testable import IRPlayer_swift
 
+final class IRGesturePolicyTests: XCTestCase {
+
+    func testPanDirectionUsesDominantVelocityAxis() {
+        XCTAssertEqual(IRGesturePolicy.panDirection(forVelocity: CGPoint(x: 20, y: 5)), .horizontal)
+        XCTAssertEqual(IRGesturePolicy.panDirection(forVelocity: CGPoint(x: -4, y: 9)), .vertical)
+        XCTAssertEqual(IRGesturePolicy.panDirection(forVelocity: CGPoint(x: 7, y: -7)), .unknown)
+    }
+
+    func testPanDirectionDefaultsNonFiniteVelocityToUnknown() {
+        XCTAssertEqual(IRGesturePolicy.panDirection(forVelocity: CGPoint(x: CGFloat.nan, y: 5)), .unknown)
+        XCTAssertEqual(IRGesturePolicy.panDirection(forVelocity: CGPoint(x: 5, y: CGFloat.infinity)), .unknown)
+    }
+
+    func testPanMovingDirectionUsesTranslationAndPanAxis() {
+        XCTAssertEqual(IRGesturePolicy.panMovingDirection(forTranslation: CGPoint(x: 4, y: 0),
+                                                         panDirection: .horizontal), .right)
+        XCTAssertEqual(IRGesturePolicy.panMovingDirection(forTranslation: CGPoint(x: -4, y: 0),
+                                                         panDirection: .horizontal), .left)
+        XCTAssertEqual(IRGesturePolicy.panMovingDirection(forTranslation: CGPoint(x: 0, y: 4),
+                                                         panDirection: .vertical), .bottom)
+        XCTAssertEqual(IRGesturePolicy.panMovingDirection(forTranslation: CGPoint(x: 0, y: -4),
+                                                         panDirection: .vertical), .top)
+        XCTAssertEqual(IRGesturePolicy.panMovingDirection(forTranslation: CGPoint(x: 0, y: 0),
+                                                         panDirection: .unknown), .unknown)
+    }
+
+    func testPanLocationUsesTargetMidpoint() {
+        XCTAssertEqual(IRGesturePolicy.panLocation(forTouchX: 51, targetWidth: 100), .right)
+        XCTAssertEqual(IRGesturePolicy.panLocation(forTouchX: 50, targetWidth: 100), .left)
+        XCTAssertEqual(IRGesturePolicy.panLocation(forTouchX: 10, targetWidth: 0), .unknown)
+        XCTAssertEqual(IRGesturePolicy.panLocation(forTouchX: CGFloat.nan, targetWidth: 100), .unknown)
+    }
+}
+
 final class IRGLGestureControllerTests: XCTestCase {
 
     func testGesturePolicyConvertsTouchPointToRenderSpace() {
