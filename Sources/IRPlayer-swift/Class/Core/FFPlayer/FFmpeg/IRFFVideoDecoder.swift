@@ -275,7 +275,6 @@ class IRFFVideoDecoder {
         if let frame = tempFrame {
             av_free(frame)
         }
-        print("IRFFVideoDecoder release")
     }
 }
 
