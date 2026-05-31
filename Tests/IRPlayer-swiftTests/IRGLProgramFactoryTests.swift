@@ -259,6 +259,18 @@ final class IRGLProjectionEquirectangularTests: XCTestCase {
         XCTAssertEqual(IRGLProjectionEquirectangular.indexValue(Int(Int16.max)), Int16.max)
     }
 
+    func testInvalidProjectionParametersFallBackWithoutDebugOutput() {
+        let output = captureStandardOutput {
+            _ = IRGLProjectionEquirectangular(textureWidth: 1440,
+                                              height: 1080,
+                                              centerX: 720,
+                                              centerY: 540,
+                                              radius: 0)
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testProjectionExportMeshSurvivesParameterUpdate() throws {
         let projection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: 720, centerY: 540, radius: 520)
         let firstMesh = try XCTUnwrap(projection.exportMesh())
