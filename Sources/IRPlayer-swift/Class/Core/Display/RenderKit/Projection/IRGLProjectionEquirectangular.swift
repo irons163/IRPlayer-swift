@@ -53,7 +53,6 @@ class IRGLProjectionEquirectangular: IRGLProjection {
 
         if radius == 0 || centerX == 0 || centerY == 0 || radius > w / 2 || radius > h / 2 ||
             radius + centerX > w || radius + centerY > h {
-            print("illegal params, set default ones...")
             centerX = w / 2
             centerY = h / 2
             radius = min(w, h) / 2
