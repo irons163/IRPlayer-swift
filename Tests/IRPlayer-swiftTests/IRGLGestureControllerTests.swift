@@ -4,6 +4,36 @@ import XCTest
 
 final class IRGLGestureControllerTests: XCTestCase {
 
+    func testGesturePolicyConvertsTouchPointToRenderSpace() {
+        let point = IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
+                                                 viewHeight: 100,
+                                                 screenScale: 3)
+
+        XCTAssertEqual(point.x, 36)
+        XCTAssertEqual(point.y, 240)
+    }
+
+    func testGesturePolicyDefaultsInvalidInputsToZero() {
+        XCTAssertEqual(
+            IRGLGesturePolicy.renderPoint(from: CGPoint(x: CGFloat.nan, y: 20),
+                                          viewHeight: 100,
+                                          screenScale: 3),
+            .zero
+        )
+        XCTAssertEqual(
+            IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
+                                          viewHeight: CGFloat.infinity,
+                                          screenScale: 3),
+            .zero
+        )
+        XCTAssertEqual(
+            IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
+                                          viewHeight: 100,
+                                          screenScale: 0),
+            .zero
+        )
+    }
+
     func testSmoothScrollTargetScalesVelocityMagnitudeIntoDistanceAndDuration() {
         let target = IRSmoothScrollController.smoothScrollTarget(for: CGPoint(x: 300, y: 400))
 
