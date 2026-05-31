@@ -244,6 +244,25 @@ final class IRAVPlayerTests: XCTestCase {
         )
     }
 
+    func testPlayStateTransitionMapsCurrentPlaybackState() {
+        XCTAssertEqual(IRAVPlayer.nextStateAfterPlay(from: .none), .buffering)
+        XCTAssertEqual(IRAVPlayer.nextStateAfterPlay(from: .suspend), .playing)
+        XCTAssertEqual(IRAVPlayer.nextStateAfterPlay(from: .readyToPlay), .playing)
+        XCTAssertNil(IRAVPlayer.nextStateAfterPlay(from: .buffering))
+        XCTAssertNil(IRAVPlayer.nextStateAfterPlay(from: .playing))
+        XCTAssertNil(IRAVPlayer.nextStateAfterPlay(from: .finished))
+        XCTAssertNil(IRAVPlayer.nextStateAfterPlay(from: .failed))
+    }
+
+    func testPauseStateTransitionSuspendsEveryNonFailedPlaybackState() {
+        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .none), .suspend)
+        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .buffering), .suspend)
+        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .playing), .suspend)
+        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .readyToPlay), .suspend)
+        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .finished), .suspend)
+        XCTAssertNil(IRAVPlayer.nextStateAfterPause(from: .failed))
+    }
+
     func testAVAssetLoadDecisionFailsWhenAnyRequiredKeyFails() {
         XCTAssertEqual(
             IRAVPlayer.avAssetLoadDecision(keyStatuses: [.loaded, .failed], trackStatus: .loaded),

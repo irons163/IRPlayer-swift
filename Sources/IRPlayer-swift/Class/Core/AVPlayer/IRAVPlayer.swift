@@ -118,6 +118,22 @@ extension IRAVPlayer {
             return .failUnknown
         }
     }
+
+    static func nextStateAfterPlay(from state: IRPlayerState) -> IRPlayerState? {
+        switch state {
+        case .none:
+            return .buffering
+        case .suspend, .readyToPlay:
+            return .playing
+        default:
+            return nil
+        }
+    }
+
+    static func nextStateAfterPause(from state: IRPlayerState) -> IRPlayerState? {
+        guard state != .failed else { return nil }
+        return .suspend
+    }
 }
 
 extension IRAVPlayer {
@@ -130,13 +146,8 @@ extension IRAVPlayer {
         tryReplaceVideo()
         guard let avPlayer = avPlayer else { return }
 
-        switch state {
-        case .none:
-            state = .buffering
-        case .suspend, .readyToPlay:
-            state = .playing
-        default:
-            break
+        if let nextState = Self.nextStateAfterPlay(from: state) {
+            state = nextState
         }
 
         avPlayer.play()
@@ -193,9 +204,9 @@ extension IRAVPlayer {
     }
 
     func pause() {
-        guard state != .failed else { return }
+        guard let nextState = Self.nextStateAfterPause(from: state) else { return }
         guard let avPlayer = avPlayer else { return }
-        state = .suspend
+        state = nextState
         cancelPlayIfNeeded()
         avPlayer.pause()
     }
