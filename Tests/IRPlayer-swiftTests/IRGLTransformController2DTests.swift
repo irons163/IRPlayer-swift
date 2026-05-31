@@ -1,4 +1,3 @@
-import Darwin
 import simd
 import XCTest
 @testable import IRPlayer_swift
@@ -130,22 +129,6 @@ final class IRGLTransformController2DTests: XCTestCase {
         }
     }
 
-    private func captureStandardOutput(_ body: () -> Void) -> String {
-        let pipe = Pipe()
-        let originalStdout = dup(STDOUT_FILENO)
-        fflush(stdout)
-        dup2(pipe.fileHandleForWriting.fileDescriptor, STDOUT_FILENO)
-
-        body()
-
-        fflush(stdout)
-        dup2(originalStdout, STDOUT_FILENO)
-        close(originalStdout)
-        pipe.fileHandleForWriting.closeFile()
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return String(data: data, encoding: .utf8) ?? ""
-    }
 }
 
 private final class TransformDelegateSpy: IRGLTransformControllerDelegate {

@@ -99,6 +99,18 @@ final class IRGLProgramFactoryTests: XCTestCase {
         XCTAssertNil(program)
     }
 
+    func testFisheyeFactoryRejectsIncompatibleParameterWithoutDebugOutput() {
+        let invalidParameter = IRMediaParameter(width: 320, height: 180)
+
+        let output = captureStandardOutput {
+            _ = IRGLProgramFactory.createIRGLProgram3DFisheye(pixelFormat: .YUV_IRPixelFormat,
+                                                             viewportRange: .zero,
+                                                             parameter: invalidParameter)
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testFisheyeFactoryBuildsControllerProjectionAndAdjustedScope() throws {
         let parameter = makeFisheyeParameter()
         let viewport = CGRect(x: 0, y: 0, width: 320, height: 180)
