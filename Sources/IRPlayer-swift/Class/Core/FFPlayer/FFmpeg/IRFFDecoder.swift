@@ -452,6 +452,19 @@ protocol IRFFDecoderDelegate: AnyObject {
         return .ignored
     }
 
+    static func displayIdleSleepInterval(seeking: Bool,
+                                         buffering: Bool,
+                                         paused: Bool,
+                                         hasCurrentFrame: Bool) -> TimeInterval? {
+        if seeking || buffering {
+            return 0.01
+        }
+        if paused, hasCurrentFrame {
+            return 0.03
+        }
+        return nil
+    }
+
     private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
         guard fps.isFinite, fps > 0 else { return nil }
         let interval = 1.0 / fps
@@ -593,13 +606,16 @@ protocol IRFFDecoderDelegate: AnyObject {
                 IRFFRuntimeDebugOutput.write("display thread quit")
                 break
             }
-            if seeking || buffering {
-                Thread.sleep(forTimeInterval: 0.01)
-                continue
-            }
-            if paused, let currentFrame = currentVideoFrame {
-                videoOutput?.send?(videoFrame: currentFrame)
-                Thread.sleep(forTimeInterval: 0.03)
+            if let sleepTime = Self.displayIdleSleepInterval(
+                seeking: seeking,
+                buffering: buffering,
+                paused: paused,
+                hasCurrentFrame: currentVideoFrame != nil
+            ) {
+                if paused, !seeking, !buffering, let currentFrame = currentVideoFrame {
+                    videoOutput?.send?(videoFrame: currentFrame)
+                }
+                Thread.sleep(forTimeInterval: sleepTime)
                 continue
             }
             if endOfFile, videoDecoder?.empty() ?? true {

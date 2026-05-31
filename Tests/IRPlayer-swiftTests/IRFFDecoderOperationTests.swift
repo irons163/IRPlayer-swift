@@ -442,6 +442,52 @@ final class IRFFDecoderOperationTests: XCTestCase {
         )
     }
 
+    func testDisplayIdleSleepIntervalPrioritizesSeekingBufferingAndPausedReplay() {
+        XCTAssertEqual(
+            IRFFDecoder.displayIdleSleepInterval(
+                seeking: true,
+                buffering: false,
+                paused: true,
+                hasCurrentFrame: true
+            ),
+            0.01
+        )
+        XCTAssertEqual(
+            IRFFDecoder.displayIdleSleepInterval(
+                seeking: false,
+                buffering: true,
+                paused: false,
+                hasCurrentFrame: false
+            ),
+            0.01
+        )
+        XCTAssertEqual(
+            IRFFDecoder.displayIdleSleepInterval(
+                seeking: false,
+                buffering: false,
+                paused: true,
+                hasCurrentFrame: true
+            ),
+            0.03
+        )
+        XCTAssertNil(
+            IRFFDecoder.displayIdleSleepInterval(
+                seeking: false,
+                buffering: false,
+                paused: true,
+                hasCurrentFrame: false
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoder.displayIdleSleepInterval(
+                seeking: false,
+                buffering: false,
+                paused: false,
+                hasCurrentFrame: true
+            )
+        )
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),
