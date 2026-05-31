@@ -34,6 +34,21 @@ final class IRGesturePolicyTests: XCTestCase {
         XCTAssertEqual(IRGesturePolicy.panLocation(forTouchX: 10, targetWidth: 0), .unknown)
         XCTAssertEqual(IRGesturePolicy.panLocation(forTouchX: CGFloat.nan, targetWidth: 100), .unknown)
     }
+
+    func testPanMovingAxisUsesDominantTranslationAxis() {
+        XCTAssertEqual(IRGesturePolicy.panMovingAxis(forTranslation: CGPoint(x: 10, y: 2)), .horizontal)
+        XCTAssertEqual(IRGesturePolicy.panMovingAxis(forTranslation: CGPoint(x: 2, y: -10)), .vertical)
+        XCTAssertEqual(IRGesturePolicy.panMovingAxis(forTranslation: CGPoint(x: 5, y: 5)), .unknown)
+        XCTAssertEqual(IRGesturePolicy.panMovingAxis(forTranslation: CGPoint(x: CGFloat.nan, y: 5)), .unknown)
+    }
+
+    func testPanMovingAxisDisableDecisionMatchesConfiguredDisabledAxes() {
+        XCTAssertTrue(IRGesturePolicy.isPanMovingAxisDisabled(.vertical, disabledAxes: .vertical))
+        XCTAssertTrue(IRGesturePolicy.isPanMovingAxisDisabled(.horizontal, disabledAxes: .horizontal))
+        XCTAssertFalse(IRGesturePolicy.isPanMovingAxisDisabled(.vertical, disabledAxes: .horizontal))
+        XCTAssertFalse(IRGesturePolicy.isPanMovingAxisDisabled(.horizontal, disabledAxes: .vertical))
+        XCTAssertFalse(IRGesturePolicy.isPanMovingAxisDisabled(.unknown, disabledAxes: .all))
+    }
 }
 
 final class IRGLGestureControllerTests: XCTestCase {
