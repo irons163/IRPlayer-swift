@@ -36,6 +36,10 @@ protocol IRFFDecoderDelegate: AnyObject {
         let shouldFinishPlayback: Bool
     }
 
+    struct SeekPreparation: Equatable {
+        let clampedTime: TimeInterval
+    }
+
     weak var delegate: IRFFDecoderDelegate?
     weak var source: IRFFVideoDecoderDataSource?
     weak var videoOutput: IRFFDecoderVideoOutput?
@@ -292,6 +296,28 @@ protocol IRFFDecoderDelegate: AnyObject {
         )
     }
 
+    static func seekPreparation(requestedTime: TimeInterval,
+                                seekEnabled: Bool,
+                                hasError: Bool,
+                                hasAudio: Bool,
+                                seekMinTime: TimeInterval,
+                                duration: TimeInterval,
+                                minBufferedDuration: TimeInterval) -> SeekPreparation? {
+        guard seekEnabled, !hasError else { return nil }
+
+        let tailBufferDuration: TimeInterval = hasAudio ? 8 : 15
+        let rawSeekMaxTime = duration - (minBufferedDuration + tailBufferDuration)
+        guard let clampedSeekTime = IRPlaybackTimePolicy.clampedSeekTime(
+            requested: requestedTime,
+            min: seekMinTime,
+            max: rawSeekMaxTime
+        ) else {
+            return nil
+        }
+
+        return SeekPreparation(clampedTime: clampedSeekTime)
+    }
+
     private func openFormatContext() {
         delegate?.decoderWillOpenInputStream(self)
         formatContext = IRFFFormatContext(contentURL: contentURL, videoFormat: videoFormat)
@@ -496,22 +522,20 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     func seek(to time: TimeInterval, completeHandler: ((Bool) -> Void)? = nil) {
-        guard seekEnable, error == nil else {
-            completeHandler?(false)
-            return
-        }
-        let tempDuration: TimeInterval = formatContext?.audioEnable == true ? 8 : 15
-        let seekMinTime: TimeInterval = self.seekMinTime
-        let rawSeekMaxTime = duration - (minBufferedDuration + tempDuration)
-        guard let clampedSeekTime = IRPlaybackTimePolicy.clampedSeekTime(
-            requested: time,
-            min: seekMinTime,
-            max: rawSeekMaxTime
+        guard let preparation = Self.seekPreparation(
+            requestedTime: time,
+            seekEnabled: seekEnable,
+            hasError: error != nil,
+            hasAudio: formatContext?.audioEnable == true,
+            seekMinTime: seekMinTime,
+            duration: duration,
+            minBufferedDuration: minBufferedDuration
         ) else {
             completeHandler?(false)
             return
         }
-        seekToTime = clampedSeekTime
+
+        seekToTime = preparation.clampedTime
         self.progress = seekToTime
         self.seekCompleteHandler = completeHandler
         self.seeking = true
