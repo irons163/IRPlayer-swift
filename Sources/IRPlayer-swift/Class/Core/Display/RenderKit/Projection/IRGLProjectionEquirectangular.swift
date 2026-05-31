@@ -33,6 +33,14 @@ class IRGLProjectionEquirectangular: IRGLProjection {
     private var cx: Float = 0
     private var cy: Float = 0
 
+    struct BufferPlan {
+        let iMax: Int
+        let vertexCount: Int
+        let vertexCapacity: Int
+        let vectorCapacity: Int
+        let totalIndices: Int
+    }
+
     init(textureWidth w: Float, height h: Float, centerX: Float, centerY: Float, radius: Float) {
         setup(textureWidth: w, height: h, centerX: centerX, centerY: centerY, radius: radius)
     }
@@ -70,21 +78,14 @@ class IRGLProjectionEquirectangular: IRGLProjection {
             return
         }
 
-        let iMax = slices + 1
-        guard let vertexCount = Self.elementCount(baseCount: iMax, components: iMax),
-              let vertexCapacity = Self.elementCount(baseCount: vertexCount, components: 3),
-              let vectorCapacity = Self.elementCount(baseCount: vertexCount, components: 2),
-              let sliceSquareCount = Self.elementCount(baseCount: slices, components: slices),
-              let totalIndices = Self.elementCount(baseCount: sliceSquareCount, components: 6) else {
-            print("nSlices \(slices) too big for vertex")
-            return
-        }
+        guard let plan = Self.bufferPlan(slices: slices, indicesPerVertex: indicesPerVertex) else { return }
         releaseBuffers()
 
-        nVertices = vertexCount
-        mVertices = UnsafeMutablePointer<Float>.allocate(capacity: vertexCapacity)
-        mVectors = UnsafeMutablePointer<Float>.allocate(capacity: vectorCapacity)
-        mTotalIndices = totalIndices
+        let iMax = plan.iMax
+        nVertices = plan.vertexCount
+        mVertices = UnsafeMutablePointer<Float>.allocate(capacity: plan.vertexCapacity)
+        mVectors = UnsafeMutablePointer<Float>.allocate(capacity: plan.vectorCapacity)
+        mTotalIndices = plan.totalIndices
         mIndices = UnsafeMutablePointer<UnsafeMutablePointer<Int16>>.allocate(capacity: indicesPerVertex)
         mNumIndices = UnsafeMutablePointer<Int>.allocate(capacity: indicesPerVertex)
 
@@ -257,6 +258,27 @@ class IRGLProjectionEquirectangular: IRGLProjection {
         }
 
         return (positions, texcoords, indices)
+    }
+
+    static func bufferPlan(slices: Int, indicesPerVertex: Int) -> BufferPlan? {
+        guard slices > 0, indicesPerVertex > 0 else { return nil }
+
+        let (iMax, iMaxOverflow) = slices.addingReportingOverflow(1)
+        guard !iMaxOverflow else { return nil }
+
+        guard let vertexCount = elementCount(baseCount: iMax, components: iMax),
+              let vertexCapacity = elementCount(baseCount: vertexCount, components: 3),
+              let vectorCapacity = elementCount(baseCount: vertexCount, components: 2),
+              let sliceSquareCount = elementCount(baseCount: slices, components: slices),
+              let totalIndices = elementCount(baseCount: sliceSquareCount, components: 6) else {
+            return nil
+        }
+
+        return BufferPlan(iMax: iMax,
+                          vertexCount: vertexCount,
+                          vertexCapacity: vertexCapacity,
+                          vectorCapacity: vectorCapacity,
+                          totalIndices: totalIndices)
     }
 
     static func elementCount(baseCount: Int, components: Int) -> Int? {
