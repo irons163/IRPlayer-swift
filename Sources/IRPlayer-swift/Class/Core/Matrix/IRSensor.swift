@@ -131,6 +131,9 @@ class IRSensor {
             return 0
         }
         let delta = current - previous
+        guard delta.isFinite else {
+            return 0
+        }
         if delta < -180 {
             return 360 + delta
         } else if delta > 180 {
