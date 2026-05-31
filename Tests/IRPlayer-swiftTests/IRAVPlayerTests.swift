@@ -307,4 +307,19 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertNil(avPlayer.snapshotAtCurrentTime())
         withExtendedLifetime(abstractPlayer) {}
     }
+
+    func testSnapshotAtCurrentTimeReturnsNilWithoutDebugOutputWhenImageGenerationFails() {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("missing.mp4")
+
+        avPlayer.avAsset = AVURLAsset(url: url)
+        avPlayer.avPlayerItem = AVPlayerItem(url: url)
+        let output = captureStandardOutput {
+            XCTAssertNil(avPlayer.snapshotAtCurrentTime())
+        }
+
+        XCTAssertEqual(output, "")
+        withExtendedLifetime(abstractPlayer) {}
+    }
 }
