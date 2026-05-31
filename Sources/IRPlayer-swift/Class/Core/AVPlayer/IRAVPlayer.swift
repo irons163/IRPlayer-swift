@@ -399,7 +399,6 @@ extension IRAVPlayer {
     }
 
     func avAssetPrepareFailed(error: Error?) {
-        print("\(#function) - AVAsset load failed: \(error?.localizedDescription ?? "Unknown error")")
     }
 
     private func playbackErrorInfo() -> IRError {
