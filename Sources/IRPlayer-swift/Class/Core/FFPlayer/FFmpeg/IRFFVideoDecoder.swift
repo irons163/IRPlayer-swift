@@ -113,6 +113,18 @@ class IRFFVideoDecoder {
         return duration.isFinite && duration > 0 ? duration : 0
     }
 
+    static func decodeBackpressureSleepInterval(frameDuration: TimeInterval,
+                                                maxDecodeDuration: TimeInterval,
+                                                paused: Bool) -> TimeInterval? {
+        guard frameDuration.isFinite,
+              maxDecodeDuration.isFinite,
+              maxDecodeDuration > 0 else {
+            return nil
+        }
+        guard frameDuration >= maxDecodeDuration else { return nil }
+        return paused ? maxVideoFrameSleepFullAndPauseTimeInterval : maxVideoFrameSleepFullTimeInterval
+    }
+
     func getFrameSync() -> IRFFVideoFrame? {
         return frameQueue.getFrameSync() as? IRFFVideoFrame
     }
@@ -158,8 +170,9 @@ class IRFFVideoDecoder {
                 IRFFRuntimeDebugOutput.write("decode video finished")
                 break
             }
-            if frameDuration() >= maxDecodeDuration {
-                let interval = paused ? max_video_frame_sleep_full_and_pause_time_interval : max_video_frame_sleep_full_time_interval
+            if let interval = Self.decodeBackpressureSleepInterval(frameDuration: frameDuration(),
+                                                                   maxDecodeDuration: maxDecodeDuration,
+                                                                   paused: paused) {
                 IRFFRuntimeDebugOutput.write("decode video thread sleep : \(interval)")
                 Thread.sleep(forTimeInterval: interval)
                 continue
@@ -284,5 +297,5 @@ extension IRFFVideoDecoder: IRFFDecoderVideoOutput {
     }
 }
 
-private var max_video_frame_sleep_full_time_interval: TimeInterval = 0.1
-private var max_video_frame_sleep_full_and_pause_time_interval: TimeInterval = 0.5
+private let maxVideoFrameSleepFullTimeInterval: TimeInterval = 0.1
+private let maxVideoFrameSleepFullAndPauseTimeInterval: TimeInterval = 0.5

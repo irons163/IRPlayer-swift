@@ -23,6 +23,63 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertEqual(IRFFVideoDecoder.frameDuration(ticks: 0, repeatPicture: 0, timebase: 0.25, fps: .nan), 0)
     }
 
+    func testDecodeBackpressureSleepIntervalUsesConfiguredThresholdAndPauseState() {
+        XCTAssertNil(
+            IRFFVideoDecoder.decodeBackpressureSleepInterval(
+                frameDuration: 1.99,
+                maxDecodeDuration: 2.0,
+                paused: false
+            )
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder.decodeBackpressureSleepInterval(
+                frameDuration: 2.0,
+                maxDecodeDuration: 2.0,
+                paused: false
+            ),
+            0.1
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder.decodeBackpressureSleepInterval(
+                frameDuration: 3.0,
+                maxDecodeDuration: 2.0,
+                paused: true
+            ),
+            0.5
+        )
+    }
+
+    func testDecodeBackpressureSleepIntervalRejectsInvalidTimingInputs() {
+        XCTAssertNil(
+            IRFFVideoDecoder.decodeBackpressureSleepInterval(
+                frameDuration: .nan,
+                maxDecodeDuration: 2.0,
+                paused: false
+            )
+        )
+        XCTAssertNil(
+            IRFFVideoDecoder.decodeBackpressureSleepInterval(
+                frameDuration: 2.0,
+                maxDecodeDuration: 0,
+                paused: false
+            )
+        )
+        XCTAssertNil(
+            IRFFVideoDecoder.decodeBackpressureSleepInterval(
+                frameDuration: 2.0,
+                maxDecodeDuration: -1,
+                paused: false
+            )
+        )
+        XCTAssertNil(
+            IRFFVideoDecoder.decodeBackpressureSleepInterval(
+                frameDuration: 2.0,
+                maxDecodeDuration: .infinity,
+                paused: false
+            )
+        )
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var codecContext = AVCodecContext()
 
