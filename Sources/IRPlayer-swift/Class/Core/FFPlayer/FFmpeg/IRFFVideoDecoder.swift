@@ -134,6 +134,10 @@ class IRFFVideoDecoder {
         return endOfFile && packetEmpty
     }
 
+    static func decodeIdleSleepInterval(paused: Bool) -> TimeInterval? {
+        return paused ? 0.01 : nil
+    }
+
     func getFrameSync() -> IRFFVideoFrame? {
         return frameQueue.getFrameSync() as? IRFFVideoFrame
     }
@@ -171,8 +175,8 @@ class IRFFVideoDecoder {
                 IRFFRuntimeDebugOutput.write("decode video thread quit")
                 break
             }
-            if paused {
-                Thread.sleep(forTimeInterval: 0.01)
+            if let sleepTime = Self.decodeIdleSleepInterval(paused: paused) {
+                Thread.sleep(forTimeInterval: sleepTime)
                 continue
             }
             if Self.shouldFinishDecode(endOfFile: endOfFile, packetEmpty: packetEmpty()) {

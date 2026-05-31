@@ -92,6 +92,11 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertTrue(IRFFVideoDecoder.shouldFinishDecode(endOfFile: true, packetEmpty: true))
     }
 
+    func testDecodeIdleSleepIntervalOnlyAppliesWhenPaused() {
+        XCTAssertEqual(IRFFVideoDecoder.decodeIdleSleepInterval(paused: true), 0.01)
+        XCTAssertNil(IRFFVideoDecoder.decodeIdleSleepInterval(paused: false))
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var codecContext = AVCodecContext()
 
