@@ -86,6 +86,12 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertTrue(IRFFVideoDecoder.packetDecodeResultIsFailure(-1))
     }
 
+    func testShouldFinishDecodeRequiresEndOfFileAndEmptyPacketQueue() {
+        XCTAssertFalse(IRFFVideoDecoder.shouldFinishDecode(endOfFile: false, packetEmpty: true))
+        XCTAssertFalse(IRFFVideoDecoder.shouldFinishDecode(endOfFile: true, packetEmpty: false))
+        XCTAssertTrue(IRFFVideoDecoder.shouldFinishDecode(endOfFile: true, packetEmpty: true))
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var codecContext = AVCodecContext()
 

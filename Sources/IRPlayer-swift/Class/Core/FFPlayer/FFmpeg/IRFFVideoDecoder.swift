@@ -130,6 +130,10 @@ class IRFFVideoDecoder {
         return result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF
     }
 
+    static func shouldFinishDecode(endOfFile: Bool, packetEmpty: Bool) -> Bool {
+        return endOfFile && packetEmpty
+    }
+
     func getFrameSync() -> IRFFVideoFrame? {
         return frameQueue.getFrameSync() as? IRFFVideoFrame
     }
@@ -171,7 +175,7 @@ class IRFFVideoDecoder {
                 Thread.sleep(forTimeInterval: 0.01)
                 continue
             }
-            if endOfFile && packetEmpty() {
+            if Self.shouldFinishDecode(endOfFile: endOfFile, packetEmpty: packetEmpty()) {
                 IRFFRuntimeDebugOutput.write("decode video finished")
                 break
             }
