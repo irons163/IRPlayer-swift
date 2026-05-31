@@ -194,6 +194,21 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertEqual(errorInfo.error.code, -1)
     }
 
+    func testUnknownItemStatusBuffersWithoutDebugOutput() {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+        let item = AVPlayerItem(url: URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("missing.mp4"))
+
+        avPlayer.avPlayerItem = item
+        let output = captureStandardOutput {
+            avPlayer.observeValue(forKeyPath: "status", of: item, change: nil, context: nil)
+        }
+
+        XCTAssertEqual(avPlayer.state, .buffering)
+        XCTAssertEqual(output, "")
+        withExtendedLifetime(abstractPlayer) {}
+    }
+
     func testPixelBufferAtCurrentTimeReturnsNilWhenPlayerItemIsMissing() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
