@@ -401,7 +401,6 @@ public class IRFFFormatContext {
 
     deinit {
         destroy()
-        print("IRFFFormatContext release")
     }
 }
 
