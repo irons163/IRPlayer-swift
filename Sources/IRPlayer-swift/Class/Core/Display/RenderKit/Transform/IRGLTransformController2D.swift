@@ -51,12 +51,13 @@ import simd
         self.defaultTransformScaleX = defaultTransformScaleX
         self.defaultTransformScaleY = defaultTransformScaleY
 
-        if defaultTransformScaleX > scaleRange?.maxScaleX ?? 1.0 {
-            scaleRange = IRGLScaleRange(minScaleX: scaleRange?.minScaleX ?? 1.0, minScaleY: scaleRange?.minScaleY ?? 1.0, maxScaleX: defaultTransformScaleX, maxScaleY: scaleRange?.maxScaleY ?? 1.0, defaultScaleX: scaleRange?.defaultScaleX ?? 1.0, defaultScaleY: scaleRange?.defaultScaleY ?? 1.0)
-        }
-
-        if defaultTransformScaleY > scaleRange?.maxScaleY ?? 1.0 {
-            scaleRange = IRGLScaleRange(minScaleX: scaleRange?.minScaleX ?? 1.0, minScaleY: scaleRange?.minScaleY ?? 1.0, maxScaleX: scaleRange?.maxScaleX ?? 1.0, maxScaleY: defaultTransformScaleY, defaultScaleX: scaleRange?.defaultScaleX ?? 1.0, defaultScaleY: scaleRange?.defaultScaleY ?? 1.0)
+        let expandedScaleRange = IRGLTransform2DPolicy.expandedScaleRange(
+            scaleRange,
+            defaultScaleX: defaultTransformScaleX,
+            defaultScaleY: defaultTransformScaleY
+        )
+        if expandedScaleRange.maxScaleX != scaleRange?.maxScaleX || expandedScaleRange.maxScaleY != scaleRange?.maxScaleY {
+            scaleRange = expandedScaleRange
         }
     }
 
@@ -73,61 +74,47 @@ import simd
     }
 
     override func scroll(degreeX: Float, degreeY: Float) {
-        let maxContentOffsetX = Float(scope.w) * (scope.scaleX)
-        let maxContentOffsetY = Float(scope.h) * (scope.scaleY)
-
-        let wideDegreeX = scopeRange?.wideDegreeX ?? 0
-        let wideDegreeY = scopeRange?.wideDegreeY ?? 0
-
-        unitX = wideDegreeX == 0 ? 0 : (maxContentOffsetX) / wideDegreeX
-        unitY = wideDegreeY == 0 ? 0 : (maxContentOffsetY) / wideDegreeY
+        let units = IRGLTransform2DPolicy.degreeScrollUnits(
+            width: scope.w,
+            height: scope.h,
+            scaleX: scope.scaleX,
+            scaleY: scope.scaleY,
+            range: scopeRange
+        )
+        unitX = units.unitX
+        unitY = units.unitY
 
         scroll(dx: degreeX * unitX, dy: degreeY * unitY)
     }
 
     override func update(fx: Float, fy: Float, sx: Float, sy: Float) {
         let scope2d = scope
-        guard scope2d.w > 0, scope2d.h > 0 else { return }
-        guard fx.isFinite, fy.isFinite else { return }
-        guard sx.isFinite, sy.isFinite, sx > 0, sy > 0 else { return }
-
-        var scaleX = sx
-        var scaleY = sy
-
-        if scaleX < 1.0 && scaleY < 1.0 {
-            if scaleX < scaleY {
-                scaleY = 1.0
-                scaleX = (scope2d.scaleX ) / ((scope2d.scaleY ) / scaleY)
-            } else {
-                scaleX = 1.0
-                scaleY = (scope2d.scaleY ) / ((scope2d.scaleX ) / scaleX)
-            }
-        } else if scaleX > (scaleRange?.maxScaleX ?? 1.0) || scaleY > (scaleRange?.maxScaleY ?? 1.0) {
-            if scaleX < scaleY {
-                scaleY = scaleRange?.maxScaleY ?? 1.0
-                scaleX = (scope2d.scaleX ) / ((scope2d.scaleY ) / scaleY)
-            } else {
-                scaleX = scaleRange?.maxScaleX ?? 1.0
-                scaleY = (scope2d.scaleY ) / ((scope2d.scaleX ) / scaleX)
-            }
+        guard let decision = IRGLTransform2DPolicy.updateDecision(
+            scope: IRGLTransform2DPolicy.Scope(
+                width: scope2d.w,
+                height: scope2d.h,
+                scaleX: scope2d.scaleX,
+                scaleY: scope2d.scaleY,
+                offsetX: scope2d.offsetX,
+                offsetY: scope2d.offsetY
+            ),
+            fx: fx,
+            fy: fy,
+            sx: sx,
+            sy: sy,
+            scaleRange: scaleRange
+        ) else {
+            return
         }
 
-        var newX0 = (scope2d.offsetX ) + fx * (scaleX - (scope2d.scaleX )) / (scaleX * (scope2d.scaleX ))
-        var newY0 = (scope2d.offsetY ) + fy * (scaleY - (scope2d.scaleY )) / (scaleY * (scope2d.scaleY ))
-
-        rW = scaleX / Float(scope2d.w)
-        rH = scaleY / Float(scope2d.h)
-
-        maxX0 = scaleX >= 1.0 ? Float(scope2d.w) - 1 / rW : 0
-        maxY0 = scaleY >= 1.0 ? Float(scope2d.h) - 1 / rH : 0
-
-        newX0 = max(0, min(newX0, maxX0))
-        newY0 = max(0, min(newY0, maxY0))
-
-        scope2d.offsetX = newX0
-        scope2d.offsetY = newY0
-        scope2d.scaleX = scaleX
-        scope2d.scaleY = scaleY
+        rW = decision.rW
+        rH = decision.rH
+        maxX0 = decision.maxX0
+        maxY0 = decision.maxY0
+        scope2d.offsetX = decision.offsetX
+        scope2d.offsetY = decision.offsetY
+        scope2d.scaleX = decision.scaleX
+        scope2d.scaleY = decision.scaleY
 
         updateVertices()
         print("\(scope2d.offsetX ) \(scope2d.offsetY ) \(scope2d.scaleX ) \(scope2d.scaleY )")
@@ -137,35 +124,28 @@ import simd
         guard let delegate = delegate else { return }
 
         let scope2d = scope
-        var status: IRGLTransformController.ScrollStatus = []
-
-        var newX0 = (scope2d.offsetX ) + dx / (scope2d.scaleX )
-        var newY0 = (scope2d.offsetY ) + dy / (scope2d.scaleY )
-
-        if newX0 < 0 {
-            newX0 = 0
-            status.insert(.toMinX)
-        } else if newX0 > maxX0 {
-            newX0 = maxX0
-            status.insert(.toMaxX)
+        guard let decision = IRGLTransform2DPolicy.scrollDecision(
+            offsetX: scope2d.offsetX,
+            offsetY: scope2d.offsetY,
+            scaleX: scope2d.scaleX,
+            scaleY: scope2d.scaleY,
+            maxX0: maxX0,
+            maxY0: maxY0,
+            dx: dx,
+            dy: dy
+        ) else {
+            return
         }
-
-        if newY0 < 0 {
-            newY0 = 0
-            status.insert(.toMinY)
-        } else if newY0 > maxY0 {
-            newY0 = maxY0
-            status.insert(.toMaxY)
-        }
+        let status = decision.status
 
         let doScrollHorizontal = delegate.doScrollHorizontal(status: status, transformController: self)
         let doScrollVertical = delegate.doScrollVertical(status: status, transformController: self)
 
         if doScrollHorizontal {
-            scope2d.offsetX = newX0
+            scope2d.offsetX = decision.offsetX
         }
         if doScrollVertical {
-            scope2d.offsetY = newY0
+            scope2d.offsetY = decision.offsetY
         }
         if doScrollHorizontal || doScrollVertical {
             updateVertices()
@@ -218,14 +198,23 @@ import simd
 
             let oldRW = rW
             let oldRH = rH
-            rW = (scope.scaleX ) / Float(scope.w )
-            rH = (scope.scaleY ) / Float(scope.h )
-
-            maxX0 = (scope.scaleX ) >= 1.0 ? Float(scope.w ) - 1 / rW : 0
-            maxY0 = (scope.scaleY ) >= 1.0 ? Float(scope.h ) - 1 / rH : 0
-
-            scope.offsetX = (scope.offsetX ) * (oldRW / rW)
-            scope.offsetY = (scope.offsetY ) * (oldRH / rH)
+            if let decision = IRGLTransform2DPolicy.resizeDecision(
+                width: scope.w,
+                height: scope.h,
+                scaleX: scope.scaleX,
+                scaleY: scope.scaleY,
+                offsetX: scope.offsetX,
+                offsetY: scope.offsetY,
+                oldRW: oldRW,
+                oldRH: oldRH
+            ) {
+                rW = decision.rW
+                rH = decision.rH
+                maxX0 = decision.maxX0
+                maxY0 = decision.maxY0
+                scope.offsetX = decision.offsetX
+                scope.offsetY = decision.offsetY
+            }
 
             updateVertices()
         }
