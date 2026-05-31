@@ -15,6 +15,12 @@ class IRFFPlayer: NSObject {
         let hasRemainingFrameBytes: Bool
     }
 
+    enum ReplaceVideoReadiness {
+        case ready
+        case missingRequiredInput
+        case missingDisplayView
+    }
+
     private let stateLock = NSLock()
     weak var abstractPlayer: IRPlayerImp?
     var decoder: IRFFDecoder?
@@ -103,6 +109,12 @@ class IRFFPlayer: NSObject {
 
     static func player(with abstractPlayer: IRPlayerImp) -> IRFFPlayer {
         return IRFFPlayer(abstractPlayer: abstractPlayer)
+    }
+
+    static func replaceVideoReadiness(hasAbstractPlayer: Bool, hasContentURL: Bool, hasDisplayView: Bool) -> ReplaceVideoReadiness {
+        guard hasAbstractPlayer, hasContentURL else { return .missingRequiredInput }
+        guard hasDisplayView else { return .missingDisplayView }
+        return .ready
     }
 
     static func audioSilenceByteCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
@@ -296,14 +308,28 @@ extension IRFFPlayer {
 
     func replaceVideo() {
         clean()
-        guard let abstractPlayer = abstractPlayer,
-              let contentURL = abstractPlayer.contentURL else { return }
-        guard let displayView = abstractPlayer.displayView else {
+
+        let readiness = Self.replaceVideoReadiness(
+            hasAbstractPlayer: abstractPlayer != nil,
+            hasContentURL: abstractPlayer?.contentURL != nil,
+            hasDisplayView: abstractPlayer?.displayView != nil
+        )
+
+        switch readiness {
+        case .missingRequiredInput:
+            return
+        case .missingDisplayView:
             errorHandler(error: NSError(domain: "IRFFPlayer", code: -1, userInfo: [
                 NSLocalizedDescriptionKey: "Cannot replace FFmpeg video without a display view."
             ]))
             return
+        case .ready:
+            break
         }
+
+        guard let abstractPlayer = abstractPlayer,
+              let contentURL = abstractPlayer.contentURL,
+              let displayView = abstractPlayer.displayView else { return }
 
         decoder = IRFFDecoder(contentURL: contentURL as URL,
                               videoFormat: abstractPlayer.decoder.formatForContentURL(contentURL: contentURL),

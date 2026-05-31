@@ -101,4 +101,23 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertTrue(plan.hasRemainingFrameBytes)
     }
 
+    func testReplaceVideoReadinessDistinguishesNoOpAndFailurePreconditions() {
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: false, hasContentURL: true, hasDisplayView: true),
+            .missingRequiredInput
+        )
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: true, hasContentURL: false, hasDisplayView: true),
+            .missingRequiredInput
+        )
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: true, hasContentURL: true, hasDisplayView: false),
+            .missingDisplayView
+        )
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: true, hasContentURL: true, hasDisplayView: true),
+            .ready
+        )
+    }
+
 }
