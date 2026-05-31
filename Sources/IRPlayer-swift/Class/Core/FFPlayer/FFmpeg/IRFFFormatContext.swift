@@ -359,7 +359,7 @@ public class IRFFFormatContext {
             }
             audioCodecContext = codecContext
         } else {
-            print("select audio track error: \(String(describing: error))")
+            IRFFRuntimeDebugOutput.write("select audio track error: \(String(describing: error))")
         }
         return error
     }

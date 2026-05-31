@@ -147,7 +147,7 @@ class IRFFVideoDecoder {
         decoding = true
         while true {
             if canceled || error != nil {
-                print("decode video thread quit")
+                IRFFRuntimeDebugOutput.write("decode video thread quit")
                 break
             }
             if paused {
@@ -155,12 +155,12 @@ class IRFFVideoDecoder {
                 continue
             }
             if endOfFile && packetEmpty() {
-                print("decode video finished")
+                IRFFRuntimeDebugOutput.write("decode video finished")
                 break
             }
             if frameDuration() >= maxDecodeDuration {
                 let interval = paused ? max_video_frame_sleep_full_and_pause_time_interval : max_video_frame_sleep_full_time_interval
-                print("decode video thread sleep : \(interval)")
+                IRFFRuntimeDebugOutput.write("decode video thread sleep : \(interval)")
                 Thread.sleep(forTimeInterval: interval)
                 continue
             }
@@ -170,7 +170,7 @@ class IRFFVideoDecoder {
                 delegate?.videoDecoderNeedUpdateBufferedDuration(self)
             }
             if packet.data == IRFFVideoDecoder.flushPacket.data {
-                print("video codec flush")
+                IRFFRuntimeDebugOutput.write("video codec flush")
                 avcodec_flush_buffers(codecContext)
                 videoToolBox.flush()
                 continue

@@ -32,6 +32,19 @@ func IRPlayerLog(_ text: String) {
     print(text)
 }
 
+enum IRFFRuntimeDebugOutput {
+    #if IRFFFFmpegRuntimeDebugOutputEnable
+    static let isEnabled = true
+    #else
+    static let isEnabled = false
+    #endif
+
+    static func write(_ message: @autoclosure () -> String) {
+        guard isEnabled else { return }
+        print(message())
+    }
+}
+
 // MARK: - Utility Functions
 
 func IRFFLog(context: UnsafeMutableRawPointer?, level: Int32, format: UnsafePointer<CChar>, args: CVaListPointer) {
