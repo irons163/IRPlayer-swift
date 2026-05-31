@@ -579,17 +579,8 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         }
 
         let oldScopeRange = controller.scopeRange ?? IRGLScopeRange(minLat: 0, maxLat: 0, minLng: 0, maxLng: 0, defaultLat: 0, defaultLng: 0)
-        let newMaxLat = oldScopeRange.maxLat > 0 ? parameter.latmax : parameter.latmax - 90.0
-        var newDefaultLat = oldScopeRange.defaultLat
-        if newDefaultLat > newMaxLat || newDefaultLat < oldScopeRange.minLat {
-            newDefaultLat = (newMaxLat + oldScopeRange.minLat) / 2
-        }
-        let newScopeRange = IRGLScopeRange(minLat: oldScopeRange.minLat, maxLat: newMaxLat, minLng: oldScopeRange.minLng, maxLng: oldScopeRange.maxLng, defaultLat: newDefaultLat, defaultLng: oldScopeRange.defaultLng)
-        controller.scopeRange = newScopeRange
-
-        let scopeRange = controller.scopeRange ?? newScopeRange
-        let adjustedScopeRange = IRGLScopeRange(minLat: scopeRange.minLat, maxLat: scopeRange.maxLat, minLng: scopeRange.minLng, maxLng: scopeRange.maxLng, defaultLat: -40, defaultLng: 90)
-        controller.scopeRange = adjustedScopeRange
+        let fisheyeScopeRange = IRGLProgramFactoryPolicy.fisheyeScopeRange(from: oldScopeRange, latmax: parameter.latmax)
+        controller.scopeRange = IRGLProgramFactoryPolicy.defaultFisheyeScope(from: fisheyeScopeRange, panelIndex: nil)
     }
 
     private func renderMetalMulti4PIfNeeded(frame: IRFFVideoFrame,
