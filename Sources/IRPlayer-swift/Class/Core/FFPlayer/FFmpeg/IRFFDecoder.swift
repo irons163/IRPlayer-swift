@@ -36,6 +36,17 @@ protocol IRFFDecoderDelegate: AnyObject {
         let shouldFinishPlayback: Bool
     }
 
+    struct SeekCompletionTransition: Equatable {
+        let endOfFile: Bool
+        let playbackFinished: Bool
+        let buffering: Bool
+        let videoPaused: Bool
+        let videoEndOfFile: Bool
+        let seekToTime: TimeInterval
+        let audioTimeClock: TimeInterval
+        let shouldClearFrames: Bool
+    }
+
     struct SeekPreparation: Equatable {
         let clampedTime: TimeInterval
     }
@@ -378,6 +389,20 @@ protocol IRFFDecoderDelegate: AnyObject {
         return playbackFinished ? 0 : nil
     }
 
+    static func seekCompletionTransition(seeking: Bool, progress: TimeInterval) -> SeekCompletionTransition? {
+        guard seeking else { return nil }
+        return SeekCompletionTransition(
+            endOfFile: false,
+            playbackFinished: false,
+            buffering: true,
+            videoPaused: false,
+            videoEndOfFile: false,
+            seekToTime: 0,
+            audioTimeClock: progress,
+            shouldClearFrames: true
+        )
+    }
+
     private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
         guard fps.isFinite, fps > 0 else { return nil }
         let interval = 1.0 / fps
@@ -421,24 +446,26 @@ protocol IRFFDecoderDelegate: AnyObject {
                 IRFFRuntimeDebugOutput.write("read packet thread quit")
                 break
             }
-            if seeking {
-                endOfFile = false
-                playbackFinished = false
+            if let transition = Self.seekCompletionTransition(seeking: seeking, progress: progress) {
+                endOfFile = transition.endOfFile
+                playbackFinished = transition.playbackFinished
                 formatContext?.seekFile(withFFTimebase: seekToTime)
-                buffering = true
+                buffering = transition.buffering
                 audioDecoder?.flush()
                 videoDecoder?.flush()
-                videoDecoder?.paused = false
-                videoDecoder?.endOfFile = false
+                videoDecoder?.paused = transition.videoPaused
+                videoDecoder?.endOfFile = transition.videoEndOfFile
                 seeking = false
-                seekToTime = 0
+                seekToTime = transition.seekToTime
                 if let handler = seekCompleteHandler {
                     handler(true)
                     seekCompleteHandler = nil
                 }
-                audioTimeClock = progress
-                currentVideoFrame = nil
-                currentAudioFrame = nil
+                audioTimeClock = transition.audioTimeClock
+                if transition.shouldClearFrames {
+                    currentVideoFrame = nil
+                    currentAudioFrame = nil
+                }
                 updateBufferedDurationByVideo()
                 updateBufferedDurationByAudio()
                 continue

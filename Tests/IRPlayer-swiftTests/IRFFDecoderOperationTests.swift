@@ -334,6 +334,23 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertEqual(IRFFDecoder.resumeSeekTarget(playbackFinished: true), 0)
     }
 
+    func testSeekCompletionTransitionResetsPendingSeekState() {
+        XCTAssertNil(IRFFDecoder.seekCompletionTransition(seeking: false, progress: 3))
+        XCTAssertEqual(
+            IRFFDecoder.seekCompletionTransition(seeking: true, progress: 3),
+            IRFFDecoder.SeekCompletionTransition(
+                endOfFile: false,
+                playbackFinished: false,
+                buffering: true,
+                videoPaused: false,
+                videoEndOfFile: false,
+                seekToTime: 0,
+                audioTimeClock: 3,
+                shouldClearFrames: true
+            )
+        )
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),
