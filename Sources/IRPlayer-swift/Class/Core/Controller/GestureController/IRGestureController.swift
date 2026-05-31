@@ -95,6 +95,34 @@ enum IRGesturePolicy {
 
         return touchX > targetWidth / 2 ? .right : .left
     }
+
+    static func panMovingAxis(forTranslation translation: CGPoint) -> IRPanDirection {
+        guard translation.x.isFinite, translation.y.isFinite else {
+            return .unknown
+        }
+
+        let x = abs(translation.x)
+        let y = abs(translation.y)
+        if x > y {
+            return .horizontal
+        } else if x < y {
+            return .vertical
+        } else {
+            return .unknown
+        }
+    }
+
+    static func isPanMovingAxisDisabled(_ axis: IRPanDirection,
+                                        disabledAxes: IRDisablePanMovingDirection) -> Bool {
+        switch axis {
+        case .horizontal:
+            return disabledAxes.contains(.horizontal)
+        case .vertical:
+            return disabledAxes.contains(.vertical)
+        case .unknown:
+            return false
+        }
+    }
 }
 
 class IRGestureController: NSObject, UIGestureRecognizerDelegate {
