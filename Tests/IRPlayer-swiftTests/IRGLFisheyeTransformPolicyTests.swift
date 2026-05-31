@@ -98,7 +98,7 @@ final class IRGLFisheyeTransformPolicyTests: XCTestCase {
         )
         XCTAssertEqual(
             IRGLFisheyeTransformPolicy.normalizedScope(lat: -150, lng: -150, fov: 60, range: range),
-            IRGLFisheyeTransformPolicy.NormalizedScope(lat: 50, lng: -75)
+            IRGLFisheyeTransformPolicy.NormalizedScope(lat: 30, lng: -75)
         )
         XCTAssertEqual(
             IRGLFisheyeTransformPolicy.normalizedScope(lat: 80, lng: 540, fov: 60, range: range),

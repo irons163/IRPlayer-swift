@@ -106,6 +106,7 @@
 		B5E94F2F2D0B21F800149265 /* IRGLTransformController2D.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DD62D0B21F800149265 /* IRGLTransformController2D.swift */; };
 		B5E94F312D0B21F800149265 /* IRFFPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E072D0B21F800149265 /* IRFFPlayer.swift */; };
 		B5E94F322D0B21F800149265 /* IRGLTransformController3DFisheye.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DD92D0B21F800149265 /* IRGLTransformController3DFisheye.swift */; };
+		B5E9505F2F68A02C00149265 /* IRGLFisheyeTransformPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9505E2F68A02C00149265 /* IRGLFisheyeTransformPolicy.swift */; };
 		B5E94F342D0B21F800149265 /* IRGLTransformController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DD32D0B21F800149265 /* IRGLTransformController.swift */; };
 		B5E94F352D0B21F800149265 /* IRFFMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DFC2D0B21F800149265 /* IRFFMetadata.swift */; };
 		B5E94F362D0B21F800149265 /* IRGLScope3D.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DCF2D0B21F800149265 /* IRGLScope3D.swift */; };
@@ -252,6 +253,7 @@
 		B5E94DD32D0B21F800149265 /* IRGLTransformController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformController.swift; sourceTree = "<group>"; };
 		B5E94DD62D0B21F800149265 /* IRGLTransformController2D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformController2D.swift; sourceTree = "<group>"; };
 		B5E94DD92D0B21F800149265 /* IRGLTransformController3DFisheye.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformController3DFisheye.swift; sourceTree = "<group>"; };
+		B5E9505E2F68A02C00149265 /* IRGLFisheyeTransformPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLFisheyeTransformPolicy.swift; sourceTree = "<group>"; };
 		B5E94DDC2D0B21F800149265 /* IRGLTransformControllerDistortion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformControllerDistortion.swift; sourceTree = "<group>"; };
 		B5E94DDF2D0B21F800149265 /* IRGLTransformControllerVR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformControllerVR.swift; sourceTree = "<group>"; };
 		B5E94DE72D0B21F800149265 /* IRGLSupportPixelFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLSupportPixelFormat.swift; sourceTree = "<group>"; };
@@ -633,6 +635,7 @@
 				B5E94DD32D0B21F800149265 /* IRGLTransformController.swift */,
 				B5E94DD62D0B21F800149265 /* IRGLTransformController2D.swift */,
 				B5E94DD92D0B21F800149265 /* IRGLTransformController3DFisheye.swift */,
+				B5E9505E2F68A02C00149265 /* IRGLFisheyeTransformPolicy.swift */,
 				B5E94DDC2D0B21F800149265 /* IRGLTransformControllerDistortion.swift */,
 				B5E94DDF2D0B21F800149265 /* IRGLTransformControllerVR.swift */,
 			);
@@ -1081,6 +1084,7 @@
 				B5E94F2F2D0B21F800149265 /* IRGLTransformController2D.swift in Sources */,
 				B5E94F312D0B21F800149265 /* IRFFPlayer.swift in Sources */,
 				B5E94F322D0B21F800149265 /* IRGLTransformController3DFisheye.swift in Sources */,
+				B5E9505F2F68A02C00149265 /* IRGLFisheyeTransformPolicy.swift in Sources */,
 				4A5170FE2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift in Sources */,
 				B5E94F342D0B21F800149265 /* IRGLTransformController.swift in Sources */,
 				B5E94F352D0B21F800149265 /* IRFFMetadata.swift in Sources */,
