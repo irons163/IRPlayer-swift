@@ -13,6 +13,16 @@ struct IRBouncePathGeometry {
     let end: CGPoint
 }
 
+struct IRBounceAnimationPlan: Equatable {
+    enum Axis {
+        case horizontal
+        case vertical
+    }
+
+    let key: String
+    let axis: Axis
+}
+
 @objc public enum IRScrollDirectionType: Int {
     case none
     case left
@@ -59,6 +69,21 @@ struct IRBouncePathGeometry {
         }
     }
 
+    @nonobjc static func animationPlan(for type: IRScrollDirectionType) -> IRBounceAnimationPlan? {
+        switch type {
+        case .left:
+            return IRBounceAnimationPlan(key: "bounce_right", axis: .horizontal)
+        case .right:
+            return IRBounceAnimationPlan(key: "bounce_left", axis: .horizontal)
+        case .up:
+            return IRBounceAnimationPlan(key: "bounce_bottom", axis: .vertical)
+        case .down:
+            return IRBounceAnimationPlan(key: "bounce_top", axis: .vertical)
+        default:
+            return nil
+        }
+    }
+
     public func addBounceToView(_ view: UIView) {
         self.targetView = view
         createLine()
@@ -81,29 +106,19 @@ struct IRBouncePathGeometry {
     }
 
     public func removeAndAddAnimate(with scrollValue: CGFloat, byScrollDirection type: IRScrollDirectionType) {
-        var key: String?
-        var lineLayer: CAShapeLayer?
+        guard let plan = Self.animationPlan(for: type) else { return }
+        let lineLayer: CAShapeLayer?
         let startPath = getLinePath(withAmount: scrollValue, byScrollDirection: type)
         let endPath = getLinePath(withAmount: 0.0, byScrollDirection: type)
 
-        switch type {
-        case .left:
-            key = "bounce_right"
+        switch plan.axis {
+        case .horizontal:
             lineLayer = horizontalLineLayer
-        case .right:
-            key = "bounce_left"
-            lineLayer = horizontalLineLayer
-        case .up:
-            key = "bounce_bottom"
+        case .vertical:
             lineLayer = verticalLineLayer
-        case .down:
-            key = "bounce_top"
-            lineLayer = verticalLineLayer
-        default:
-            return
         }
 
-        lineLayer?.removeAnimation(forKey: key ?? "")
+        lineLayer?.removeAnimation(forKey: plan.key)
         lineLayer?.path = startPath.cgPath
 
         let morph = CABasicAnimation(keyPath: "path")
@@ -113,7 +128,7 @@ struct IRBouncePathGeometry {
         morph.duration = 0.2
         morph.isRemovedOnCompletion = false
         morph.fillMode = .forwards
-        lineLayer?.add(morph, forKey: key)
+        lineLayer?.add(morph, forKey: plan.key)
     }
 
     private func getLinePath(withAmount amount: CGFloat, byScrollDirection type: IRScrollDirectionType) -> UIBezierPath {
