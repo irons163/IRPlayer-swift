@@ -23,6 +23,11 @@ enum IRPlayerLifecyclePolicy {
         case playAndClearAutoPlay
     }
 
+    enum AudioSessionAction: Equatable {
+        case none
+        case pause
+    }
+
     static func commandTarget(for decoderType: IRDecoderType?) -> BackendTarget {
         switch decoderType {
         case .avPlayer:
@@ -59,5 +64,25 @@ enum IRPlayerLifecyclePolicy {
         guard mode == .autoPlayAndPause else { return .none }
         guard state == .suspend, needAutoPlay == true else { return .none }
         return .playAndClearAutoPlay
+    }
+
+    static func audioInterruptionAction(type: IRAudioManagerInterruptionType, state: IRPlayerState, timeSinceForeground: TimeInterval) -> AudioSessionAction {
+        guard type == .begin else { return .none }
+        guard timeSinceForeground > 1.5 else { return .none }
+        return actionForActivePlayback(state)
+    }
+
+    static func audioRouteChangeAction(reason: IRAudioManagerRouteChangeReason, state: IRPlayerState) -> AudioSessionAction {
+        guard reason == .oldDeviceUnavailable else { return .none }
+        return actionForActivePlayback(state)
+    }
+
+    private static func actionForActivePlayback(_ state: IRPlayerState) -> AudioSessionAction {
+        switch state {
+        case .playing, .buffering:
+            return .pause
+        default:
+            return .none
+        }
     }
 }

@@ -474,22 +474,20 @@ extension IRPlayerImp {
 
         self.manager = IRAudioManager()
         self.manager?.setHandlerTarget(self, interruption: { [weak self] (handlerTarget, audioManager, type, option) in
-            guard type == .begin else { return }
-            switch self?.state {
-            case .playing, .buffering:
-                // fix : maybe receive interruption notification when enter foreground.
-                let timeInterval = NSDate().timeIntervalSince1970
-                guard timeInterval - (self?.lastForegroundTimeInterval ?? 0) > 1.5 else { break }
-                self?.pause()
-            default:
+            guard let self = self else { return }
+            let timeSinceForeground = NSDate().timeIntervalSince1970 - (self.lastForegroundTimeInterval ?? 0)
+            switch IRPlayerLifecyclePolicy.audioInterruptionAction(type: type, state: self.state, timeSinceForeground: timeSinceForeground) {
+            case .pause:
+                self.pause()
+            case .none:
                 break
             }
         }, routeChange: { [weak self] (handlerTarget, audioManager, reason) in
-            guard reason == .oldDeviceUnavailable else { return }
-            switch self?.state {
-            case .playing, .buffering:
-                self?.pause()
-            default:
+            guard let self = self else { return }
+            switch IRPlayerLifecyclePolicy.audioRouteChangeAction(reason: reason, state: self.state) {
+            case .pause:
+                self.pause()
+            case .none:
                 break
             }
         })
