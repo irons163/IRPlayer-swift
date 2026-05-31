@@ -34,6 +34,14 @@ final class IRFFToolsTests: XCTestCase {
         XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
     }
 
+    func testFinitePositiveValueUsesFallbackForInvalidValues() {
+        XCTAssertEqual(IRFFFinitePositiveValueOrDefault(.nan, defaultValue: 1), 1)
+        XCTAssertEqual(IRFFFinitePositiveValueOrDefault(.infinity, defaultValue: 1), 1)
+        XCTAssertEqual(IRFFFinitePositiveValueOrDefault(0, defaultValue: 1), 1)
+        XCTAssertEqual(IRFFFinitePositiveValueOrDefault(-1, defaultValue: 1), 1)
+        XCTAssertEqual(IRFFFinitePositiveValueOrDefault(2.5, defaultValue: 1), 2.5)
+    }
+
     func testStreamTimebaseFallsBackToFiniteValueForInvalidStreamAndDefault() {
         var stream = AVStream()
         stream.time_base = AVRational(num: 0, den: 0)

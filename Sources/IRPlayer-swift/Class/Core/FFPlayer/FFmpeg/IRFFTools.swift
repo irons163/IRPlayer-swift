@@ -70,6 +70,10 @@ func IRFFCheckErrorCode(_ result: Int32, errorCode: Int) -> NSError? {
     return NSError(domain: errorDescription, code: errorCode, userInfo: nil)
 }
 
+func IRFFFinitePositiveValueOrDefault(_ value: Double, defaultValue: Double) -> Double {
+    return value.isFinite && value > 0 ? value : defaultValue
+}
+
 func IRFFStreamGetTimebase(_ stream: UnsafePointer<AVStream>, defaultTimebase: Double) -> Double {
     let timebase: Double
     if stream.pointee.time_base.den > 0 && stream.pointee.time_base.num > 0 {
@@ -77,7 +81,7 @@ func IRFFStreamGetTimebase(_ stream: UnsafePointer<AVStream>, defaultTimebase: D
     } else {
         timebase = defaultTimebase
     }
-    return timebase.isFinite && timebase > 0 ? timebase : 1.0
+    return IRFFFinitePositiveValueOrDefault(timebase, defaultValue: 1.0)
 }
 
 func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Double {
@@ -91,7 +95,7 @@ func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Do
     } else {
         fps = 1.0
     }
-    return fps.isFinite && fps > 0 ? fps : 1.0
+    return IRFFFinitePositiveValueOrDefault(fps, defaultValue: 1.0)
 }
 
 func IRFFFoundationBrigeOfAVDictionary(_ avDictionary: OpaquePointer?) -> [String: String]? {
