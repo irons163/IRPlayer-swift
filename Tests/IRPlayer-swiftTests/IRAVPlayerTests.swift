@@ -259,6 +259,19 @@ final class IRAVPlayerTests: XCTestCase {
         withExtendedLifetime(abstractPlayer) {}
     }
 
+    func testAVAssetPrepareFailureDoesNotPrintDebugOutput() {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+        let error = NSError(domain: "IRAVPlayerTests", code: 1)
+
+        let output = captureStandardOutput {
+            avPlayer.avAssetPrepareFailed(error: error)
+        }
+
+        XCTAssertEqual(output, "")
+        withExtendedLifetime(abstractPlayer) {}
+    }
+
     func testPixelBufferAtCurrentTimeReturnsNilWhenPlayerItemIsMissing() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
