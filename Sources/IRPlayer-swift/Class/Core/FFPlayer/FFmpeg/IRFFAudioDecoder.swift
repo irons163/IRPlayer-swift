@@ -180,6 +180,10 @@ class IRFFAudioDecoder {
         return result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF
     }
 
+    static func shouldDecodePacket(hasData: Bool) -> Bool {
+        return hasData
+    }
+
     func duration() -> TimeInterval {
         return frameQueue.duration
     }
@@ -203,7 +207,7 @@ class IRFFAudioDecoder {
 
     func putPacket(_ packet: AVPacket) -> Int {
         var packet = packet
-        if packet.data == nil { return 0 }
+        if !Self.shouldDecodePacket(hasData: packet.data != nil) { return 0 }
 
         var result = avcodec_send_packet(codecContext, &packet)
         if Self.packetDecodeResultIsFailure(result) {
