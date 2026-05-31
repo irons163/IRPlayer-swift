@@ -125,6 +125,11 @@ class IRFFVideoDecoder {
         return paused ? maxVideoFrameSleepFullAndPauseTimeInterval : maxVideoFrameSleepFullTimeInterval
     }
 
+    static func packetDecodeResultIsFailure(_ result: Int32) -> Bool {
+        guard result < 0 else { return false }
+        return result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF
+    }
+
     func getFrameSync() -> IRFFVideoFrame? {
         return frameQueue.getFrameSync() as? IRFFVideoFrame
     }
@@ -222,7 +227,7 @@ class IRFFVideoDecoder {
     private func decodeFrameWithFFmpeg(packet: AVPacket) -> IRFFVideoFrame? {
         var packet = packet
         var result = avcodec_send_packet(codecContext, &packet)
-        if result < 0 && result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF {
+        if Self.packetDecodeResultIsFailure(result) {
             handleDecodingError(IRFFCheckError(result))
             delegateErrorCallback()
             return nil
@@ -230,12 +235,11 @@ class IRFFVideoDecoder {
         while result >= 0 {
             result = avcodec_receive_frame(codecContext, tempFrame)
             if result < 0 {
-                if result == AVERROR(EAGAIN) || result == IR_AVERROR_EOF {
-                    break
-                } else {
+                if Self.packetDecodeResultIsFailure(result) {
                     handleDecodingError(IRFFCheckError(result))
                     return nil
                 }
+                break
             }
             return videoFrameFromTempFrame()
         }

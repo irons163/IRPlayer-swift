@@ -80,6 +80,12 @@ final class IRFFVideoDecoderTests: XCTestCase {
         )
     }
 
+    func testPacketDecodeResultPolicyTreatsRecoverableFFmpegResultsAsNonFailures() {
+        XCTAssertFalse(IRFFVideoDecoder.packetDecodeResultIsFailure(0))
+        XCTAssertFalse(IRFFVideoDecoder.packetDecodeResultIsFailure(AVERROR(EAGAIN)))
+        XCTAssertTrue(IRFFVideoDecoder.packetDecodeResultIsFailure(-1))
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var codecContext = AVCodecContext()
 
