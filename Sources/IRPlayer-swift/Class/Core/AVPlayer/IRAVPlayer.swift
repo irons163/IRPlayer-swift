@@ -305,7 +305,6 @@ extension IRAVPlayer {
             switch item.status {
             case .unknown:
                 state = .buffering
-                print("IRAVPlayer item status unknown")
 
             case .readyToPlay:
                 setupTrackInfo()
