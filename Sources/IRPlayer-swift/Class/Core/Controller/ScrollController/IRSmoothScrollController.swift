@@ -7,6 +7,39 @@
 
 import UIKit
 
+enum IRSmoothScrollPolicy {
+    struct Step {
+        let move: CGPoint
+        let alreadyPoint: CGPoint
+        let isFinished: Bool
+    }
+
+    static func step(finalPoint: CGPoint, alreadyPoint: CGPoint, elapsed: CGFloat, duration: CGFloat) -> Step? {
+        guard finalPoint.x.isFinite,
+              finalPoint.y.isFinite,
+              alreadyPoint.x.isFinite,
+              alreadyPoint.y.isFinite,
+              elapsed.isFinite,
+              duration.isFinite,
+              duration > 0 else {
+            return nil
+        }
+
+        let clampedElapsed = min(max(elapsed, 0), duration)
+        var percentage = clampedElapsed / duration
+        percentage = -1 * percentage * (percentage - 2)
+
+        let move = CGPoint(x: finalPoint.x * percentage - alreadyPoint.x,
+                           y: finalPoint.y * percentage - alreadyPoint.y)
+        let nextPoint = CGPoint(x: alreadyPoint.x + move.x,
+                                y: alreadyPoint.y + move.y)
+
+        return Step(move: move,
+                    alreadyPoint: nextPoint,
+                    isFinished: nextPoint == finalPoint)
+    }
+}
+
 @objcMembers public class IRSmoothScrollController: NSObject {
     weak var delegate: IRGLViewDelegate?
     var currentMode: IRGLRenderMode?
