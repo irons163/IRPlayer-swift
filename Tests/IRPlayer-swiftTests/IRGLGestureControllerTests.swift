@@ -49,6 +49,24 @@ final class IRGesturePolicyTests: XCTestCase {
         XCTAssertFalse(IRGesturePolicy.isPanMovingAxisDisabled(.horizontal, disabledAxes: .vertical))
         XCTAssertFalse(IRGesturePolicy.isPanMovingAxisDisabled(.unknown, disabledAxes: .all))
     }
+
+    func testPanRecognizerStateActionMapsBeganChangedAndFinishedStates() {
+        XCTAssertEqual(IRGesturePolicy.panAction(for: .began), .begin)
+        XCTAssertEqual(IRGesturePolicy.panAction(for: .changed), .change)
+        XCTAssertEqual(IRGesturePolicy.panAction(for: .ended), .end)
+        XCTAssertEqual(IRGesturePolicy.panAction(for: .cancelled), .end)
+        XCTAssertEqual(IRGesturePolicy.panAction(for: .failed), .end)
+        XCTAssertNil(IRGesturePolicy.panAction(for: .possible))
+    }
+
+    func testPinchRecognizerStateActionOnlyEndsOnEndedState() {
+        XCTAssertEqual(IRGesturePolicy.pinchAction(for: .ended), .end)
+        XCTAssertNil(IRGesturePolicy.pinchAction(for: .began))
+        XCTAssertNil(IRGesturePolicy.pinchAction(for: .changed))
+        XCTAssertNil(IRGesturePolicy.pinchAction(for: .cancelled))
+        XCTAssertNil(IRGesturePolicy.pinchAction(for: .failed))
+        XCTAssertNil(IRGesturePolicy.pinchAction(for: .possible))
+    }
 }
 
 final class IRGLGestureControllerTests: XCTestCase {

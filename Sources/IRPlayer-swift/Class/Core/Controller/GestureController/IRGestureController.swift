@@ -56,6 +56,16 @@ struct IRDisablePanMovingDirection: OptionSet {
 }
 
 enum IRGesturePolicy {
+    enum PanAction: Equatable {
+        case begin
+        case change
+        case end
+    }
+
+    enum PinchAction: Equatable {
+        case end
+    }
+
     static func panDirection(forVelocity velocity: CGPoint) -> IRPanDirection {
         guard velocity.x.isFinite, velocity.y.isFinite else {
             return .unknown
@@ -122,6 +132,23 @@ enum IRGesturePolicy {
         case .unknown:
             return false
         }
+    }
+
+    static func panAction(for state: UIGestureRecognizer.State) -> PanAction? {
+        switch state {
+        case .began:
+            return .begin
+        case .changed:
+            return .change
+        case .failed, .cancelled, .ended:
+            return .end
+        default:
+            return nil
+        }
+    }
+
+    static func pinchAction(for state: UIGestureRecognizer.State) -> PinchAction? {
+        state == .ended ? .end : nil
     }
 }
 
@@ -289,24 +316,24 @@ class IRGestureController: NSObject, UIGestureRecognizerDelegate {
     @objc func handlePan(_ pan: UIPanGestureRecognizer) {
         let translate = pan.translation(in: pan.view)
         let velocity = pan.velocity(in: pan.view)
-        switch pan.state {
-        case .began:
+        switch IRGesturePolicy.panAction(for: pan.state) {
+        case .begin:
             panMovingDirection = .unknown
             panDirection = IRGesturePolicy.panDirection(forVelocity: velocity)
             beganPan?(self, panDirection, panLocation)
-        case .changed:
+        case .change:
             panMovingDirection = IRGesturePolicy.panMovingDirection(forTranslation: translate,
                                                                     panDirection: panDirection)
             changedPan?(self, panDirection, panLocation, velocity)
-        case .failed, .cancelled, .ended:
+        case .end:
             endedPan?(self, panDirection, panLocation)
-        default:
+        case nil:
             break
         }
     }
 
     @objc func handlePinch(_ pinch: UIPinchGestureRecognizer) {
-        if pinch.state == .ended {
+        if IRGesturePolicy.pinchAction(for: pinch.state) == .end {
             pinched?(self, pinch.scale)
         }
     }
