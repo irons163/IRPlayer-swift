@@ -193,22 +193,7 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
     }
 
     public func didScroll(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) {
-        var didScrollToBoundsHorizontal = false
-        var didScrollToBoundsVertical = false
-        var scrollToBounds: IRGLTransformController.ScrollToBounds = .none
-
-        if status.contains(.toMaxX) || status.contains(.toMinX) {
-            didScrollToBoundsHorizontal = true
-            scrollToBounds = .horizontal
-        }
-        if status.contains(.toMaxY) || status.contains(.toMinY) {
-            didScrollToBoundsVertical = true
-            scrollToBounds = .vertical
-        }
-
-        if didScrollToBoundsHorizontal && didScrollToBoundsVertical {
-            scrollToBounds = .both
-        }
+        let scrollToBounds = Self.scrollToBounds(for: status)
 
         if let delegate = delegate, scrollToBounds != .none {
             delegate.didScrollToBounds(scrollToBounds, withProgram: self)
