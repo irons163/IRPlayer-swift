@@ -98,6 +98,17 @@ public class IRFFFormatContext {
         return UnsafeMutableRawPointer(Unmanaged.passUnretained(context).toOpaque())
     }
 
+    static func selectedSetupError(videoError: NSError?, audioError: NSError?) -> NSError? {
+        guard let videoError, let audioError else {
+            return nil
+        }
+
+        if videoError.code == IRFFDecoderErrorCode.streamNotFound.rawValue && audioError.code != IRFFDecoderErrorCode.streamNotFound.rawValue {
+            return audioError
+        }
+        return videoError
+    }
+
     func setupSync() {
         self.error = openStream()
         if error != nil { return }
@@ -105,17 +116,7 @@ public class IRFFFormatContext {
         openTracks()
         let videoError = openVideoTrack()
         let audioError = openAudioTrack()
-
-        guard let videoError = videoError, let audioError = audioError else {
-            return
-        }
-        
-        if videoError.code == IRFFDecoderErrorCode.streamNotFound.rawValue && audioError.code != IRFFDecoderErrorCode.streamNotFound.rawValue {
-            self.error = audioError
-        } else {
-            self.error = videoError
-        }
-        return
+        self.error = Self.selectedSetupError(videoError: videoError, audioError: audioError)
     }
 
     private func openStream() -> NSError? {

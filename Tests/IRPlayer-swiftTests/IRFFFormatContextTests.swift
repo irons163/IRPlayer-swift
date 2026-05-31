@@ -54,6 +54,50 @@ final class IRFFFormatContextTests: XCTestCase {
         XCTAssertFalse(IRFFFormatContext.dictionaryOptionWasApplied(-1))
     }
 
+    func testSelectedSetupErrorRequiresBothTrackErrors() {
+        let streamNotFound = NSError(
+            domain: "video",
+            code: Int(IRFFDecoderErrorCode.streamNotFound.rawValue)
+        )
+        let audioOpen = NSError(
+            domain: "audio",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+
+        XCTAssertNil(IRFFFormatContext.selectedSetupError(videoError: nil, audioError: audioOpen))
+        XCTAssertNil(IRFFFormatContext.selectedSetupError(videoError: streamNotFound, audioError: nil))
+    }
+
+    func testSelectedSetupErrorPrefersAudioWhenVideoStreamIsMissing() throws {
+        let streamNotFound = NSError(
+            domain: "video",
+            code: Int(IRFFDecoderErrorCode.streamNotFound.rawValue)
+        )
+        let audioOpen = NSError(
+            domain: "audio",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+
+        let selected = try XCTUnwrap(IRFFFormatContext.selectedSetupError(videoError: streamNotFound, audioError: audioOpen))
+
+        XCTAssertEqual(selected, audioOpen)
+    }
+
+    func testSelectedSetupErrorDefaultsToVideoError() throws {
+        let videoOpen = NSError(
+            domain: "video",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+        let audioOpen = NSError(
+            domain: "audio",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+
+        let selected = try XCTUnwrap(IRFFFormatContext.selectedSetupError(videoError: videoOpen, audioError: audioOpen))
+
+        XCTAssertEqual(selected, videoOpen)
+    }
+
     func testVideoAspectUsesFiniteRatioAndFallsBackForInvalidDimensions() {
         XCTAssertEqual(IRFFFormatContext.videoAspect(width: 1920, height: 1080), 16.0 / 9.0, accuracy: 0.0001)
         XCTAssertEqual(IRFFFormatContext.videoAspect(width: 0, height: 1080), 0)
