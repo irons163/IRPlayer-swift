@@ -374,6 +374,10 @@ protocol IRFFDecoderDelegate: AnyObject {
         return !closed && !seeking && !buffering && !paused && !playbackFinished && audioEnabled
     }
 
+    static func resumeSeekTarget(playbackFinished: Bool) -> TimeInterval? {
+        return playbackFinished ? 0 : nil
+    }
+
     private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
         guard fps.isFinite, fps > 0 else { return nil }
         let interval = 1.0 / fps
@@ -575,8 +579,8 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     func resume() {
         paused = false
-        if playbackFinished {
-            seek(to: 0)
+        if let seekTarget = Self.resumeSeekTarget(playbackFinished: playbackFinished) {
+            seek(to: seekTarget)
         }
     }
 
