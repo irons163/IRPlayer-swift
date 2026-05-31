@@ -143,6 +143,40 @@ final class IRFFDecoderOperationTests: XCTestCase {
         )
     }
 
+    func testAudioSyncedVideoSleepDurationWaitsForAudioClockAndAppliesMinimum() {
+        XCTAssertEqual(
+            IRFFDecoder.audioSyncedVideoSleepDuration(
+                framePosition: 10,
+                frameDuration: 0.04,
+                audioTimeClock: 9,
+                fps: 25
+            ),
+            0.02
+        )
+        XCTAssertEqual(
+            IRFFDecoder.audioSyncedVideoSleepDuration(
+                framePosition: 10,
+                frameDuration: 0.02,
+                audioTimeClock: 10.01,
+                fps: 25
+            ),
+            0.015
+        )
+        XCTAssertNil(
+            IRFFDecoder.audioSyncedVideoSleepDuration(
+                framePosition: 10,
+                frameDuration: 0.04,
+                audioTimeClock: 11,
+                fps: 25
+            )
+        )
+    }
+
+    func testStandaloneVideoSleepDurationUsesFrameDurationOrFPSFallback() {
+        XCTAssertEqual(IRFFDecoder.standaloneVideoSleepDuration(frameDuration: 0.04, fps: 25), 0.04)
+        XCTAssertEqual(IRFFDecoder.standaloneVideoSleepDuration(frameDuration: 0, fps: 25), 0.04)
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),

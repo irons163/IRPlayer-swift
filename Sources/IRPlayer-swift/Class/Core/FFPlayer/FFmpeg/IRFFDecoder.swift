@@ -318,6 +318,29 @@ protocol IRFFDecoderDelegate: AnyObject {
         return SeekPreparation(clampedTime: clampedSeekTime)
     }
 
+    static func audioSyncedVideoSleepDuration(framePosition: TimeInterval,
+                                              frameDuration: TimeInterval,
+                                              audioTimeClock: TimeInterval,
+                                              fps: TimeInterval) -> TimeInterval? {
+        let sleepTime: TimeInterval
+        if framePosition >= audioTimeClock {
+            sleepTime = (1.0 / fps) / 2
+        } else if framePosition + frameDuration >= audioTimeClock {
+            sleepTime = frameDuration / 2
+        } else {
+            return nil
+        }
+
+        return sleepTime < 0.015 ? 0.015 : sleepTime
+    }
+
+    static func standaloneVideoSleepDuration(frameDuration: TimeInterval, fps: TimeInterval) -> TimeInterval {
+        if frameDuration < 0.0001 {
+            return 1.0 / fps
+        }
+        return frameDuration
+    }
+
     private func openFormatContext() {
         delegate?.decoderWillOpenInputStream(self)
         formatContext = IRFFFormatContext(contentURL: contentURL, videoFormat: videoFormat)
@@ -449,17 +472,13 @@ protocol IRFFDecoderDelegate: AnyObject {
             }
             if formatContext?.audioEnable == true {
                 let audioTimeClock = self.audioTimeClock
-                var sleepTime: TimeInterval = 0
                 if let currentFrame = currentVideoFrame {
-                    if currentFrame.position >= audioTimeClock {
-                        sleepTime = (1.0 / (videoDecoder?.fps ?? 1)) / 2
-                    } else if (currentFrame.position + currentFrame.duration) >= audioTimeClock {
-                        sleepTime = currentFrame.duration / 2
-                    }
-                    if sleepTime != 0 {
-                        if sleepTime < 0.015 {
-                            sleepTime = 0.015
-                        }
+                    if let sleepTime = Self.audioSyncedVideoSleepDuration(
+                        framePosition: currentFrame.position,
+                        frameDuration: currentFrame.duration,
+                        audioTimeClock: audioTimeClock,
+                        fps: videoDecoder?.fps ?? 1
+                    ) {
                         IRFFRuntimeDebugOutput.write("display thread sleep: \(sleepTime)")
                         Thread.sleep(forTimeInterval: sleepTime)
                         continue
@@ -497,10 +516,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                     if endOfFile {
                         updateBufferedDurationByVideo()
                     }
-                    var sleepTime = currentFrame.duration
-                    if sleepTime < 0.0001 {
-                        sleepTime = (1.0 / (videoDecoder?.fps ?? 1))
-                    }
+                    let sleepTime = Self.standaloneVideoSleepDuration(frameDuration: currentFrame.duration, fps: videoDecoder?.fps ?? 1)
                     Thread.sleep(forTimeInterval: sleepTime)
                 } else if endOfFile {
                     updateBufferedDurationByVideo()
