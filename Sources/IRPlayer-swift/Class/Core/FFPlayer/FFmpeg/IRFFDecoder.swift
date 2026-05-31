@@ -465,6 +465,10 @@ protocol IRFFDecoderDelegate: AnyObject {
         return nil
     }
 
+    static func shouldFinishDisplay(endOfFile: Bool, videoDecoderEmpty: Bool) -> Bool {
+        return endOfFile && videoDecoderEmpty
+    }
+
     private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
         guard fps.isFinite, fps > 0 else { return nil }
         let interval = 1.0 / fps
@@ -618,7 +622,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 Thread.sleep(forTimeInterval: sleepTime)
                 continue
             }
-            if endOfFile, videoDecoder?.empty() ?? true {
+            if Self.shouldFinishDisplay(endOfFile: endOfFile, videoDecoderEmpty: videoDecoder?.empty() ?? true) {
                 IRFFRuntimeDebugOutput.write("display finished")
                 break
             }

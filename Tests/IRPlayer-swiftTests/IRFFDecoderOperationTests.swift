@@ -488,6 +488,12 @@ final class IRFFDecoderOperationTests: XCTestCase {
         )
     }
 
+    func testShouldFinishDisplayRequiresEndOfFileAndEmptyVideoQueue() {
+        XCTAssertFalse(IRFFDecoder.shouldFinishDisplay(endOfFile: false, videoDecoderEmpty: true))
+        XCTAssertFalse(IRFFDecoder.shouldFinishDisplay(endOfFile: true, videoDecoderEmpty: false))
+        XCTAssertTrue(IRFFDecoder.shouldFinishDisplay(endOfFile: true, videoDecoderEmpty: true))
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),
