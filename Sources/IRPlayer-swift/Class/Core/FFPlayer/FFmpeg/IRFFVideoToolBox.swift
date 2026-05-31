@@ -9,7 +9,7 @@ import Foundation
 import VideoToolbox
 import IRFFMpeg
 
-enum IRFFVideoToolBoxErrorCode: Error {
+enum IRFFVideoToolBoxErrorCode: Error, Equatable {
     case extradataSize
     case extradataData
     case createFormatDescription
@@ -55,6 +55,16 @@ class IRFFVideoToolBox {
         return IRFFVideoToolBox(codecContext: codecContext)
     }
 
+    static func setupValidationError(codecID: AVCodecID,
+                                     extradata: UnsafeMutablePointer<UInt8>?,
+                                     extradataSize: Int32,
+                                     firstExtradataByte: UInt8?) -> IRFFVideoToolBoxErrorCode? {
+        guard codecID == AV_CODEC_ID_H264 else { return .notH264 }
+        guard extradata != nil, extradataSize >= 7 else { return .extradataSize }
+        guard firstExtradataByte == 1 else { return .extradataData }
+        return nil
+    }
+
     func trySetupVTSession() -> Bool {
         if !self.vtSessionToken {
             do {
@@ -69,58 +79,57 @@ class IRFFVideoToolBox {
 
     func setupVTSession() throws {
         let codecID = codecContext.pointee.codec_id
-        guard let extradata = codecContext.pointee.extradata else {
-            throw IRFFVideoToolBoxErrorCode.extradataSize
-        }
+        let extradata = codecContext.pointee.extradata
         let extradataSize = codecContext.pointee.extradata_size
 
-        if codecID == AV_CODEC_ID_H264 {
-            if extradataSize < 7 {
-                throw IRFFVideoToolBoxErrorCode.extradataSize
-            }
+        if let validationError = Self.setupValidationError(
+            codecID: codecID,
+            extradata: extradata,
+            extradataSize: extradataSize,
+            firstExtradataByte: extradata?[0]
+        ) {
+            throw validationError
+        }
 
-            if extradata[0] == 1 {
-                if extradata[4] == 0xFE {
-                    extradata[4] = 0xFF
-                    self.needConvertNALSize3To4 = true
-                }
-                self.formatDescription = createFormatDescription(codecType: kCMVideoCodecType_H264, width: codecContext.pointee.width, height: codecContext.pointee.height, extradata: extradata, extradataSize: extradataSize)
-                if self.formatDescription == nil {
-                    throw IRFFVideoToolBoxErrorCode.createFormatDescription
-                }
-                guard let formatDescription = Self.requiredFormatDescription(self.formatDescription) else {
-                    throw IRFFVideoToolBoxErrorCode.createFormatDescription
-                }
+        guard let extradata else {
+            throw IRFFVideoToolBoxErrorCode.extradataSize
+        }
 
-                let destinationPixelBufferAttributes: [CFString: Any] = [
-                    kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-                    kCVPixelBufferWidthKey: codecContext.pointee.width,
-                    kCVPixelBufferHeightKey: codecContext.pointee.height,
-                    kCVPixelBufferMetalCompatibilityKey: true,
-                    kCVPixelBufferIOSurfacePropertiesKey: [:]
-                ]
+        if extradata[4] == 0xFE {
+            extradata[4] = 0xFF
+            self.needConvertNALSize3To4 = true
+        }
+        self.formatDescription = createFormatDescription(codecType: kCMVideoCodecType_H264, width: codecContext.pointee.width, height: codecContext.pointee.height, extradata: extradata, extradataSize: extradataSize)
+        if self.formatDescription == nil {
+            throw IRFFVideoToolBoxErrorCode.createFormatDescription
+        }
+        guard let formatDescription = Self.requiredFormatDescription(self.formatDescription) else {
+            throw IRFFVideoToolBoxErrorCode.createFormatDescription
+        }
 
-                var outputCallbackRecord = VTDecompressionOutputCallbackRecord()
-                outputCallbackRecord.decompressionOutputCallback = IRFFVideoToolBox.outputCallback
-                outputCallbackRecord.decompressionOutputRefCon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        let destinationPixelBufferAttributes: [CFString: Any] = [
+            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelBufferWidthKey: codecContext.pointee.width,
+            kCVPixelBufferHeightKey: codecContext.pointee.height,
+            kCVPixelBufferMetalCompatibilityKey: true,
+            kCVPixelBufferIOSurfacePropertiesKey: [:]
+        ]
 
-                let status = VTDecompressionSessionCreate(
-                    allocator: kCFAllocatorDefault,
-                    formatDescription: formatDescription,
-                    decoderSpecification: nil,
-                    imageBufferAttributes: destinationPixelBufferAttributes as CFDictionary,
-                    outputCallback: &outputCallbackRecord,
-                    decompressionSessionOut: &self.vtSession
-                )
+        var outputCallbackRecord = VTDecompressionOutputCallbackRecord()
+        outputCallbackRecord.decompressionOutputCallback = IRFFVideoToolBox.outputCallback
+        outputCallbackRecord.decompressionOutputRefCon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
 
-                if status != noErr {
-                    throw IRFFVideoToolBoxErrorCode.createSession
-                }
-            } else {
-                throw IRFFVideoToolBoxErrorCode.extradataData
-            }
-        } else {
-            throw IRFFVideoToolBoxErrorCode.notH264
+        let status = VTDecompressionSessionCreate(
+            allocator: kCFAllocatorDefault,
+            formatDescription: formatDescription,
+            decoderSpecification: nil,
+            imageBufferAttributes: destinationPixelBufferAttributes as CFDictionary,
+            outputCallback: &outputCallbackRecord,
+            decompressionSessionOut: &self.vtSession
+        )
+
+        if status != noErr {
+            throw IRFFVideoToolBoxErrorCode.createSession
         }
     }
 

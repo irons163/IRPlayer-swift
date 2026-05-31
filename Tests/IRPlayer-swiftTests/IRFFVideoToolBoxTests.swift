@@ -6,6 +6,28 @@ import XCTest
 
 final class IRFFVideoToolBoxTests: XCTestCase {
 
+    func testSetupValidationMapsCodecAndExtradataFailures() {
+        XCTAssertEqual(
+            IRFFVideoToolBox.setupValidationError(codecID: AV_CODEC_ID_AAC, extradata: nil, extradataSize: 0, firstExtradataByte: nil),
+            .notH264
+        )
+        XCTAssertEqual(
+            IRFFVideoToolBox.setupValidationError(codecID: AV_CODEC_ID_H264, extradata: nil, extradataSize: 7, firstExtradataByte: nil),
+            .extradataSize
+        )
+        XCTAssertEqual(
+            IRFFVideoToolBox.setupValidationError(codecID: AV_CODEC_ID_H264, extradata: UnsafeMutablePointer<UInt8>(bitPattern: 1), extradataSize: 6, firstExtradataByte: 1),
+            .extradataSize
+        )
+        XCTAssertEqual(
+            IRFFVideoToolBox.setupValidationError(codecID: AV_CODEC_ID_H264, extradata: UnsafeMutablePointer<UInt8>(bitPattern: 1), extradataSize: 7, firstExtradataByte: 0),
+            .extradataData
+        )
+        XCTAssertNil(
+            IRFFVideoToolBox.setupValidationError(codecID: AV_CODEC_ID_H264, extradata: UnsafeMutablePointer<UInt8>(bitPattern: 1), extradataSize: 7, firstExtradataByte: 1)
+        )
+    }
+
     func testThreeByteNALPayloadValidationRejectsTruncatedUnits() throws {
         try assertThreeByteNALPayload([0, 0, 1, 42], isValid: true)
         try assertThreeByteNALPayload([0, 0], isValid: false)
