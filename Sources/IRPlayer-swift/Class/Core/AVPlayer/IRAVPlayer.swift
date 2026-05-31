@@ -227,6 +227,12 @@ extension IRAVPlayer {
         return seconds
     }
 
+    static func playableEndTime(start: TimeInterval, duration: TimeInterval, totalDuration: TimeInterval) -> TimeInterval {
+        let end = start + duration
+        guard start.isFinite, duration.isFinite, end.isFinite else { return 0 }
+        return IRPlaybackTimePolicy.clampedPlayableTime(end, duration: totalDuration)
+    }
+
     func stop() {
         replaceEmpty()
     }
@@ -264,7 +270,7 @@ extension IRAVPlayer {
 
         let start = Self.finiteSeconds(from: range.start)
         let duration = Self.finiteSeconds(from: range.duration)
-        playableTime = start + duration
+        playableTime = Self.playableEndTime(start: start, duration: duration, totalDuration: self.duration)
     }
 
     var presentationSize: CGSize {
