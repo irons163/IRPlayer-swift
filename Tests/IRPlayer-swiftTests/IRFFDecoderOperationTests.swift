@@ -423,6 +423,25 @@ final class IRFFDecoderOperationTests: XCTestCase {
         )
     }
 
+    func testPacketRouteMatchesVideoAndAudioTrackIndexes() {
+        XCTAssertEqual(
+            IRFFDecoder.packetRoute(streamIndex: 2, videoTrackIndex: 2, audioTrackIndex: 3),
+            .video
+        )
+        XCTAssertEqual(
+            IRFFDecoder.packetRoute(streamIndex: 3, videoTrackIndex: 2, audioTrackIndex: 3),
+            .audio
+        )
+        XCTAssertEqual(
+            IRFFDecoder.packetRoute(streamIndex: 4, videoTrackIndex: 2, audioTrackIndex: 3),
+            .ignored
+        )
+        XCTAssertEqual(
+            IRFFDecoder.packetRoute(streamIndex: 0, videoTrackIndex: nil, audioTrackIndex: nil),
+            .video
+        )
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),

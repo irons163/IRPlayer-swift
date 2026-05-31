@@ -54,6 +54,12 @@ protocol IRFFDecoderDelegate: AnyObject {
         let shouldNotifyDelegate: Bool
     }
 
+    enum PacketRoute: Equatable {
+        case video
+        case audio
+        case ignored
+    }
+
     struct SeekPreparation: Equatable {
         let clampedTime: TimeInterval
     }
@@ -436,6 +442,16 @@ protocol IRFFDecoderDelegate: AnyObject {
         )
     }
 
+    static func packetRoute(streamIndex: Int32, videoTrackIndex: Int?, audioTrackIndex: Int?) -> PacketRoute {
+        if streamIndex == Int32(videoTrackIndex ?? 0) {
+            return .video
+        }
+        if streamIndex == Int32(audioTrackIndex ?? 0) {
+            return .audio
+        }
+        return .ignored
+    }
+
     private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
         guard fps.isFinite, fps > 0 else { return nil }
         let interval = 1.0 / fps
@@ -545,11 +561,16 @@ protocol IRFFDecoderDelegate: AnyObject {
                 }
                 break
             }
-            if packet.stream_index == (formatContext?.videoTrack?.index ?? 0) {
+            switch Self.packetRoute(
+                streamIndex: packet.stream_index,
+                videoTrackIndex: formatContext?.videoTrack?.index,
+                audioTrackIndex: formatContext?.audioTrack?.index
+            ) {
+            case .video:
                 IRFFRuntimeDebugOutput.write("video: put packet")
                 videoDecoder?.putPacket(packet)
                 updateBufferedDurationByVideo()
-            } else if packet.stream_index == (formatContext?.audioTrack?.index ?? 0) {
+            case .audio:
                 IRFFRuntimeDebugOutput.write("audio: put packet")
                 let audioPacketResult = audioDecoder?.putPacket(packet) ?? -1
                 if audioPacketResult < 0 {
@@ -558,6 +579,8 @@ protocol IRFFDecoderDelegate: AnyObject {
                     continue
                 }
                 updateBufferedDurationByAudio()
+            case .ignored:
+                break
             }
         }
         reading = false
