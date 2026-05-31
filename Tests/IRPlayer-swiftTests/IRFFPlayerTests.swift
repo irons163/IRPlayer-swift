@@ -120,4 +120,24 @@ final class IRFFPlayerTests: XCTestCase {
         )
     }
 
+    func testPlayTransitionMapsCurrentStateToNextStateAndSeekDecision() {
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .finished), IRFFPlayer.PlayTransition(nextState: .playing, shouldSeekToStart: true))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .none), IRFFPlayer.PlayTransition(nextState: .buffering, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .failed), IRFFPlayer.PlayTransition(nextState: .buffering, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .buffering), IRFFPlayer.PlayTransition(nextState: .buffering, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .readyToPlay), IRFFPlayer.PlayTransition(nextState: .playing, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .playing), IRFFPlayer.PlayTransition(nextState: .playing, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .suspend), IRFFPlayer.PlayTransition(nextState: .playing, shouldSeekToStart: false))
+    }
+
+    func testPauseTransitionSuspendsOnlyActiveOrTerminalPlaybackStates() {
+        XCTAssertNil(IRFFPlayer.pauseTransition(from: .none))
+        XCTAssertNil(IRFFPlayer.pauseTransition(from: .suspend))
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .failed), .suspend)
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .readyToPlay), .suspend)
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .finished), .suspend)
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .playing), .suspend)
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .buffering), .suspend)
+    }
+
 }

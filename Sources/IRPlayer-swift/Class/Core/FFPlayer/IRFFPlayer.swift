@@ -15,6 +15,11 @@ class IRFFPlayer: NSObject {
         let hasRemainingFrameBytes: Bool
     }
 
+    struct PlayTransition: Equatable {
+        let nextState: IRPlayerState
+        let shouldSeekToStart: Bool
+    }
+
     enum ReplaceVideoReadiness {
         case ready
         case missingRequiredInput
@@ -117,6 +122,26 @@ class IRFFPlayer: NSObject {
         return .ready
     }
 
+    static func playTransition(from state: IRPlayerState) -> PlayTransition {
+        switch state {
+        case .finished:
+            return PlayTransition(nextState: .playing, shouldSeekToStart: true)
+        case .none, .failed, .buffering:
+            return PlayTransition(nextState: .buffering, shouldSeekToStart: false)
+        case .readyToPlay, .playing, .suspend:
+            return PlayTransition(nextState: .playing, shouldSeekToStart: false)
+        }
+    }
+
+    static func pauseTransition(from state: IRPlayerState) -> IRPlayerState? {
+        switch state {
+        case .none, .suspend:
+            return nil
+        case .failed, .readyToPlay, .finished, .playing, .buffering:
+            return .suspend
+        }
+    }
+
     static func audioSilenceByteCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
         guard numberOfFrames > 0, numberOfChannels > 0 else { return nil }
 
@@ -162,25 +187,19 @@ class IRFFPlayer: NSObject {
         playing = true
         decoder?.resume()
 
-        switch state {
-        case .finished:
+        let transition = Self.playTransition(from: state)
+        if transition.shouldSeekToStart {
             seek(to: 0)
-        case .none, .failed, .buffering:
-            state = .buffering
-        case .readyToPlay, .playing, .suspend:
-            state = .playing
         }
+        state = transition.nextState
     }
 
     func pause() {
         playing = false
         decoder?.pause()
 
-        switch state {
-        case .none, .suspend:
-            break
-        case .failed, .readyToPlay, .finished, .playing, .buffering:
-            state = .suspend
+        if let nextState = Self.pauseTransition(from: state) {
+            state = nextState
         }
     }
 
