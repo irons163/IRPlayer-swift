@@ -67,7 +67,6 @@ class IRGLProjectionEquirectangular: IRGLProjection {
 
     private func initBuffers(tw: Float, th: Float, cr: Float, cx: Float, cy: Float) {
         if cr <= 0 || cx <= 0 || cy <= 0 || tw < cr || th < cr || cx + cr > tw || cy + cr > th {
-            print("illegal params")
             return
         }
 
