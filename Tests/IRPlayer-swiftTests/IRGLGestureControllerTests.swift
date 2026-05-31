@@ -96,6 +96,67 @@ final class IRGLGestureControllerTests: XCTestCase {
                                               duration: 1))
     }
 
+    func testSmoothScrollBoundsPolicyBuildsHorizontalAndVerticalBounceRequests() {
+        let result = IRSmoothScrollPolicy.boundsBounce(
+            bounds: .both,
+            finalPoint: CGPoint(x: 30, y: -40),
+            alreadyPoint: CGPoint(x: 10, y: -5),
+            didHorizontalBounce: false,
+            didVerticalBounce: false
+        )
+
+        XCTAssertEqual(result.horizontal?.amount, 20)
+        XCTAssertEqual(result.horizontal?.direction, .right)
+        XCTAssertEqual(result.vertical?.amount, -35)
+        XCTAssertEqual(result.vertical?.direction, .up)
+    }
+
+    func testSmoothScrollBoundsPolicyMasksUnsupportedAxes() {
+        let horizontal = IRSmoothScrollPolicy.boundsBounce(
+            bounds: .horizontal,
+            finalPoint: CGPoint(x: -30, y: 40),
+            alreadyPoint: .zero,
+            didHorizontalBounce: false,
+            didVerticalBounce: false
+        )
+        let vertical = IRSmoothScrollPolicy.boundsBounce(
+            bounds: .vertical,
+            finalPoint: CGPoint(x: -30, y: 40),
+            alreadyPoint: .zero,
+            didHorizontalBounce: false,
+            didVerticalBounce: false
+        )
+
+        XCTAssertEqual(horizontal.horizontal?.amount, -30)
+        XCTAssertEqual(horizontal.horizontal?.direction, .left)
+        XCTAssertNil(horizontal.vertical)
+        XCTAssertNil(vertical.horizontal)
+        XCTAssertEqual(vertical.vertical?.amount, 40)
+        XCTAssertEqual(vertical.vertical?.direction, .down)
+    }
+
+    func testSmoothScrollBoundsPolicySkipsAlreadyBouncedAxesAndInvalidInputs() {
+        let alreadyBounced = IRSmoothScrollPolicy.boundsBounce(
+            bounds: .both,
+            finalPoint: CGPoint(x: 30, y: 40),
+            alreadyPoint: .zero,
+            didHorizontalBounce: true,
+            didVerticalBounce: true
+        )
+        let invalid = IRSmoothScrollPolicy.boundsBounce(
+            bounds: .both,
+            finalPoint: CGPoint(x: CGFloat.nan, y: 40),
+            alreadyPoint: .zero,
+            didHorizontalBounce: false,
+            didVerticalBounce: false
+        )
+
+        XCTAssertNil(alreadyBounced.horizontal)
+        XCTAssertNil(alreadyBounced.vertical)
+        XCTAssertNil(invalid.horizontal)
+        XCTAssertNil(invalid.vertical)
+    }
+
     func testClearingCurrentModeClearsSmoothScrollMode() {
         let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
         let smoothScroll = IRSmoothScrollController(targetView: view)
