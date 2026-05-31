@@ -38,6 +38,11 @@ class IRFFVideoToolBox {
         let sampleBuffer: CMSampleBuffer
     }
 
+    struct NALLengthSizePolicy {
+        let normalizedMarker: UInt8
+        let shouldConvertThreeByteNALUnits: Bool
+    }
+
     private var codecContext: UnsafeMutablePointer<AVCodecContext>
     private var vtSession: VTDecompressionSession?
     private var formatDescription: CMFormatDescription?
@@ -95,10 +100,9 @@ class IRFFVideoToolBox {
             throw IRFFVideoToolBoxErrorCode.extradataSize
         }
 
-        if extradata[4] == 0xFE {
-            extradata[4] = 0xFF
-            self.needConvertNALSize3To4 = true
-        }
+        let nalPolicy = Self.nalLengthSizePolicy(for: extradata[4])
+        extradata[4] = nalPolicy.normalizedMarker
+        self.needConvertNALSize3To4 = nalPolicy.shouldConvertThreeByteNALUnits
         self.formatDescription = createFormatDescription(codecType: kCMVideoCodecType_H264, width: codecContext.pointee.width, height: codecContext.pointee.height, extradata: extradata, extradataSize: extradataSize)
         if self.formatDescription == nil {
             throw IRFFVideoToolBoxErrorCode.createFormatDescription
@@ -256,6 +260,13 @@ class IRFFVideoToolBox {
     static func requiredFormatDescription(_ formatDescription: CMFormatDescription?) -> CMFormatDescription? {
         guard let formatDescription else { return nil }
         return formatDescription
+    }
+
+    static func nalLengthSizePolicy(for marker: UInt8) -> NALLengthSizePolicy {
+        guard marker == 0xFE else {
+            return NALLengthSizePolicy(normalizedMarker: marker, shouldConvertThreeByteNALUnits: false)
+        }
+        return NALLengthSizePolicy(normalizedMarker: 0xFF, shouldConvertThreeByteNALUnits: true)
     }
 
     static func decodeFramePayload(session: VTDecompressionSession?, sampleBuffer: CMSampleBuffer?) -> DecodeFramePayload? {

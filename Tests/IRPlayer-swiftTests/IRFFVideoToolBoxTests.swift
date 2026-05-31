@@ -28,6 +28,16 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         )
     }
 
+    func testNALLengthSizePolicyNormalizesThreeByteMarker() {
+        let threeBytePolicy = IRFFVideoToolBox.nalLengthSizePolicy(for: 0xFE)
+        XCTAssertEqual(threeBytePolicy.normalizedMarker, 0xFF)
+        XCTAssertTrue(threeBytePolicy.shouldConvertThreeByteNALUnits)
+
+        let fourBytePolicy = IRFFVideoToolBox.nalLengthSizePolicy(for: 0xFF)
+        XCTAssertEqual(fourBytePolicy.normalizedMarker, 0xFF)
+        XCTAssertFalse(fourBytePolicy.shouldConvertThreeByteNALUnits)
+    }
+
     func testThreeByteNALPayloadValidationRejectsTruncatedUnits() throws {
         try assertThreeByteNALPayload([0, 0, 1, 42], isValid: true)
         try assertThreeByteNALPayload([0, 0], isValid: false)
