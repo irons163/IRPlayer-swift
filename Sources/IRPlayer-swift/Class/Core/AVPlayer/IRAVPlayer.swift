@@ -294,7 +294,6 @@ extension IRAVPlayer {
             let cgImage = try imageGenerator.copyCGImage(at: avPlayerItem.currentTime(), actualTime: nil)
             return IRPLFImage(cgImage: cgImage)
         } catch {
-            print("Error generating image: \(error)")
             return nil
         }
     }
