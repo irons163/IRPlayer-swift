@@ -105,3 +105,15 @@ final class IRVideoFrameRGBTests: XCTestCase {
         XCTAssertNil(frame.asImage())
     }
 }
+
+final class IRPhotoSaverTests: XCTestCase {
+
+    func testDiagnosticsAreSilentByDefault() {
+        let output = captureStandardOutput {
+            IRPhotoSaver.writeDiagnostic(for: .permissionNotGranted)
+            IRPhotoSaver.writeDiagnostic(for: .albumUnavailable)
+        }
+
+        XCTAssertEqual(output, "")
+    }
+}

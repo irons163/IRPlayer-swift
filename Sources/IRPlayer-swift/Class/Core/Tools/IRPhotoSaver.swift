@@ -10,10 +10,15 @@ import UIKit
 
 enum IRPhotoSaver {
 
+    enum Failure {
+        case permissionNotGranted
+        case albumUnavailable
+    }
+
     static func save(_ image: UIImage, toAlbum albumName: String? = nil) {
         requestPermission { granted in
             guard granted else {
-                print("Photo permission not granted")
+                writeDiagnostic(for: .permissionNotGranted)
                 return
             }
 
@@ -26,7 +31,7 @@ enum IRPhotoSaver {
 
             fetchOrCreateAlbum(named: albumName) { album in
                 guard let album = album else {
-                    print("Failed to fetch/create album")
+                    writeDiagnostic(for: .albumUnavailable)
                     return
                 }
 
@@ -40,6 +45,15 @@ enum IRPhotoSaver {
                 })
             }
         }
+    }
+
+    static func writeDiagnostic(for failure: Failure) {
+        guard let message = diagnosticMessage(for: failure) else { return }
+        print(message)
+    }
+
+    static func diagnosticMessage(for _: Failure) -> String? {
+        nil
     }
 
     private static func requestPermission(completion: @escaping (Bool) -> Void) {
