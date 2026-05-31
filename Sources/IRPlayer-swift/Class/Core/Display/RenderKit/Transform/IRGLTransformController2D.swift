@@ -117,7 +117,6 @@ import simd
         scope2d.scaleY = decision.scaleY
 
         updateVertices()
-        print("\(scope2d.offsetX ) \(scope2d.offsetY ) \(scope2d.scaleX ) \(scope2d.scaleY )")
     }
 
     override func scroll(dx: Float, dy: Float) {
