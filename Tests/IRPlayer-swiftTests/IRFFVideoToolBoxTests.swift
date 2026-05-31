@@ -84,6 +84,21 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         }
     }
 
+    func testReleaseDoesNotPrintDebugOutput() {
+        var codecContext = AVCodecContext()
+
+        let output = withUnsafeMutablePointer(to: &codecContext) { context in
+            var videoToolBox: IRFFVideoToolBox? = IRFFVideoToolBox.videoToolBox(with: context)
+            XCTAssertNotNil(videoToolBox)
+
+            return captureStandardOutput {
+                videoToolBox = nil
+            }
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testFormatDescriptionExtensionsIncludeExpectedAVCCAtom() throws {
         let extradata = [UInt8](arrayLiteral: 1, 2, 3, 4)
 
