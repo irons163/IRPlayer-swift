@@ -575,6 +575,7 @@ extension IRAVPlayer {
 
     func setupOutput() {
         cleanOutput()
+        guard let avPlayerItem else { return }
 
         let pixelBufferAttributes: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
@@ -584,9 +585,7 @@ extension IRAVPlayer {
         avOutput = AVPlayerItemVideoOutput(pixelBufferAttributes: pixelBufferAttributes)
         avOutput?.requestNotificationOfMediaDataChange(withAdvanceInterval: IRAVPlayer.pixelBufferRequestInterval)
         guard let avOutput = avOutput else { return }
-        avPlayerItem?.add(avOutput)
-
-        print("IRAVPlayer add output success") // Assuming IRPlayerLog is a custom logging function. Replace with your logging mechanism.
+        avPlayerItem.add(avOutput)
     }
 
 
