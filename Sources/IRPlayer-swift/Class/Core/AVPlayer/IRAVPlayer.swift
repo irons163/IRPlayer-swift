@@ -134,6 +134,15 @@ extension IRAVPlayer {
         guard state != .failed else { return nil }
         return .suspend
     }
+
+    static func shouldRetryPlayAfterDelay(for state: IRPlayerState) -> Bool {
+        switch state {
+        case .buffering, .playing, .readyToPlay:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 extension IRAVPlayer {
@@ -153,11 +162,8 @@ extension IRAVPlayer {
         avPlayer.play()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let self = self else { return }
-            switch self.state {
-            case .buffering, .playing, .readyToPlay:
+            if Self.shouldRetryPlayAfterDelay(for: self.state) {
                 self.avPlayer?.play()
-            default:
-                break
             }
         }
     }

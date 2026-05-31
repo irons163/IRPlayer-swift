@@ -263,6 +263,16 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertNil(IRAVPlayer.nextStateAfterPause(from: .failed))
     }
 
+    func testDelayedPlayRetryOnlyRunsForActiveOrReadyStates() {
+        XCTAssertTrue(IRAVPlayer.shouldRetryPlayAfterDelay(for: .buffering))
+        XCTAssertTrue(IRAVPlayer.shouldRetryPlayAfterDelay(for: .playing))
+        XCTAssertTrue(IRAVPlayer.shouldRetryPlayAfterDelay(for: .readyToPlay))
+        XCTAssertFalse(IRAVPlayer.shouldRetryPlayAfterDelay(for: .none))
+        XCTAssertFalse(IRAVPlayer.shouldRetryPlayAfterDelay(for: .suspend))
+        XCTAssertFalse(IRAVPlayer.shouldRetryPlayAfterDelay(for: .finished))
+        XCTAssertFalse(IRAVPlayer.shouldRetryPlayAfterDelay(for: .failed))
+    }
+
     func testAVAssetLoadDecisionFailsWhenAnyRequiredKeyFails() {
         XCTAssertEqual(
             IRAVPlayer.avAssetLoadDecision(keyStatuses: [.loaded, .failed], trackStatus: .loaded),
