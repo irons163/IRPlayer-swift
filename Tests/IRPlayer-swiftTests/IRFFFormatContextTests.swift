@@ -107,4 +107,18 @@ final class IRFFFormatContextTests: XCTestCase {
         delegate.shouldInterrupt = false
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 0)
     }
+
+    func testReleaseDoesNotPrintDebugOutput() {
+        var context: IRFFFormatContext? = IRFFFormatContext(
+            contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),
+            videoFormat: .mpeg4
+        )
+        XCTAssertNotNil(context)
+
+        let output = captureStandardOutput {
+            context = nil
+        }
+
+        XCTAssertEqual(output, "")
+    }
 }
