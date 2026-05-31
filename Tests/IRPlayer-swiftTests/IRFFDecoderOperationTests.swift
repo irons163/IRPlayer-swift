@@ -256,6 +256,79 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertFalse(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: 1.0, nextPosition: 0.5))
     }
 
+    func testShouldFetchAudioFrameRequiresActiveAudioPlaybackState() {
+        XCTAssertTrue(
+            IRFFDecoder.shouldFetchAudioFrame(
+                closed: false,
+                seeking: false,
+                buffering: false,
+                paused: false,
+                playbackFinished: false,
+                audioEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            IRFFDecoder.shouldFetchAudioFrame(
+                closed: true,
+                seeking: false,
+                buffering: false,
+                paused: false,
+                playbackFinished: false,
+                audioEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            IRFFDecoder.shouldFetchAudioFrame(
+                closed: false,
+                seeking: true,
+                buffering: false,
+                paused: false,
+                playbackFinished: false,
+                audioEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            IRFFDecoder.shouldFetchAudioFrame(
+                closed: false,
+                seeking: false,
+                buffering: true,
+                paused: false,
+                playbackFinished: false,
+                audioEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            IRFFDecoder.shouldFetchAudioFrame(
+                closed: false,
+                seeking: false,
+                buffering: false,
+                paused: true,
+                playbackFinished: false,
+                audioEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            IRFFDecoder.shouldFetchAudioFrame(
+                closed: false,
+                seeking: false,
+                buffering: false,
+                paused: false,
+                playbackFinished: true,
+                audioEnabled: true
+            )
+        )
+        XCTAssertFalse(
+            IRFFDecoder.shouldFetchAudioFrame(
+                closed: false,
+                seeking: false,
+                buffering: false,
+                paused: false,
+                playbackFinished: false,
+                audioEnabled: false
+            )
+        )
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),

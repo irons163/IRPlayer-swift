@@ -365,6 +365,15 @@ protocol IRFFDecoderDelegate: AnyObject {
         return (currentPosition ?? 0) <= (nextPosition ?? 0)
     }
 
+    static func shouldFetchAudioFrame(closed: Bool,
+                                      seeking: Bool,
+                                      buffering: Bool,
+                                      paused: Bool,
+                                      playbackFinished: Bool,
+                                      audioEnabled: Bool) -> Bool {
+        return !closed && !seeking && !buffering && !paused && !playbackFinished && audioEnabled
+    }
+
     private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
         guard fps.isFinite, fps > 0 else { return nil }
         let interval = 1.0 / fps
@@ -596,7 +605,12 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     func fetchAudioFrame() -> IRFFAudioFrame? {
-        if closed || seeking || buffering || paused || playbackFinished || formatContext?.audioEnable != true {
+        if !Self.shouldFetchAudioFrame(closed: closed,
+                                       seeking: seeking,
+                                       buffering: buffering,
+                                       paused: paused,
+                                       playbackFinished: playbackFinished,
+                                       audioEnabled: formatContext?.audioEnable == true) {
             return nil
         }
         if audioDecoder?.isEmpty() ?? true {
