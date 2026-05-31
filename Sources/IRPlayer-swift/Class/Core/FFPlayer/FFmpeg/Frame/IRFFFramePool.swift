@@ -44,6 +44,10 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
         return max(0, capacity)
     }
 
+    static func isFrame(_ frame: IRFFFrame?, compatibleWith frameClassName: AnyClass) -> Bool {
+        return frame?.isKind(of: frameClassName) == true
+    }
+
     private static func makeFrameFactory(for frameClassName: AnyClass) -> () -> IRFFFrame? {
         return {
             guard let frameClass = frameClassName as? NSObject.Type else { return nil }
@@ -79,7 +83,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     }
 
     func setFrameUnuse(_ frame: IRFFFrame?) {
-        guard let frame = frame, frame.isKind(of: frameClassName) else { return }
+        guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
         lock.lock()
         unuseFrames.insert(frame)
         usedFrames.remove(frame)
@@ -89,7 +93,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     func setFramesUnuse(_ frames: [IRFFFrame]) {
         guard !frames.isEmpty else { return }
         lock.lock()
-        for frame in frames where frame.isKind(of: frameClassName) {
+        for frame in frames where Self.isFrame(frame, compatibleWith: frameClassName) {
             usedFrames.remove(frame)
             unuseFrames.insert(frame)
         }
@@ -97,7 +101,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     }
 
     func setFrameStartDrawing(_ frame: IRFFFrame?) {
-        guard let frame = frame, frame.isKind(of: frameClassName) else { return }
+        guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
         lock.lock()
         if let playingFrame = playingFrame {
             unuseFrames.insert(playingFrame)
@@ -108,7 +112,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     }
 
     func setFrameStopDrawing(_ frame: IRFFFrame?) {
-        guard let frame = frame, frame.isKind(of: frameClassName) else { return }
+        guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
         lock.lock()
         if playingFrame == frame {
             unuseFrames.insert(frame)
