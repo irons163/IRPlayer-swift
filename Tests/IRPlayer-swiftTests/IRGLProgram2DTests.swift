@@ -48,6 +48,20 @@ final class IRGLProgram2DTests: XCTestCase {
         XCTAssertEqual(size?.height, 180)
     }
 
+    func testScrollToBoundsPolicyMapsHorizontalVerticalAndCombinedStatuses() {
+        XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMaxX]), .horizontal)
+        XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMinX]), .horizontal)
+        XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMaxY]), .vertical)
+        XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMinY]), .vertical)
+        XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMaxX, .toMinY]), .both)
+        XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMinX, .toMaxY]), .both)
+    }
+
+    func testScrollToBoundsPolicyIgnoresNonBoundsStatuses() {
+        XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: []), .none)
+        XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.fail]), .none)
+    }
+
     func testSetViewportRangeIgnoresInvalidDimensionsWhenResettingTransform() {
         let program = IRGLProgram2D()
         let transformController = IRGLTransformController2D(viewportWidth: 320, viewportHeight: 180)
