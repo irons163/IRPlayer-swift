@@ -175,6 +175,11 @@ class IRFFAudioDecoder {
         return UnsafeMutableRawPointer(decodedData)
     }
 
+    static func packetDecodeResultIsFailure(_ result: Int32) -> Bool {
+        guard result < 0 else { return false }
+        return result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF
+    }
+
     func duration() -> TimeInterval {
         return frameQueue.duration
     }
@@ -201,14 +206,14 @@ class IRFFAudioDecoder {
         if packet.data == nil { return 0 }
 
         var result = avcodec_send_packet(codecContext, &packet)
-        if result < 0 && result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF {
+        if Self.packetDecodeResultIsFailure(result) {
             return -1
         }
 
         while result >= 0 {
             result = avcodec_receive_frame(codecContext, tempFrame)
             if result < 0 {
-                if result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF {
+                if Self.packetDecodeResultIsFailure(result) {
                     return -1
                 }
                 break

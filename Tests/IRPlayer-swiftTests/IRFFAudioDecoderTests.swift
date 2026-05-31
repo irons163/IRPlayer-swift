@@ -151,6 +151,12 @@ final class IRFFAudioDecoderTests: XCTestCase {
     func testResampleFrameCapacityCalculatesInt32Capacity() {
         XCTAssertEqual(IRFFAudioDecoder.resampleFrameCapacity(inputFrameCount: 1024, ratio: 2), 2048)
     }
+
+    func testPacketDecodeResultPolicyTreatsRecoverableFFmpegResultsAsNonFailures() {
+        XCTAssertFalse(IRFFAudioDecoder.packetDecodeResultIsFailure(0))
+        XCTAssertFalse(IRFFAudioDecoder.packetDecodeResultIsFailure(AVERROR(EAGAIN)))
+        XCTAssertTrue(IRFFAudioDecoder.packetDecodeResultIsFailure(-1))
+    }
 }
 
 final class IRFFAudioFrameTests: XCTestCase {
