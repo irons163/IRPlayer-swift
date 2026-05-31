@@ -578,6 +578,5 @@ extension IRPlayerImp: IRGLViewDelegate {
     }
 
     public func glViewDidScroll(toBounds glView: IRGLView?) {
-        print("scroll to bounds")
     }
 }
