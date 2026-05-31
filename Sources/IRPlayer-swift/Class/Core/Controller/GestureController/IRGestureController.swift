@@ -199,7 +199,8 @@ class IRGestureController: NSObject, UIGestureRecognizerDelegate {
 
         let locationPoint = touch.location(in: touch.view)
         if let targetView = targetView {
-            panLocation = locationPoint.x > targetView.bounds.size.width / 2 ? .right : .left
+            panLocation = IRGesturePolicy.panLocation(forTouchX: locationPoint.x,
+                                                       targetWidth: targetView.bounds.size.width)
         } else {
             panLocation = .unknown
         }
@@ -269,25 +270,11 @@ class IRGestureController: NSObject, UIGestureRecognizerDelegate {
         switch pan.state {
         case .began:
             panMovingDirection = .unknown
-            let x = abs(velocity.x)
-            let y = abs(velocity.y)
-            if x > y {
-                panDirection = .horizontal
-            } else if x < y {
-                panDirection = .vertical
-            } else {
-                panDirection = .unknown
-            }
+            panDirection = IRGesturePolicy.panDirection(forVelocity: velocity)
             beganPan?(self, panDirection, panLocation)
         case .changed:
-            switch panDirection {
-            case .horizontal:
-                panMovingDirection = translate.x > 0 ? .right : .left
-            case .vertical:
-                panMovingDirection = translate.y > 0 ? .bottom : .top
-            case .unknown:
-                break
-            }
+            panMovingDirection = IRGesturePolicy.panMovingDirection(forTranslation: translate,
+                                                                    panDirection: panDirection)
             changedPan?(self, panDirection, panLocation, velocity)
         case .failed, .cancelled, .ended:
             endedPan?(self, panDirection, panLocation)
