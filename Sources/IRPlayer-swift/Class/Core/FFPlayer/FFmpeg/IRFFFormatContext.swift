@@ -70,6 +70,10 @@ public class IRFFFormatContext {
         return avcodec_find_decoder(codecContext.pointee.codec_id)
     }
 
+    static func dictionaryOptionWasApplied(_ result: Int32) -> Bool {
+        return result >= 0
+    }
+
     static func durationSeconds(from duration: Int64) -> TimeInterval {
         guard duration != IR_AV_NOPTS_VALUE else {
             return TimeInterval(MAXFLOAT)
@@ -131,8 +135,8 @@ public class IRFFFormatContext {
         var opts = AVDictionary(rawPointer: nil)
         if videoFormat == .rtsp {
             let ret = av_dict_set(&opts.rawPointer, "rtsp_transport", "tcp", 0)
-            if ret < 0 {
-                print("Failed to set dictionary option: \(ret)")
+            if !Self.dictionaryOptionWasApplied(ret) {
+                // Continue opening input; FFmpeg will surface fatal stream errors.
             }
         }
         result = avformat_open_input(&formatContext, contentURL.absoluteString, nil, &opts.rawPointer)
