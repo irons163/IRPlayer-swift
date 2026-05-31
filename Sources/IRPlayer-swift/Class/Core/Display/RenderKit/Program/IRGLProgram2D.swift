@@ -67,6 +67,21 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
         return (Int(width), Int(height))
     }
 
+    static func scrollToBounds(for status: IRGLTransformController.ScrollStatus) -> IRGLTransformController.ScrollToBounds {
+        let didScrollToBoundsHorizontal = status.contains(.toMaxX) || status.contains(.toMinX)
+        let didScrollToBoundsVertical = status.contains(.toMaxY) || status.contains(.toMinY)
+
+        if didScrollToBoundsHorizontal && didScrollToBoundsVertical {
+            return .both
+        } else if didScrollToBoundsHorizontal {
+            return .horizontal
+        } else if didScrollToBoundsVertical {
+            return .vertical
+        } else {
+            return .none
+        }
+    }
+
     func initShaderParams() {
         shaderParams2D = IRGLShaderParams()
         shaderParams2D?.delegate = self
