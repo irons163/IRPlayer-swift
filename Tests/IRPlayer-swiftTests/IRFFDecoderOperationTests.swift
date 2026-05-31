@@ -400,6 +400,29 @@ final class IRFFDecoderOperationTests: XCTestCase {
         )
     }
 
+    func testReadPacketEOFTransitionOnlyAppliesForNegativeReadResults() {
+        XCTAssertNil(IRFFDecoder.readPacketEOFTransition(readFrameResult: 0))
+        XCTAssertNil(IRFFDecoder.readPacketEOFTransition(readFrameResult: 1))
+        XCTAssertEqual(
+            IRFFDecoder.readPacketEOFTransition(readFrameResult: nil),
+            IRFFDecoder.ReadPacketEOFTransition(
+                endOfFile: true,
+                videoEndOfFile: true,
+                shouldFinishReadLoop: true,
+                shouldNotifyDelegate: true
+            )
+        )
+        XCTAssertEqual(
+            IRFFDecoder.readPacketEOFTransition(readFrameResult: -1),
+            IRFFDecoder.ReadPacketEOFTransition(
+                endOfFile: true,
+                videoEndOfFile: true,
+                shouldFinishReadLoop: true,
+                shouldNotifyDelegate: true
+            )
+        )
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),

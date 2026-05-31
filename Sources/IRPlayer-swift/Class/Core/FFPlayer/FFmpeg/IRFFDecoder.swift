@@ -47,6 +47,13 @@ protocol IRFFDecoderDelegate: AnyObject {
         let shouldClearFrames: Bool
     }
 
+    struct ReadPacketEOFTransition: Equatable {
+        let endOfFile: Bool
+        let videoEndOfFile: Bool
+        let shouldFinishReadLoop: Bool
+        let shouldNotifyDelegate: Bool
+    }
+
     struct SeekPreparation: Equatable {
         let clampedTime: TimeInterval
     }
@@ -417,6 +424,18 @@ protocol IRFFDecoderDelegate: AnyObject {
         return audioTimeClock
     }
 
+    static func readPacketEOFTransition(readFrameResult: Int32?) -> ReadPacketEOFTransition? {
+        guard (readFrameResult ?? -1) < 0 else {
+            return nil
+        }
+        return ReadPacketEOFTransition(
+            endOfFile: true,
+            videoEndOfFile: true,
+            shouldFinishReadLoop: true,
+            shouldNotifyDelegate: true
+        )
+    }
+
     private static func frameInterval(forFPS fps: TimeInterval) -> TimeInterval? {
         guard fps.isFinite, fps > 0 else { return nil }
         let interval = 1.0 / fps
@@ -516,12 +535,14 @@ protocol IRFFDecoderDelegate: AnyObject {
                 continue
             }
             let result = formatContext?.readFrame(&packet)
-            if (result ?? -1) < 0 {
+            if let transition = Self.readPacketEOFTransition(readFrameResult: result) {
                 IRFFRuntimeDebugOutput.write("read packet finished")
-                endOfFile = true
-                videoDecoder?.endOfFile = true
-                finished = true
-                delegate?.decoderDidEndOfFile(self)
+                endOfFile = transition.endOfFile
+                videoDecoder?.endOfFile = transition.videoEndOfFile
+                finished = transition.shouldFinishReadLoop
+                if transition.shouldNotifyDelegate {
+                    delegate?.decoderDidEndOfFile(self)
+                }
                 break
             }
             if packet.stream_index == (formatContext?.videoTrack?.index ?? 0) {
