@@ -67,6 +67,15 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertEqual(IRAVPlayer.finiteSeconds(from: CMTime(value: 1, timescale: 0)), 0)
     }
 
+    func testPlayableTimePolicyClampsBufferedRangeToDuration() {
+        XCTAssertEqual(IRAVPlayer.playableEndTime(start: 2, duration: 3, totalDuration: 10), 5)
+        XCTAssertEqual(IRAVPlayer.playableEndTime(start: 8, duration: 5, totalDuration: 10), 10)
+        XCTAssertEqual(IRAVPlayer.playableEndTime(start: -2, duration: 1, totalDuration: 10), 0)
+        XCTAssertEqual(IRAVPlayer.playableEndTime(start: TimeInterval.greatestFiniteMagnitude,
+                                                 duration: TimeInterval.greatestFiniteMagnitude,
+                                                 totalDuration: 10), 0)
+    }
+
     func testSetupAVPlayerItemIgnoresMissingAsset() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
