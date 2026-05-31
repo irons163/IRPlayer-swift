@@ -248,7 +248,6 @@ public class IRPlayerImp: NSObject {
     }
 
     deinit {
-        print("IRPlayer release")
         self.cleanPlayer()
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         NotificationCenter.default.removeObserver(self)
