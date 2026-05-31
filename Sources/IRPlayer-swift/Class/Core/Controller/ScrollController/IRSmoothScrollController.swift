@@ -209,41 +209,19 @@ enum IRSmoothScrollPolicy {
 extension IRSmoothScrollController: IRGLProgramDelegate {
 
     func didScrollToBounds(_ bounds: IRGLTransformController.ScrollToBounds, withProgram program: IRGLProgram2D) {
-        var moveX = finalPoint.x - alreadyPoint.x
-        var moveY = finalPoint.y - alreadyPoint.y
-        var scrollDirectionType = IRScrollDirectionType.none
+        let boundsBounce = IRSmoothScrollPolicy.boundsBounce(bounds: bounds,
+                                                             finalPoint: finalPoint,
+                                                             alreadyPoint: alreadyPoint,
+                                                             didHorizontalBounce: didHorizontalBoundsBounce,
+                                                             didVerticalBounce: didVerticalBoundsBounce)
 
-        switch bounds {
-        case .horizontal:
-            moveY = 0
-        case .vertical:
-            moveX = 0
-        case .both:
-            break
-        default:
-            moveX = 0
-            moveY = 0
-        }
-
-        if moveX > 0 {
-            scrollDirectionType = .right
-        } else if moveX < 0 {
-            scrollDirectionType = .left
-        }
-
-        if !didHorizontalBoundsBounce && (scrollDirectionType == .left || scrollDirectionType == .right) {
-            bounce?.removeAndAddAnimate(with: moveX, byScrollDirection: scrollDirectionType)
+        if let horizontal = boundsBounce.horizontal {
+            bounce?.removeAndAddAnimate(with: horizontal.amount, byScrollDirection: horizontal.direction)
             didHorizontalBoundsBounce = true
         }
 
-        if moveY > 0 {
-            scrollDirectionType = .down
-        } else if moveY < 0 {
-            scrollDirectionType = .up
-        }
-
-        if !didVerticalBoundsBounce && (scrollDirectionType == .up || scrollDirectionType == .down) {
-            bounce?.removeAndAddAnimate(with: moveY, byScrollDirection: scrollDirectionType)
+        if let vertical = boundsBounce.vertical {
+            bounce?.removeAndAddAnimate(with: vertical.amount, byScrollDirection: vertical.direction)
             didVerticalBoundsBounce = true
         }
 
