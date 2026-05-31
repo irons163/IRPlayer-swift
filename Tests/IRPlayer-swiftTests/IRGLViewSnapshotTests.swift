@@ -4,6 +4,14 @@ import XCTest
 
 final class IRGLViewSnapshotTests: XCTestCase {
 
+    func testInitDoesNotPrintMetalSetupDebugOutput() {
+        let output = captureStandardOutput {
+            _ = IRGLView(frame: .zero)
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testCreateImageFromFramebufferReturnsImageForZeroSizedView() {
         let view = IRGLView(frame: .zero)
 
