@@ -1,3 +1,4 @@
+import IRFFMpeg
 import XCTest
 @testable import IRPlayer_swift
 
@@ -20,5 +21,25 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertEqual(IRFFVideoDecoder.frameDuration(ticks: 4, repeatPicture: 0, timebase: -1, fps: 30), 0)
         XCTAssertEqual(IRFFVideoDecoder.frameDuration(ticks: 0, repeatPicture: 0, timebase: 0.25, fps: 0), 0)
         XCTAssertEqual(IRFFVideoDecoder.frameDuration(ticks: 0, repeatPicture: 0, timebase: 0.25, fps: .nan), 0)
+    }
+
+    func testReleaseDoesNotPrintDebugOutput() {
+        var codecContext = AVCodecContext()
+
+        let output = withUnsafeMutablePointer(to: &codecContext) { codecContextPointer in
+            var decoder: IRFFVideoDecoder? = IRFFVideoDecoder(
+                codecContext: codecContextPointer,
+                timebase: 0.25,
+                fps: 30,
+                delegate: nil
+            )
+            XCTAssertNotNil(decoder)
+
+            return captureStandardOutput {
+                decoder = nil
+            }
+        }
+
+        XCTAssertEqual(output, "")
     }
 }
