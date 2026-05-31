@@ -55,6 +55,48 @@ struct IRDisablePanMovingDirection: OptionSet {
     static let all          = IRDisablePanMovingDirection([.vertical, .horizontal])
 }
 
+enum IRGesturePolicy {
+    static func panDirection(forVelocity velocity: CGPoint) -> IRPanDirection {
+        guard velocity.x.isFinite, velocity.y.isFinite else {
+            return .unknown
+        }
+
+        let x = abs(velocity.x)
+        let y = abs(velocity.y)
+        if x > y {
+            return .horizontal
+        } else if x < y {
+            return .vertical
+        } else {
+            return .unknown
+        }
+    }
+
+    static func panMovingDirection(forTranslation translation: CGPoint,
+                                   panDirection: IRPanDirection) -> IRPanMovingDirection {
+        guard translation.x.isFinite, translation.y.isFinite else {
+            return .unknown
+        }
+
+        switch panDirection {
+        case .horizontal:
+            return translation.x > 0 ? .right : .left
+        case .vertical:
+            return translation.y > 0 ? .bottom : .top
+        case .unknown:
+            return .unknown
+        }
+    }
+
+    static func panLocation(forTouchX touchX: CGFloat, targetWidth: CGFloat) -> IRPanLocation {
+        guard touchX.isFinite, targetWidth.isFinite, targetWidth > 0 else {
+            return .unknown
+        }
+
+        return touchX > targetWidth / 2 ? .right : .left
+    }
+}
+
 class IRGestureController: NSObject, UIGestureRecognizerDelegate {
     weak private(set) var targetView: UIView?
 
