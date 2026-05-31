@@ -31,6 +31,10 @@ protocol IRFFDecoderDelegate: AnyObject {
 }
 
 @objcMembers public class IRFFDecoder: NSObject {
+    struct BufferedDurationTransition: Equatable {
+        let bufferedDuration: TimeInterval
+        let shouldFinishPlayback: Bool
+    }
 
     weak var delegate: IRFFDecoderDelegate?
     weak var source: IRFFVideoDecoderDataSource?
@@ -63,11 +67,10 @@ protocol IRFFDecoderDelegate: AnyObject {
             guard bufferedDuration != oldValue else {
                 return
             }
-            if (bufferedDuration <= 0.000001) {
-                bufferedDuration = 0
-            }
+            let transition = Self.bufferedDurationTransition(bufferedDuration: bufferedDuration, endOfFile: endOfFile)
+            bufferedDuration = transition.bufferedDuration
             delegate?.decoder(self, didChangeValueOfBufferedDuration: bufferedDuration)
-            if bufferedDuration <= 0 && endOfFile {
+            if transition.shouldFinishPlayback {
                 playbackFinished = true
             }
             checkBufferingStatus()
@@ -279,6 +282,14 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     static func audioPacketError(fromPacketResult packetResult: Int) -> NSError? {
         return IRFFCheckErrorCode(Int32(packetResult), errorCode: IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
+    }
+
+    static func bufferedDurationTransition(bufferedDuration: TimeInterval, endOfFile: Bool) -> BufferedDurationTransition {
+        let normalizedDuration = bufferedDuration <= 0.000001 ? 0 : bufferedDuration
+        return BufferedDurationTransition(
+            bufferedDuration: normalizedDuration,
+            shouldFinishPlayback: normalizedDuration <= 0 && endOfFile
+        )
     }
 
     private func openFormatContext() {

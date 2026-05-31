@@ -53,6 +53,21 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
     }
 
+    func testBufferedDurationTransitionNormalizesTinyDurationsAndMarksFinishedAtEndOfFile() {
+        XCTAssertEqual(
+            IRFFDecoder.bufferedDurationTransition(bufferedDuration: 0.0000001, endOfFile: false),
+            IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: false)
+        )
+        XCTAssertEqual(
+            IRFFDecoder.bufferedDurationTransition(bufferedDuration: 0, endOfFile: true),
+            IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: true)
+        )
+        XCTAssertEqual(
+            IRFFDecoder.bufferedDurationTransition(bufferedDuration: 0.5, endOfFile: true),
+            IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0.5, shouldFinishPlayback: false)
+        )
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var decoder: IRFFDecoder? = IRFFDecoder(
             contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),
