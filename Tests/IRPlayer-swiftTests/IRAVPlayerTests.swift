@@ -194,6 +194,29 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertEqual(errorInfo.error.code, -1)
     }
 
+    func testItemStatusPolicyMapsAVPlayerItemStatusesToPlaybackDecisions() {
+        XCTAssertEqual(
+            IRAVPlayer.itemStatusDecision(status: .unknown, currentState: .none),
+            .buffer
+        )
+        XCTAssertEqual(
+            IRAVPlayer.itemStatusDecision(status: .readyToPlay, currentState: .none),
+            .markReady
+        )
+        XCTAssertEqual(
+            IRAVPlayer.itemStatusDecision(status: .readyToPlay, currentState: .buffering),
+            .playIfNeeded
+        )
+        XCTAssertEqual(
+            IRAVPlayer.itemStatusDecision(status: .readyToPlay, currentState: .failed),
+            .ignore
+        )
+        XCTAssertEqual(
+            IRAVPlayer.itemStatusDecision(status: .failed, currentState: .playing),
+            .fail
+        )
+    }
+
     func testUnknownItemStatusBuffersWithoutDebugOutput() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
