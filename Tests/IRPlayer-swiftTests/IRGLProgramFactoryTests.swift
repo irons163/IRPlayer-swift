@@ -61,6 +61,18 @@ final class IRGLProgramFactoryTests: XCTestCase {
         XCTAssertEqual(IRGLProgramFactoryPolicy.defaultFisheyeScope(from: range, panelIndex: nil).defaultLat, -40)
     }
 
+    func testFactoryPolicyResolvesFisheyeParameter() {
+        let parameter = makeFisheyeParameter()
+
+        XCTAssertTrue(IRGLProgramFactoryPolicy.fisheyeParameter(from: parameter) === parameter)
+        XCTAssertNil(IRGLProgramFactoryPolicy.fisheyeParameter(from: IRMediaParameter(width: 320, height: 180)))
+
+        let fallback = IRGLProgramFactoryPolicy.fisheyeParameter(from: nil)
+        XCTAssertEqual(fallback?.width, 0)
+        XCTAssertEqual(fallback?.height, 0)
+        XCTAssertEqual(fallback?.latmax, 0)
+    }
+
     func test2DProgramFactoryAttaches2DControllerAndOrthographicProjection() {
         let parameter = IRMediaParameter(width: 320, height: 180)
         let viewport = CGRect(x: 4, y: 8, width: 160, height: 90)

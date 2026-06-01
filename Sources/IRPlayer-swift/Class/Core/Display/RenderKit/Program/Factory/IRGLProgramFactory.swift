@@ -7,52 +7,6 @@
 
 import Foundation
 
-enum IRGLProgramFactoryPolicy {
-    static func expandedScaleRange(from range: IRGLScaleRange, multiplier: Float) -> IRGLScaleRange {
-        IRGLScaleRange(minScaleX: range.minScaleX,
-                       minScaleY: range.minScaleY,
-                       maxScaleX: range.maxScaleX * multiplier,
-                       maxScaleY: range.maxScaleY * multiplier,
-                       defaultScaleX: range.defaultScaleX,
-                       defaultScaleY: range.defaultScaleY)
-    }
-
-    static func fisheyeScopeRange(from range: IRGLScopeRange, latmax: Float) -> IRGLScopeRange {
-        let maxLat = range.maxLat > 0 ? latmax : latmax - 90.0
-        var defaultLat = range.defaultLat
-        if defaultLat > maxLat || defaultLat < range.minLat {
-            defaultLat = (maxLat + range.minLat) / 2
-        }
-        return IRGLScopeRange(minLat: range.minLat,
-                              maxLat: maxLat,
-                              minLng: range.minLng,
-                              maxLng: range.maxLng,
-                              defaultLat: defaultLat,
-                              defaultLng: range.defaultLng)
-    }
-
-    static func defaultFisheyeScope(from range: IRGLScopeRange, panelIndex: Int?) -> IRGLScopeRange {
-        let defaultLng: Float
-        switch panelIndex {
-        case 1:
-            defaultLng = 180
-        case 2:
-            defaultLng = 270
-        case 3:
-            defaultLng = 0
-        default:
-            defaultLng = 90
-        }
-
-        return IRGLScopeRange(minLat: range.minLat,
-                              maxLat: range.maxLat,
-                              minLng: range.minLng,
-                              maxLng: range.maxLng,
-                              defaultLat: -40,
-                              defaultLng: defaultLng)
-    }
-}
-
 @objcMembers public class IRGLProgramFactory: NSObject {
 
     public static func createIRGLProgram2D(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2D {
@@ -89,7 +43,7 @@ enum IRGLProgramFactoryPolicy {
     }
 
     public static func createIRGLProgram3DFisheye(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram3DFisheye? {
-        guard let fisheyeParameter = makeFisheyeParameter(from: parameter) else {
+        guard let fisheyeParameter = IRGLProgramFactoryPolicy.fisheyeParameter(from: parameter) else {
             return nil
         }
 
@@ -138,7 +92,7 @@ enum IRGLProgramFactoryPolicy {
     }
 
     public static func createIRGLProgram3DFisheye4P(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramMulti4P? {
-        guard let fisheyeParameter = makeFisheyeParameter(from: parameter) else {
+        guard let fisheyeParameter = IRGLProgramFactoryPolicy.fisheyeParameter(from: parameter) else {
             return nil
         }
 
@@ -172,16 +126,6 @@ enum IRGLProgramFactoryPolicy {
         }
 
         return program
-    }
-
-    private static func makeFisheyeParameter(from parameter: IRMediaParameter?) -> IRFisheyeParameter? {
-        guard let parameter = parameter else {
-            return IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
-        }
-        guard let fisheyeParameter = parameter as? IRFisheyeParameter else {
-            return nil
-        }
-        return fisheyeParameter
     }
 
     public static func createIRGLProgramVR(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramVR {
