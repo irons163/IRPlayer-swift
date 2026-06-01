@@ -77,6 +77,21 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertTrue(queue.getFrameAsync() === third)
     }
 
+    func testPutSortFrameKeepsNonFinitePositionsAfterFiniteFrames() {
+        let queue = IRFFFrameQueue.frameQueue()
+        let earlier = makeFrame(position: 1, duration: 0.1, size: 1)
+        let malformed = makeFrame(position: .nan, duration: 0.1, size: 1)
+        let later = makeFrame(position: 2, duration: 0.1, size: 1)
+
+        queue.putSortFrame(earlier)
+        queue.putSortFrame(malformed)
+        queue.putSortFrame(later)
+
+        XCTAssertTrue(queue.getFrameAsync() === earlier)
+        XCTAssertTrue(queue.getFrameAsync() === later)
+        XCTAssertTrue(queue.getFrameAsync() === malformed)
+    }
+
     func testFrameQueueIgnoresNegativeFrameAccountingValues() {
         let queue = IRFFFrameQueue.frameQueue()
         let malformed = makeFrame(position: 0, duration: -1, size: -10)

@@ -38,6 +38,16 @@ class IRFFFrameQueue: NSObject {
         return max(0, frame.size)
     }
 
+    static func shouldInsert(_ frame: IRFFFrame, after existingFrame: IRFFFrame) -> Bool {
+        if frame.position.isFinite, existingFrame.position.isFinite {
+            return frame.position >= existingFrame.position
+        }
+        if !frame.position.isFinite {
+            return true
+        }
+        return false
+    }
+
     func putFrame(_ frame: IRFFFrame?) {
         guard let frame = frame else { return }
         condition.lock()
@@ -62,7 +72,7 @@ class IRFFFrameQueue: NSObject {
         var added = false
         if !frames.isEmpty {
             for i in stride(from: frames.count - 1, through: 0, by: -1) {
-                if frame.position >= frames[i].position {
+                if Self.shouldInsert(frame, after: frames[i]) {
                     frames.insert(frame, at: i + 1)
                     added = true
                     break
