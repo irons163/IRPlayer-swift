@@ -140,6 +140,7 @@
 		B5E9504D2F68A02400149265 /* IRFFTrackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */; };
 		B5E9500B2F68A00600149265 /* IRGLRenderModeFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */; };
 		B5E9500D2F68A00700149265 /* IRMatrix4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */; };
+		B5E951C12F6900200149265 /* IRSensorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951C02F6900200149265 /* IRSensorTests.swift */; };
 		B5E9500F2F68A00800149265 /* IRAudioManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500E2F68A00800149265 /* IRAudioManagerTests.swift */; };
 		B5E950112F68A00900149265 /* IRAVPlayerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950102F68A00900149265 /* IRAVPlayerTests.swift */; };
 		B5E950132F68A00A00149265 /* IRFFFormatContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950122F68A00A00149265 /* IRFFFormatContextTests.swift */; };
@@ -321,6 +322,7 @@
 		B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFTrackTests.swift; sourceTree = "<group>"; };
 		B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderModeFactoryTests.swift; sourceTree = "<group>"; };
 		B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMatrix4Tests.swift; sourceTree = "<group>"; };
+		B5E951C02F6900200149265 /* IRSensorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSensorTests.swift; sourceTree = "<group>"; };
 		B5E9500E2F68A00800149265 /* IRAudioManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAudioManagerTests.swift; sourceTree = "<group>"; };
 		B5E950102F68A00900149265 /* IRAVPlayerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAVPlayerTests.swift; sourceTree = "<group>"; };
 		B5E950122F68A00A00149265 /* IRFFFormatContextTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFormatContextTests.swift; sourceTree = "<group>"; };
@@ -864,6 +866,7 @@
 				B5E950282F68A01500149265 /* IRGLViewSnapshotTests.swift */,
 				B5E950342F68A01800149265 /* IRePTZShiftControllerTests.swift */,
 				B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */,
+				B5E951C02F6900200149265 /* IRSensorTests.swift */,
 				B5E950042F68A00300149265 /* IRModelPayloadTests.swift */,
 				B5E951A02F6900010149265 /* IRPhotoSaverTests.swift */,
 				B5E951A22F6900020149265 /* IRPLFImageTests.swift */,
@@ -1175,6 +1178,7 @@
 				B5E950352F68A01800149265 /* IRePTZShiftControllerTests.swift in Sources */,
 				B5E9505D2F68A02B00149265 /* IRGLFisheyeTransformPolicyTests.swift in Sources */,
 				B5E9500D2F68A00700149265 /* IRMatrix4Tests.swift in Sources */,
+				B5E951C12F6900200149265 /* IRSensorTests.swift in Sources */,
 				B5E950052F68A00300149265 /* IRModelPayloadTests.swift in Sources */,
 				B5E951A12F6900010149265 /* IRPhotoSaverTests.swift in Sources */,
 				B5E951A32F6900020149265 /* IRPLFImageTests.swift in Sources */,
