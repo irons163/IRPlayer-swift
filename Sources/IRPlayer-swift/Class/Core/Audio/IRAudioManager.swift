@@ -182,6 +182,10 @@ class IRAudioManager: NSObject {
     }
 
     func registerAudioSession() -> Bool {
+        return registerAudioSession(setupAudioUnit)
+    }
+
+    func registerAudioSession(_ setupAudioUnit: () -> Bool) -> Bool {
         if !registered {
             if setupAudioUnit() {
                 registered = true

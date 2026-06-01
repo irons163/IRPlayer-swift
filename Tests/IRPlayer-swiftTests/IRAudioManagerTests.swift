@@ -46,12 +46,22 @@ final class IRAudioManagerRenderTests: XCTestCase {
 
     func testRegisterAudioSessionDoesNotPrintDebugDiagnostics() {
         let manager = IRAudioManager()
+        var setupCallCount = 0
 
         let output = captureStandardOutput {
-            _ = manager.registerAudioSession()
-            manager.unregisterAudioSession()
+            let registered = manager.registerAudioSession {
+                setupCallCount += 1
+                return true
+            }
+
+            XCTAssertTrue(registered)
+            XCTAssertTrue(manager.registerAudioSession {
+                XCTFail("Audio session setup should not be repeated once registered")
+                return false
+            })
         }
 
+        XCTAssertEqual(setupCallCount, 1)
         XCTAssertFalse(output.contains("IRAudioManager did error"))
         XCTAssertFalse(output.contains("IRAudioManager did warning"))
     }
