@@ -26,6 +26,33 @@ public let IRPlayerPlayablePercentKey: String = "percent" // playable
 public let IRPlayerPlayableCurrentKey: String = "current" // playable
 public let IRPlayerPlayableTotalKey: String = "total" // playable
 
+enum IRPayloadNumber {
+
+    static func isBoolean(_ value: NSNumber) -> Bool {
+        return CFGetTypeID(value) == CFBooleanGetTypeID()
+    }
+
+    static func isInteger(_ value: NSNumber) -> Bool {
+        guard !isBoolean(value) else {
+            return false
+        }
+
+        switch String(cString: value.objCType) {
+        case "c", "C", "s", "S", "i", "I", "l", "L", "q", "Q":
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func integerRawValue(from value: NSNumber) -> Int? {
+        guard isInteger(value) else {
+            return nil
+        }
+        return value.intValue
+    }
+}
+
 enum IRPlayerNotificationPayload {
 
     static func state(previous: IRPlayerState, current: IRPlayerState) -> [AnyHashable: Any] {
@@ -60,7 +87,7 @@ enum IRPlayerNotificationPayload {
         if let value = value as? CGFloat {
             converted = value
         } else if let value = value as? NSNumber {
-            guard CFGetTypeID(value) != CFBooleanGetTypeID() else { return 0 }
+            guard !IRPayloadNumber.isBoolean(value) else { return 0 }
             converted = CGFloat(truncating: value)
         } else if let value = value as? Double {
             converted = CGFloat(value)
@@ -79,26 +106,13 @@ enum IRPlayerNotificationPayload {
             return value
         }
         if let value = value as? NSNumber {
-            guard let rawValue = integerStateRawValue(from: value) else { return .none }
+            guard let rawValue = IRPayloadNumber.integerRawValue(from: value) else { return .none }
             return IRPlayerState(rawValue: rawValue) ?? .none
         }
         if let value = value as? Int {
             return IRPlayerState(rawValue: value) ?? .none
         }
         return .none
-    }
-
-    static func integerStateRawValue(from value: NSNumber) -> Int? {
-        if CFGetTypeID(value) == CFBooleanGetTypeID() {
-            return nil
-        }
-
-        switch String(cString: value.objCType) {
-        case "c", "C", "s", "S", "i", "I", "l", "L", "q", "Q":
-            return value.intValue
-        default:
-            return nil
-        }
     }
 
     private static func timePayload(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
