@@ -61,6 +61,7 @@
 		B5E94EDB2D0B21F800149265 /* IRGLProgramDistortion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DA52D0B21F800149265 /* IRGLProgramDistortion.swift */; };
 		B5E94EDC2D0B21F800149265 /* IRAudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D6B2D0B21F800149265 /* IRAudioManager.swift */; };
 		B5E94EDD2D0B21F800149265 /* IRePTZShiftController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D762D0B21F800149265 /* IRePTZShiftController.swift */; };
+		B5E952672F6903200149265 /* IRePTZShiftPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952662F6903200149265 /* IRePTZShiftPolicy.swift */; };
 		B5E9525F2F6902E00149265 /* IRGesturePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9525E2F6902E00149265 /* IRGesturePolicy.swift */; };
 		B5E94EDE2D0B21F800149265 /* IRGLProgramFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DAC2D0B21F800149265 /* IRGLProgramFactory.swift */; };
 		B5E94EE12D0B21F800149265 /* IRGLProgram3DFisheye4PFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DA92D0B21F800149265 /* IRGLProgram3DFisheye4PFactory.swift */; };
@@ -287,6 +288,7 @@
 		B5E94D722D0B21F800149265 /* IRBounceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRBounceController.swift; sourceTree = "<group>"; };
 		B5E952642F6903100149265 /* IRBouncePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRBouncePolicy.swift; sourceTree = "<group>"; };
 		B5E94D762D0B21F800149265 /* IRePTZShiftController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRePTZShiftController.swift; sourceTree = "<group>"; };
+		B5E952662F6903200149265 /* IRePTZShiftPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRePTZShiftPolicy.swift; sourceTree = "<group>"; };
 		B5E94D782D0B21F800149265 /* IRGestureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGestureController.swift; sourceTree = "<group>"; };
 		B5E9525E2F6902E00149265 /* IRGesturePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGesturePolicy.swift; sourceTree = "<group>"; };
 		B5E94D792D0B21F800149265 /* IRGLGestureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLGestureController.swift; sourceTree = "<group>"; };
@@ -638,6 +640,7 @@
 			isa = PBXGroup;
 			children = (
 				B5E94D762D0B21F800149265 /* IRePTZShiftController.swift */,
+				B5E952662F6903200149265 /* IRePTZShiftPolicy.swift */,
 			);
 			path = DeviceShiftController;
 			sourceTree = "<group>";
@@ -1200,6 +1203,7 @@
 				B559AA722D15C603007A9F9F /* IRFFMpeg.m in Sources */,
 				B5E94EDC2D0B21F800149265 /* IRAudioManager.swift in Sources */,
 				B5E94EDD2D0B21F800149265 /* IRePTZShiftController.swift in Sources */,
+				B5E952672F6903200149265 /* IRePTZShiftPolicy.swift in Sources */,
 				B5E9525F2F6902E00149265 /* IRGesturePolicy.swift in Sources */,
 				B5E94EDE2D0B21F800149265 /* IRGLProgramFactory.swift in Sources */,
 				B5E94EE12D0B21F800149265 /* IRGLProgram3DFisheye4PFactory.swift in Sources */,
