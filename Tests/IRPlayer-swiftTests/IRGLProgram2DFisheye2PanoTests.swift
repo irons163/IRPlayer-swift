@@ -3,6 +3,29 @@ import XCTest
 
 final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
 
+    func testPanoShaderParamPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: 480)?.width,
+            IRGLFish2PanoShaderParamsPolicy.outputSize(forTextureWidth: 640, height: 480)?.width
+        )
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: 480)?.height,
+            IRGLFish2PanoShaderParamsPolicy.outputSize(forTextureWidth: 640, height: 480)?.height
+        )
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.pixelMapTextureCount(antialias: 3),
+            IRGLFish2PanoShaderParamsPolicy.pixelMapTextureCount(antialias: 3)
+        )
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.pixelMapCapacity(outputWidth: 10, outputHeight: 20),
+            IRGLFish2PanoShaderParamsPolicy.pixelMapCapacity(outputWidth: 10, outputHeight: 20)
+        )
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 20, x: 3, y: 2),
+            IRGLFish2PanoShaderParamsPolicy.pixelMapUVOffset(outputWidth: 10, outputHeight: 20, x: 3, y: 2)
+        )
+    }
+
     func testStaticPolicyWrappersRemainSourceCompatible() {
         let params = IRGLFish2PanoShaderParams()
         params.textureWidth = 1920
