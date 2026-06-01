@@ -12,15 +12,13 @@ import simd
 import QuartzCore
 
 enum IRMetalRuntimeDebugOutput {
-    #if IRMetalRuntimeDebugOutputEnable
-    static let isEnabled = true
-    #else
-    static let isEnabled = false
-    #endif
+    static var isEnabled: Bool {
+        IRMetalRuntimeDebugOutputPolicy.isEnabled
+    }
 
     static func write(_ message: @autoclosure () -> String) {
         guard isEnabled else { return }
-        print(message())
+        IRMetalRuntimeDebugOutputPolicy.write(message())
     }
 }
 

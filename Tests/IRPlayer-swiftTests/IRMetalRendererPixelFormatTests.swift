@@ -21,6 +21,17 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         XCTAssertEqual(output, "")
     }
 
+    func testRuntimeDebugOutputWrapperMatchesPolicy() {
+        XCTAssertEqual(IRMetalRuntimeDebugOutput.isEnabled, IRMetalRuntimeDebugOutputPolicy.isEnabled)
+        XCTAssertFalse(IRMetalRuntimeDebugOutputPolicy.isEnabled)
+
+        let output = captureStandardOutput {
+            IRMetalRuntimeDebugOutputPolicy.write("metal trace")
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testComputeScaleRejectsInvalidSizes() {
         XCTAssertEqual(
             IRMetalRenderer.computeScale(contentMode: .scaleAspectFit, frameSize: CGSize(width: CGFloat.nan, height: 100), drawableSize: CGSize(width: 100, height: 100)),
