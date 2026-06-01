@@ -10,6 +10,12 @@ import XCTest
 
 final class IRGLProjectionVRTests: XCTestCase {
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(IRGLProjectionVR.glIndex(0), IRGLProjectionVRPolicy.glIndex(0))
+        XCTAssertEqual(IRGLProjectionVR.glIndex(Int(UInt16.max)), IRGLProjectionVRPolicy.glIndex(Int(UInt16.max)))
+        XCTAssertEqual(IRGLProjectionVR.glIndex(-1), IRGLProjectionVRPolicy.glIndex(-1))
+    }
+
     func testGLIndexRejectsValuesOutsideUInt16Range() {
         XCTAssertNil(IRGLProjectionVR.glIndex(-1))
         XCTAssertNil(IRGLProjectionVR.glIndex(Int(UInt16.max) + 1))
