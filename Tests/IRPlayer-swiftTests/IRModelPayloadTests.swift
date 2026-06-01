@@ -11,6 +11,53 @@ import XCTest
 
 final class IRModelPayloadTests: XCTestCase {
 
+    func testNotificationPayloadWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRPlayerNotificationPayload.state(previous: .buffering, current: .playing) as NSDictionary,
+            IRPlayerNotificationPayloadPolicy.state(previous: .buffering, current: .playing) as NSDictionary
+        )
+        XCTAssertEqual(
+            IRPlayerNotificationPayload.progress(
+                percent: NSNumber(value: 0.25),
+                current: NSNumber(value: 3),
+                total: NSNumber(value: 12)
+            ) as NSDictionary,
+            IRPlayerNotificationPayloadPolicy.progress(
+                percent: NSNumber(value: 0.25),
+                current: NSNumber(value: 3),
+                total: NSNumber(value: 12)
+            ) as NSDictionary
+        )
+        XCTAssertEqual(
+            IRPlayerNotificationPayload.playable(
+                percent: NSNumber(value: 0.5),
+                current: NSNumber(value: 6),
+                total: NSNumber(value: 12)
+            ) as NSDictionary,
+            IRPlayerNotificationPayloadPolicy.playable(
+                percent: NSNumber(value: 0.5),
+                current: NSNumber(value: 6),
+                total: NSNumber(value: 12)
+            ) as NSDictionary
+        )
+        XCTAssertEqual(
+            IRPlayerNotificationPayload.timePercent(current: 3, total: 12),
+            IRPlayerNotificationPayloadPolicy.timePercent(current: 3, total: 12)
+        )
+        XCTAssertEqual(
+            IRPlayerNotificationPayload.cgFloat(NSNumber(value: 4.5)),
+            IRPlayerNotificationPayloadPolicy.cgFloat(NSNumber(value: 4.5))
+        )
+        XCTAssertEqual(
+            IRPlayerNotificationPayload.state(NSNumber(value: IRPlayerState.failed.rawValue)),
+            IRPlayerNotificationPayloadPolicy.state(NSNumber(value: IRPlayerState.failed.rawValue))
+        )
+
+        let error = IRError()
+        XCTAssertTrue(IRPlayerNotificationPayload.error(error)[IRPlayerErrorKey] as? IRError === error)
+        XCTAssertTrue(IRPlayerNotificationPayloadPolicy.error(error)[IRPlayerErrorKey] as? IRError === error)
+    }
+
     func testDefaultIRErrorUsesValidNSError() {
         let error = IRError()
 

@@ -98,6 +98,7 @@
 		B5E94F172D0B21F800149265 /* IRFFMpegErrorUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E0F2D0B21F800149265 /* IRFFMpegErrorUtil.swift */; };
 		B5E94F192D0B21F800149265 /* IRGLRenderModeMulti4P.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D962D0B21F800149265 /* IRGLRenderModeMulti4P.swift */; };
 		B5E94F1A2D0B21F800149265 /* IRPlayerAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E1B2D0B21F800149265 /* IRPlayerAction.swift */; };
+		B5E9523B2F6901C00149265 /* IRPlayerNotificationPayloadPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9523A2F6901C00149265 /* IRPlayerNotificationPayloadPolicy.swift */; };
 		B5E94F1B2D0B21F800149265 /* IRGLProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DBB2D0B21F800149265 /* IRGLProjection.swift */; };
 		B5E94F1C2D0B21F800149265 /* IRGestureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D782D0B21F800149265 /* IRGestureController.swift */; };
 		B5E94F1E2D0B21F800149265 /* IRPLFView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E192D0B21F800149265 /* IRPLFView.swift */; };
@@ -340,6 +341,7 @@
 		B5E94E162D0B21F800149265 /* IRPLFImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPLFImage.swift; sourceTree = "<group>"; };
 		B5E94E192D0B21F800149265 /* IRPLFView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPLFView.swift; sourceTree = "<group>"; };
 		B5E94E1B2D0B21F800149265 /* IRPlayerAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerAction.swift; sourceTree = "<group>"; };
+		B5E9523A2F6901C00149265 /* IRPlayerNotificationPayloadPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerNotificationPayloadPolicy.swift; sourceTree = "<group>"; };
 		B5E94E1C2D0B21F800149265 /* IRPlayerDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerDecoder.swift; sourceTree = "<group>"; };
 		B5E94E1D2D0B21F800149265 /* IRPlayerImp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerImp.swift; sourceTree = "<group>"; };
 		B5E950562F68A02800149265 /* IRPlayerLifecyclePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerLifecyclePolicy.swift; sourceTree = "<group>"; };
@@ -853,6 +855,7 @@
 				B5E94E132D0B21F800149265 /* Core */,
 				B5E94E1A2D0B21F800149265 /* Platform */,
 				B5E94E1B2D0B21F800149265 /* IRPlayerAction.swift */,
+				B5E9523A2F6901C00149265 /* IRPlayerNotificationPayloadPolicy.swift */,
 				B5E94E1C2D0B21F800149265 /* IRPlayerDecoder.swift */,
 				B5E94E1D2D0B21F800149265 /* IRPlayerImp.swift */,
 				B5E950562F68A02800149265 /* IRPlayerLifecyclePolicy.swift */,
@@ -1183,6 +1186,7 @@
 				B5E94F9A0000000000000001 /* IRPhotoSaver.swift in Sources */,
 				B5E94F192D0B21F800149265 /* IRGLRenderModeMulti4P.swift in Sources */,
 				B5E94F1A2D0B21F800149265 /* IRPlayerAction.swift in Sources */,
+				B5E9523B2F6901C00149265 /* IRPlayerNotificationPayloadPolicy.swift in Sources */,
 				B5E94F1B2D0B21F800149265 /* IRGLProjection.swift in Sources */,
 				B5E94F1C2D0B21F800149265 /* IRGestureController.swift in Sources */,
 				B5E94F1E2D0B21F800149265 /* IRPLFView.swift in Sources */,
