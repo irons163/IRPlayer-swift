@@ -62,7 +62,7 @@ class IRFFFrameQueue: NSObject {
         var added = false
         if !frames.isEmpty {
             for i in stride(from: frames.count - 1, through: 0, by: -1) {
-                if frame.position > frames[i].position {
+                if frame.position >= frames[i].position {
                     frames.insert(frame, at: i + 1)
                     added = true
                     break
