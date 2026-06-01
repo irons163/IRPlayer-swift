@@ -5,23 +5,23 @@ import XCTest
 final class IRAVPlayerTests: XCTestCase {
 
     func testTrackNameFallsBackWhenLanguageCodeIsMissingOrEmpty() {
-        XCTAssertEqual(IRAVPlayer.trackName(languageCode: nil, trackID: 7), "Track 7")
-        XCTAssertEqual(IRAVPlayer.trackName(languageCode: "", trackID: 8), "Track 8")
-        XCTAssertEqual(IRAVPlayer.trackName(languageCode: "  ", trackID: 9), "Track 9")
-        XCTAssertEqual(IRAVPlayer.trackName(languageCode: "en", trackID: 10), "en")
+        XCTAssertEqual(IRAVPlayerTrackPolicy.trackName(languageCode: nil, trackID: 7), "Track 7")
+        XCTAssertEqual(IRAVPlayerTrackPolicy.trackName(languageCode: "", trackID: 8), "Track 8")
+        XCTAssertEqual(IRAVPlayerTrackPolicy.trackName(languageCode: "  ", trackID: 9), "Track 9")
+        XCTAssertEqual(IRAVPlayerTrackPolicy.trackName(languageCode: "en", trackID: 10), "en")
     }
 
     func testMediaSelectionTrackIDParsesOptionPropertyLists() {
-        XCTAssertEqual(IRAVPlayer.mediaSelectionTrackID(from: [
+        XCTAssertEqual(IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: [
             IRAVPlayer.avMediaSelectionOptionTrackIDKey: 42
         ]), 42)
-        XCTAssertEqual(IRAVPlayer.mediaSelectionTrackID(from: [
+        XCTAssertEqual(IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: [
             IRAVPlayer.avMediaSelectionOptionTrackIDKey: NSNumber(value: 43)
         ]), 43)
-        XCTAssertNil(IRAVPlayer.mediaSelectionTrackID(from: [
+        XCTAssertNil(IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: [
             IRAVPlayer.avMediaSelectionOptionTrackIDKey: "44"
         ]))
-        XCTAssertNil(IRAVPlayer.mediaSelectionTrackID(from: "not-a-dictionary"))
+        XCTAssertNil(IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: "not-a-dictionary"))
     }
 
     func testDefaultTrackFallsBackWhenPropertyListDoesNotMatch() {
@@ -30,14 +30,14 @@ final class IRAVPlayerTests: XCTestCase {
         let second = IRPlayerTrack()
         second.index = 2
 
-        XCTAssertTrue(IRAVPlayer.defaultTrack(from: [first, second], propertyList: [
+        XCTAssertTrue(IRAVPlayerTrackPolicy.defaultTrack(from: [first, second], propertyList: [
             IRAVPlayer.avMediaSelectionOptionTrackIDKey: 2
         ]) === second)
-        XCTAssertTrue(IRAVPlayer.defaultTrack(from: [first, second], propertyList: [
+        XCTAssertTrue(IRAVPlayerTrackPolicy.defaultTrack(from: [first, second], propertyList: [
             IRAVPlayer.avMediaSelectionOptionTrackIDKey: "2"
         ]) === first)
-        XCTAssertTrue(IRAVPlayer.defaultTrack(from: [first, second], propertyList: nil) === first)
-        XCTAssertNil(IRAVPlayer.defaultTrack(from: [], propertyList: [
+        XCTAssertTrue(IRAVPlayerTrackPolicy.defaultTrack(from: [first, second], propertyList: nil) === first)
+        XCTAssertNil(IRAVPlayerTrackPolicy.defaultTrack(from: [], propertyList: [
             IRAVPlayer.avMediaSelectionOptionTrackIDKey: 2
         ]))
     }
