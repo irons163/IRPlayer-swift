@@ -75,6 +75,32 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         ])
     }
 
+    func testMetalViewportBuildsTopLeftFlippedViewport() {
+        let viewport = IRMetalRenderer.metalViewport(drawableSize: CGSize(width: 320, height: 240),
+                                                     viewport: CGRect(x: 10, y: 20, width: 100, height: 50),
+                                                     orientation: .topLeftFlipped)
+
+        XCTAssertEqual(viewport.originX, 10)
+        XCTAssertEqual(viewport.originY, 220)
+        XCTAssertEqual(viewport.width, 100)
+        XCTAssertEqual(viewport.height, -50)
+        XCTAssertEqual(viewport.znear, 0)
+        XCTAssertEqual(viewport.zfar, 1)
+    }
+
+    func testMetalViewportBuildsBottomLeftViewport() {
+        let viewport = IRMetalRenderer.metalViewport(drawableSize: CGSize(width: 320, height: 240),
+                                                     viewport: CGRect(x: 10, y: 20, width: 100, height: 50),
+                                                     orientation: .bottomLeft)
+
+        XCTAssertEqual(viewport.originX, 10)
+        XCTAssertEqual(viewport.originY, 170)
+        XCTAssertEqual(viewport.width, 100)
+        XCTAssertEqual(viewport.height, 50)
+        XCTAssertEqual(viewport.znear, 0)
+        XCTAssertEqual(viewport.zfar, 1)
+    }
+
     func testRGBTextureLayoutRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 0, height: 1, linesize: 4, byteCount: 4))
         XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 1, height: 0, linesize: 4, byteCount: 4))

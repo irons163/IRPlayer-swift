@@ -26,13 +26,9 @@ extension IRMetalRenderer {
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
 
-        let originY = drawableSize.height - viewport.origin.y
-        encoder.setViewport(MTLViewport(originX: Double(viewport.origin.x),
-                                        originY: Double(originY),
-                                        width: Double(viewport.size.width),
-                                        height: -Double(viewport.size.height),
-                                        znear: 0,
-                                        zfar: 1))
+        encoder.setViewport(Self.metalViewport(drawableSize: drawableSize,
+                                               viewport: viewport,
+                                               orientation: .topLeftFlipped))
 
         let targetSize = viewport.size
         let scale = computeScale(contentMode: contentMode, frameSize: outputSize, drawableSize: targetSize)

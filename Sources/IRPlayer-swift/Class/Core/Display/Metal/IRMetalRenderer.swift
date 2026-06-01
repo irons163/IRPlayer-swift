@@ -36,6 +36,11 @@ final class IRMetalRenderer {
         case right
     }
 
+    enum MetalViewportOrientation {
+        case topLeftFlipped
+        case bottomLeft
+    }
+
     struct Fish2PanoParams {
         var fishwidth: Int32
         var fishheight: Int32
@@ -364,6 +369,28 @@ final class IRMetalRenderer {
             QuadVertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(minU, 0.0)),
             QuadVertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(maxU, 0.0))
         ]
+    }
+
+    static func metalViewport(drawableSize: CGSize,
+                              viewport: CGRect,
+                              orientation: MetalViewportOrientation) -> MTLViewport {
+        let originY: CGFloat
+        let height: CGFloat
+        switch orientation {
+        case .topLeftFlipped:
+            originY = drawableSize.height - viewport.origin.y
+            height = -viewport.size.height
+        case .bottomLeft:
+            originY = drawableSize.height - viewport.origin.y - viewport.size.height
+            height = viewport.size.height
+        }
+
+        return MTLViewport(originX: Double(viewport.origin.x),
+                           originY: Double(originY),
+                           width: Double(viewport.size.width),
+                           height: Double(height),
+                           znear: 0,
+                           zfar: 1)
     }
 }
 

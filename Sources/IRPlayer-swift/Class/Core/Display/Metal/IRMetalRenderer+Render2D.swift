@@ -26,12 +26,9 @@ extension IRMetalRenderer {
 
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         encoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
-        encoder.setViewport(MTLViewport(originX: 0,
-                                        originY: Double(drawableSize.height),
-                                        width: Double(drawableSize.width),
-                                        height: -Double(drawableSize.height),
-                                        znear: 0,
-                                        zfar: 1))
+        encoder.setViewport(Self.metalViewport(drawableSize: drawableSize,
+                                               viewport: CGRect(origin: .zero, size: drawableSize),
+                                               orientation: .topLeftFlipped))
 
         if let pixelRenderer = pixelRenderer(for: frame) {
             if pixelRenderer.render2D(renderer: self, frame: frame, encoder: encoder) {
@@ -61,13 +58,9 @@ extension IRMetalRenderer {
         var didRender = false
         for (index, viewport) in viewports.enumerated() {
             guard viewport.width > 0, viewport.height > 0 else { continue }
-            let originY = drawableSize.height - viewport.origin.y
-            encoder.setViewport(MTLViewport(originX: Double(viewport.origin.x),
-                                            originY: Double(originY),
-                                            width: Double(viewport.size.width),
-                                            height: -Double(viewport.size.height),
-                                            znear: 0,
-                                            zfar: 1))
+            encoder.setViewport(Self.metalViewport(drawableSize: drawableSize,
+                                                   viewport: viewport,
+                                                   orientation: .topLeftFlipped))
 
             let targetSize = viewport.size
             let scale = computeScale(contentMode: contentModes[index],
