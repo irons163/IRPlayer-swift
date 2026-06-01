@@ -256,6 +256,13 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertFalse(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: 1.0, nextPosition: 0.5))
     }
 
+    func testShouldAcceptVideoFrameRecoversFromMalformedCurrentPosition() {
+        XCTAssertTrue(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: .nan, nextPosition: 1.0))
+        XCTAssertTrue(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: .infinity, nextPosition: 1.0))
+        XCTAssertFalse(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: 1.0, nextPosition: .nan))
+        XCTAssertFalse(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: 1.0, nextPosition: .infinity))
+    }
+
     func testShouldFetchAudioFrameRequiresActiveAudioPlaybackState() {
         XCTAssertTrue(
             IRFFDecoder.shouldFetchAudioFrame(

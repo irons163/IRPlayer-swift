@@ -385,8 +385,15 @@ protocol IRFFDecoderDelegate: AnyObject {
         return Self.frameInterval(forFPS: fps)
     }
 
+    static func videoFrameOrderingPosition(_ position: TimeInterval?) -> TimeInterval? {
+        guard let position else { return 0 }
+        return position.isFinite ? position : nil
+    }
+
     static func shouldAcceptVideoFrame(currentPosition: TimeInterval?, nextPosition: TimeInterval?) -> Bool {
-        return (currentPosition ?? 0) <= (nextPosition ?? 0)
+        guard let nextPosition = Self.videoFrameOrderingPosition(nextPosition) else { return false }
+        guard let currentPosition = Self.videoFrameOrderingPosition(currentPosition) else { return true }
+        return currentPosition <= nextPosition
     }
 
     static func shouldFetchAudioFrame(closed: Bool,
