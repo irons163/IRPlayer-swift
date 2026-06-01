@@ -295,13 +295,11 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func videoCodecContext(from formatContext: IRFFFormatContext?) -> UnsafeMutablePointer<AVCodecContext>? {
-        guard formatContext?.videoEnable == true else { return nil }
-        return formatContext?.videoCodecContext
+        return IRFFDecoderCodecContextPolicy.videoCodecContext(from: formatContext)
     }
 
     static func audioCodecContext(from formatContext: IRFFFormatContext?) -> UnsafeMutablePointer<AVCodecContext>? {
-        guard formatContext?.audioEnable == true else { return nil }
-        return formatContext?.audioCodecContext
+        return IRFFDecoderCodecContextPolicy.audioCodecContext(from: formatContext)
     }
 
     static func audioPacketError(fromPacketResult packetResult: Int) -> NSError? {
