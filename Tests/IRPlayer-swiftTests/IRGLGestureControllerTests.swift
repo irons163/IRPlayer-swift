@@ -32,6 +32,12 @@ final class IRGLGestureControllerTests: XCTestCase {
                                           screenScale: 0),
             .zero
         )
+        XCTAssertEqual(
+            IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
+                                          viewHeight: 100,
+                                          screenScale: -1),
+            .zero
+        )
     }
 
     func testGesturePolicyMapsPanRecognizerStatesToActions() {
@@ -50,6 +56,29 @@ final class IRGLGestureControllerTests: XCTestCase {
         XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .ended), .end)
         XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .cancelled), .end)
         XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .failed), .end)
+    }
+
+    func testGesturePolicyShouldBeginRejectsDisabledDoubleTapAndSwipeWhileZooming() {
+        XCTAssertFalse(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: false,
+                                                           isDoubleTapGesture: false,
+                                                           doubleTapEnabled: true,
+                                                           isSwipeGesture: false,
+                                                           isProgramZooming: false))
+        XCTAssertFalse(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: true,
+                                                           isDoubleTapGesture: true,
+                                                           doubleTapEnabled: false,
+                                                           isSwipeGesture: false,
+                                                           isProgramZooming: false))
+        XCTAssertFalse(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: true,
+                                                           isDoubleTapGesture: false,
+                                                           doubleTapEnabled: true,
+                                                           isSwipeGesture: true,
+                                                           isProgramZooming: true))
+        XCTAssertTrue(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: true,
+                                                          isDoubleTapGesture: true,
+                                                          doubleTapEnabled: true,
+                                                          isSwipeGesture: true,
+                                                          isProgramZooming: false))
     }
 
     func testClearingCurrentModeClearsSmoothScrollMode() {
