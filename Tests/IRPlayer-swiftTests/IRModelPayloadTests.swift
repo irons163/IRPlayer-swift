@@ -84,6 +84,26 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(progress.total, 0)
     }
 
+    func testTimeParsersDefaultMalformedBooleanPayloads() {
+        let progress = IRModel.progress(fromUserInfo: [
+            IRPlayerProgressPercentKey: NSNumber(value: true),
+            IRPlayerProgressCurrentKey: NSNumber(value: false),
+            IRPlayerProgressTotalKey: true
+        ])
+        let playable = IRModel.playable(fromUserInfo: [
+            IRPlayerPlayablePercentKey: NSNumber(value: true),
+            IRPlayerPlayableCurrentKey: NSNumber(value: false),
+            IRPlayerPlayableTotalKey: true
+        ])
+
+        XCTAssertEqual(progress.percent, 0)
+        XCTAssertEqual(progress.current, 0)
+        XCTAssertEqual(progress.total, 0)
+        XCTAssertEqual(playable.percent, 0)
+        XCTAssertEqual(playable.current, 0)
+        XCTAssertEqual(playable.total, 0)
+    }
+
     func testProgressPayloadDefaultsNonFiniteNumbers() {
         let payload = IRPlayerNotificationPayload.progress(
             percent: NSNumber(value: Double.nan),

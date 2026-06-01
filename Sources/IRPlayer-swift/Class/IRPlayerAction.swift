@@ -52,10 +52,15 @@ enum IRPlayerNotificationPayload {
     }
 
     static func cgFloat(_ value: Any?) -> CGFloat {
+        if value is Bool {
+            return 0
+        }
+
         let converted: CGFloat
         if let value = value as? CGFloat {
             converted = value
         } else if let value = value as? NSNumber {
+            guard CFGetTypeID(value) != CFBooleanGetTypeID() else { return 0 }
             converted = CGFloat(truncating: value)
         } else if let value = value as? Double {
             converted = CGFloat(value)
