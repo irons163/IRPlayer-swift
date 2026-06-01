@@ -25,6 +25,20 @@ final class IRMetalRendererDistortionTests: XCTestCase {
         XCTAssertEqual(size?.height, 50)
     }
 
+    func testDistortionTextureSizeWrapperMatchesPolicy() {
+        let size = CGSize(width: 101.9, height: 50.2)
+
+        XCTAssertEqual(
+            IRMetalRenderer.distortionTextureSize(from: size)?.width,
+            IRMetalRendererDistortionPolicy.distortionTextureSize(from: size)?.width
+        )
+        XCTAssertEqual(
+            IRMetalRenderer.distortionTextureSize(from: size)?.height,
+            IRMetalRendererDistortionPolicy.distortionTextureSize(from: size)?.height
+        )
+        XCTAssertNil(IRMetalRendererDistortionPolicy.distortionTextureSize(from: CGSize(width: 0, height: 10)))
+    }
+
     func testDistortionScissorRectsSplitDrawableWidth() throws {
         let rects = try XCTUnwrap(IRMetalRenderer.distortionScissorRects(drawableSize: CGSize(width: 101, height: 50)))
 
@@ -34,5 +48,19 @@ final class IRMetalRendererDistortionTests: XCTestCase {
         XCTAssertEqual(rects.right.x, 50)
         XCTAssertEqual(rects.right.width, 51)
         XCTAssertEqual(rects.right.height, 50)
+    }
+
+    func testDistortionScissorRectsWrapperMatchesPolicy() throws {
+        let drawableSize = CGSize(width: 101, height: 50)
+        let wrapper = try XCTUnwrap(IRMetalRenderer.distortionScissorRects(drawableSize: drawableSize))
+        let policy = try XCTUnwrap(IRMetalRendererDistortionPolicy.distortionScissorRects(drawableSize: drawableSize))
+
+        XCTAssertEqual(wrapper.left.x, policy.left.x)
+        XCTAssertEqual(wrapper.left.width, policy.left.width)
+        XCTAssertEqual(wrapper.left.height, policy.left.height)
+        XCTAssertEqual(wrapper.right.x, policy.right.x)
+        XCTAssertEqual(wrapper.right.width, policy.right.width)
+        XCTAssertEqual(wrapper.right.height, policy.right.height)
+        XCTAssertNil(IRMetalRendererDistortionPolicy.distortionScissorRects(drawableSize: CGSize(width: -1, height: 50)))
     }
 }
