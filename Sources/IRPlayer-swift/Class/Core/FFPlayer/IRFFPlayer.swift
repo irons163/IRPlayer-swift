@@ -185,6 +185,7 @@ class IRFFPlayer: NSObject {
 
         let (frameSizeOf, frameSizeOverflow) = Int(numberOfChannels).multipliedReportingOverflow(by: MemoryLayout<Float>.size)
         guard !frameSizeOverflow, frameSizeOf > 0 else { return nil }
+        guard outputOffset % frameSizeOf == 0 else { return nil }
 
         let bytesLeft = frameSize - outputOffset
         guard bytesLeft > 0 else { return nil }

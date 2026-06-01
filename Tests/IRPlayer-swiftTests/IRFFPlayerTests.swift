@@ -54,6 +54,11 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 0, remainingFrames: 32, numberOfChannels: 0))
     }
 
+    func testAudioCopyPlanRejectsUnalignedFrameOffsets() {
+        XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 1, remainingFrames: 32, numberOfChannels: 2))
+        XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 4, remainingFrames: 32, numberOfChannels: 2))
+    }
+
     func testAudioCopyPlanRejectsOverflowingFrameCalculations() {
         XCTAssertNil(
             IRFFPlayer.audioCopyPlan(
