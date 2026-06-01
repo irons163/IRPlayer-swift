@@ -99,6 +99,9 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
         for frame in frames where Self.isFrame(frame, compatibleWith: frameClassName) {
             usedFrames.remove(frame)
             unuseFrames.insert(frame)
+            if playingFrame == frame {
+                playingFrame = nil
+            }
         }
         lock.unlock()
     }
