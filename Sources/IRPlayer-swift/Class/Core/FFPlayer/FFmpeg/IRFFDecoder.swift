@@ -303,15 +303,11 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func audioPacketError(fromPacketResult packetResult: Int) -> NSError? {
-        return IRFFCheckErrorCode(Int32(packetResult), errorCode: IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
+        return IRFFDecoderAudioPolicy.audioPacketError(fromPacketResult: packetResult)
     }
 
     static func bufferedDurationTransition(bufferedDuration: TimeInterval, endOfFile: Bool) -> BufferedDurationTransition {
-        let normalizedDuration = bufferedDuration <= 0.000001 ? 0 : bufferedDuration
-        return BufferedDurationTransition(
-            bufferedDuration: normalizedDuration,
-            shouldFinishPlayback: normalizedDuration <= 0 && endOfFile
-        )
+        return IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: bufferedDuration, endOfFile: endOfFile)
     }
 
     static func packetBufferBackpressureSleepInterval(audioSize: Int,
@@ -396,7 +392,14 @@ protocol IRFFDecoderDelegate: AnyObject {
                                       paused: Bool,
                                       playbackFinished: Bool,
                                       audioEnabled: Bool) -> Bool {
-        return !closed && !seeking && !buffering && !paused && !playbackFinished && audioEnabled
+        return IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
+            closed: closed,
+            seeking: seeking,
+            buffering: buffering,
+            paused: paused,
+            playbackFinished: playbackFinished,
+            audioEnabled: audioEnabled
+        )
     }
 
     static func resumeSeekTarget(playbackFinished: Bool) -> TimeInterval? {

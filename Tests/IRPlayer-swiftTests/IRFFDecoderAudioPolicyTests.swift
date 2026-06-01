@@ -4,31 +4,31 @@ import XCTest
 final class IRFFDecoderAudioPolicyTests: XCTestCase {
 
     func testAudioPacketErrorUsesPacketResult() throws {
-        XCTAssertNil(IRFFDecoder.audioPacketError(fromPacketResult: 0))
+        XCTAssertNil(IRFFDecoderAudioPolicy.audioPacketError(fromPacketResult: 0))
 
-        let error = try XCTUnwrap(IRFFDecoder.audioPacketError(fromPacketResult: -1))
+        let error = try XCTUnwrap(IRFFDecoderAudioPolicy.audioPacketError(fromPacketResult: -1))
         XCTAssertEqual(error.code, IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
         XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
     }
 
     func testBufferedDurationTransitionNormalizesTinyDurationsAndMarksFinishedAtEndOfFile() {
         XCTAssertEqual(
-            IRFFDecoder.bufferedDurationTransition(bufferedDuration: 0.0000001, endOfFile: false),
+            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: 0.0000001, endOfFile: false),
             IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: false)
         )
         XCTAssertEqual(
-            IRFFDecoder.bufferedDurationTransition(bufferedDuration: 0, endOfFile: true),
+            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: 0, endOfFile: true),
             IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: true)
         )
         XCTAssertEqual(
-            IRFFDecoder.bufferedDurationTransition(bufferedDuration: 0.5, endOfFile: true),
+            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: 0.5, endOfFile: true),
             IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0.5, shouldFinishPlayback: false)
         )
     }
 
     func testShouldFetchAudioFrameRequiresActiveAudioPlaybackState() {
         XCTAssertTrue(
-            IRFFDecoder.shouldFetchAudioFrame(
+            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: false,
@@ -38,7 +38,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoder.shouldFetchAudioFrame(
+            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
                 closed: true,
                 seeking: false,
                 buffering: false,
@@ -48,7 +48,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoder.shouldFetchAudioFrame(
+            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
                 closed: false,
                 seeking: true,
                 buffering: false,
@@ -58,7 +58,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoder.shouldFetchAudioFrame(
+            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: true,
@@ -68,7 +68,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoder.shouldFetchAudioFrame(
+            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: false,
@@ -78,7 +78,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoder.shouldFetchAudioFrame(
+            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: false,
@@ -88,7 +88,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoder.shouldFetchAudioFrame(
+            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: false,
