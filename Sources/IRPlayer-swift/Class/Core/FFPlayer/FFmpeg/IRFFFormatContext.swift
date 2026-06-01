@@ -318,6 +318,7 @@ public class IRFFFormatContext {
     }
 
     func readFrame(_ packet: UnsafeMutablePointer<AVPacket>) -> Int32 {
+        guard let formatContext else { return -1 }
         return av_read_frame(formatContext, packet)
     }
 
