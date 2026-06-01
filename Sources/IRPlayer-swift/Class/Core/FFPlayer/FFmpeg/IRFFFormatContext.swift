@@ -326,6 +326,8 @@ public class IRFFFormatContext {
     }
 
     static func track(index: Int, codecType: AVMediaType, metadata: IRFFMetadata?) -> IRFFTrack? {
+        guard index >= 0 else { return nil }
+
         switch codecType {
         case AVMEDIA_TYPE_VIDEO:
             return IRFFTrack(index: index, type: .video, metadata: metadata)
