@@ -23,6 +23,14 @@ final class IRMetalDistortionMeshTests: XCTestCase {
         )
     }
 
+    func testBufferByteLengthWrapperMatchesPolicy() {
+        XCTAssertEqual(
+            IRMetalDistortionMesh.bufferByteLength(elementCount: 4, stride: MemoryLayout<UInt16>.stride),
+            IRMetalDistortionMeshPolicy.bufferByteLength(elementCount: 4, stride: MemoryLayout<UInt16>.stride)
+        )
+        XCTAssertNil(IRMetalDistortionMeshPolicy.bufferByteLength(elementCount: 0, stride: MemoryLayout<UInt16>.stride))
+    }
+
     func testIndexValueRejectsValuesOutsideUInt16Range() {
         XCTAssertNil(IRMetalDistortionMesh.indexValue(-1))
         XCTAssertNil(IRMetalDistortionMesh.indexValue(Int(UInt16.max) + 1))
@@ -31,5 +39,11 @@ final class IRMetalDistortionMeshTests: XCTestCase {
     func testIndexValueConvertsUInt16RepresentableValues() {
         XCTAssertEqual(IRMetalDistortionMesh.indexValue(0), 0)
         XCTAssertEqual(IRMetalDistortionMesh.indexValue(Int(UInt16.max)), UInt16.max)
+    }
+
+    func testIndexValueWrapperMatchesPolicy() {
+        XCTAssertEqual(IRMetalDistortionMesh.indexValue(0), IRMetalDistortionMeshPolicy.indexValue(0))
+        XCTAssertEqual(IRMetalDistortionMesh.indexValue(Int(UInt16.max)), IRMetalDistortionMeshPolicy.indexValue(Int(UInt16.max)))
+        XCTAssertNil(IRMetalDistortionMeshPolicy.indexValue(-1))
     }
 }
