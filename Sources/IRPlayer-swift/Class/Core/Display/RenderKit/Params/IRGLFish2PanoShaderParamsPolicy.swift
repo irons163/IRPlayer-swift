@@ -13,11 +13,11 @@ enum IRGLFish2PanoShaderParamsPolicy {
     static func outputSize(forTextureWidth textureWidth: Int, height textureHeight: Int) -> (width: Int, height: Int)? {
         guard textureWidth > 0, textureHeight > 0 else { return nil }
 
-        guard let outputWidth = boundedGLint(from: 1.422222222222222 * Double(textureWidth)) else { return nil }
+        guard let outputWidth = IRGLShaderParamsPolicy.boundedGLint(from: 1.422222222222222 * Double(textureWidth)) else { return nil }
         let vapertureRadians = Double(60.0 * degreesToRadians)
         let halfVaperture = 0.5 * vapertureRadians
         let deltaLongitudeRadians = 0.5 * Double(360.0 * degreesToRadians)
-        guard let outputHeight = boundedGLint(from: Double(outputWidth) * tan(halfVaperture) / deltaLongitudeRadians) else { return nil }
+        guard let outputHeight = IRGLShaderParamsPolicy.boundedGLint(from: Double(outputWidth) * tan(halfVaperture) / deltaLongitudeRadians) else { return nil }
         guard outputWidth > 0, outputHeight > 0 else { return nil }
         return (Int(outputWidth), Int(outputHeight))
     }
@@ -59,10 +59,5 @@ enum IRGLFish2PanoShaderParamsPolicy {
         let (uvOffset, uvOffsetOverflow) = pixelIndex.multipliedReportingOverflow(by: 2)
         guard !uvOffsetOverflow else { return nil }
         return uvOffset
-    }
-
-    private static func boundedGLint(from value: Double) -> GLint? {
-        guard value.isFinite, value >= Double(GLint.min), value <= Double(GLint.max) else { return nil }
-        return GLint(value)
     }
 }
