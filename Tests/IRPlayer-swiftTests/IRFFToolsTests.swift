@@ -14,6 +14,15 @@ final class IRFFToolsTests: XCTestCase {
         XCTAssertEqual(output, "")
     }
 
+    func testLegacyLogFunctionsAreSilentByDefault() {
+        let output = captureStandardOutput {
+            IRFFErrorLog("ffmpeg error trace")
+            IRPlayerLog("player trace")
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testFFLogIgnoresInvalidUTF8FormatString() throws {
         let invalidFormat: [CChar] = [-1, 0]
 

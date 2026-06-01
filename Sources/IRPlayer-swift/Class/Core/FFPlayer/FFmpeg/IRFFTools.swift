@@ -25,11 +25,11 @@ enum IRFFDecoderErrorCode: Int {
 }
 
 func IRFFErrorLog(_ text: String) {
-    print(text)
+    IRFFRuntimeDebugOutput.write(text)
 }
 
 func IRPlayerLog(_ text: String) {
-    print(text)
+    IRFFRuntimeDebugOutput.write(text)
 }
 
 enum IRFFRuntimeDebugOutput {
