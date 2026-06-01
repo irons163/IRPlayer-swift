@@ -4,6 +4,33 @@ import XCTest
 
 final class IRFFVideoDecoderTests: XCTestCase {
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRFFVideoDecoder.frameDuration(ticks: 4, repeatPicture: 2, timebase: 0.25, fps: 30),
+            IRFFVideoDecoderPolicy.frameDuration(ticks: 4, repeatPicture: 2, timebase: 0.25, fps: 30)
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder.decodeBackpressureSleepInterval(frameDuration: 2.0, maxDecodeDuration: 2.0, paused: true),
+            IRFFVideoDecoderPolicy.decodeBackpressureSleepInterval(frameDuration: 2.0, maxDecodeDuration: 2.0, paused: true)
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder.packetDecodeResultIsFailure(-1),
+            IRFFVideoDecoderPolicy.packetDecodeResultIsFailure(-1)
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder.shouldFinishDecode(endOfFile: true, packetEmpty: true),
+            IRFFVideoDecoderPolicy.shouldFinishDecode(endOfFile: true, packetEmpty: true)
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder.decodeIdleSleepInterval(paused: true),
+            IRFFVideoDecoderPolicy.decodeIdleSleepInterval(paused: true)
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder.shouldCreateYUVFrame(hasFrame: true, hasLuma: true, hasChromaB: true, hasChromaR: true),
+            IRFFVideoDecoderPolicy.shouldCreateYUVFrame(hasFrame: true, hasLuma: true, hasChromaB: true, hasChromaR: true)
+        )
+    }
+
     func testFrameDurationUsesTicksAndRepeatPictureWhenAvailable() {
         let duration = IRFFVideoDecoder.frameDuration(ticks: 4, repeatPicture: 2, timebase: 0.25, fps: 30)
 
