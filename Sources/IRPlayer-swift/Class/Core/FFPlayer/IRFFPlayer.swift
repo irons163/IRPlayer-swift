@@ -9,7 +9,7 @@ import UIKit // For CGSize
 import AVFoundation // For NSTimeInterval
 
 class IRFFPlayer: NSObject {
-    struct AudioCopyPlan {
+    struct AudioCopyPlan: Equatable {
         let bytesToCopy: Int
         let framesToCopy: Int
         let hasRemainingFrameBytes: Bool
@@ -122,86 +122,42 @@ class IRFFPlayer: NSObject {
     }
 
     static func replaceVideoReadiness(hasAbstractPlayer: Bool, hasContentURL: Bool, hasDisplayView: Bool) -> ReplaceVideoReadiness {
-        guard hasAbstractPlayer, hasContentURL else { return .missingRequiredInput }
-        guard hasDisplayView else { return .missingDisplayView }
-        return .ready
+        return IRFFPlayerPlaybackPolicy.replaceVideoReadiness(
+            hasAbstractPlayer: hasAbstractPlayer,
+            hasContentURL: hasContentURL,
+            hasDisplayView: hasDisplayView
+        )
     }
 
     static func playTransition(from state: IRPlayerState) -> PlayTransition {
-        switch state {
-        case .finished:
-            return PlayTransition(nextState: .playing, shouldSeekToStart: true)
-        case .none, .failed, .buffering:
-            return PlayTransition(nextState: .buffering, shouldSeekToStart: false)
-        case .readyToPlay, .playing, .suspend:
-            return PlayTransition(nextState: .playing, shouldSeekToStart: false)
-        }
+        return IRFFPlayerPlaybackPolicy.playTransition(from: state)
     }
 
     static func pauseTransition(from state: IRPlayerState) -> IRPlayerState? {
-        switch state {
-        case .none, .suspend:
-            return nil
-        case .failed, .readyToPlay, .finished, .playing, .buffering:
-            return .suspend
-        }
+        return IRFFPlayerPlaybackPolicy.pauseTransition(from: state)
     }
 
     static func bufferingTransition(isBuffering: Bool, isPlaying: Bool, hasPreparedOnce: Bool) -> BufferingTransition {
-        guard !isBuffering else {
-            return BufferingTransition(nextState: .buffering, hasPreparedOnce: hasPreparedOnce)
-        }
-
-        if isPlaying {
-            return BufferingTransition(nextState: .playing, hasPreparedOnce: hasPreparedOnce)
-        }
-
-        if !hasPreparedOnce {
-            return BufferingTransition(nextState: .readyToPlay, hasPreparedOnce: true)
-        }
-
-        return BufferingTransition(nextState: .suspend, hasPreparedOnce: hasPreparedOnce)
+        return IRFFPlayerPlaybackPolicy.bufferingTransition(
+            isBuffering: isBuffering,
+            isPlaying: isPlaying,
+            hasPreparedOnce: hasPreparedOnce
+        )
     }
 
     static func audioSilenceByteCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
-        guard numberOfFrames > 0, numberOfChannels > 0 else { return nil }
-
-        let (sampleCount, sampleCountOverflow) = Int(numberOfFrames).multipliedReportingOverflow(by: Int(numberOfChannels))
-        guard !sampleCountOverflow, sampleCount > 0 else { return nil }
-
-        let (byteCount, byteCountOverflow) = sampleCount.multipliedReportingOverflow(by: MemoryLayout<Float>.size)
-        guard !byteCountOverflow else { return nil }
-        return byteCount
+        return IRFFPlayerPlaybackPolicy.audioSilenceByteCount(
+            numberOfFrames: numberOfFrames,
+            numberOfChannels: numberOfChannels
+        )
     }
 
     static func audioCopyPlan(frameSize: Int, outputOffset: Int, remainingFrames: UInt32, numberOfChannels: UInt32) -> AudioCopyPlan? {
-        guard frameSize > 0,
-              outputOffset >= 0,
-              outputOffset <= frameSize,
-              remainingFrames > 0,
-              numberOfChannels > 0 else {
-            return nil
-        }
-
-        let (frameSizeOf, frameSizeOverflow) = Int(numberOfChannels).multipliedReportingOverflow(by: MemoryLayout<Float>.size)
-        guard !frameSizeOverflow, frameSizeOf > 0 else { return nil }
-        guard outputOffset % frameSizeOf == 0 else { return nil }
-
-        let bytesLeft = frameSize - outputOffset
-        guard bytesLeft > 0 else { return nil }
-
-        let (requestedBytes, requestedBytesOverflow) = Int(remainingFrames).multipliedReportingOverflow(by: frameSizeOf)
-        guard !requestedBytesOverflow else { return nil }
-
-        let boundedBytesToCopy = min(requestedBytes, bytesLeft)
-        let bytesToCopy = boundedBytesToCopy - (boundedBytesToCopy % frameSizeOf)
-        let framesToCopy = bytesToCopy / frameSizeOf
-        guard bytesToCopy > 0, framesToCopy > 0 else { return nil }
-
-        return AudioCopyPlan(
-            bytesToCopy: bytesToCopy,
-            framesToCopy: framesToCopy,
-            hasRemainingFrameBytes: bytesToCopy < bytesLeft
+        return IRFFPlayerPlaybackPolicy.audioCopyPlan(
+            frameSize: frameSize,
+            outputOffset: outputOffset,
+            remainingFrames: remainingFrames,
+            numberOfChannels: numberOfChannels
         )
     }
 

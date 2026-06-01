@@ -106,6 +106,52 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertTrue(plan.hasRemainingFrameBytes)
     }
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: true, hasContentURL: true, hasDisplayView: false),
+            IRFFPlayerPlaybackPolicy.replaceVideoReadiness(
+                hasAbstractPlayer: true,
+                hasContentURL: true,
+                hasDisplayView: false
+            )
+        )
+        XCTAssertEqual(
+            IRFFPlayer.playTransition(from: .finished),
+            IRFFPlayerPlaybackPolicy.playTransition(from: .finished)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.pauseTransition(from: .playing),
+            IRFFPlayerPlaybackPolicy.pauseTransition(from: .playing)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: false, isPlaying: false, hasPreparedOnce: false),
+            IRFFPlayerPlaybackPolicy.bufferingTransition(
+                isBuffering: false,
+                isPlaying: false,
+                hasPreparedOnce: false
+            )
+        )
+        XCTAssertEqual(
+            IRFFPlayer.audioSilenceByteCount(numberOfFrames: 10, numberOfChannels: 2),
+            IRFFPlayerPlaybackPolicy.audioSilenceByteCount(numberOfFrames: 10, numberOfChannels: 2)
+        )
+
+        XCTAssertEqual(
+            IRFFPlayer.audioCopyPlan(
+                frameSize: 128,
+                outputOffset: 0,
+                remainingFrames: 10,
+                numberOfChannels: 2
+            ),
+            IRFFPlayerPlaybackPolicy.audioCopyPlan(
+                frameSize: 128,
+                outputOffset: 0,
+                remainingFrames: 10,
+                numberOfChannels: 2
+            )
+        )
+    }
+
     func testReplaceVideoReadinessDistinguishesNoOpAndFailurePreconditions() {
         XCTAssertEqual(
             IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: false, hasContentURL: true, hasDisplayView: true),
