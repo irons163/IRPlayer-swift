@@ -33,15 +33,13 @@ func IRPlayerLog(_ text: String) {
 }
 
 enum IRFFRuntimeDebugOutput {
-    #if IRFFFFmpegRuntimeDebugOutputEnable
-    static let isEnabled = true
-    #else
-    static let isEnabled = false
-    #endif
+    static var isEnabled: Bool {
+        IRFFRuntimeDebugOutputPolicy.isEnabled
+    }
 
     static func write(_ message: @autoclosure () -> String) {
         guard isEnabled else { return }
-        print(message())
+        IRFFRuntimeDebugOutputPolicy.write(message())
     }
 }
 

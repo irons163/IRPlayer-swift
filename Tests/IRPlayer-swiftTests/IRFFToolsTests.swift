@@ -14,6 +14,17 @@ final class IRFFToolsTests: XCTestCase {
         XCTAssertEqual(output, "")
     }
 
+    func testRuntimeDebugOutputWrapperMatchesPolicy() {
+        XCTAssertEqual(IRFFRuntimeDebugOutput.isEnabled, IRFFRuntimeDebugOutputPolicy.isEnabled)
+        XCTAssertFalse(IRFFRuntimeDebugOutputPolicy.isEnabled)
+
+        let output = captureStandardOutput {
+            IRFFRuntimeDebugOutputPolicy.write("runtime trace")
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testLegacyLogFunctionsAreSilentByDefault() {
         let output = captureStandardOutput {
             IRFFErrorLog("ffmpeg error trace")
