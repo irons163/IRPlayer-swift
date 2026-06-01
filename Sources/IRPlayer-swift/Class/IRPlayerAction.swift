@@ -74,12 +74,26 @@ enum IRPlayerNotificationPayload {
             return value
         }
         if let value = value as? NSNumber {
-            return IRPlayerState(rawValue: value.intValue) ?? .none
+            guard let rawValue = integerStateRawValue(from: value) else { return .none }
+            return IRPlayerState(rawValue: rawValue) ?? .none
         }
         if let value = value as? Int {
             return IRPlayerState(rawValue: value) ?? .none
         }
         return .none
+    }
+
+    static func integerStateRawValue(from value: NSNumber) -> Int? {
+        if CFGetTypeID(value) == CFBooleanGetTypeID() {
+            return nil
+        }
+
+        switch String(cString: value.objCType) {
+        case "c", "C", "s", "S", "i", "I", "l", "L", "q", "Q":
+            return value.intValue
+        default:
+            return nil
+        }
     }
 
     private static func timePayload(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
