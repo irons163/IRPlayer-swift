@@ -5,6 +5,63 @@ import XCTest
 
 final class IRFFFormatContextTests: XCTestCase {
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        let videoError = NSError(
+            domain: "video",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+        let audioError = NSError(
+            domain: "audio",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+        let metadata = IRFFMetadata(dictionary: ["language": "eng"])
+
+        XCTAssertEqual(
+            IRFFFormatContext.dictionaryOptionWasApplied(0),
+            IRFFFormatContextPolicy.dictionaryOptionWasApplied(0)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.durationSeconds(from: 1_500_000),
+            IRFFFormatContextPolicy.durationSeconds(from: 1_500_000)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.bitrateKbps(from: 1_500),
+            IRFFFormatContextPolicy.bitrateKbps(from: 1_500)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.presentationSize(width: 1920, height: 1080),
+            IRFFFormatContextPolicy.presentationSize(width: 1920, height: 1080)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.selectedSetupError(videoError: videoError, audioError: audioError),
+            IRFFFormatContextPolicy.selectedSetupError(videoError: videoError, audioError: audioError)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.seekTimestamp(for: 1.5),
+            IRFFFormatContextPolicy.seekTimestamp(for: 1.5)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.track(index: 3, codecType: AVMEDIA_TYPE_AUDIO, metadata: metadata)?.type,
+            IRFFFormatContextPolicy.track(index: 3, codecType: AVMEDIA_TYPE_AUDIO, metadata: metadata)?.type
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.videoAspect(width: 1920, height: 1080),
+            IRFFFormatContextPolicy.videoAspect(width: 1920, height: 1080)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.audioTrackSelectionAction(
+                requestedIndex: 2,
+                currentIndex: 1,
+                containsRequestedTrack: true
+            ),
+            IRFFFormatContextPolicy.audioTrackSelectionAction(
+                requestedIndex: 2,
+                currentIndex: 1,
+                containsRequestedTrack: true
+            )
+        )
+    }
+
     func testStreamLookupRejectsMissingContextStreamsAndOutOfRangeIndex() {
         XCTAssertNil(IRFFFormatContext.stream(at: 0, in: nil))
 
