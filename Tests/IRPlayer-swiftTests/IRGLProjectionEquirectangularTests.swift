@@ -10,6 +10,37 @@ import XCTest
 
 final class IRGLProjectionEquirectangularTests: XCTestCase {
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        let wrapperPlan = IRGLProjectionEquirectangular.bufferPlan(slices: 4, indicesPerVertex: 1)
+        let policyPlan = IRGLProjectionEquirectangularPolicy.bufferPlan(slices: 4, indicesPerVertex: 1)
+        XCTAssertEqual(wrapperPlan?.iMax, policyPlan?.iMax)
+        XCTAssertEqual(wrapperPlan?.vertexCount, policyPlan?.vertexCount)
+        XCTAssertEqual(wrapperPlan?.vertexCapacity, policyPlan?.vertexCapacity)
+        XCTAssertEqual(wrapperPlan?.vectorCapacity, policyPlan?.vectorCapacity)
+        XCTAssertEqual(wrapperPlan?.totalIndices, policyPlan?.totalIndices)
+
+        var values = [3, 7, 2]
+        let count = values.count
+        values.withUnsafeMutableBufferPointer { buffer in
+            XCTAssertEqual(
+                IRGLProjectionEquirectangular.maxItem(in: buffer.baseAddress, size: count),
+                IRGLProjectionEquirectangularPolicy.maxItem(in: buffer.baseAddress, size: count)
+            )
+        }
+        XCTAssertEqual(
+            IRGLProjectionEquirectangular.elementCount(baseCount: 4, components: 3),
+            IRGLProjectionEquirectangularPolicy.elementCount(baseCount: 4, components: 3)
+        )
+        XCTAssertEqual(
+            IRGLProjectionEquirectangular.byteCount(elementCount: 4, stride: MemoryLayout<Float>.stride),
+            IRGLProjectionEquirectangularPolicy.byteCount(elementCount: 4, stride: MemoryLayout<Float>.stride)
+        )
+        XCTAssertEqual(
+            IRGLProjectionEquirectangular.indexValue(Int(Int16.max)),
+            IRGLProjectionEquirectangularPolicy.indexValue(Int(Int16.max))
+        )
+    }
+
     func testElementCountRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRGLProjectionEquirectangular.elementCount(baseCount: 0, components: 3))
         XCTAssertNil(IRGLProjectionEquirectangular.elementCount(baseCount: 1, components: 0))

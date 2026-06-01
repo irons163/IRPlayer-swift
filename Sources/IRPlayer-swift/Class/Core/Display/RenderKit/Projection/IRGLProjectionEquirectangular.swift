@@ -185,14 +185,7 @@ class IRGLProjectionEquirectangular: IRGLProjection {
     }
 
     static func maxItem(in array: UnsafeMutablePointer<Int>?, size: Int) -> Int? {
-        guard let array, size > 0 else { return nil }
-        var max = array[0]
-        for i in 1..<size {
-            if array[i] > max {
-                max = array[i]
-            }
-        }
-        return max
+        return IRGLProjectionEquirectangularPolicy.maxItem(in: array, size: size)
     }
 
     func update(with parameter: IRMediaParameter) {
@@ -261,46 +254,21 @@ class IRGLProjectionEquirectangular: IRGLProjection {
     }
 
     static func bufferPlan(slices: Int, indicesPerVertex: Int) -> BufferPlan? {
-        guard slices > 0, indicesPerVertex > 0 else { return nil }
-
-        let (iMax, iMaxOverflow) = slices.addingReportingOverflow(1)
-        guard !iMaxOverflow else { return nil }
-
-        guard let vertexCount = elementCount(baseCount: iMax, components: iMax),
-              let vertexCapacity = elementCount(baseCount: vertexCount, components: 3),
-              let vectorCapacity = elementCount(baseCount: vertexCount, components: 2),
-              let sliceSquareCount = elementCount(baseCount: slices, components: slices),
-              let totalIndices = elementCount(baseCount: sliceSquareCount, components: 6) else {
-            return nil
-        }
-
-        return BufferPlan(iMax: iMax,
-                          vertexCount: vertexCount,
-                          vertexCapacity: vertexCapacity,
-                          vectorCapacity: vectorCapacity,
-                          totalIndices: totalIndices)
+        return IRGLProjectionEquirectangularPolicy.bufferPlan(slices: slices,
+                                                              indicesPerVertex: indicesPerVertex)
     }
 
     static func elementCount(baseCount: Int, components: Int) -> Int? {
-        guard baseCount > 0, components > 0 else { return nil }
-
-        let (count, overflow) = baseCount.multipliedReportingOverflow(by: components)
-        guard !overflow, count > 0 else { return nil }
-
-        return count
+        return IRGLProjectionEquirectangularPolicy.elementCount(baseCount: baseCount,
+                                                                components: components)
     }
 
     static func byteCount(elementCount: Int, stride: Int) -> Int? {
-        guard elementCount > 0, stride > 0 else { return nil }
-
-        let (count, overflow) = elementCount.multipliedReportingOverflow(by: stride)
-        guard !overflow, count > 0 else { return nil }
-
-        return count
+        return IRGLProjectionEquirectangularPolicy.byteCount(elementCount: elementCount,
+                                                             stride: stride)
     }
 
     static func indexValue(_ value: Int) -> Int16? {
-        guard value >= Int(Int16.min), value <= Int(Int16.max) else { return nil }
-        return Int16(value)
+        return IRGLProjectionEquirectangularPolicy.indexValue(value)
     }
 }
