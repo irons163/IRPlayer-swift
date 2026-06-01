@@ -19,6 +19,17 @@ final class IRSmoothScrollPolicyTests: XCTestCase {
         XCTAssertEqual(target.duration, 0.25, accuracy: 0.0001)
     }
 
+    func testSmoothScrollTargetWrapperMatchesPolicy() {
+        let velocity = CGPoint(x: 300, y: 400)
+        let wrapper = IRSmoothScrollController.smoothScrollTarget(for: velocity)
+        let policy = IRSmoothScrollPolicy.smoothScrollTarget(for: velocity)
+
+        XCTAssertEqual(wrapper.point.x, policy.point.x, accuracy: 0.0001)
+        XCTAssertEqual(wrapper.point.y, policy.point.y, accuracy: 0.0001)
+        XCTAssertEqual(wrapper.duration, policy.duration, accuracy: 0.0001)
+        XCTAssertEqual(IRSmoothScrollPolicy.smoothScrollTarget(for: CGPoint(x: CGFloat.nan, y: 0)).point, .zero)
+    }
+
     func testSmoothScrollTargetUsesZeroForZeroVelocity() {
         let target = IRSmoothScrollController.smoothScrollTarget(for: .zero)
 
