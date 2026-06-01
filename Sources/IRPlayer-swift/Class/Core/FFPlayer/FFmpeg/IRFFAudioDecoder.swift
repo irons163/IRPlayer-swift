@@ -50,9 +50,10 @@ class IRFFAudioDecoder {
 
     private func setupSwsContext() {
         reloadAudioOutputInfo()
-        guard let outputInfo = Self.swrOutputInfo(samplingRate: samplingRate, channelCount: channelCount) else { return }
+        guard let outputInfo = Self.swrOutputInfo(samplingRate: samplingRate, channelCount: channelCount),
+              let inputInfo = Self.swrInputInfo(from: codecContext) else { return }
 
-        audioSwrContext = swr_alloc_set_opts(nil, av_get_default_channel_layout(outputInfo.channelCount), AV_SAMPLE_FMT_S16, outputInfo.samplingRate, av_get_default_channel_layout(codecContext?.pointee.channels ?? 0), codecContext?.pointee.sample_fmt ?? AV_SAMPLE_FMT_NONE, codecContext?.pointee.sample_rate ?? 0, 0, nil)
+        audioSwrContext = swr_alloc_set_opts(nil, av_get_default_channel_layout(outputInfo.channelCount), AV_SAMPLE_FMT_S16, outputInfo.samplingRate, av_get_default_channel_layout(inputInfo.channelCount), inputInfo.sampleFormat, inputInfo.samplingRate, 0, nil)
 
         let result = swr_init(audioSwrContext)
         let error: Error? = IRFFCheckError(result)
@@ -110,6 +111,21 @@ class IRFFAudioDecoder {
         }
 
         return (Int32(samplingRate), Int32(channelCount))
+    }
+
+    static func swrInputInfo(from codecContext: UnsafeMutablePointer<AVCodecContext>?) -> (samplingRate: Int32, channelCount: Int32, sampleFormat: AVSampleFormat)? {
+        guard let codecContext else { return nil }
+
+        let samplingRate = codecContext.pointee.sample_rate
+        let channelCount = codecContext.pointee.channels
+        let sampleFormat = codecContext.pointee.sample_fmt
+        guard samplingRate > 0,
+              channelCount > 0,
+              sampleFormat != AV_SAMPLE_FMT_NONE else {
+            return nil
+        }
+
+        return (samplingRate, channelCount, sampleFormat)
     }
 
     static func decodedFrameDuration(ticks: Int64, timebase: TimeInterval, fallbackDuration: TimeInterval?) -> TimeInterval {

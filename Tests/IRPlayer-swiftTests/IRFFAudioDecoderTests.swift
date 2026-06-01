@@ -89,6 +89,41 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertEqual(info.channelCount, 2)
     }
 
+    func testSWRInputInfoRejectsMissingOrInvalidCodecContext() {
+        XCTAssertNil(IRFFAudioDecoder.swrInputInfo(from: nil))
+
+        var codecContext = AVCodecContext()
+        codecContext.sample_rate = 48_000
+        codecContext.channels = 2
+        codecContext.sample_fmt = AV_SAMPLE_FMT_NONE
+        withUnsafeMutablePointer(to: &codecContext) { contextPointer in
+            XCTAssertNil(IRFFAudioDecoder.swrInputInfo(from: contextPointer))
+
+            contextPointer.pointee.sample_fmt = AV_SAMPLE_FMT_S16
+            contextPointer.pointee.sample_rate = 0
+            XCTAssertNil(IRFFAudioDecoder.swrInputInfo(from: contextPointer))
+
+            contextPointer.pointee.sample_rate = 48_000
+            contextPointer.pointee.channels = 0
+            XCTAssertNil(IRFFAudioDecoder.swrInputInfo(from: contextPointer))
+        }
+    }
+
+    func testSWRInputInfoConvertsValidCodecContext() throws {
+        var codecContext = AVCodecContext()
+        codecContext.sample_rate = 48_000
+        codecContext.channels = 2
+        codecContext.sample_fmt = AV_SAMPLE_FMT_S16
+
+        let info = try withUnsafeMutablePointer(to: &codecContext) { contextPointer in
+            try XCTUnwrap(IRFFAudioDecoder.swrInputInfo(from: contextPointer))
+        }
+
+        XCTAssertEqual(info.samplingRate, 48_000)
+        XCTAssertEqual(info.channelCount, 2)
+        XCTAssertEqual(info.sampleFormat, AV_SAMPLE_FMT_S16)
+    }
+
     func testDecodedFrameDurationUsesFiniteTickDuration() {
         let duration = IRFFAudioDecoder.decodedFrameDuration(ticks: 480, timebase: 0.001, fallbackDuration: 1)
 
