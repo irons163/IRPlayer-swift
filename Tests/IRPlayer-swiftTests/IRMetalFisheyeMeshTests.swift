@@ -23,6 +23,14 @@ final class IRMetalFisheyeMeshTests: XCTestCase {
         )
     }
 
+    func testBufferByteLengthWrapperMatchesPolicy() {
+        XCTAssertEqual(
+            IRMetalFisheyeMesh.bufferByteLength(elementCount: 4, stride: MemoryLayout<UInt16>.stride),
+            IRMetalFisheyeMeshPolicy.bufferByteLength(elementCount: 4, stride: MemoryLayout<UInt16>.stride)
+        )
+        XCTAssertNil(IRMetalFisheyeMeshPolicy.bufferByteLength(elementCount: 0, stride: MemoryLayout<UInt16>.stride))
+    }
+
     func testIndexValueRejectsValuesOutsideUInt16Range() {
         XCTAssertNil(IRMetalFisheyeMesh.indexValue(-1))
         XCTAssertNil(IRMetalFisheyeMesh.indexValue(Int(UInt16.max) + 1))
@@ -31,6 +39,12 @@ final class IRMetalFisheyeMeshTests: XCTestCase {
     func testIndexValueConvertsUInt16RepresentableValues() {
         XCTAssertEqual(IRMetalFisheyeMesh.indexValue(0), 0)
         XCTAssertEqual(IRMetalFisheyeMesh.indexValue(Int(UInt16.max)), UInt16.max)
+    }
+
+    func testIndexValueWrapperMatchesPolicy() {
+        XCTAssertEqual(IRMetalFisheyeMesh.indexValue(0), IRMetalFisheyeMeshPolicy.indexValue(0))
+        XCTAssertEqual(IRMetalFisheyeMesh.indexValue(Int(UInt16.max)), IRMetalFisheyeMeshPolicy.indexValue(Int(UInt16.max)))
+        XCTAssertNil(IRMetalFisheyeMeshPolicy.indexValue(-1))
     }
 
     func testResolveParamsRejectsInvalidTextureDimensions() {
@@ -61,5 +75,16 @@ final class IRMetalFisheyeMeshTests: XCTestCase {
         XCTAssertEqual(params.centerX, 100)
         XCTAssertEqual(params.centerY, 50)
         XCTAssertEqual(params.radius, 50)
+    }
+
+    func testResolveParamsWrapperMatchesPolicy() {
+        let wrapper = IRMetalFisheyeMesh.resolveParams(textureWidth: 200, textureHeight: 100, centerX: 180, centerY: 50, radius: 40)
+        let policy = IRMetalFisheyeMeshPolicy.resolveParams(textureWidth: 200, textureHeight: 100, centerX: 180, centerY: 50, radius: 40)
+
+        XCTAssertEqual(wrapper.textureWidth, policy.textureWidth)
+        XCTAssertEqual(wrapper.textureHeight, policy.textureHeight)
+        XCTAssertEqual(wrapper.centerX, policy.centerX)
+        XCTAssertEqual(wrapper.centerY, policy.centerY)
+        XCTAssertEqual(wrapper.radius, policy.radius)
     }
 }

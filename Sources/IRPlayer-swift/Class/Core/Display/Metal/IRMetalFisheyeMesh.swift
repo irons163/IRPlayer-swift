@@ -113,36 +113,18 @@ final class IRMetalFisheyeMesh {
     }
 
     static func resolveParams(textureWidth: Float, textureHeight: Float, centerX: Float, centerY: Float, radius: Float) -> (textureWidth: Float, textureHeight: Float, centerX: Float, centerY: Float, radius: Float) {
-        let tw = textureWidth
-        let th = textureHeight
-        var cx = centerX
-        var cy = centerY
-        var cr = radius
-
-        if tw <= 0 || th <= 0 {
-            return (0, 0, 0, 0, 0)
-        }
-
-        if cr == 0 || cx == 0 || cy == 0 || cr > tw / 2 || cr > th / 2 || cr + cx > tw || cr + cy > th {
-            cx = tw / 2
-            cy = th / 2
-            cr = min(tw, th) / 2
-        }
-
-        return (tw, th, cx, cy, cr)
+        IRMetalFisheyeMeshPolicy.resolveParams(textureWidth: textureWidth,
+                                                textureHeight: textureHeight,
+                                                centerX: centerX,
+                                                centerY: centerY,
+                                                radius: radius)
     }
 
     static func bufferByteLength(elementCount: Int, stride: Int) -> Int? {
-        guard elementCount > 0, stride > 0 else { return nil }
-
-        let (byteLength, overflow) = elementCount.multipliedReportingOverflow(by: stride)
-        guard !overflow, byteLength > 0 else { return nil }
-
-        return byteLength
+        IRMetalFisheyeMeshPolicy.bufferByteLength(elementCount: elementCount, stride: stride)
     }
 
     static func indexValue(_ value: Int) -> UInt16? {
-        guard value >= 0, value <= Int(UInt16.max) else { return nil }
-        return UInt16(value)
+        IRMetalFisheyeMeshPolicy.indexValue(value)
     }
 }
