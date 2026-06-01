@@ -35,6 +35,11 @@ final class IRAudioManagerNotificationTests: XCTestCase {
         XCTAssertEqual(IRAudioManager.unsignedInteger(from: UInt(3)), 3)
         XCTAssertEqual(IRAudioManager.unsignedInteger(from: NSNumber(value: 4)), 4)
     }
+
+    func testUnsignedIntegerRejectsFractionalAndBooleanNumericPayloads() {
+        XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: 1.5)))
+        XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: true)))
+    }
 }
 
 final class IRAudioManagerRenderTests: XCTestCase {

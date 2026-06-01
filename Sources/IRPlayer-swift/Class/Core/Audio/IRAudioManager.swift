@@ -154,17 +154,31 @@ class IRAudioManager: NSObject {
     }
 
     static func unsignedInteger(from value: Any?) -> UInt? {
+        if let value = value as? NSNumber {
+            guard Self.numberPayloadIsInteger(value) else { return nil }
+            guard value.int64Value >= 0 else { return nil }
+            return UInt(value.uint64Value)
+        }
         if let value = value as? UInt {
             return value
         }
         if let value = value as? Int, value >= 0 {
             return UInt(value)
         }
-        if let value = value as? NSNumber {
-            guard value.int64Value >= 0 else { return nil }
-            return UInt(value.uint64Value)
-        }
         return nil
+    }
+
+    static func numberPayloadIsInteger(_ value: NSNumber) -> Bool {
+        if CFGetTypeID(value) == CFBooleanGetTypeID() {
+            return false
+        }
+
+        switch String(cString: value.objCType) {
+        case "c", "C", "s", "S", "i", "I", "l", "L", "q", "Q":
+            return true
+        default:
+            return false
+        }
     }
 
     func registerAudioSession() -> Bool {
