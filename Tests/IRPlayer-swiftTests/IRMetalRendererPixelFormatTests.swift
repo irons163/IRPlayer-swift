@@ -43,6 +43,26 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         )
     }
 
+    func testComputeScaleWrapperMatchesPolicy() {
+        let frameSize = CGSize(width: 400, height: 200)
+        let drawableSize = CGSize(width: 100, height: 100)
+
+        XCTAssertEqual(
+            IRMetalRenderer.computeScale(contentMode: .scaleAspectFit, frameSize: frameSize, drawableSize: drawableSize),
+            IRMetalRendererScalePolicy.computeScale(contentMode: .scaleAspectFit, frameSize: frameSize, drawableSize: drawableSize)
+        )
+        XCTAssertEqual(
+            IRMetalRenderer.computeScale(contentMode: .scaleAspectFill, frameSize: frameSize, drawableSize: drawableSize),
+            IRMetalRendererScalePolicy.computeScale(contentMode: .scaleAspectFill, frameSize: frameSize, drawableSize: drawableSize)
+        )
+        XCTAssertEqual(
+            IRMetalRendererScalePolicy.computeScale(contentMode: .scaleToFill,
+                                                    frameSize: CGSize(width: CGFloat.nan, height: 200),
+                                                    drawableSize: drawableSize),
+            CGSize(width: 1, height: 1)
+        )
+    }
+
     func testQuadVerticesCoverFullTextureRange() {
         let vertices = IRMetalRenderer.quadVertices(textureRange: .full)
 
