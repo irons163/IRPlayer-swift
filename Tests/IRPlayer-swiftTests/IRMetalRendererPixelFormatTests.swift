@@ -95,6 +95,15 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         ])
     }
 
+    func testQuadVerticesWrapperMatchesGeometryPolicy() {
+        XCTAssertEqual(IRMetalRenderer.quadVertices(textureRange: .full),
+                       IRMetalRendererGeometryPolicy.quadVertices(textureRange: .full))
+        XCTAssertEqual(IRMetalRenderer.quadVertices(textureRange: .left),
+                       IRMetalRendererGeometryPolicy.quadVertices(textureRange: .left))
+        XCTAssertEqual(IRMetalRenderer.quadVertices(textureRange: .right),
+                       IRMetalRendererGeometryPolicy.quadVertices(textureRange: .right))
+    }
+
     func testMetalViewportBuildsTopLeftFlippedViewport() {
         let viewport = IRMetalRenderer.metalViewport(drawableSize: CGSize(width: 320, height: 240),
                                                      viewport: CGRect(x: 10, y: 20, width: 100, height: 50),
@@ -119,6 +128,25 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         XCTAssertEqual(viewport.height, 50)
         XCTAssertEqual(viewport.znear, 0)
         XCTAssertEqual(viewport.zfar, 1)
+    }
+
+    func testMetalViewportWrapperMatchesGeometryPolicy() {
+        let drawableSize = CGSize(width: 320, height: 240)
+        let viewport = CGRect(x: 10, y: 20, width: 100, height: 50)
+
+        let wrapper = IRMetalRenderer.metalViewport(drawableSize: drawableSize,
+                                                    viewport: viewport,
+                                                    orientation: .topLeftFlipped)
+        let policy = IRMetalRendererGeometryPolicy.metalViewport(drawableSize: drawableSize,
+                                                                 viewport: viewport,
+                                                                 orientation: .topLeftFlipped)
+
+        XCTAssertEqual(wrapper.originX, policy.originX)
+        XCTAssertEqual(wrapper.originY, policy.originY)
+        XCTAssertEqual(wrapper.width, policy.width)
+        XCTAssertEqual(wrapper.height, policy.height)
+        XCTAssertEqual(wrapper.znear, policy.znear)
+        XCTAssertEqual(wrapper.zfar, policy.zfar)
     }
 
     func testRGBTextureLayoutRejectsInvalidOrOverflowingInputs() {
