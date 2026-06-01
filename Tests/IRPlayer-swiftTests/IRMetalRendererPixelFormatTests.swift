@@ -43,6 +43,38 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         )
     }
 
+    func testQuadVerticesCoverFullTextureRange() {
+        let vertices = IRMetalRenderer.quadVertices(textureRange: .full)
+
+        XCTAssertEqual(vertices.map(\.position), [
+            SIMD2<Float>(-1.0, -1.0),
+            SIMD2<Float>( 1.0, -1.0),
+            SIMD2<Float>(-1.0,  1.0),
+            SIMD2<Float>( 1.0,  1.0)
+        ])
+        XCTAssertEqual(vertices.map(\.texCoord), [
+            SIMD2<Float>(0.0, 1.0),
+            SIMD2<Float>(1.0, 1.0),
+            SIMD2<Float>(0.0, 0.0),
+            SIMD2<Float>(1.0, 0.0)
+        ])
+    }
+
+    func testQuadVerticesSplitLeftAndRightTextureRanges() {
+        XCTAssertEqual(IRMetalRenderer.quadVertices(textureRange: .left).map(\.texCoord), [
+            SIMD2<Float>(0.0, 1.0),
+            SIMD2<Float>(0.5, 1.0),
+            SIMD2<Float>(0.0, 0.0),
+            SIMD2<Float>(0.5, 0.0)
+        ])
+        XCTAssertEqual(IRMetalRenderer.quadVertices(textureRange: .right).map(\.texCoord), [
+            SIMD2<Float>(0.5, 1.0),
+            SIMD2<Float>(1.0, 1.0),
+            SIMD2<Float>(0.5, 0.0),
+            SIMD2<Float>(1.0, 0.0)
+        ])
+    }
+
     func testRGBTextureLayoutRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 0, height: 1, linesize: 4, byteCount: 4))
         XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 1, height: 0, linesize: 4, byteCount: 4))

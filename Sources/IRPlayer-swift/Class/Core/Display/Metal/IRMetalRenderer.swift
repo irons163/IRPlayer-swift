@@ -25,6 +25,17 @@ enum IRMetalRuntimeDebugOutput {
 }
 
 final class IRMetalRenderer {
+    struct QuadVertex: Equatable {
+        let position: SIMD2<Float>
+        let texCoord: SIMD2<Float>
+    }
+
+    enum QuadTextureRange {
+        case full
+        case left
+        case right
+    }
+
     struct Fish2PanoParams {
         var fishwidth: Int32
         var fishheight: Int32
@@ -267,35 +278,14 @@ final class IRMetalRenderer {
     }
 
     func buildVertexBuffer() {
-        struct Vertex {
-            let position: SIMD2<Float>
-            let texCoord: SIMD2<Float>
-        }
+        let vertices = Self.quadVertices(textureRange: .full)
+        vertexBuffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<QuadVertex>.stride * vertices.count, options: .storageModeShared)
 
-        let vertices: [Vertex] = [
-            Vertex(position: SIMD2<Float>(-1.0, -1.0), texCoord: SIMD2<Float>(0.0, 1.0)),
-            Vertex(position: SIMD2<Float>( 1.0, -1.0), texCoord: SIMD2<Float>(1.0, 1.0)),
-            Vertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(0.0, 0.0)),
-            Vertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(1.0, 0.0))
-        ]
+        let leftVertices = Self.quadVertices(textureRange: .left)
+        vertexBufferLeft = device.makeBuffer(bytes: leftVertices, length: MemoryLayout<QuadVertex>.stride * leftVertices.count, options: .storageModeShared)
 
-        vertexBuffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<Vertex>.stride * vertices.count, options: .storageModeShared)
-
-        let leftVertices: [Vertex] = [
-            Vertex(position: SIMD2<Float>(-1.0, -1.0), texCoord: SIMD2<Float>(0.0, 1.0)),
-            Vertex(position: SIMD2<Float>( 1.0, -1.0), texCoord: SIMD2<Float>(0.5, 1.0)),
-            Vertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(0.0, 0.0)),
-            Vertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(0.5, 0.0))
-        ]
-        vertexBufferLeft = device.makeBuffer(bytes: leftVertices, length: MemoryLayout<Vertex>.stride * leftVertices.count, options: .storageModeShared)
-
-        let rightVertices: [Vertex] = [
-            Vertex(position: SIMD2<Float>(-1.0, -1.0), texCoord: SIMD2<Float>(0.5, 1.0)),
-            Vertex(position: SIMD2<Float>( 1.0, -1.0), texCoord: SIMD2<Float>(1.0, 1.0)),
-            Vertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(0.5, 0.0)),
-            Vertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(1.0, 0.0))
-        ]
-        vertexBufferRight = device.makeBuffer(bytes: rightVertices, length: MemoryLayout<Vertex>.stride * rightVertices.count, options: .storageModeShared)
+        let rightVertices = Self.quadVertices(textureRange: .right)
+        vertexBufferRight = device.makeBuffer(bytes: rightVertices, length: MemoryLayout<QuadVertex>.stride * rightVertices.count, options: .storageModeShared)
     }
 
     func currentRenderPassDescriptor(drawable: CAMetalDrawable) -> MTLRenderPassDescriptor? {
@@ -351,6 +341,29 @@ final class IRMetalRenderer {
         @unknown default:
             return CGSize(width: 1, height: 1)
         }
+    }
+
+    static func quadVertices(textureRange: QuadTextureRange) -> [QuadVertex] {
+        let minU: Float
+        let maxU: Float
+        switch textureRange {
+        case .full:
+            minU = 0.0
+            maxU = 1.0
+        case .left:
+            minU = 0.0
+            maxU = 0.5
+        case .right:
+            minU = 0.5
+            maxU = 1.0
+        }
+
+        return [
+            QuadVertex(position: SIMD2<Float>(-1.0, -1.0), texCoord: SIMD2<Float>(minU, 1.0)),
+            QuadVertex(position: SIMD2<Float>( 1.0, -1.0), texCoord: SIMD2<Float>(maxU, 1.0)),
+            QuadVertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(minU, 0.0)),
+            QuadVertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(maxU, 0.0))
+        ]
     }
 }
 
