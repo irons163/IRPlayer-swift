@@ -124,7 +124,9 @@ enum IRPlayerNotificationPayload {
     }
 
     private static func finiteNumber(_ value: NSNumber?) -> NSNumber {
-        guard let value = value, value.doubleValue.isFinite else {
+        guard let value = value,
+              !IRPayloadNumber.isBoolean(value),
+              value.doubleValue.isFinite else {
             return NSNumber(value: 0)
         }
         return value
