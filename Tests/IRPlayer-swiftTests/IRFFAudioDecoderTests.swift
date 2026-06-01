@@ -4,6 +4,59 @@ import XCTest
 
 final class IRFFAudioDecoderTests: XCTestCase {
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRFFAudioDecoder.sampleElementCount(numberOfFrames: 3, channelCount: 2),
+            IRFFAudioDecoderPolicy.sampleElementCount(numberOfFrames: 3, channelCount: 2)
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.sampleByteCount(numberOfElements: 3),
+            IRFFAudioDecoderPolicy.sampleByteCount(numberOfElements: 3)
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.fallbackDuration(sampleByteCount: 384_000, channelCount: 2, samplingRate: 48_000),
+            IRFFAudioDecoderPolicy.fallbackDuration(sampleByteCount: 384_000, channelCount: 2, samplingRate: 48_000)
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.decodedFrameDuration(ticks: 480, timebase: 0.001, fallbackDuration: 1),
+            IRFFAudioDecoderPolicy.decodedFrameDuration(ticks: 480, timebase: 0.001, fallbackDuration: 1)
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.resampleRatio(
+                outputSamplingRate: 48_000,
+                inputSamplingRate: 24_000,
+                outputChannelCount: 4,
+                inputChannelCount: 2
+            ),
+            IRFFAudioDecoderPolicy.resampleRatio(
+                outputSamplingRate: 48_000,
+                inputSamplingRate: 24_000,
+                outputChannelCount: 4,
+                inputChannelCount: 2
+            )
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.resampleFrameCapacity(inputFrameCount: 1024, ratio: 2),
+            IRFFAudioDecoderPolicy.resampleFrameCapacity(inputFrameCount: 1024, ratio: 2)
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.packetDecodeResultIsFailure(-1),
+            IRFFAudioDecoderPolicy.packetDecodeResultIsFailure(-1)
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.shouldDecodePacket(hasData: true),
+            IRFFAudioDecoderPolicy.shouldDecodePacket(hasData: true)
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.shouldDecodeFrame(hasFrame: true, hasPrimaryData: true),
+            IRFFAudioDecoderPolicy.shouldDecodeFrame(hasFrame: true, hasPrimaryData: true)
+        )
+        XCTAssertEqual(
+            IRFFAudioDecoder.canUseDirectOutput(sampleFormat: AV_SAMPLE_FMT_S16),
+            IRFFAudioDecoderPolicy.canUseDirectOutput(sampleFormat: AV_SAMPLE_FMT_S16)
+        )
+    }
+
     func testAudioDataBufferRejectsMissingDecodedData() {
         XCTAssertNil(IRFFAudioDecoder.audioDataBuffer(fromDecodedData: nil))
 
