@@ -40,4 +40,20 @@ final class IRFFFramePoolTests: XCTestCase {
         XCTAssertEqual(pool.usedCount, 0)
         XCTAssertEqual(pool.unuseCount, 1)
     }
+
+    func testFlushReturnsUsedAndPlayingFramesToUnuseBucket() throws {
+        let pool = IRFFFramePool.pool(withCapacity: 2, frameClassName: IRFFFrame.self)
+        let usedFrame = try XCTUnwrap(pool.getUnuseFrame())
+        let playingFrame = try XCTUnwrap(pool.getUnuseFrame())
+
+        playingFrame.startPlaying()
+        pool.flush()
+
+        XCTAssertNil(pool.playingFrame)
+        XCTAssertEqual(pool.usedCount, 0)
+        XCTAssertEqual(pool.unuseCount, 2)
+        XCTAssertEqual(pool.count, 2)
+        XCTAssertTrue(pool.unuseFrames.contains(usedFrame))
+        XCTAssertTrue(pool.unuseFrames.contains(playingFrame))
+    }
 }

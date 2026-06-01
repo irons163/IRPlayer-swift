@@ -127,6 +127,10 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
             unuseFrames.insert(frame)
         }
         usedFrames.removeAll()
+        if let playingFrame {
+            unuseFrames.insert(playingFrame)
+            self.playingFrame = nil
+        }
         lock.unlock()
     }
 
