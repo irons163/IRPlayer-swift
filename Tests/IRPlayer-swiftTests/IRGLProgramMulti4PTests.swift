@@ -11,6 +11,40 @@ import XCTest
 
 final class IRGLProgramMulti4PTests: XCTestCase {
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        let viewportRange = CGRect(x: 0, y: 0, width: 400, height: 200)
+
+        XCTAssertEqual(
+            IRGLProgramMulti4P.viewportRanges(
+                in: viewportRange,
+                displayMode: .multiDisplay,
+                programCount: 4,
+                selectedIndex: nil
+            ),
+            IRGLProgramMulti4PPolicy.viewportRanges(
+                in: viewportRange,
+                displayMode: .multiDisplay,
+                programCount: 4,
+                selectedIndex: nil
+            )
+        )
+
+        XCTAssertEqual(
+            IRGLProgramMulti4P.viewportRanges(
+                in: viewportRange,
+                displayMode: .singleDisplay,
+                programCount: 4,
+                selectedIndex: 2
+            ),
+            IRGLProgramMulti4PPolicy.viewportRanges(
+                in: viewportRange,
+                displayMode: .singleDisplay,
+                programCount: 4,
+                selectedIndex: 2
+            )
+        )
+    }
+
     func testViewportRangesPolicySplitsMultiDisplayIntoQuadrants() {
         let ranges = IRGLProgramMulti4P.viewportRanges(
             in: CGRect(x: 0, y: 0, width: 400, height: 200),

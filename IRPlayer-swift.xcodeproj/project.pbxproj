@@ -44,6 +44,7 @@
 		B5E94ECF2D0B21F800149265 /* IRGLProgram2DFisheye2Pano.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DB42D0B21F800149265 /* IRGLProgram2DFisheye2Pano.swift */; };
 		B5E94ED02D0B21F800149265 /* IRPlayerDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E1C2D0B21F800149265 /* IRPlayerDecoder.swift */; };
 		B5E94ED32D0B21F800149265 /* IRGLProgramMulti4P.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DB82D0B21F800149265 /* IRGLProgramMulti4P.swift */; };
+		B5E952432F6902000149265 /* IRGLProgramMulti4PPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952422F6902000149265 /* IRGLProgramMulti4PPolicy.swift */; };
 		B5E94ED42D0B21F800149265 /* IRGLRenderMode2D.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D8F2D0B21F800149265 /* IRGLRenderMode2D.swift */; };
 		B5E94ED52D0B21F800149265 /* IRGLProgram2DFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DA72D0B21F800149265 /* IRGLProgram2DFactory.swift */; };
 		B5E94ED72D0B21F800149265 /* IRGLRenderMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D8E2D0B21F800149265 /* IRGLRenderMode.swift */; };
@@ -293,6 +294,7 @@
 		B5E94DB62D0B21F800149265 /* IRGLProgram3DFisheye.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgram3DFisheye.swift; sourceTree = "<group>"; };
 		B5E94DB72D0B21F800149265 /* IRGLProgramMulti.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti.swift; sourceTree = "<group>"; };
 		B5E94DB82D0B21F800149265 /* IRGLProgramMulti4P.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti4P.swift; sourceTree = "<group>"; };
+		B5E952422F6902000149265 /* IRGLProgramMulti4PPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti4PPolicy.swift; sourceTree = "<group>"; };
 		B5E94DBB2D0B21F800149265 /* IRGLProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjection.swift; sourceTree = "<group>"; };
 		B5E94DC12D0B21F800149265 /* IRGLProjectionEquirectangular.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionEquirectangular.swift; sourceTree = "<group>"; };
 		B5E9523C2F6901D00149265 /* IRGLProjectionEquirectangularPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionEquirectangularPolicy.swift; sourceTree = "<group>"; };
@@ -696,6 +698,7 @@
 				B5E94DB62D0B21F800149265 /* IRGLProgram3DFisheye.swift */,
 				B5E94DB72D0B21F800149265 /* IRGLProgramMulti.swift */,
 				B5E94DB82D0B21F800149265 /* IRGLProgramMulti4P.swift */,
+				B5E952422F6902000149265 /* IRGLProgramMulti4PPolicy.swift */,
 			);
 			path = Program;
 			sourceTree = "<group>";
@@ -1135,6 +1138,7 @@
 				B5E94ECF2D0B21F800149265 /* IRGLProgram2DFisheye2Pano.swift in Sources */,
 				B5E94ED02D0B21F800149265 /* IRPlayerDecoder.swift in Sources */,
 				B5E94ED32D0B21F800149265 /* IRGLProgramMulti4P.swift in Sources */,
+				B5E952432F6902000149265 /* IRGLProgramMulti4PPolicy.swift in Sources */,
 				B5E94ED42D0B21F800149265 /* IRGLRenderMode2D.swift in Sources */,
 				B5E94ED52D0B21F800149265 /* IRGLProgram2DFactory.swift in Sources */,
 				B5E94ED72D0B21F800149265 /* IRGLRenderMode.swift in Sources */,
