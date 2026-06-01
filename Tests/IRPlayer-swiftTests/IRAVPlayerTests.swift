@@ -43,35 +43,35 @@ final class IRAVPlayerTests: XCTestCase {
     }
 
     func testSeekTimeConvertsFiniteNonNegativeSeconds() throws {
-        let time = try XCTUnwrap(IRAVPlayer.seekTime(for: 1.25))
+        let time = try XCTUnwrap(IRAVPlayerTimePolicy.seekTime(for: 1.25))
 
         XCTAssertTrue(time.isValid)
         XCTAssertEqual(CMTimeGetSeconds(time), 1.25, accuracy: 0.0001)
     }
 
     func testSeekTimeRejectsInvalidSeconds() {
-        XCTAssertNil(IRAVPlayer.seekTime(for: -0.1))
-        XCTAssertNil(IRAVPlayer.seekTime(for: .nan))
-        XCTAssertNil(IRAVPlayer.seekTime(for: .infinity))
+        XCTAssertNil(IRAVPlayerTimePolicy.seekTime(for: -0.1))
+        XCTAssertNil(IRAVPlayerTimePolicy.seekTime(for: .nan))
+        XCTAssertNil(IRAVPlayerTimePolicy.seekTime(for: .infinity))
     }
 
     func testFiniteSecondsReturnsSecondsForFiniteTime() {
         let time = CMTimeMakeWithSeconds(2.5, preferredTimescale: 1_000)
 
-        XCTAssertEqual(IRAVPlayer.finiteSeconds(from: time), 2.5, accuracy: 0.0001)
+        XCTAssertEqual(IRAVPlayerTimePolicy.finiteSeconds(from: time), 2.5, accuracy: 0.0001)
     }
 
     func testFiniteSecondsDefaultsInvalidTimesToZero() {
-        XCTAssertEqual(IRAVPlayer.finiteSeconds(from: .invalid), 0)
-        XCTAssertEqual(IRAVPlayer.finiteSeconds(from: .indefinite), 0)
-        XCTAssertEqual(IRAVPlayer.finiteSeconds(from: CMTime(value: 1, timescale: 0)), 0)
+        XCTAssertEqual(IRAVPlayerTimePolicy.finiteSeconds(from: .invalid), 0)
+        XCTAssertEqual(IRAVPlayerTimePolicy.finiteSeconds(from: .indefinite), 0)
+        XCTAssertEqual(IRAVPlayerTimePolicy.finiteSeconds(from: CMTime(value: 1, timescale: 0)), 0)
     }
 
     func testPlayableTimePolicyClampsBufferedRangeToDuration() {
-        XCTAssertEqual(IRAVPlayer.playableEndTime(start: 2, duration: 3, totalDuration: 10), 5)
-        XCTAssertEqual(IRAVPlayer.playableEndTime(start: 8, duration: 5, totalDuration: 10), 10)
-        XCTAssertEqual(IRAVPlayer.playableEndTime(start: -2, duration: 1, totalDuration: 10), 0)
-        XCTAssertEqual(IRAVPlayer.playableEndTime(start: TimeInterval.greatestFiniteMagnitude,
+        XCTAssertEqual(IRAVPlayerTimePolicy.playableEndTime(start: 2, duration: 3, totalDuration: 10), 5)
+        XCTAssertEqual(IRAVPlayerTimePolicy.playableEndTime(start: 8, duration: 5, totalDuration: 10), 10)
+        XCTAssertEqual(IRAVPlayerTimePolicy.playableEndTime(start: -2, duration: 1, totalDuration: 10), 0)
+        XCTAssertEqual(IRAVPlayerTimePolicy.playableEndTime(start: TimeInterval.greatestFiniteMagnitude,
                                                  duration: TimeInterval.greatestFiniteMagnitude,
                                                  totalDuration: 10), 0)
     }
