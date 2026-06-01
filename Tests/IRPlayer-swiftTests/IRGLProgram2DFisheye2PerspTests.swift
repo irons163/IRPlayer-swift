@@ -3,6 +3,24 @@ import XCTest
 
 final class IRGLProgram2DFisheye2PerspTests: XCTestCase {
 
+    func testPerspShaderParamsPolicyMatchesAppliedOutputConfiguration() {
+        let params = IRGLFish2PerspShaderParams()
+
+        params.updateOutputWH()
+        let configuration = IRGLFish2PerspShaderParamsPolicy.outputConfiguration()
+
+        XCTAssertEqual(params.outputWidth, configuration.outputWidth)
+        XCTAssertEqual(params.outputHeight, configuration.outputHeight)
+        XCTAssertEqual(params.fishcenterx, configuration.fishCenterX)
+        XCTAssertEqual(params.fishcentery, configuration.fishCenterY)
+        XCTAssertEqual(params.fishradiush, configuration.fishRadiusH)
+        XCTAssertEqual(params.enableTransformX, configuration.enableTransformX)
+        XCTAssertEqual(params.enableTransformY, configuration.enableTransformY)
+        XCTAssertEqual(params.enableTransformZ, configuration.enableTransformZ)
+        XCTAssertEqual(params.fishfov, configuration.fishFov, accuracy: 0.0001)
+        XCTAssertEqual(params.perspfov, configuration.perspFov, accuracy: 0.0001)
+    }
+
     func testPerspShaderParamsDefaultValuesMatchExpectedProjectionInputs() {
         let params = IRGLFish2PerspShaderParams()
 
