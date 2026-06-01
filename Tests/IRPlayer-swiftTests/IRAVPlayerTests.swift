@@ -76,6 +76,73 @@ final class IRAVPlayerTests: XCTestCase {
                                                  totalDuration: 10), 0)
     }
 
+    func testStaticPolicyWrappersRemainSourceCompatible() throws {
+        let first = IRPlayerTrack()
+        first.index = 1
+        let second = IRPlayerTrack()
+        second.index = 2
+        let propertyList = [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: 2
+        ]
+        let finiteTime = CMTimeMakeWithSeconds(2.5, preferredTimescale: 1_000)
+
+        XCTAssertEqual(
+            IRAVPlayer.trackName(languageCode: nil, trackID: 7),
+            IRAVPlayerTrackPolicy.trackName(languageCode: nil, trackID: 7)
+        )
+        XCTAssertEqual(
+            IRAVPlayer.mediaSelectionTrackID(from: propertyList),
+            IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: propertyList)
+        )
+        XCTAssertTrue(
+            IRAVPlayer.defaultTrack(from: [first, second], propertyList: propertyList) ===
+            IRAVPlayerTrackPolicy.defaultTrack(from: [first, second], propertyList: propertyList)
+        )
+        XCTAssertEqual(
+            CMTimeGetSeconds(try XCTUnwrap(IRAVPlayer.seekTime(for: 1.25))),
+            CMTimeGetSeconds(try XCTUnwrap(IRAVPlayerTimePolicy.seekTime(for: 1.25))),
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            IRAVPlayer.finiteSeconds(from: finiteTime),
+            IRAVPlayerTimePolicy.finiteSeconds(from: finiteTime),
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            IRAVPlayer.playableEndTime(start: 2, duration: 3, totalDuration: 10),
+            IRAVPlayerTimePolicy.playableEndTime(start: 2, duration: 3, totalDuration: 10)
+        )
+        XCTAssertEqual(
+            IRAVPlayer.itemStatusDecision(status: .readyToPlay, currentState: .none),
+            IRAVPlayerPlaybackPolicy.itemStatusDecision(status: .readyToPlay, currentState: .none)
+        )
+        XCTAssertEqual(
+            IRAVPlayer.nextStateAfterPlay(from: .none),
+            IRAVPlayerPlaybackPolicy.nextStateAfterPlay(from: .none)
+        )
+        XCTAssertEqual(
+            IRAVPlayer.nextStateAfterPause(from: .playing),
+            IRAVPlayerPlaybackPolicy.nextStateAfterPause(from: .playing)
+        )
+        XCTAssertEqual(
+            IRAVPlayer.shouldRetryPlayAfterDelay(for: .buffering),
+            IRAVPlayerPlaybackPolicy.shouldRetryPlayAfterDelay(for: .buffering)
+        )
+        XCTAssertEqual(
+            IRAVPlayer.isActivePlaybackState(.playing),
+            IRAVPlayerPlaybackPolicy.isActivePlaybackState(.playing)
+        )
+        XCTAssertEqual(
+            IRAVPlayer.avAssetLoadDecision(keyStatuses: [.loaded, .failed], trackStatus: .loaded),
+            IRAVPlayerAssetLoadPolicy.decision(keyStatuses: [.loaded, .failed], trackStatus: .loaded)
+        )
+
+        let wrapperError = IRAVPlayer.playbackErrorInfo(playerItem: nil, player: nil)
+        let policyError = IRAVPlayerErrorPolicy.playbackErrorInfo(playerItem: nil, player: nil)
+        XCTAssertEqual(wrapperError.error.domain, policyError.error.domain)
+        XCTAssertEqual(wrapperError.error.code, policyError.error.code)
+    }
+
     func testSetupAVPlayerItemIgnoresMissingAsset() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
