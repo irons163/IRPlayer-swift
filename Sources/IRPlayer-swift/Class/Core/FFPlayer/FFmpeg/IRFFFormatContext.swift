@@ -15,6 +15,16 @@ public protocol IRFFFormatContextDelegate: AnyObject {
 }
 
 public class IRFFFormatContext {
+    enum AudioTrackSelectionAction: Equatable {
+        case noChange
+        case select
+    }
+
+    struct AudioTrackSelectionResult {
+        let error: NSError?
+        let didChangeTrack: Bool
+    }
+
     weak var delegate: IRFFFormatContextDelegate?
 
     private var formatContext: UnsafeMutablePointer<AVFormatContext>?
@@ -346,9 +356,24 @@ public class IRFFFormatContext {
         return aspect.isFinite ? aspect : 0
     }
 
-    func selectAudioTrackIndex(_ audioTrackIndex: Int) -> NSError? {
-        guard audioTrackIndex != (audioTrack?.index ?? -1),
-              containAudioTrack(audioTrackIndex) else { return nil }
+    static func audioTrackSelectionAction(requestedIndex: Int,
+                                          currentIndex: Int?,
+                                          containsRequestedTrack: Bool) -> AudioTrackSelectionAction {
+        guard requestedIndex != (currentIndex ?? -1),
+              containsRequestedTrack else {
+            return .noChange
+        }
+        return .select
+    }
+
+    func selectAudioTrackIndexResult(_ audioTrackIndex: Int) -> AudioTrackSelectionResult {
+        guard Self.audioTrackSelectionAction(
+            requestedIndex: audioTrackIndex,
+            currentIndex: audioTrack?.index,
+            containsRequestedTrack: containAudioTrack(audioTrackIndex)
+        ) == .select else {
+            return AudioTrackSelectionResult(error: nil, didChangeTrack: false)
+        }
 
         var codecContext: UnsafeMutablePointer<AVCodecContext>?
         let error = openStream(with: audioTrackIndex, codecContext: &codecContext, domain: "audio select")
@@ -363,10 +388,15 @@ public class IRFFFormatContext {
                 audioTimebase = IRFFStreamGetTimebase(stream, defaultTimebase: 0.000025)
             }
             audioCodecContext = codecContext
+            return AudioTrackSelectionResult(error: nil, didChangeTrack: true)
         } else {
             IRFFRuntimeDebugOutput.write("select audio track error: \(String(describing: error))")
         }
-        return error
+        return AudioTrackSelectionResult(error: error, didChangeTrack: false)
+    }
+
+    func selectAudioTrackIndex(_ audioTrackIndex: Int) -> NSError? {
+        return selectAudioTrackIndexResult(audioTrackIndex).error
     }
 
     var contentURLString: String {

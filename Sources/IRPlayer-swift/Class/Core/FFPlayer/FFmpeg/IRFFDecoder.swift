@@ -537,7 +537,8 @@ protocol IRFFDecoderDelegate: AnyObject {
                 continue
             }
             if selectAudioTrack {
-                let decoderWasReset = formatContext?.selectAudioTrackIndex(selectAudioTrackIndex) == nil
+                let selectionResult = formatContext?.selectAudioTrackIndexResult(selectAudioTrackIndex)
+                let decoderWasReset = selectionResult?.didChangeTrack == true
                 if decoderWasReset {
                     audioDecoder?.destroy()
                     if let formatContext,
