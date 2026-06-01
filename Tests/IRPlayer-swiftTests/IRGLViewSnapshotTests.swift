@@ -81,4 +81,43 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(layout?.bytesPerRow, 24)
         XCTAssertEqual(layout?.totalByteCount, 48)
     }
+
+    func testFittedImageTransformCalculatesAspectFitScaleAndCentering() throws {
+        let transform = try XCTUnwrap(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 400, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: 100, height: 100),
+                                          contentMode: .scaleAspectFit)
+        )
+
+        XCTAssertEqual(transform.scaleX, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(transform.scaleY, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationX, 0, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationY, 25, accuracy: 0.0001)
+    }
+
+    func testFittedImageTransformCalculatesAspectFillScaleAndCentering() throws {
+        let transform = try XCTUnwrap(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 400, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: 100, height: 100),
+                                          contentMode: .scaleAspectFill)
+        )
+
+        XCTAssertEqual(transform.scaleX, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(transform.scaleY, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationX, -50, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationY, 0, accuracy: 0.0001)
+    }
+
+    func testFittedImageTransformRejectsInvalidGeometry() {
+        XCTAssertNil(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 0, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: 100, height: 100),
+                                          contentMode: .scaleAspectFit)
+        )
+        XCTAssertNil(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 400, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: CGFloat.nan, height: 100),
+                                          contentMode: .scaleAspectFit)
+        )
+    }
 }

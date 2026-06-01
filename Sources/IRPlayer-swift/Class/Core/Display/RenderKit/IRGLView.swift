@@ -373,14 +373,44 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     private func fitImage(_ image: CIImage, in rect: CGRect) -> CIImage {
         let extent = image.extent
-        guard extent.width > 0, extent.height > 0, rect.width > 0, rect.height > 0 else {
+        guard let transform = Self.fittedImageTransform(imageExtent: extent,
+                                                        targetRect: rect,
+                                                        contentMode: renderContentMode) else {
             return image
         }
 
-        var scaleX = rect.width / extent.width
-        var scaleY = rect.height / extent.height
+        return image
+            .transformed(by: CGAffineTransform(scaleX: transform.scaleX, y: transform.scaleY))
+            .transformed(by: CGAffineTransform(translationX: transform.translationX, y: transform.translationY))
+    }
 
-        switch renderContentMode {
+    struct FittedImageTransform: Equatable {
+        let scaleX: CGFloat
+        let scaleY: CGFloat
+        let translationX: CGFloat
+        let translationY: CGFloat
+    }
+
+    static func fittedImageTransform(imageExtent: CGRect,
+                                     targetRect: CGRect,
+                                     contentMode: IRGLRenderContentMode) -> FittedImageTransform? {
+        guard imageExtent.origin.x.isFinite,
+              imageExtent.origin.y.isFinite,
+              imageExtent.width.isFinite,
+              imageExtent.height.isFinite,
+              targetRect.width.isFinite,
+              targetRect.height.isFinite,
+              imageExtent.width > 0,
+              imageExtent.height > 0,
+              targetRect.width > 0,
+              targetRect.height > 0 else {
+            return nil
+        }
+
+        var scaleX = targetRect.width / imageExtent.width
+        var scaleY = targetRect.height / imageExtent.height
+
+        switch contentMode {
         case .scaleAspectFit:
             let scale = min(scaleX, scaleY)
             scaleX = scale
@@ -395,10 +425,13 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             break
         }
 
-        let scaledImage = image.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
-        let x = (rect.width - scaledImage.extent.width) / 2.0 - scaledImage.extent.origin.x
-        let y = (rect.height - scaledImage.extent.height) / 2.0 - scaledImage.extent.origin.y
-        return scaledImage.transformed(by: CGAffineTransform(translationX: x, y: y))
+        let scaledExtent = imageExtent.applying(CGAffineTransform(scaleX: scaleX, y: scaleY))
+        let translationX = (targetRect.width - scaledExtent.width) / 2.0 - scaledExtent.origin.x
+        let translationY = (targetRect.height - scaledExtent.height) / 2.0 - scaledExtent.origin.y
+        return FittedImageTransform(scaleX: scaleX,
+                                    scaleY: scaleY,
+                                    translationX: translationX,
+                                    translationY: translationY)
     }
 
     private func clearImage() -> CIImage {
