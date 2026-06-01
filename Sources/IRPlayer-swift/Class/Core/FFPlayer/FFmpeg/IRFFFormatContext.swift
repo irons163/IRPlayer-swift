@@ -313,7 +313,8 @@ public class IRFFFormatContext {
     }
 
     func seekFile(withFFTimebase time: TimeInterval) {
-        guard let ts = Self.seekTimestamp(for: time) else { return }
+        guard let ts = Self.seekTimestamp(for: time),
+              let formatContext else { return }
         av_seek_frame(formatContext, -1, ts, AVSEEK_FLAG_BACKWARD)
     }
 

@@ -124,6 +124,12 @@ final class IRFFFormatContextTests: XCTestCase {
         XCTAssertNil(IRFFFormatContext.seekTimestamp(for: Double(Int64.max)))
     }
 
+    func testSeekFileIgnoresMissingFormatContext() {
+        let context = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
+
+        context.seekFile(withFFTimebase: 1)
+    }
+
     func testReadFrameReturnsFailureWhenFormatContextIsMissing() {
         let context = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
         var packet = AVPacket()
