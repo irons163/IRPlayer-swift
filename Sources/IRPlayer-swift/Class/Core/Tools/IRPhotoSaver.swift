@@ -52,8 +52,8 @@ enum IRPhotoSaver {
         print(message)
     }
 
-    static func diagnosticMessage(for _: Failure) -> String? {
-        nil
+    static func diagnosticMessage(for failure: Failure) -> String? {
+        IRPhotoSaverPolicy.diagnosticMessage(for: failure)
     }
 
     private static func requestPermission(completion: @escaping (Bool) -> Void) {

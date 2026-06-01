@@ -18,4 +18,12 @@ final class IRPhotoSaverTests: XCTestCase {
 
         XCTAssertEqual(output, "")
     }
+
+    func testDiagnosticMessageWrapperMatchesPolicy() {
+        XCTAssertEqual(IRPhotoSaver.diagnosticMessage(for: .permissionNotGranted),
+                       IRPhotoSaverPolicy.diagnosticMessage(for: .permissionNotGranted))
+        XCTAssertEqual(IRPhotoSaver.diagnosticMessage(for: .albumUnavailable),
+                       IRPhotoSaverPolicy.diagnosticMessage(for: .albumUnavailable))
+        XCTAssertNil(IRPhotoSaverPolicy.diagnosticMessage(for: .permissionNotGranted))
+    }
 }
