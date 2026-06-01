@@ -129,6 +129,7 @@
 		B5E94F392D0B21F800149265 /* IRGLProgramVR.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DB12D0B21F800149265 /* IRGLProgramVR.swift */; };
 		B5E94F3B2D0B21F800149265 /* IRPLFImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E162D0B21F800149265 /* IRPLFImage.swift */; };
 		B5E94F3C2D0B21F800149265 /* IRFFVideoToolBox.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E032D0B21F800149265 /* IRFFVideoToolBox.swift */; };
+		B5E952352F6901900149265 /* IRFFVideoToolBoxPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952342F6901900149265 /* IRFFVideoToolBoxPolicy.swift */; };
 		B5E94F3D2D0B21F800149265 /* IRPlayerTrack.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E1E2D0B21F800149265 /* IRPlayerTrack.swift */; };
 		B5E94F3E2D0B21F800149265 /* IRYUVTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E102D0B21F800149265 /* IRYUVTools.swift */; };
 		B5E94F3F2D0B21F800149265 /* IRGLTransformControllerVR.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DDF2D0B21F800149265 /* IRGLTransformControllerVR.swift */; };
@@ -324,6 +325,7 @@
 		B5E94E012D0B21F800149265 /* IRFFVideoDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoDecoder.swift; sourceTree = "<group>"; };
 		B5E94E022D0B21F800149265 /* IRFFVideoInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoInput.swift; sourceTree = "<group>"; };
 		B5E94E032D0B21F800149265 /* IRFFVideoToolBox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoToolBox.swift; sourceTree = "<group>"; };
+		B5E952342F6901900149265 /* IRFFVideoToolBoxPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoToolBoxPolicy.swift; sourceTree = "<group>"; };
 		B5E94E052D0B21F800149265 /* IRFFPlayer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IRFFPlayer.h; sourceTree = "<group>"; };
 		B5E94E072D0B21F800149265 /* IRFFPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPlayer.swift; sourceTree = "<group>"; };
 		B5E952302F6901700149265 /* IRFFPlayerPlaybackPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPlayerPlaybackPolicy.swift; sourceTree = "<group>"; };
@@ -780,6 +782,7 @@
 				B5E94E012D0B21F800149265 /* IRFFVideoDecoder.swift */,
 				B5E94E022D0B21F800149265 /* IRFFVideoInput.swift */,
 				B5E94E032D0B21F800149265 /* IRFFVideoToolBox.swift */,
+				B5E952342F6901900149265 /* IRFFVideoToolBoxPolicy.swift */,
 			);
 			path = FFmpeg;
 			sourceTree = "<group>";
@@ -1213,6 +1216,7 @@
 				B5E94F392D0B21F800149265 /* IRGLProgramVR.swift in Sources */,
 				B5E94F3B2D0B21F800149265 /* IRPLFImage.swift in Sources */,
 				B5E94F3C2D0B21F800149265 /* IRFFVideoToolBox.swift in Sources */,
+				B5E952352F6901900149265 /* IRFFVideoToolBoxPolicy.swift in Sources */,
 				B5E94F3D2D0B21F800149265 /* IRPlayerTrack.swift in Sources */,
 				B5E94F3E2D0B21F800149265 /* IRYUVTools.swift in Sources */,
 				B5E94F3F2D0B21F800149265 /* IRGLTransformControllerVR.swift in Sources */,

@@ -64,10 +64,12 @@ class IRFFVideoToolBox {
                                      extradata: UnsafeMutablePointer<UInt8>?,
                                      extradataSize: Int32,
                                      firstExtradataByte: UInt8?) -> IRFFVideoToolBoxErrorCode? {
-        guard codecID == AV_CODEC_ID_H264 else { return .notH264 }
-        guard extradata != nil, extradataSize >= 7 else { return .extradataSize }
-        guard firstExtradataByte == 1 else { return .extradataData }
-        return nil
+        return IRFFVideoToolBoxPolicy.setupValidationError(
+            codecID: codecID,
+            extradata: extradata,
+            extradataSize: extradataSize,
+            firstExtradataByte: firstExtradataByte
+        )
     }
 
     func trySetupVTSession() -> Bool {
@@ -245,63 +247,46 @@ class IRFFVideoToolBox {
     }
 
     static func packetPayload(for packet: AVPacket) -> PacketPayload? {
-        guard let data = packet.data, packet.size > 0 else { return nil }
-        return PacketPayload(data: data, size: packet.size)
+        return IRFFVideoToolBoxPolicy.packetPayload(for: packet)
     }
 
     static func convertedNALBlockPayload(memoryBlock: UnsafeMutablePointer<UInt8>?, demuxSize: Int32, packetSize: Int32) -> ConvertedNALBlockPayload? {
-        guard let memoryBlock,
-              demuxSize > 0,
-              packetSize > 0,
-              packetSize <= demuxSize else { return nil }
-        return ConvertedNALBlockPayload(memoryBlock: memoryBlock, blockLength: Int(demuxSize), dataLength: Int(packetSize))
+        return IRFFVideoToolBoxPolicy.convertedNALBlockPayload(
+            memoryBlock: memoryBlock,
+            demuxSize: demuxSize,
+            packetSize: packetSize
+        )
     }
 
     static func requiredFormatDescription(_ formatDescription: CMFormatDescription?) -> CMFormatDescription? {
-        guard let formatDescription else { return nil }
-        return formatDescription
+        return IRFFVideoToolBoxPolicy.requiredFormatDescription(formatDescription)
     }
 
     static func nalLengthSizePolicy(for marker: UInt8) -> NALLengthSizePolicy {
-        guard marker == 0xFE else {
-            return NALLengthSizePolicy(normalizedMarker: marker, shouldConvertThreeByteNALUnits: false)
-        }
-        return NALLengthSizePolicy(normalizedMarker: 0xFF, shouldConvertThreeByteNALUnits: true)
+        return IRFFVideoToolBoxPolicy.nalLengthSizePolicy(for: marker)
     }
 
     static func decodeFramePayload(session: VTDecompressionSession?, sampleBuffer: CMSampleBuffer?) -> DecodeFramePayload? {
-        guard let session, let sampleBuffer else { return nil }
-        return DecodeFramePayload(session: session, sampleBuffer: sampleBuffer)
+        return IRFFVideoToolBoxPolicy.decodeFramePayload(session: session, sampleBuffer: sampleBuffer)
     }
 
     static func decodeFrameSucceeded(status: OSStatus, callbackStatus: OSStatus, hasOutput: Bool) -> Bool {
-        status == noErr && callbackStatus == noErr && hasOutput
+        return IRFFVideoToolBoxPolicy.decodeFrameSucceeded(
+            status: status,
+            callbackStatus: callbackStatus,
+            hasOutput: hasOutput
+        )
     }
 
     static func nalPayloadCanAdvance(nalSize: UInt32, remainingByteCount: Int) -> Bool {
-        guard remainingByteCount >= 0 else { return false }
-        return UInt64(nalSize) <= UInt64(remainingByteCount)
+        return IRFFVideoToolBoxPolicy.nalPayloadCanAdvance(
+            nalSize: nalSize,
+            remainingByteCount: remainingByteCount
+        )
     }
 
     static func threeByteNALUnitsAreBounded(in payload: PacketPayload) -> Bool {
-        var cursor = payload.data
-        let end = payload.end
-
-        while cursor < end {
-            let nalSizeEnd = cursor.advanced(by: 3)
-            guard nalSizeEnd <= end else { return false }
-
-            let nalSize = (UInt32(cursor[0]) << 16) | (UInt32(cursor[1]) << 8) | UInt32(cursor[2])
-            cursor = nalSizeEnd
-
-            guard Self.nalPayloadCanAdvance(nalSize: nalSize, remainingByteCount: cursor.distance(to: end)) else {
-                return false
-            }
-            let nalEnd = cursor.advanced(by: Int(nalSize))
-            cursor = nalEnd
-        }
-
-        return true
+        return IRFFVideoToolBoxPolicy.threeByteNALUnitsAreBounded(in: payload)
     }
 
     func imageBuffer() -> CVImageBuffer? {
@@ -328,24 +313,10 @@ class IRFFVideoToolBox {
     }
 
     static func makeFormatDescriptionExtensions(extradata: UnsafePointer<UInt8>, extradataSize: Int32) -> CFDictionary {
-        let pixelAspectRatio: [String: Any] = [
-            "HorizontalSpacing": 0,
-            "VerticalSpacing": 0
-        ]
-
-        let atoms: [String: Any] = [
-            "avcC": CFDataCreate(nil, extradata, CFIndex(extradataSize)) as Any
-        ]
-
-        let extensions: [String: Any] = [
-            "CVImageBufferChromaLocationBottomField": "left" as CFString,
-            "CVImageBufferChromaLocationTopField": "left" as CFString,
-            "FullRangeVideo": false,
-            "CVPixelAspectRatio": pixelAspectRatio,
-            "SampleDescriptionExtensionAtoms": atoms
-        ]
-
-        return extensions as CFDictionary
+        return IRFFVideoToolBoxPolicy.makeFormatDescriptionExtensions(
+            extradata: extradata,
+            extradataSize: extradataSize
+        )
     }
 
     private static let outputCallback: VTDecompressionOutputCallback = { (

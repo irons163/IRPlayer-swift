@@ -6,6 +6,71 @@ import XCTest
 
 final class IRFFVideoToolBoxTests: XCTestCase {
 
+    func testStaticPolicyWrappersRemainSourceCompatible() throws {
+        var packet = AVPacket()
+        var bytes = [UInt8](arrayLiteral: 0, 0, 1, 42)
+
+        try bytes.withUnsafeMutableBufferPointer { buffer in
+            let data = try XCTUnwrap(buffer.baseAddress)
+            packet.data = data
+            packet.size = Int32(buffer.count)
+
+            let wrapperPacketPayload = try XCTUnwrap(IRFFVideoToolBox.packetPayload(for: packet))
+            let policyPacketPayload = try XCTUnwrap(IRFFVideoToolBoxPolicy.packetPayload(for: packet))
+            XCTAssertEqual(wrapperPacketPayload.data, policyPacketPayload.data)
+            XCTAssertEqual(wrapperPacketPayload.size, policyPacketPayload.size)
+            XCTAssertEqual(
+                IRFFVideoToolBox.threeByteNALUnitsAreBounded(in: wrapperPacketPayload),
+                IRFFVideoToolBoxPolicy.threeByteNALUnitsAreBounded(in: policyPacketPayload)
+            )
+        }
+
+        XCTAssertEqual(
+            IRFFVideoToolBox.setupValidationError(
+                codecID: AV_CODEC_ID_AAC,
+                extradata: nil,
+                extradataSize: 0,
+                firstExtradataByte: nil
+            ),
+            IRFFVideoToolBoxPolicy.setupValidationError(
+                codecID: AV_CODEC_ID_AAC,
+                extradata: nil,
+                extradataSize: 0,
+                firstExtradataByte: nil
+            )
+        )
+
+        let wrapperNALPolicy = IRFFVideoToolBox.nalLengthSizePolicy(for: 0xFE)
+        let policyNALPolicy = IRFFVideoToolBoxPolicy.nalLengthSizePolicy(for: 0xFE)
+        XCTAssertEqual(wrapperNALPolicy.normalizedMarker, policyNALPolicy.normalizedMarker)
+        XCTAssertEqual(wrapperNALPolicy.shouldConvertThreeByteNALUnits, policyNALPolicy.shouldConvertThreeByteNALUnits)
+
+        XCTAssertEqual(
+            IRFFVideoToolBox.nalPayloadCanAdvance(nalSize: 2, remainingByteCount: 2),
+            IRFFVideoToolBoxPolicy.nalPayloadCanAdvance(nalSize: 2, remainingByteCount: 2)
+        )
+        XCTAssertEqual(
+            IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: noErr, hasOutput: true),
+            IRFFVideoToolBoxPolicy.decodeFrameSucceeded(status: noErr, callbackStatus: noErr, hasOutput: true)
+        )
+        XCTAssertEqual(
+            IRFFVideoToolBox.convertedNALBlockPayload(
+                memoryBlock: UnsafeMutablePointer<UInt8>(bitPattern: 1),
+                demuxSize: 5,
+                packetSize: 4
+            )?.dataLength,
+            IRFFVideoToolBoxPolicy.convertedNALBlockPayload(
+                memoryBlock: UnsafeMutablePointer<UInt8>(bitPattern: 1),
+                demuxSize: 5,
+                packetSize: 4
+            )?.dataLength
+        )
+        XCTAssertNil(IRFFVideoToolBox.requiredFormatDescription(nil))
+        XCTAssertNil(IRFFVideoToolBoxPolicy.requiredFormatDescription(nil))
+        XCTAssertNil(IRFFVideoToolBox.decodeFramePayload(session: nil, sampleBuffer: nil))
+        XCTAssertNil(IRFFVideoToolBoxPolicy.decodeFramePayload(session: nil, sampleBuffer: nil))
+    }
+
     func testSetupValidationMapsCodecAndExtradataFailures() {
         XCTAssertEqual(
             IRFFVideoToolBox.setupValidationError(codecID: AV_CODEC_ID_AAC, extradata: nil, extradataSize: 0, firstExtradataByte: nil),
