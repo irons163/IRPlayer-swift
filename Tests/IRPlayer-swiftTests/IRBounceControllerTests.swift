@@ -38,4 +38,20 @@ final class IRBounceControllerTests: XCTestCase {
         XCTAssertEqual(IRBounceController.animationPlan(for: .down), IRBounceAnimationPlan(key: "bounce_top", axis: .vertical))
         XCTAssertNil(IRBounceController.animationPlan(for: .none))
     }
+
+    func testBounceControllerWrappersMatchPolicy() {
+        let targetSize = CGSize(width: 120, height: 90)
+        let wrapperGeometry = IRBounceController.bouncePathGeometry(amount: -240,
+                                                                    direction: .left,
+                                                                    targetSize: targetSize)
+        let policyGeometry = IRBouncePolicy.bouncePathGeometry(amount: -240,
+                                                               direction: .left,
+                                                               targetSize: targetSize)
+
+        XCTAssertEqual(wrapperGeometry.start, policyGeometry.start)
+        XCTAssertEqual(wrapperGeometry.control, policyGeometry.control)
+        XCTAssertEqual(wrapperGeometry.end, policyGeometry.end)
+        XCTAssertEqual(IRBounceController.animationPlan(for: .up), IRBouncePolicy.animationPlan(for: .up))
+        XCTAssertNil(IRBouncePolicy.animationPlan(for: .none))
+    }
 }
