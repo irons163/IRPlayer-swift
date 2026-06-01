@@ -56,6 +56,7 @@
 		B5E94EE42D0B21F800149265 /* IRMediaParameter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D702D0B21F800149265 /* IRMediaParameter.swift */; };
 		B5E94EE62D0B21F800149265 /* IRAVPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D6D2D0B21F800149265 /* IRAVPlayer.swift */; };
 		B5E9522D2F6901500149265 /* IRAVPlayerAssetLoadPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9522C2F6901500149265 /* IRAVPlayerAssetLoadPolicy.swift */; };
+		B5E9522F2F6901600149265 /* IRAVPlayerErrorPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9522E2F6901600149265 /* IRAVPlayerErrorPolicy.swift */; };
 		B5E952272F6901200149265 /* IRAVPlayerPlaybackPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952262F6901200149265 /* IRAVPlayerPlaybackPolicy.swift */; };
 		B5E952292F6901300149265 /* IRAVPlayerTimePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952282F6901300149265 /* IRAVPlayerTimePolicy.swift */; };
 		B5E9522B2F6901400149265 /* IRAVPlayerTrackPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9522A2F6901400149265 /* IRAVPlayerTrackPolicy.swift */; };
@@ -244,6 +245,7 @@
 		B5E94D6B2D0B21F800149265 /* IRAudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAudioManager.swift; sourceTree = "<group>"; };
 		B5E94D6D2D0B21F800149265 /* IRAVPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAVPlayer.swift; sourceTree = "<group>"; };
 		B5E9522C2F6901500149265 /* IRAVPlayerAssetLoadPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAVPlayerAssetLoadPolicy.swift; sourceTree = "<group>"; };
+		B5E9522E2F6901600149265 /* IRAVPlayerErrorPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAVPlayerErrorPolicy.swift; sourceTree = "<group>"; };
 		B5E952262F6901200149265 /* IRAVPlayerPlaybackPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAVPlayerPlaybackPolicy.swift; sourceTree = "<group>"; };
 		B5E952282F6901300149265 /* IRAVPlayerTimePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAVPlayerTimePolicy.swift; sourceTree = "<group>"; };
 		B5E9522A2F6901400149265 /* IRAVPlayerTrackPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAVPlayerTrackPolicy.swift; sourceTree = "<group>"; };
@@ -546,6 +548,7 @@
 			children = (
 				B5E94D6D2D0B21F800149265 /* IRAVPlayer.swift */,
 				B5E9522C2F6901500149265 /* IRAVPlayerAssetLoadPolicy.swift */,
+				B5E9522E2F6901600149265 /* IRAVPlayerErrorPolicy.swift */,
 				B5E952262F6901200149265 /* IRAVPlayerPlaybackPolicy.swift */,
 				B5E952282F6901300149265 /* IRAVPlayerTimePolicy.swift */,
 				B5E9522A2F6901400149265 /* IRAVPlayerTrackPolicy.swift */,
@@ -1118,6 +1121,7 @@
 				B5E94EE42D0B21F800149265 /* IRMediaParameter.swift in Sources */,
 				B5E94EE62D0B21F800149265 /* IRAVPlayer.swift in Sources */,
 				B5E9522D2F6901500149265 /* IRAVPlayerAssetLoadPolicy.swift in Sources */,
+				B5E9522F2F6901600149265 /* IRAVPlayerErrorPolicy.swift in Sources */,
 				B5E952272F6901200149265 /* IRAVPlayerPlaybackPolicy.swift in Sources */,
 				B5E952292F6901300149265 /* IRAVPlayerTimePolicy.swift in Sources */,
 				B5E9522B2F6901400149265 /* IRAVPlayerTrackPolicy.swift in Sources */,

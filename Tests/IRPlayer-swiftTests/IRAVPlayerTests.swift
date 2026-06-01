@@ -215,7 +215,7 @@ final class IRAVPlayerTests: XCTestCase {
     }
 
     func testPlaybackErrorInfoFallsBackWhenPlayerItemAndPlayerAreMissing() {
-        let errorInfo = IRAVPlayer.playbackErrorInfo(playerItem: nil, player: nil)
+        let errorInfo = IRAVPlayerErrorPolicy.playbackErrorInfo(playerItem: nil, player: nil)
 
         XCTAssertEqual(errorInfo.error.domain, "AVPlayer playback error")
         XCTAssertEqual(errorInfo.error.code, -1)
