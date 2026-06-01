@@ -44,7 +44,7 @@ class IRFFMetadata {
             return value.int64Value
         }
         if let value = value as? String {
-            return Int64(value) ?? 0
+            return Int64(value.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
         }
         return 0
     }

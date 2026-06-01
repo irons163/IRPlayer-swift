@@ -35,4 +35,16 @@ final class IRFFMetadataTests: XCTestCase {
         XCTAssertEqual(metadata.numberOfBytes, 0)
         XCTAssertEqual(metadata.numberOfFrames, 0)
     }
+
+    func testMetadataParsesNumericStringsWithSurroundingWhitespace() {
+        let metadata = IRFFMetadata(dictionary: [
+            "BPS": " 192000 ",
+            "NUMBER_OF_BYTES": "\t240000\n",
+            "NUMBER_OF_FRAMES": " 300"
+        ])
+
+        XCTAssertEqual(metadata.BPS, 192000)
+        XCTAssertEqual(metadata.numberOfBytes, 240000)
+        XCTAssertEqual(metadata.numberOfFrames, 300)
+    }
 }
