@@ -35,6 +35,13 @@ final class IRGesturePolicyTests: XCTestCase {
                                                          panDirection: .unknown), .unknown)
     }
 
+    func testPanMovingDirectionDefaultsNonFiniteTranslationToUnknown() {
+        XCTAssertEqual(IRGesturePolicy.panMovingDirection(forTranslation: CGPoint(x: CGFloat.nan, y: 1),
+                                                         panDirection: .horizontal), .unknown)
+        XCTAssertEqual(IRGesturePolicy.panMovingDirection(forTranslation: CGPoint(x: 1, y: CGFloat.infinity),
+                                                         panDirection: .vertical), .unknown)
+    }
+
     func testPanLocationUsesTargetMidpoint() {
         XCTAssertEqual(IRGesturePolicy.panLocation(forTouchX: 51, targetWidth: 100), .right)
         XCTAssertEqual(IRGesturePolicy.panLocation(forTouchX: 50, targetWidth: 100), .left)
@@ -73,5 +80,31 @@ final class IRGesturePolicyTests: XCTestCase {
         XCTAssertNil(IRGesturePolicy.pinchAction(for: .cancelled))
         XCTAssertNil(IRGesturePolicy.pinchAction(for: .failed))
         XCTAssertNil(IRGesturePolicy.pinchAction(for: .possible))
+    }
+
+    func testSimultaneousRecognitionRejectsUnknownOtherRecognizerAndMultiTouch() {
+        XCTAssertFalse(IRGesturePolicy.shouldRecognizeSimultaneously(otherRecognizerIsManaged: false,
+                                                                     gestureIsPan: false,
+                                                                     panTranslation: nil,
+                                                                     disabledPanMovingAxes: .none,
+                                                                     numberOfTouches: 1))
+        XCTAssertFalse(IRGesturePolicy.shouldRecognizeSimultaneously(otherRecognizerIsManaged: true,
+                                                                     gestureIsPan: false,
+                                                                     panTranslation: nil,
+                                                                     disabledPanMovingAxes: .none,
+                                                                     numberOfTouches: 2))
+    }
+
+    func testSimultaneousRecognitionAllowsDisabledPanAxisToPassThrough() {
+        XCTAssertTrue(IRGesturePolicy.shouldRecognizeSimultaneously(otherRecognizerIsManaged: true,
+                                                                    gestureIsPan: true,
+                                                                    panTranslation: CGPoint(x: 10, y: 0),
+                                                                    disabledPanMovingAxes: .horizontal,
+                                                                    numberOfTouches: 2))
+        XCTAssertTrue(IRGesturePolicy.shouldRecognizeSimultaneously(otherRecognizerIsManaged: true,
+                                                                    gestureIsPan: true,
+                                                                    panTranslation: nil,
+                                                                    disabledPanMovingAxes: .horizontal,
+                                                                    numberOfTouches: 2))
     }
 }

@@ -55,103 +55,6 @@ struct IRDisablePanMovingDirection: OptionSet {
     static let all          = IRDisablePanMovingDirection([.vertical, .horizontal])
 }
 
-enum IRGesturePolicy {
-    enum PanAction: Equatable {
-        case begin
-        case change
-        case end
-    }
-
-    enum PinchAction: Equatable {
-        case end
-    }
-
-    static func panDirection(forVelocity velocity: CGPoint) -> IRPanDirection {
-        guard velocity.x.isFinite, velocity.y.isFinite else {
-            return .unknown
-        }
-
-        let x = abs(velocity.x)
-        let y = abs(velocity.y)
-        if x > y {
-            return .horizontal
-        } else if x < y {
-            return .vertical
-        } else {
-            return .unknown
-        }
-    }
-
-    static func panMovingDirection(forTranslation translation: CGPoint,
-                                   panDirection: IRPanDirection) -> IRPanMovingDirection {
-        guard translation.x.isFinite, translation.y.isFinite else {
-            return .unknown
-        }
-
-        switch panDirection {
-        case .horizontal:
-            return translation.x > 0 ? .right : .left
-        case .vertical:
-            return translation.y > 0 ? .bottom : .top
-        case .unknown:
-            return .unknown
-        }
-    }
-
-    static func panLocation(forTouchX touchX: CGFloat, targetWidth: CGFloat) -> IRPanLocation {
-        guard touchX.isFinite, targetWidth.isFinite, targetWidth > 0 else {
-            return .unknown
-        }
-
-        return touchX > targetWidth / 2 ? .right : .left
-    }
-
-    static func panMovingAxis(forTranslation translation: CGPoint) -> IRPanDirection {
-        guard translation.x.isFinite, translation.y.isFinite else {
-            return .unknown
-        }
-
-        let x = abs(translation.x)
-        let y = abs(translation.y)
-        if x > y {
-            return .horizontal
-        } else if x < y {
-            return .vertical
-        } else {
-            return .unknown
-        }
-    }
-
-    static func isPanMovingAxisDisabled(_ axis: IRPanDirection,
-                                        disabledAxes: IRDisablePanMovingDirection) -> Bool {
-        switch axis {
-        case .horizontal:
-            return disabledAxes.contains(.horizontal)
-        case .vertical:
-            return disabledAxes.contains(.vertical)
-        case .unknown:
-            return false
-        }
-    }
-
-    static func panAction(for state: UIGestureRecognizer.State) -> PanAction? {
-        switch state {
-        case .began:
-            return .begin
-        case .changed:
-            return .change
-        case .failed, .cancelled, .ended:
-            return .end
-        default:
-            return nil
-        }
-    }
-
-    static func pinchAction(for state: UIGestureRecognizer.State) -> PinchAction? {
-        state == .ended ? .end : nil
-    }
-}
-
 class IRGestureController: NSObject, UIGestureRecognizerDelegate {
     weak private(set) var targetView: UIView?
 
@@ -284,25 +187,26 @@ class IRGestureController: NSObject, UIGestureRecognizerDelegate {
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        if otherGestureRecognizer != singleTapGR &&
-            otherGestureRecognizer != doubleTapGR &&
-            otherGestureRecognizer != panGR &&
-            otherGestureRecognizer != pinchGR {
-            return false
-        }
+        let otherRecognizerIsManaged = otherGestureRecognizer == singleTapGR ||
+            otherGestureRecognizer == doubleTapGR ||
+            otherGestureRecognizer == panGR ||
+            otherGestureRecognizer == pinchGR
 
+        let panTranslation: CGPoint?
         if gestureRecognizer == panGR {
             guard let panGestureRecognizer = gestureRecognizer as? UIPanGestureRecognizer else { return true }
-            let translation = panGestureRecognizer.translation(in: targetView)
-            let axis = IRGesturePolicy.panMovingAxis(forTranslation: translation)
-            if IRGesturePolicy.isPanMovingAxisDisabled(axis, disabledAxes: disablePanMovingDirection) {
-                return true
-            }
+            panTranslation = panGestureRecognizer.translation(in: targetView)
+        } else {
+            panTranslation = nil
         }
-        if gestureRecognizer.numberOfTouches >= 2 {
-            return false
-        }
-        return true
+
+        return IRGesturePolicy.shouldRecognizeSimultaneously(
+            otherRecognizerIsManaged: otherRecognizerIsManaged,
+            gestureIsPan: gestureRecognizer == panGR,
+            panTranslation: panTranslation,
+            disabledPanMovingAxes: disablePanMovingDirection,
+            numberOfTouches: gestureRecognizer.numberOfTouches
+        )
     }
 
     @objc func handleSingleTap(_ tap: UITapGestureRecognizer) {
