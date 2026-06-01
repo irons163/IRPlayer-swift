@@ -5,7 +5,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
 
     func testSeekPreparationClampsRequestedTimeUsingAudioOrVideoTailBuffer() {
         XCTAssertEqual(
-            IRFFDecoder.seekPreparation(
+            IRFFDecoderSeekPolicy.seekPreparation(
                 requestedTime: 90,
                 seekEnabled: true,
                 hasError: false,
@@ -17,7 +17,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
             IRFFDecoder.SeekPreparation(clampedTime: 90)
         )
         XCTAssertEqual(
-            IRFFDecoder.seekPreparation(
+            IRFFDecoderSeekPolicy.seekPreparation(
                 requestedTime: 500,
                 seekEnabled: true,
                 hasError: false,
@@ -29,7 +29,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
             IRFFDecoder.SeekPreparation(clampedTime: 110)
         )
         XCTAssertEqual(
-            IRFFDecoder.seekPreparation(
+            IRFFDecoderSeekPolicy.seekPreparation(
                 requestedTime: 500,
                 seekEnabled: true,
                 hasError: false,
@@ -44,7 +44,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
 
     func testSeekPreparationRejectsDisabledErroredOrInvalidInputs() {
         XCTAssertNil(
-            IRFFDecoder.seekPreparation(
+            IRFFDecoderSeekPolicy.seekPreparation(
                 requestedTime: 30,
                 seekEnabled: false,
                 hasError: false,
@@ -55,7 +55,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
             )
         )
         XCTAssertNil(
-            IRFFDecoder.seekPreparation(
+            IRFFDecoderSeekPolicy.seekPreparation(
                 requestedTime: 30,
                 seekEnabled: true,
                 hasError: true,
@@ -66,7 +66,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
             )
         )
         XCTAssertNil(
-            IRFFDecoder.seekPreparation(
+            IRFFDecoderSeekPolicy.seekPreparation(
                 requestedTime: .nan,
                 seekEnabled: true,
                 hasError: false,
@@ -79,14 +79,14 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
     }
 
     func testResumeSeekTargetRestartsOnlyFinishedPlayback() {
-        XCTAssertNil(IRFFDecoder.resumeSeekTarget(playbackFinished: false))
-        XCTAssertEqual(IRFFDecoder.resumeSeekTarget(playbackFinished: true), 0)
+        XCTAssertNil(IRFFDecoderSeekPolicy.resumeSeekTarget(playbackFinished: false))
+        XCTAssertEqual(IRFFDecoderSeekPolicy.resumeSeekTarget(playbackFinished: true), 0)
     }
 
     func testSeekCompletionTransitionResetsPendingSeekState() {
-        XCTAssertNil(IRFFDecoder.seekCompletionTransition(seeking: false, progress: 3))
+        XCTAssertNil(IRFFDecoderSeekPolicy.seekCompletionTransition(seeking: false, progress: 3))
         XCTAssertEqual(
-            IRFFDecoder.seekCompletionTransition(seeking: true, progress: 3),
+            IRFFDecoderSeekPolicy.seekCompletionTransition(seeking: true, progress: 3),
             IRFFDecoder.SeekCompletionTransition(
                 endOfFile: false,
                 playbackFinished: false,
@@ -102,7 +102,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
 
     func testAudioTrackSelectionSeekTargetRequiresRebuiltActiveAudioDecoder() {
         XCTAssertNil(
-            IRFFDecoder.audioTrackSelectionSeekTarget(
+            IRFFDecoderSeekPolicy.audioTrackSelectionSeekTarget(
                 selectionPending: false,
                 decoderWasReset: true,
                 hasAudioDecoder: true,
@@ -111,7 +111,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
             )
         )
         XCTAssertNil(
-            IRFFDecoder.audioTrackSelectionSeekTarget(
+            IRFFDecoderSeekPolicy.audioTrackSelectionSeekTarget(
                 selectionPending: true,
                 decoderWasReset: false,
                 hasAudioDecoder: true,
@@ -120,7 +120,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
             )
         )
         XCTAssertNil(
-            IRFFDecoder.audioTrackSelectionSeekTarget(
+            IRFFDecoderSeekPolicy.audioTrackSelectionSeekTarget(
                 selectionPending: true,
                 decoderWasReset: true,
                 hasAudioDecoder: false,
@@ -129,7 +129,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
             )
         )
         XCTAssertNil(
-            IRFFDecoder.audioTrackSelectionSeekTarget(
+            IRFFDecoderSeekPolicy.audioTrackSelectionSeekTarget(
                 selectionPending: true,
                 decoderWasReset: true,
                 hasAudioDecoder: true,
@@ -138,7 +138,7 @@ final class IRFFDecoderSeekPolicyTests: XCTestCase {
             )
         )
         XCTAssertEqual(
-            IRFFDecoder.audioTrackSelectionSeekTarget(
+            IRFFDecoderSeekPolicy.audioTrackSelectionSeekTarget(
                 selectionPending: true,
                 decoderWasReset: true,
                 hasAudioDecoder: true,

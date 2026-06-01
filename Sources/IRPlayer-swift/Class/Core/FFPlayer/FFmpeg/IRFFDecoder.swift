@@ -329,19 +329,15 @@ protocol IRFFDecoderDelegate: AnyObject {
                                 seekMinTime: TimeInterval,
                                 duration: TimeInterval,
                                 minBufferedDuration: TimeInterval) -> SeekPreparation? {
-        guard seekEnabled, !hasError else { return nil }
-
-        let tailBufferDuration: TimeInterval = hasAudio ? 8 : 15
-        let rawSeekMaxTime = duration - (minBufferedDuration + tailBufferDuration)
-        guard let clampedSeekTime = IRPlaybackTimePolicy.clampedSeekTime(
-            requested: requestedTime,
-            min: seekMinTime,
-            max: rawSeekMaxTime
-        ) else {
-            return nil
-        }
-
-        return SeekPreparation(clampedTime: clampedSeekTime)
+        return IRFFDecoderSeekPolicy.seekPreparation(
+            requestedTime: requestedTime,
+            seekEnabled: seekEnabled,
+            hasError: hasError,
+            hasAudio: hasAudio,
+            seekMinTime: seekMinTime,
+            duration: duration,
+            minBufferedDuration: minBufferedDuration
+        )
     }
 
     static func audioSyncedVideoSleepDuration(framePosition: TimeInterval,
@@ -388,21 +384,11 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func resumeSeekTarget(playbackFinished: Bool) -> TimeInterval? {
-        return playbackFinished ? 0 : nil
+        return IRFFDecoderSeekPolicy.resumeSeekTarget(playbackFinished: playbackFinished)
     }
 
     static func seekCompletionTransition(seeking: Bool, progress: TimeInterval) -> SeekCompletionTransition? {
-        guard seeking else { return nil }
-        return SeekCompletionTransition(
-            endOfFile: false,
-            playbackFinished: false,
-            buffering: true,
-            videoPaused: false,
-            videoEndOfFile: false,
-            seekToTime: 0,
-            audioTimeClock: progress,
-            shouldClearFrames: true
-        )
+        return IRFFDecoderSeekPolicy.seekCompletionTransition(seeking: seeking, progress: progress)
     }
 
     static func audioTrackSelectionSeekTarget(selectionPending: Bool,
@@ -410,13 +396,13 @@ protocol IRFFDecoderDelegate: AnyObject {
                                               hasAudioDecoder: Bool,
                                               playbackFinished: Bool,
                                               audioTimeClock: TimeInterval) -> TimeInterval? {
-        guard selectionPending,
-              decoderWasReset,
-              hasAudioDecoder,
-              !playbackFinished else {
-            return nil
-        }
-        return audioTimeClock
+        return IRFFDecoderSeekPolicy.audioTrackSelectionSeekTarget(
+            selectionPending: selectionPending,
+            decoderWasReset: decoderWasReset,
+            hasAudioDecoder: hasAudioDecoder,
+            playbackFinished: playbackFinished,
+            audioTimeClock: audioTimeClock
+        )
     }
 
     static func readPacketEOFTransition(readFrameResult: Int32?) -> ReadPacketEOFTransition? {
