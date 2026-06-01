@@ -503,13 +503,7 @@ extension IRAVPlayer {
 extension IRAVPlayer {
 
     static func avAssetLoadDecision(keyStatuses: [AVKeyValueStatus], trackStatus: AVKeyValueStatus?) -> AVAssetLoadDecision {
-        if keyStatuses.contains(.failed) {
-            return .fail
-        }
-        if trackStatus == .loaded {
-            return .setupOutput
-        }
-        return .ignore
+        return IRAVPlayerAssetLoadPolicy.decision(keyStatuses: keyStatuses, trackStatus: trackStatus)
     }
 
     func setupAVPlayer() {

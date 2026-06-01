@@ -285,25 +285,25 @@ final class IRAVPlayerTests: XCTestCase {
 
     func testAVAssetLoadDecisionFailsWhenAnyRequiredKeyFails() {
         XCTAssertEqual(
-            IRAVPlayer.avAssetLoadDecision(keyStatuses: [.loaded, .failed], trackStatus: .loaded),
+            IRAVPlayerAssetLoadPolicy.decision(keyStatuses: [.loaded, .failed], trackStatus: .loaded),
             .fail
         )
     }
 
     func testAVAssetLoadDecisionSetsUpOutputWhenTracksAreLoaded() {
         XCTAssertEqual(
-            IRAVPlayer.avAssetLoadDecision(keyStatuses: [.loaded, .loaded], trackStatus: .loaded),
+            IRAVPlayerAssetLoadPolicy.decision(keyStatuses: [.loaded, .loaded], trackStatus: .loaded),
             .setupOutput
         )
     }
 
     func testAVAssetLoadDecisionIgnoresIncompleteTrackStatus() {
         XCTAssertEqual(
-            IRAVPlayer.avAssetLoadDecision(keyStatuses: [.loaded, .loaded], trackStatus: .loading),
+            IRAVPlayerAssetLoadPolicy.decision(keyStatuses: [.loaded, .loaded], trackStatus: .loading),
             .ignore
         )
         XCTAssertEqual(
-            IRAVPlayer.avAssetLoadDecision(keyStatuses: [.loaded, .loaded], trackStatus: nil),
+            IRAVPlayerAssetLoadPolicy.decision(keyStatuses: [.loaded, .loaded], trackStatus: nil),
             .ignore
         )
     }
