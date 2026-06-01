@@ -438,7 +438,7 @@ final class IRFFDecoderOperationTests: XCTestCase {
         )
         XCTAssertEqual(
             IRFFDecoder.packetRoute(streamIndex: 0, videoTrackIndex: nil, audioTrackIndex: nil),
-            .video
+            .ignored
         )
     }
 

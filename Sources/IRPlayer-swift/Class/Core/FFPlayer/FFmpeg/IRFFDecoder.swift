@@ -443,10 +443,10 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func packetRoute(streamIndex: Int32, videoTrackIndex: Int?, audioTrackIndex: Int?) -> PacketRoute {
-        if streamIndex == Int32(videoTrackIndex ?? 0) {
+        if let videoTrackIndex, streamIndex == Int32(videoTrackIndex) {
             return .video
         }
-        if streamIndex == Int32(audioTrackIndex ?? 0) {
+        if let audioTrackIndex, streamIndex == Int32(audioTrackIndex) {
             return .audio
         }
         return .ignored
