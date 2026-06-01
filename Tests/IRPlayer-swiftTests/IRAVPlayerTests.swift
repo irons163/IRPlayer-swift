@@ -223,64 +223,64 @@ final class IRAVPlayerTests: XCTestCase {
 
     func testItemStatusPolicyMapsAVPlayerItemStatusesToPlaybackDecisions() {
         XCTAssertEqual(
-            IRAVPlayer.itemStatusDecision(status: .unknown, currentState: .none),
+            IRAVPlayerPlaybackPolicy.itemStatusDecision(status: .unknown, currentState: .none),
             .buffer
         )
         XCTAssertEqual(
-            IRAVPlayer.itemStatusDecision(status: .readyToPlay, currentState: .none),
+            IRAVPlayerPlaybackPolicy.itemStatusDecision(status: .readyToPlay, currentState: .none),
             .markReady
         )
         XCTAssertEqual(
-            IRAVPlayer.itemStatusDecision(status: .readyToPlay, currentState: .buffering),
+            IRAVPlayerPlaybackPolicy.itemStatusDecision(status: .readyToPlay, currentState: .buffering),
             .playIfNeeded
         )
         XCTAssertEqual(
-            IRAVPlayer.itemStatusDecision(status: .readyToPlay, currentState: .failed),
+            IRAVPlayerPlaybackPolicy.itemStatusDecision(status: .readyToPlay, currentState: .failed),
             .ignore
         )
         XCTAssertEqual(
-            IRAVPlayer.itemStatusDecision(status: .failed, currentState: .playing),
+            IRAVPlayerPlaybackPolicy.itemStatusDecision(status: .failed, currentState: .playing),
             .fail
         )
     }
 
     func testPlayStateTransitionMapsCurrentPlaybackState() {
-        XCTAssertEqual(IRAVPlayer.nextStateAfterPlay(from: .none), .buffering)
-        XCTAssertEqual(IRAVPlayer.nextStateAfterPlay(from: .suspend), .playing)
-        XCTAssertEqual(IRAVPlayer.nextStateAfterPlay(from: .readyToPlay), .playing)
-        XCTAssertNil(IRAVPlayer.nextStateAfterPlay(from: .buffering))
-        XCTAssertNil(IRAVPlayer.nextStateAfterPlay(from: .playing))
-        XCTAssertNil(IRAVPlayer.nextStateAfterPlay(from: .finished))
-        XCTAssertNil(IRAVPlayer.nextStateAfterPlay(from: .failed))
+        XCTAssertEqual(IRAVPlayerPlaybackPolicy.nextStateAfterPlay(from: .none), .buffering)
+        XCTAssertEqual(IRAVPlayerPlaybackPolicy.nextStateAfterPlay(from: .suspend), .playing)
+        XCTAssertEqual(IRAVPlayerPlaybackPolicy.nextStateAfterPlay(from: .readyToPlay), .playing)
+        XCTAssertNil(IRAVPlayerPlaybackPolicy.nextStateAfterPlay(from: .buffering))
+        XCTAssertNil(IRAVPlayerPlaybackPolicy.nextStateAfterPlay(from: .playing))
+        XCTAssertNil(IRAVPlayerPlaybackPolicy.nextStateAfterPlay(from: .finished))
+        XCTAssertNil(IRAVPlayerPlaybackPolicy.nextStateAfterPlay(from: .failed))
     }
 
     func testPauseStateTransitionSuspendsEveryNonFailedPlaybackState() {
-        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .none), .suspend)
-        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .buffering), .suspend)
-        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .playing), .suspend)
-        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .readyToPlay), .suspend)
-        XCTAssertEqual(IRAVPlayer.nextStateAfterPause(from: .finished), .suspend)
-        XCTAssertNil(IRAVPlayer.nextStateAfterPause(from: .failed))
+        XCTAssertEqual(IRAVPlayerPlaybackPolicy.nextStateAfterPause(from: .none), .suspend)
+        XCTAssertEqual(IRAVPlayerPlaybackPolicy.nextStateAfterPause(from: .buffering), .suspend)
+        XCTAssertEqual(IRAVPlayerPlaybackPolicy.nextStateAfterPause(from: .playing), .suspend)
+        XCTAssertEqual(IRAVPlayerPlaybackPolicy.nextStateAfterPause(from: .readyToPlay), .suspend)
+        XCTAssertEqual(IRAVPlayerPlaybackPolicy.nextStateAfterPause(from: .finished), .suspend)
+        XCTAssertNil(IRAVPlayerPlaybackPolicy.nextStateAfterPause(from: .failed))
     }
 
     func testDelayedPlayRetryOnlyRunsForActiveOrReadyStates() {
-        XCTAssertTrue(IRAVPlayer.shouldRetryPlayAfterDelay(for: .buffering))
-        XCTAssertTrue(IRAVPlayer.shouldRetryPlayAfterDelay(for: .playing))
-        XCTAssertTrue(IRAVPlayer.shouldRetryPlayAfterDelay(for: .readyToPlay))
-        XCTAssertFalse(IRAVPlayer.shouldRetryPlayAfterDelay(for: .none))
-        XCTAssertFalse(IRAVPlayer.shouldRetryPlayAfterDelay(for: .suspend))
-        XCTAssertFalse(IRAVPlayer.shouldRetryPlayAfterDelay(for: .finished))
-        XCTAssertFalse(IRAVPlayer.shouldRetryPlayAfterDelay(for: .failed))
+        XCTAssertTrue(IRAVPlayerPlaybackPolicy.shouldRetryPlayAfterDelay(for: .buffering))
+        XCTAssertTrue(IRAVPlayerPlaybackPolicy.shouldRetryPlayAfterDelay(for: .playing))
+        XCTAssertTrue(IRAVPlayerPlaybackPolicy.shouldRetryPlayAfterDelay(for: .readyToPlay))
+        XCTAssertFalse(IRAVPlayerPlaybackPolicy.shouldRetryPlayAfterDelay(for: .none))
+        XCTAssertFalse(IRAVPlayerPlaybackPolicy.shouldRetryPlayAfterDelay(for: .suspend))
+        XCTAssertFalse(IRAVPlayerPlaybackPolicy.shouldRetryPlayAfterDelay(for: .finished))
+        XCTAssertFalse(IRAVPlayerPlaybackPolicy.shouldRetryPlayAfterDelay(for: .failed))
     }
 
     func testActivePlaybackStatePolicyIncludesOnlyBufferingAndPlaying() {
-        XCTAssertTrue(IRAVPlayer.isActivePlaybackState(.buffering))
-        XCTAssertTrue(IRAVPlayer.isActivePlaybackState(.playing))
-        XCTAssertFalse(IRAVPlayer.isActivePlaybackState(.none))
-        XCTAssertFalse(IRAVPlayer.isActivePlaybackState(.readyToPlay))
-        XCTAssertFalse(IRAVPlayer.isActivePlaybackState(.suspend))
-        XCTAssertFalse(IRAVPlayer.isActivePlaybackState(.finished))
-        XCTAssertFalse(IRAVPlayer.isActivePlaybackState(.failed))
+        XCTAssertTrue(IRAVPlayerPlaybackPolicy.isActivePlaybackState(.buffering))
+        XCTAssertTrue(IRAVPlayerPlaybackPolicy.isActivePlaybackState(.playing))
+        XCTAssertFalse(IRAVPlayerPlaybackPolicy.isActivePlaybackState(.none))
+        XCTAssertFalse(IRAVPlayerPlaybackPolicy.isActivePlaybackState(.readyToPlay))
+        XCTAssertFalse(IRAVPlayerPlaybackPolicy.isActivePlaybackState(.suspend))
+        XCTAssertFalse(IRAVPlayerPlaybackPolicy.isActivePlaybackState(.finished))
+        XCTAssertFalse(IRAVPlayerPlaybackPolicy.isActivePlaybackState(.failed))
     }
 
     func testAVAssetLoadDecisionFailsWhenAnyRequiredKeyFails() {
