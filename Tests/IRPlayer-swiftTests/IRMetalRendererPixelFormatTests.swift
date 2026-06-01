@@ -164,6 +164,15 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         )
     }
 
+    func testRGBTextureLayoutWrapperMatchesPixelFormatPolicy() {
+        let wrapper = IRMetalRenderer.rgbTextureLayout(width: 2, height: 2, linesize: 8, byteCount: 16)
+        let policy = IRMetalRendererPixelFormatPolicy.rgbTextureLayout(width: 2, height: 2, linesize: 8, byteCount: 16)
+
+        XCTAssertEqual(wrapper?.bytesPerRow, policy?.bytesPerRow)
+        XCTAssertEqual(wrapper?.totalByteCount, policy?.totalByteCount)
+        XCTAssertNil(IRMetalRendererPixelFormatPolicy.rgbTextureLayout(width: 2, height: 2, linesize: 7, byteCount: 16))
+    }
+
     func testMakeRGBTextureRejectsLinesizeThatCannotFitBytesPerRow() throws {
         guard let device = MTLCreateSystemDefaultDevice(),
               let renderer = IRMetalRenderer(device: device) else {
