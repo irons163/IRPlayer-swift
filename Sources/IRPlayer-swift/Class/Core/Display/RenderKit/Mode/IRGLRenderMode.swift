@@ -124,42 +124,22 @@ public class IRGLRenderMode: NSObject {
     }
 
     private func settingConfig(_ key: String) {
-        settingDefaultScale(key)
-        settingWideDegreeX(key)
-        settingWideDegreeY(key)
-        settingContentMode(key)
-        settingScaleRange(key)
-        settingScopeRange(key)
-    }
-
-    private func settingDefaultScale(_ key: String) {
-        if key != IRGLRenderModeConfigurationKey.setDefaultScale.rawValue { return }
-        program?.setDefaultScale(defaultScale)
-    }
-
-    private func settingWideDegreeX(_ key: String) {
-        if key != IRGLRenderModeConfigurationKey.setWideDegreeX.rawValue { return }
-        // program?.setWideDegreeX(wideDegreeX)
-    }
-
-    private func settingWideDegreeY(_ key: String) {
-        guard key == IRGLRenderModeConfigurationKey.setWideDegreeY.rawValue else { return }
-        // program?.setWideDegreeY(wideDegreeY)
-    }
-
-    private func settingContentMode(_ key: String) {
-        guard key == IRGLRenderModeConfigurationKey.setContentMode.rawValue else { return }
-        program?.contentMode = contentMode
-    }
-
-    private func settingScaleRange(_ key: String) {
-        guard key == IRGLRenderModeConfigurationKey.setScaleRange.rawValue else { return }
-        program?.tramsformController?.scaleRange = scaleRange
-    }
-
-    private func settingScopeRange(_ key: String) {
-        guard key == IRGLRenderModeConfigurationKey.setScopeRange.rawValue else { return }
-        program?.tramsformController?.scopeRange = scopeRange
+        switch IRGLRenderModeSettingPolicy.action(for: key) {
+        case .defaultScale:
+            program?.setDefaultScale(defaultScale)
+        case .wideDegreeX:
+            break
+        case .wideDegreeY:
+            break
+        case .contentMode:
+            program?.contentMode = contentMode
+        case .scaleRange:
+            program?.tramsformController?.scaleRange = scaleRange
+        case .scopeRange:
+            program?.tramsformController?.scopeRange = scopeRange
+        case .none:
+            break
+        }
     }
 
     func update() {
