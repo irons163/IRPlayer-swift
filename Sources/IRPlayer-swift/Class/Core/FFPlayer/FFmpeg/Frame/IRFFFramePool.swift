@@ -87,6 +87,9 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
         lock.lock()
         unuseFrames.insert(frame)
         usedFrames.remove(frame)
+        if playingFrame == frame {
+            playingFrame = nil
+        }
         lock.unlock()
     }
 
