@@ -281,21 +281,17 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func needsScheduling(_ operation: Operation?) -> Bool {
-        return operation?.isFinished ?? true
+        return IRFFDecoderOperationPolicy.needsScheduling(operation)
     }
 
     @discardableResult
     static func addDependency(_ dependency: Operation?, to operation: Operation?) -> Bool {
-        guard let dependency, let operation else { return false }
-        operation.addDependency(dependency)
-        return true
+        return IRFFDecoderOperationPolicy.addDependency(dependency, to: operation)
     }
 
     @discardableResult
     static func enqueue(_ operation: Operation?, on queue: OperationQueue?) -> Bool {
-        guard let operation, let queue else { return false }
-        queue.addOperation(operation)
-        return true
+        return IRFFDecoderOperationPolicy.enqueue(operation, on: queue)
     }
 
     static func videoCodecContext(from formatContext: IRFFFormatContext?) -> UnsafeMutablePointer<AVCodecContext>? {
