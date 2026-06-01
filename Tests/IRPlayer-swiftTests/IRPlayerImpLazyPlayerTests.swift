@@ -15,6 +15,7 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
 
     func testLazyPlayerFactoriesReturnExistingPlayersOrCreateNewOnes() {
         let abstractPlayer = IRPlayerImp.player()
+        abstractPlayer.manager = nil
 
         let existingAVPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
         XCTAssertTrue(IRPlayerImp.makeAVPlayerIfNeeded(existingAVPlayer, abstractPlayer: abstractPlayer) === existingAVPlayer)
