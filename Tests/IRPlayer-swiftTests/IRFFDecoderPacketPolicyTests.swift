@@ -5,7 +5,7 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
 
     func testPacketBufferBackpressureSleepIntervalUsesConfiguredThresholdAndPauseState() {
         XCTAssertNil(
-            IRFFDecoder.packetBufferBackpressureSleepInterval(
+            IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
                 audioSize: 3,
                 videoPacketSize: 6,
                 maxBufferSize: 10,
@@ -13,7 +13,7 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
             )
         )
         XCTAssertEqual(
-            IRFFDecoder.packetBufferBackpressureSleepInterval(
+            IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
                 audioSize: 4,
                 videoPacketSize: 6,
                 maxBufferSize: 10,
@@ -22,7 +22,7 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
             0.1
         )
         XCTAssertEqual(
-            IRFFDecoder.packetBufferBackpressureSleepInterval(
+            IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
                 audioSize: 5,
                 videoPacketSize: 6,
                 maxBufferSize: 10,
@@ -34,7 +34,7 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
 
     func testPacketBufferBackpressureSleepIntervalRejectsInvalidSizes() {
         XCTAssertNil(
-            IRFFDecoder.packetBufferBackpressureSleepInterval(
+            IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
                 audioSize: -1,
                 videoPacketSize: 6,
                 maxBufferSize: 10,
@@ -42,7 +42,7 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
             )
         )
         XCTAssertNil(
-            IRFFDecoder.packetBufferBackpressureSleepInterval(
+            IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
                 audioSize: 4,
                 videoPacketSize: -1,
                 maxBufferSize: 10,
@@ -50,7 +50,7 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
             )
         )
         XCTAssertNil(
-            IRFFDecoder.packetBufferBackpressureSleepInterval(
+            IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
                 audioSize: 4,
                 videoPacketSize: 6,
                 maxBufferSize: 0,
@@ -60,10 +60,10 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
     }
 
     func testReadPacketEOFTransitionOnlyAppliesForNegativeReadResults() {
-        XCTAssertNil(IRFFDecoder.readPacketEOFTransition(readFrameResult: 0))
-        XCTAssertNil(IRFFDecoder.readPacketEOFTransition(readFrameResult: 1))
+        XCTAssertNil(IRFFDecoderPacketPolicy.readPacketEOFTransition(readFrameResult: 0))
+        XCTAssertNil(IRFFDecoderPacketPolicy.readPacketEOFTransition(readFrameResult: 1))
         XCTAssertEqual(
-            IRFFDecoder.readPacketEOFTransition(readFrameResult: nil),
+            IRFFDecoderPacketPolicy.readPacketEOFTransition(readFrameResult: nil),
             IRFFDecoder.ReadPacketEOFTransition(
                 endOfFile: true,
                 videoEndOfFile: true,
@@ -72,7 +72,7 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
             )
         )
         XCTAssertEqual(
-            IRFFDecoder.readPacketEOFTransition(readFrameResult: -1),
+            IRFFDecoderPacketPolicy.readPacketEOFTransition(readFrameResult: -1),
             IRFFDecoder.ReadPacketEOFTransition(
                 endOfFile: true,
                 videoEndOfFile: true,
@@ -84,19 +84,19 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
 
     func testPacketRouteMatchesVideoAndAudioTrackIndexes() {
         XCTAssertEqual(
-            IRFFDecoder.packetRoute(streamIndex: 2, videoTrackIndex: 2, audioTrackIndex: 3),
+            IRFFDecoderPacketPolicy.packetRoute(streamIndex: 2, videoTrackIndex: 2, audioTrackIndex: 3),
             .video
         )
         XCTAssertEqual(
-            IRFFDecoder.packetRoute(streamIndex: 3, videoTrackIndex: 2, audioTrackIndex: 3),
+            IRFFDecoderPacketPolicy.packetRoute(streamIndex: 3, videoTrackIndex: 2, audioTrackIndex: 3),
             .audio
         )
         XCTAssertEqual(
-            IRFFDecoder.packetRoute(streamIndex: 4, videoTrackIndex: 2, audioTrackIndex: 3),
+            IRFFDecoderPacketPolicy.packetRoute(streamIndex: 4, videoTrackIndex: 2, audioTrackIndex: 3),
             .ignored
         )
         XCTAssertEqual(
-            IRFFDecoder.packetRoute(streamIndex: 0, videoTrackIndex: nil, audioTrackIndex: nil),
+            IRFFDecoderPacketPolicy.packetRoute(streamIndex: 0, videoTrackIndex: nil, audioTrackIndex: nil),
             .ignored
         )
     }

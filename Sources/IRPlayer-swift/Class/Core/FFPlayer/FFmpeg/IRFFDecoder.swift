@@ -314,18 +314,12 @@ protocol IRFFDecoderDelegate: AnyObject {
                                                       videoPacketSize: Int,
                                                       maxBufferSize: Int = 20 * 1024 * 1024,
                                                       paused: Bool) -> TimeInterval? {
-        guard audioSize >= 0,
-              videoPacketSize >= 0,
-              maxBufferSize > 0 else {
-            return nil
-        }
-        if audioSize >= maxBufferSize || videoPacketSize >= maxBufferSize {
-            return paused ? 0.5 : 0.1
-        }
-        guard videoPacketSize >= maxBufferSize - audioSize else {
-            return nil
-        }
-        return paused ? 0.5 : 0.1
+        return IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
+            audioSize: audioSize,
+            videoPacketSize: videoPacketSize,
+            maxBufferSize: maxBufferSize,
+            paused: paused
+        )
     }
 
     static func seekPreparation(requestedTime: TimeInterval,
@@ -435,25 +429,15 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func readPacketEOFTransition(readFrameResult: Int32?) -> ReadPacketEOFTransition? {
-        guard (readFrameResult ?? -1) < 0 else {
-            return nil
-        }
-        return ReadPacketEOFTransition(
-            endOfFile: true,
-            videoEndOfFile: true,
-            shouldFinishReadLoop: true,
-            shouldNotifyDelegate: true
-        )
+        return IRFFDecoderPacketPolicy.readPacketEOFTransition(readFrameResult: readFrameResult)
     }
 
     static func packetRoute(streamIndex: Int32, videoTrackIndex: Int?, audioTrackIndex: Int?) -> PacketRoute {
-        if let videoTrackIndex, streamIndex == Int32(videoTrackIndex) {
-            return .video
-        }
-        if let audioTrackIndex, streamIndex == Int32(audioTrackIndex) {
-            return .audio
-        }
-        return .ignored
+        return IRFFDecoderPacketPolicy.packetRoute(
+            streamIndex: streamIndex,
+            videoTrackIndex: videoTrackIndex,
+            audioTrackIndex: audioTrackIndex
+        )
     }
 
     static func displayIdleSleepInterval(seeking: Bool,
