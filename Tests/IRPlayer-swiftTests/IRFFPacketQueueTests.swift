@@ -97,6 +97,24 @@ final class IRFFPacketQueueTests: XCTestCase {
         )
     }
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        let packet = makePacket(size: 10, duration: 250)
+        let malformed = makePacket(size: -10, duration: 0)
+
+        XCTAssertEqual(
+            IRFFPacketQueue.accountedDuration(for: packet, fallbackDuration: 10, timebase: 0.001),
+            IRFFPacketQueuePolicy.accountedDuration(for: packet, fallbackDuration: 10, timebase: 0.001),
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            IRFFPacketQueue.accountedDuration(for: malformed, fallbackDuration: 0.5, timebase: .nan),
+            IRFFPacketQueuePolicy.accountedDuration(for: malformed, fallbackDuration: 0.5, timebase: .nan),
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(IRFFPacketQueue.accountedSize(for: packet), IRFFPacketQueuePolicy.accountedSize(for: packet))
+        XCTAssertEqual(IRFFPacketQueue.accountedSize(for: malformed), IRFFPacketQueuePolicy.accountedSize(for: malformed))
+    }
+
     private func makePacket(size: Int32, duration: Int64) -> AVPacket {
         var packet = AVPacket()
         packet.size = size
