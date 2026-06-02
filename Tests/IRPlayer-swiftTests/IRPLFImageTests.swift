@@ -21,4 +21,12 @@ final class IRPLFImageTests: XCTestCase {
         XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 11, width: 4, height: 2))
         XCTAssertEqual(IRPLFImageRGBDataByteCount(linesize: 12, width: 4, height: 2), 24)
     }
+
+    func testRGBDataByteCountWrapperMatchesPolicy() {
+        XCTAssertEqual(
+            IRPLFImageRGBDataByteCount(linesize: 12, width: 4, height: 2),
+            IRPLFImagePolicy.rgbDataByteCount(linesize: 12, width: 4, height: 2)
+        )
+        XCTAssertNil(IRPLFImagePolicy.rgbDataByteCount(linesize: 11, width: 4, height: 2))
+    }
 }

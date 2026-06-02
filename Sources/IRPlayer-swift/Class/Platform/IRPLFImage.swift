@@ -25,14 +25,7 @@ func IRPLFImageWithRGBData(_ rgbData: UnsafePointer<UInt8>, linesize: Int, width
 }
 
 func IRPLFImageRGBDataByteCount(linesize: Int, width: Int, height: Int) -> Int? {
-    guard linesize > 0, width > 0, height > 0 else { return nil }
-
-    let (minimumLineSize, minimumLineSizeOverflow) = width.multipliedReportingOverflow(by: 3)
-    guard !minimumLineSizeOverflow, linesize >= minimumLineSize else { return nil }
-
-    let (byteCount, byteCountOverflow) = linesize.multipliedReportingOverflow(by: height)
-    guard !byteCountOverflow else { return nil }
-    return byteCount
+    return IRPLFImagePolicy.rgbDataByteCount(linesize: linesize, width: width, height: height)
 }
 
 // Function to create CGImage from RGB data buffer
