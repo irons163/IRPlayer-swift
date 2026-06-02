@@ -48,41 +48,6 @@ enum IRPlaybackTimePolicy {
         return safeBufferedDuration <= 0.2 && !endOfFile
     }
 
-    static func bufferingState(
-        currentlyBuffering: Bool,
-        bufferedDuration: TimeInterval,
-        minBufferedDuration: TimeInterval,
-        endOfFile: Bool,
-        bufferingElapsed: TimeInterval,
-        bufferingMaxDuration: TimeInterval,
-        bufferingMinimumThreshold: TimeInterval,
-        liveStreamBufferingMaxDuration: TimeInterval,
-        isLiveStream: Bool
-    ) -> Bool {
-        let safeBufferedDuration = bufferedDuration.isFinite ? bufferedDuration : 0
-        let safeMinBufferedDuration = minBufferedDuration.isFinite ? minBufferedDuration : 0
-        let safeBufferingElapsed = bufferingElapsed.isFinite ? bufferingElapsed : 0
-        let safeBufferingMaxDuration = bufferingMaxDuration.isFinite ? bufferingMaxDuration : 0
-        let safeMinimumThreshold = bufferingMinimumThreshold.isFinite ? bufferingMinimumThreshold : 0
-        let safeLiveStreamMaxDuration = liveStreamBufferingMaxDuration.isFinite ? liveStreamBufferingMaxDuration : 0
-
-        if currentlyBuffering {
-            let maxDuration = isLiveStream ? safeLiveStreamMaxDuration : safeBufferingMaxDuration
-            let minThreshold = isLiveStream ? 0.2 : safeMinimumThreshold
-            let effectiveMinBufferedDuration: TimeInterval = isLiveStream ? 0 : safeMinBufferedDuration
-            let shouldExitBuffering = safeBufferedDuration >= effectiveMinBufferedDuration ||
-                endOfFile ||
-                (safeBufferingElapsed > maxDuration && safeBufferedDuration >= minThreshold) ||
-                (isLiveStream && safeBufferingElapsed > maxDuration && safeBufferedDuration > 0.1)
-            return !shouldExitBuffering
-        }
-
-        if isLiveStream {
-            return safeBufferedDuration <= 0.05 && !endOfFile
-        }
-        return safeBufferedDuration <= 0.2 && !endOfFile
-    }
-
     static func progressPostDecision(
         progress: TimeInterval,
         oldProgress: TimeInterval,

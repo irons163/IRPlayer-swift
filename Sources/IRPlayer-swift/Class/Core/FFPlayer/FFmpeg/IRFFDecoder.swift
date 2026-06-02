@@ -762,23 +762,40 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     private func checkBufferingStatus() {
-        let nextBuffering = IRPlaybackTimePolicy.bufferingState(
-            currentlyBuffering: buffering,
-            bufferedDuration: bufferedDuration,
-            minBufferedDuration: minBufferedDuration,
-            endOfFile: endOfFile,
-            bufferingElapsed: Date().timeIntervalSince1970 - bufferingStartTime,
-            bufferingMaxDuration: bufferingMaxDuration,
-            bufferingMinimumThreshold: bufferingMinimumThreshold,
-            liveStreamBufferingMaxDuration: liveStreamBufferingMaxDuration,
-            isLiveStream: isLiveStream
-        )
-        if nextBuffering && !buffering {
+        if buffering {
+            let currentTime = Date().timeIntervalSince1970
+            let bufferingElapsed = currentTime - bufferingStartTime
+
+            // For live streams, use more aggressive buffering recovery
+            let maxDuration = isLiveStream ? liveStreamBufferingMaxDuration : bufferingMaxDuration
+            let minThreshold = isLiveStream ? 0.2 : bufferingMinimumThreshold
+
+            // For live streams with no duration, use a lower minimum buffered duration requirement
+            let effectiveMinBufferedDuration: TimeInterval = isLiveStream ? 0 : minBufferedDuration
+
+            // Exit buffering if any of these conditions are met:
+            // 1. We have enough buffered duration
+            // 2. We've reached the end of file
+            // 3. Buffering timeout exceeded (prevents indefinite buffering on poor network)
+            // 4. For live streams: any data buffered after timeout (even minimal)
+            let shouldExitBuffering = (bufferedDuration >= effectiveMinBufferedDuration) ||
+                                      endOfFile ||
+                                      (bufferingElapsed > maxDuration && bufferedDuration >= minThreshold) ||
+                                      (isLiveStream && bufferingElapsed > maxDuration && bufferedDuration > 0.1)
+
+            if shouldExitBuffering {
+                buffering = false
+                bufferingStartTime = 0
+            }
+        } else if bufferedDuration <= 0.2 && !endOfFile && !isLiveStream {
+            // For regular streams, enter buffering when buffer gets low
+            buffering = true
             bufferingStartTime = Date().timeIntervalSince1970
-        } else if !nextBuffering {
-            bufferingStartTime = 0
+        } else if bufferedDuration <= 0.05 && !endOfFile && isLiveStream {
+            // Live streams only enter buffering if buffer is critically low
+            buffering = true
+            bufferingStartTime = Date().timeIntervalSince1970
         }
-        buffering = nextBuffering
     }
 
     private func updateBufferedDurationByVideo() {
