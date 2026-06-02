@@ -40,12 +40,8 @@ class IRGLRenderModeFactory: NSObject {
     }
 
     static func createPanoramaMode(with parameter: IRMediaParameter?) -> IRGLRenderMode {
-        let mode = IRGLRenderMode2DFisheye2Pano()
-        mode.parameter = parameter
-        mode.contentMode = .scaleAspectFill
-        mode.wideDegreeX = 360
-        mode.wideDegreeY = 20
-        return mode
+        makeMode(for: IRGLRenderModeFactoryPolicy.panoramaModePlan(),
+                 parameter: parameter)
     }
 
     private static func makeMode(for plan: IRGLRenderModeFactoryPolicy.ModePlan,

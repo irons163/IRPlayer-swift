@@ -18,6 +18,10 @@ enum IRGLRenderModeFactoryPolicy {
         [.normal2D]
     }
 
+    static func panoramaModePlan() -> ModePlan {
+        .panorama(name: "", wideDegreeX: 360, wideDegreeY: 20)
+    }
+
     static func fisheyeModePlan() -> [ModePlan] {
         [
             .panorama(name: "Panorama", wideDegreeX: 360, wideDegreeY: 20),

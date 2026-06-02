@@ -14,6 +14,10 @@ final class IRGLRenderModeFactoryTests: XCTestCase {
     func testFactoryPolicyDescribesNormalAndFisheyeModePlans() {
         XCTAssertEqual(IRGLRenderModeFactoryPolicy.normalModePlan(), [.normal2D])
         XCTAssertEqual(
+            IRGLRenderModeFactoryPolicy.panoramaModePlan(),
+            .panorama(name: "", wideDegreeX: 360, wideDegreeY: 20)
+        )
+        XCTAssertEqual(
             IRGLRenderModeFactoryPolicy.fisheyeModePlan(),
             [
                 .panorama(name: "Panorama", wideDegreeX: 360, wideDegreeY: 20),
