@@ -141,6 +141,10 @@ final class IRFFDecoderOperationTests: XCTestCase {
                 hasCurrentFrame: false
             )
         )
+        XCTAssertEqual(
+            IRFFDecoder.shouldFinishDisplay(endOfFile: true, videoDecoderEmpty: true),
+            IRFFDecoderDisplayPolicy.shouldFinishDisplay(endOfFile: true, videoDecoderEmpty: true)
+        )
     }
 
     func testCodecContextHelpersRejectMissingOrDisabledFormatContext() {
@@ -150,6 +154,10 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertNil(IRFFDecoderCodecContextPolicy.audioCodecContext(from: nil))
         XCTAssertNil(IRFFDecoderCodecContextPolicy.videoCodecContext(from: formatContext))
         XCTAssertNil(IRFFDecoderCodecContextPolicy.audioCodecContext(from: formatContext))
+        XCTAssertNil(IRFFDecoder.videoCodecContext(from: nil))
+        XCTAssertNil(IRFFDecoder.audioCodecContext(from: nil))
+        XCTAssertNil(IRFFDecoder.videoCodecContext(from: formatContext))
+        XCTAssertNil(IRFFDecoder.audioCodecContext(from: formatContext))
     }
 
     func testReleaseDoesNotPrintDebugOutput() {
