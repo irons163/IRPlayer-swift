@@ -334,7 +334,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                contentMode: renderContentMode,
                                drawableSize: drawableSize,
                                zoomScale: 1,
-                               translation: SIMD2<Float>(repeating: 0)) {
+                               translation: Self.translationVector(for: mode?.program as? IRGLProgram2D)) {
                 saveSnapShot()
                 return
             }
@@ -386,6 +386,40 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         let scaleY: CGFloat
         let translationX: CGFloat
         let translationY: CGFloat
+    }
+
+    private static func translationVector(for program: IRGLProgram2D?) -> SIMD2<Float> {
+        guard let scope = program?.tramsformController?.getScope(),
+              scope.w > 0,
+              scope.h > 0,
+              scope.scaleX.isFinite,
+              scope.scaleY.isFinite,
+              scope.offsetX.isFinite,
+              scope.offsetY.isFinite,
+              scope.scaleX > 0,
+              scope.scaleY > 0 else {
+            return SIMD2<Float>(repeating: 0)
+        }
+
+        // When scale >= 1 the content overflows the viewport and the offset-based
+        // translation positions the visible region correctly. When scale < 1 the
+        // content fits inside the viewport; Metal's computeScale already centers it,
+        // so the translation must be zero.
+        let tx: Float
+        if scope.scaleX >= 1.0 {
+            tx = (scope.offsetX * scope.scaleX * 2 / Float(scope.w)) + 1.0 - scope.scaleX
+        } else {
+            tx = 0
+        }
+
+        let ty: Float
+        if scope.scaleY >= 1.0 {
+            ty = -((scope.offsetY * scope.scaleY * 2 / Float(scope.h)) + 1.0 - scope.scaleY)
+        } else {
+            ty = 0
+        }
+
+        return SIMD2<Float>(tx, ty)
     }
 
     static func fittedImageTransform(imageExtent: CGRect,
@@ -633,7 +667,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             let viewports = program.programs.map { $0.viewprotRange }
             let contentModes = program.programs.map { $0.contentMode }
             let zoomScales = program.programs.map { Float($0.getCurrentScale().x) }
-            let translations = Array(repeating: SIMD2<Float>(repeating: 0), count: program.programs.count)
+            let translations = program.programs.map { Self.translationVector(for: $0) }
             return renderer.renderMulti(frame: frame,
                                         to: drawable,
                                         drawableSize: drawableSize,
@@ -713,7 +747,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                         contentMode: effectiveContentMode,
                                         outputSize: outputSize,
                                         zoomScale: Float(zoomScale),
-                                        translation: SIMD2<Float>(repeating: 0))
+                                        translation: Self.translationVector(for: effectiveProgram))
     }
 
     private func renderMetalDistortionIfNeeded(frame: IRFFVideoFrame,
