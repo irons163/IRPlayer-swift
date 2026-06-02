@@ -62,6 +62,18 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertTrue(queue.getFrameAsync() === later)
     }
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        let frame = makeFrame(position: 1, duration: 0.25, size: 10)
+        let existingFrame = makeFrame(position: 0, duration: 0.1, size: 1)
+
+        XCTAssertEqual(IRFFFrameQueue.sleepTimeIntervalForFull(), IRFFFrameQueuePolicy.sleepTimeIntervalForFull(maxVideoDuration: IRFFFrameQueue.maxVideoDuration))
+        XCTAssertEqual(IRFFFrameQueue.sleepTimeIntervalForFullAndPaused(), IRFFFrameQueuePolicy.sleepTimeIntervalForFullAndPaused(maxVideoDuration: IRFFFrameQueue.maxVideoDuration))
+        XCTAssertEqual(IRFFFrameQueue.accountedDuration(for: frame), IRFFFrameQueuePolicy.accountedDuration(for: frame))
+        XCTAssertEqual(IRFFFrameQueue.accountedSize(for: frame), IRFFFrameQueuePolicy.accountedSize(for: frame))
+        XCTAssertEqual(IRFFFrameQueue.shouldInsert(frame, after: existingFrame), IRFFFrameQueuePolicy.shouldInsert(frame, after: existingFrame))
+        XCTAssertFalse(IRFFFrameQueuePolicy.shouldInsert(existingFrame, after: frame))
+    }
+
     func testPutSortFramePreservesInsertionOrderForEqualPositions() {
         let queue = IRFFFrameQueue.frameQueue()
         let first = makeFrame(position: 1, duration: 0.1, size: 1)

@@ -22,30 +22,23 @@ class IRFFFrameQueue: NSObject {
     }
 
     static func sleepTimeIntervalForFull() -> TimeInterval {
-        return maxVideoDuration / 2.0
+        return IRFFFrameQueuePolicy.sleepTimeIntervalForFull(maxVideoDuration: maxVideoDuration)
     }
 
     static func sleepTimeIntervalForFullAndPaused() -> TimeInterval {
-        return maxVideoDuration / 1.1
+        return IRFFFrameQueuePolicy.sleepTimeIntervalForFullAndPaused(maxVideoDuration: maxVideoDuration)
     }
 
     static func accountedDuration(for frame: IRFFFrame) -> TimeInterval {
-        guard frame.duration.isFinite, frame.duration > 0 else { return 0 }
-        return frame.duration
+        return IRFFFrameQueuePolicy.accountedDuration(for: frame)
     }
 
     static func accountedSize(for frame: IRFFFrame) -> Int {
-        return max(0, frame.size)
+        return IRFFFrameQueuePolicy.accountedSize(for: frame)
     }
 
     static func shouldInsert(_ frame: IRFFFrame, after existingFrame: IRFFFrame) -> Bool {
-        if frame.position.isFinite, existingFrame.position.isFinite {
-            return frame.position >= existingFrame.position
-        }
-        if !frame.position.isFinite {
-            return true
-        }
-        return false
+        return IRFFFrameQueuePolicy.shouldInsert(frame, after: existingFrame)
     }
 
     func putFrame(_ frame: IRFFFrame?) {
