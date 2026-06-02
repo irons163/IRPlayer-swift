@@ -31,6 +31,15 @@ final class IRFFVideoDecoderTests: XCTestCase {
         )
     }
 
+    func testFlushPacketWrapperMatchesSentinelBuilder() {
+        let packet = IRFFVideoDecoder.makeFlushPacket()
+
+        XCTAssertNotNil(packet.data)
+        XCTAssertEqual(packet.duration, 0)
+        XCTAssertNotNil(IRFFVideoDecoder.flushPacket.data)
+        XCTAssertEqual(IRFFVideoDecoder.flushPacket.duration, 0)
+    }
+
     func testFrameDurationUsesTicksAndRepeatPictureWhenAvailable() {
         let duration = IRFFVideoDecoder.frameDuration(ticks: 4, repeatPicture: 2, timebase: 0.25, fps: 30)
 

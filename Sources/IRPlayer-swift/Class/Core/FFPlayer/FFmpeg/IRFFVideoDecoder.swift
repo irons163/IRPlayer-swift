@@ -51,15 +51,16 @@ class IRFFVideoDecoder {
     var paused = false
     var endOfFile = false
 
-    static var flushPacket: AVPacket = {
+    static var flushPacket: AVPacket = makeFlushPacket()
+
+    static func makeFlushPacket() -> AVPacket {
         var packet = AVPacket()
-        av_init_packet(&packet)
         packet.data = withUnsafeMutablePointer(to: &packet) {
             return UnsafeMutableRawPointer($0).assumingMemoryBound(to: UInt8.self)
         }
         packet.duration = 0
         return packet
-    }()
+    }
 
     init(codecContext: UnsafeMutablePointer<AVCodecContext>, timebase: TimeInterval, fps: TimeInterval, delegate: IRFFVideoDecoderDelegate?) {
         self.codecContext = codecContext
