@@ -10,7 +10,10 @@ import IRFFMpeg
 
 enum IRFFStreamTimingPolicy {
     static func finitePositiveValueOrDefault(_ value: Double, defaultValue: Double) -> Double {
-        return value.isFinite && value > 0 ? value : defaultValue
+        guard value.isFinite, value > 0 else {
+            return defaultValue.isFinite && defaultValue > 0 ? defaultValue : 1.0
+        }
+        return value
     }
 
     static func timebase(_ stream: UnsafePointer<AVStream>, defaultTimebase: Double) -> Double {

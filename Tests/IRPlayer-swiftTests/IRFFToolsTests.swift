@@ -105,6 +105,13 @@ final class IRFFToolsTests: XCTestCase {
         XCTAssertEqual(IRFFFinitePositiveValueOrDefault(2.5, defaultValue: 1), 2.5)
     }
 
+    func testFinitePositiveValueUsesSafeFallbackForInvalidDefaults() {
+        XCTAssertEqual(IRFFFinitePositiveValueOrDefault(.nan, defaultValue: .nan), 1)
+        XCTAssertEqual(IRFFFinitePositiveValueOrDefault(.nan, defaultValue: .infinity), 1)
+        XCTAssertEqual(IRFFFinitePositiveValueOrDefault(.nan, defaultValue: 0), 1)
+        XCTAssertEqual(IRFFFinitePositiveValueOrDefault(.nan, defaultValue: -1), 1)
+    }
+
     func testStreamTimingWrappersRemainSourceCompatible() {
         var stream = AVStream()
         stream.time_base = AVRational(num: 1, den: 1_000)
