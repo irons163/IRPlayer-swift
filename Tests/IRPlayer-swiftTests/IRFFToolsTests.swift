@@ -91,6 +91,29 @@ final class IRFFToolsTests: XCTestCase {
         XCTAssertEqual(IRFFFinitePositiveValueOrDefault(2.5, defaultValue: 1), 2.5)
     }
 
+    func testStreamTimingWrappersRemainSourceCompatible() {
+        var stream = AVStream()
+        stream.time_base = AVRational(num: 1, den: 1_000)
+        stream.avg_frame_rate = AVRational(num: 30, den: 1)
+
+        withUnsafePointer(to: &stream) { streamPointer in
+            XCTAssertEqual(
+                IRFFFinitePositiveValueOrDefault(.nan, defaultValue: 1),
+                IRFFStreamTimingPolicy.finitePositiveValueOrDefault(.nan, defaultValue: 1)
+            )
+            XCTAssertEqual(
+                IRFFStreamGetTimebase(streamPointer, defaultTimebase: 1),
+                IRFFStreamTimingPolicy.timebase(streamPointer, defaultTimebase: 1),
+                accuracy: 0.0001
+            )
+            XCTAssertEqual(
+                IRFFStreamGetFPS(streamPointer, timebase: 0.001),
+                IRFFStreamTimingPolicy.fps(streamPointer, timebase: 0.001),
+                accuracy: 0.0001
+            )
+        }
+    }
+
     func testStreamTimebaseFallsBackToFiniteValueForInvalidStreamAndDefault() {
         var stream = AVStream()
         stream.time_base = AVRational(num: 0, den: 0)

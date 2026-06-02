@@ -65,31 +65,15 @@ func IRFFCheckErrorCode(_ result: Int32, errorCode: Int) -> NSError? {
 }
 
 func IRFFFinitePositiveValueOrDefault(_ value: Double, defaultValue: Double) -> Double {
-    return value.isFinite && value > 0 ? value : defaultValue
+    return IRFFStreamTimingPolicy.finitePositiveValueOrDefault(value, defaultValue: defaultValue)
 }
 
 func IRFFStreamGetTimebase(_ stream: UnsafePointer<AVStream>, defaultTimebase: Double) -> Double {
-    let timebase: Double
-    if stream.pointee.time_base.den > 0 && stream.pointee.time_base.num > 0 {
-        timebase = av_q2d(stream.pointee.time_base)
-    } else {
-        timebase = defaultTimebase
-    }
-    return IRFFFinitePositiveValueOrDefault(timebase, defaultValue: 1.0)
+    return IRFFStreamTimingPolicy.timebase(stream, defaultTimebase: defaultTimebase)
 }
 
 func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Double {
-    let fps: Double
-    if stream.pointee.avg_frame_rate.den > 0 && stream.pointee.avg_frame_rate.num > 0 {
-        fps = av_q2d(stream.pointee.avg_frame_rate)
-    } else if stream.pointee.r_frame_rate.den > 0 && stream.pointee.r_frame_rate.num > 0 {
-        fps = av_q2d(stream.pointee.r_frame_rate)
-    } else if timebase > 0 {
-        fps = 1.0 / timebase
-    } else {
-        fps = 1.0
-    }
-    return IRFFFinitePositiveValueOrDefault(fps, defaultValue: 1.0)
+    return IRFFStreamTimingPolicy.fps(stream, timebase: timebase)
 }
 
 func IRFFFoundationBrigeOfAVDictionary(_ avDictionary: OpaquePointer?) -> [String: String]? {
