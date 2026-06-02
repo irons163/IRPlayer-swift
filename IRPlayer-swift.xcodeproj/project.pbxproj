@@ -93,6 +93,7 @@
 		B5E94EFC2D0B21F800149265 /* IRGLRenderModeFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D952D0B21F800149265 /* IRGLRenderModeFactory.swift */; };
 		B5E94EFE2D0B21F800149265 /* IRGLTransformControllerDistortion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DDC2D0B21F800149265 /* IRGLTransformControllerDistortion.swift */; };
 		B5E94F012D0B21F800149265 /* IRFFAudioFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DED2D0B21F800149265 /* IRFFAudioFrame.swift */; };
+		B5E953012F6903F00149265 /* IRFFAudioFramePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953002F6903F00149265 /* IRFFAudioFramePolicy.swift */; };
 		B5E94F042D0B21F800149265 /* IRFFVideoInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E022D0B21F800149265 /* IRFFVideoInput.swift */; };
 		B5E94F052D0B21F800149265 /* IRGLGestureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D792D0B21F800149265 /* IRGLGestureController.swift */; };
 		B5E952612F6902F00149265 /* IRGLGesturePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952602F6902F00149265 /* IRGLGesturePolicy.swift */; };
@@ -363,6 +364,7 @@
 		B5E9524C2F6902500149265 /* IRGLViewPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLViewPolicy.swift; sourceTree = "<group>"; };
 		B5E9524E2F6902600149265 /* IRGLRenderStrategyPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderStrategyPolicy.swift; sourceTree = "<group>"; };
 		B5E94DED2D0B21F800149265 /* IRFFAudioFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioFrame.swift; sourceTree = "<group>"; };
+		B5E953002F6903F00149265 /* IRFFAudioFramePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioFramePolicy.swift; sourceTree = "<group>"; };
 		B5E94DEE2D0B21F800149265 /* IRFFAVYUVVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAVYUVVideoFrame.swift; sourceTree = "<group>"; };
 		B5E94DEF2D0B21F800149265 /* IRFFCVYUVVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFCVYUVVideoFrame.swift; sourceTree = "<group>"; };
 		B5E94DF02D0B21F800149265 /* IRFFFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrame.swift; sourceTree = "<group>"; };
@@ -849,6 +851,7 @@
 			isa = PBXGroup;
 			children = (
 				B5E94DED2D0B21F800149265 /* IRFFAudioFrame.swift */,
+				B5E953002F6903F00149265 /* IRFFAudioFramePolicy.swift */,
 				B5E94DEE2D0B21F800149265 /* IRFFAVYUVVideoFrame.swift */,
 				B5E94DEF2D0B21F800149265 /* IRFFCVYUVVideoFrame.swift */,
 				B5E94DF02D0B21F800149265 /* IRFFFrame.swift */,
@@ -1280,6 +1283,7 @@
 				B5E94EFC2D0B21F800149265 /* IRGLRenderModeFactory.swift in Sources */,
 				B5E94EFE2D0B21F800149265 /* IRGLTransformControllerDistortion.swift in Sources */,
 				B5E94F012D0B21F800149265 /* IRFFAudioFrame.swift in Sources */,
+				B5E953012F6903F00149265 /* IRFFAudioFramePolicy.swift in Sources */,
 				B5E94F042D0B21F800149265 /* IRFFVideoInput.swift in Sources */,
 				B5E94F052D0B21F800149265 /* IRGLGestureController.swift in Sources */,
 				B5E952612F6902F00149265 /* IRGLGesturePolicy.swift in Sources */,
