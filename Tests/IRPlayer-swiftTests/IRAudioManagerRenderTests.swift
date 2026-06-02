@@ -72,4 +72,32 @@ final class IRAudioManagerRenderTests: XCTestCase {
     func testRenderSampleCountCalculatesInterleavedSampleTotal() {
         XCTAssertEqual(IRAudioManager.renderSampleCount(numberOfFrames: 10, numberOfChannels: 2), 20)
     }
+
+    func testRenderSampleCountWrapperMatchesPolicy() {
+        XCTAssertEqual(
+            IRAudioManager.renderSampleCount(numberOfFrames: 10, numberOfChannels: 2),
+            IRAudioManagerPolicy.renderSampleCount(numberOfFrames: 10, numberOfChannels: 2)
+        )
+        XCTAssertNil(IRAudioManagerPolicy.renderSampleCount(numberOfFrames: 0, numberOfChannels: 2))
+    }
+
+    func testRequiredAudioResourceWrappersMatchPolicyFailures() {
+        switch (IRAudioManager.requiredAudioGraph(nil, domain: "missing graph"),
+                IRAudioManagerPolicy.requiredAudioGraph(nil, domain: "missing graph")) {
+        case (.failure(let wrapperError), .failure(let policyError)):
+            XCTAssertEqual(wrapperError.domain, policyError.domain)
+            XCTAssertEqual(wrapperError.code, policyError.code)
+        default:
+            XCTFail("Missing graph should fail for wrapper and policy")
+        }
+
+        switch (IRAudioManager.requiredAudioUnit(nil, domain: "missing audio unit"),
+                IRAudioManagerPolicy.requiredAudioUnit(nil, domain: "missing audio unit")) {
+        case (.failure(let wrapperError), .failure(let policyError)):
+            XCTAssertEqual(wrapperError.domain, policyError.domain)
+            XCTAssertEqual(wrapperError.code, policyError.code)
+        default:
+            XCTFail("Missing audio unit should fail for wrapper and policy")
+        }
+    }
 }

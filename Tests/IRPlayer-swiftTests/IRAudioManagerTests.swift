@@ -40,4 +40,11 @@ final class IRAudioManagerNotificationTests: XCTestCase {
         XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: 1.5)))
         XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: true)))
     }
+
+    func testUnsignedIntegerWrapperMatchesPolicy() {
+        XCTAssertEqual(IRAudioManager.unsignedInteger(from: UInt(3)), IRAudioManagerPolicy.unsignedInteger(from: UInt(3)))
+        XCTAssertEqual(IRAudioManager.unsignedInteger(from: NSNumber(value: 4)), IRAudioManagerPolicy.unsignedInteger(from: NSNumber(value: 4)))
+        XCTAssertNil(IRAudioManagerPolicy.unsignedInteger(from: NSNumber(value: -1)))
+        XCTAssertNil(IRAudioManagerPolicy.unsignedInteger(from: NSNumber(value: true)))
+    }
 }
