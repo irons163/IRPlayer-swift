@@ -223,21 +223,7 @@ class IRFFAudioDecoder {
                 audioSwrBufferSize = requestedBufferSize
             }
 
-//            var outputBuffer = [audioSwrBuffer, nil].map { UnsafeMutablePointer<UInt8>($0) }
             var outputBuffer: [UnsafeMutablePointer<UInt8>?] = [audioSwrBuffer?.assumingMemoryBound(to: UInt8.self), nil]
-//            var data: [UnsafeMutablePointer<UInt8>?] = [tempFrame.pointee.data, nil]
-//            var a: UnsafeMutablePointer<UnsafePointer<UInt8>> = tempFrame.pointee.data
-            // Create an array to hold the pointers
-//            var inputBuffer = [UnsafePointer<UInt8>?](repeating: nil, count: Int(tempFrame.pointee.nb_samples))
-//            for i in 0..<Int(codecContext!.pointee.channels) {
-//                inputBuffer[i] = tempFrame.pointee.data[i]
-//            }
-//
-//            // Convert the array to UnsafeMutablePointer<UnsafePointer<UInt8>?>
-//            let inputPointer = UnsafeMutablePointer(mutating: inputBuffer)
-//            let inputPointer: UnsafeMutablePointer<UnsafePointer<UInt8>?> = tempFrame.pointee.data.withMemoryRebound(to: UnsafePointer<UInt8>?.self, capacity: Int(codecContext!.pointee.channels)) {
-//                        UnsafeMutablePointer<UnsafePointer<UInt8>?>(mutating: $0)
-//                    }
             guard let inputChannelCapacity = Self.inputChannelCapacity(from: codecContext) else { return nil }
             let inputPointer: UnsafeMutablePointer<UnsafePointer<UInt8>?> = withUnsafeMutablePointer(to: &tempFrame.pointee.data) {
                 $0.withMemoryRebound(to: UnsafePointer<UInt8>?.self, capacity: inputChannelCapacity) {

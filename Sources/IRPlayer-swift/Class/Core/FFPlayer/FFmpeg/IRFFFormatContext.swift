@@ -276,7 +276,6 @@ public class IRFFFormatContext {
             avcodec_free_context(&codecContext)
             return error
         }
-//        av_codec_set_pkt_timebase(codecContext, (stream?.pointee.time_base)!)
         openedCodecContext.pointee.pkt_timebase = stream.pointee.time_base
 
         guard let codec = Self.decoder(for: openedCodecContext) else {
