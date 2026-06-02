@@ -54,14 +54,7 @@ func IRFFCheckError(_ result: Int32) -> NSError? {
 }
 
 func IRFFCheckErrorCode(_ result: Int32, errorCode: Int) -> NSError? {
-    guard result < 0 else { return nil }
-
-    var errorBuffer = [CChar](repeating: 0, count: 256)
-    av_strerror(result, &errorBuffer, errorBuffer.count)
-
-    let errorString = String(cString: errorBuffer)
-    let errorDescription = "ffmpeg code: \(result), ffmpeg msg: \(errorString)"
-    return NSError(domain: errorDescription, code: errorCode, userInfo: nil)
+    return IRFFErrorPolicy.error(result: result, errorCode: errorCode)
 }
 
 func IRFFFinitePositiveValueOrDefault(_ value: Double, defaultValue: Double) -> Double {

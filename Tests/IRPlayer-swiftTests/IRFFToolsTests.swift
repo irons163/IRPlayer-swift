@@ -83,6 +83,16 @@ final class IRFFToolsTests: XCTestCase {
         XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
     }
 
+    func testCheckErrorWrappersRemainSourceCompatible() throws {
+        XCTAssertNil(IRFFCheckError(0))
+        XCTAssertNil(IRFFErrorPolicy.error(result: 0, errorCode: -1))
+
+        let wrapperError = try XCTUnwrap(IRFFCheckErrorCode(-1, errorCode: 42))
+        let policyError = try XCTUnwrap(IRFFErrorPolicy.error(result: -1, errorCode: 42))
+        XCTAssertEqual(wrapperError.code, policyError.code)
+        XCTAssertEqual(wrapperError.domain, policyError.domain)
+    }
+
     func testFinitePositiveValueUsesFallbackForInvalidValues() {
         XCTAssertEqual(IRFFFinitePositiveValueOrDefault(.nan, defaultValue: 1), 1)
         XCTAssertEqual(IRFFFinitePositiveValueOrDefault(.infinity, defaultValue: 1), 1)
