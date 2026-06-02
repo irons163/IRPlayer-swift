@@ -49,6 +49,11 @@ enum IRPayloadNumber {
         guard isInteger(value) else {
             return nil
         }
+        let decimalValue = value.decimalValue
+        guard decimalValue >= NSNumber(value: Int.min).decimalValue,
+              decimalValue <= NSNumber(value: Int.max).decimalValue else {
+            return nil
+        }
         return value.intValue
     }
 }

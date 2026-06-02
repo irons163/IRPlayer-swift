@@ -31,6 +31,9 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertNil(IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: [
             IRAVPlayer.avMediaSelectionOptionTrackIDKey: NSNumber(value: 1.5)
         ]))
+        XCTAssertNil(IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: NSNumber(value: UInt64.max)
+        ]))
     }
 
     func testDefaultTrackFallsBackWhenPropertyListDoesNotMatch() {
