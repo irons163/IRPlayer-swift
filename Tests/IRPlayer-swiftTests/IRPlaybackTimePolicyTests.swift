@@ -11,6 +11,11 @@ final class IRPlaybackTimePolicyTests: XCTestCase {
         XCTAssertEqual(IRPlaybackTimePolicy.percent(current: 3, total: .infinity), NSNumber(value: 0))
     }
 
+    func testPercentClampsCurrentIntoPlayableRange() {
+        XCTAssertEqual(IRPlaybackTimePolicy.percent(current: -1, total: 10), NSNumber(value: 0))
+        XCTAssertEqual(IRPlaybackTimePolicy.percent(current: 15, total: 10), NSNumber(value: 1))
+    }
+
     func testClampedPlayableTimeBoundsFiniteValuesToDuration() {
         XCTAssertEqual(IRPlaybackTimePolicy.clampedPlayableTime(4, duration: 10), 4)
         XCTAssertEqual(IRPlaybackTimePolicy.clampedPlayableTime(-1, duration: 10), 0)

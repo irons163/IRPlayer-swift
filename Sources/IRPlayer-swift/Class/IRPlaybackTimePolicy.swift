@@ -12,7 +12,8 @@ enum IRPlaybackTimePolicy {
         guard current.isFinite, total.isFinite, total > 0 else {
             return NSNumber(value: 0)
         }
-        let percent = current / total
+        let boundedCurrent = min(max(current, 0), total)
+        let percent = boundedCurrent / total
         return NSNumber(value: percent.isFinite ? percent : 0)
     }
 
