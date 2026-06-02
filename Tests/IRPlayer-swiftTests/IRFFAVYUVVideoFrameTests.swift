@@ -185,6 +185,26 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertEqual(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2), 24)
     }
 
+    func testYUVToolsWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2),
+            IRYUVToolsPolicy.channelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2)
+        )
+        XCTAssertEqual(
+            IRYUVChannelFilterNeedSize(linesize: 4, width: 8, height: 3, channelCount: 2),
+            IRYUVToolsPolicy.channelFilterNeedSize(linesize: 4, width: 8, height: 3, channelCount: 2)
+        )
+        XCTAssertEqual(
+            IRYUVImageDimensions32(width: 640, height: 480)?.width,
+            IRYUVToolsPolicy.imageDimensions32(width: 640, height: 480)?.width
+        )
+        XCTAssertEqual(
+            IRYUVImageDimensions32(width: 640, height: 480)?.height,
+            IRYUVToolsPolicy.imageDimensions32(width: 640, height: 480)?.height
+        )
+        XCTAssertNil(IRYUVToolsPolicy.imageDimensions32(width: 0, height: 480))
+    }
+
     func testYUVChannelFilterWrappersRemainSourceCompatible() {
         XCTAssertEqual(
             IRYUVChannelFilterNeedSize(4, 8, 3, 2),
