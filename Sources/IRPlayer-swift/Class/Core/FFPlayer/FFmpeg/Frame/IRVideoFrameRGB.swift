@@ -62,7 +62,6 @@ enum IRFrameFormat {
     }
 
     static func bytesPerRow(from linesize: UInt) -> Int? {
-        guard linesize <= UInt(Int.max) else { return nil }
-        return Int(linesize)
+        return IRVideoFrameRGBPolicy.bytesPerRow(from: linesize)
     }
 }
