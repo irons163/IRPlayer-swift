@@ -47,4 +47,11 @@ final class IRFFMetadataTests: XCTestCase {
         XCTAssertEqual(metadata.numberOfBytes, 240000)
         XCTAssertEqual(metadata.numberOfFrames, 300)
     }
+
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: 42)), IRFFMetadataPolicy.int64Value(NSNumber(value: 42)))
+        XCTAssertEqual(IRFFMetadata.int64Value(" 42 "), IRFFMetadataPolicy.int64Value(" 42 "))
+        XCTAssertEqual(IRFFMetadata.int64Value("not-a-number"), IRFFMetadataPolicy.int64Value("not-a-number"))
+        XCTAssertEqual(IRFFMetadata.int64Value(nil), IRFFMetadataPolicy.int64Value(nil))
+    }
 }

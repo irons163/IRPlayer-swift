@@ -158,6 +158,7 @@
 		B5E9505F2F68A02C00149265 /* IRGLFisheyeTransformPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9505E2F68A02C00149265 /* IRGLFisheyeTransformPolicy.swift */; };
 		B5E94F342D0B21F800149265 /* IRGLTransformController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DD32D0B21F800149265 /* IRGLTransformController.swift */; };
 		B5E94F352D0B21F800149265 /* IRFFMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DFC2D0B21F800149265 /* IRFFMetadata.swift */; };
+		B5E9527F2F6903E00149265 /* IRFFMetadataPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9527E2F6903E00149265 /* IRFFMetadataPolicy.swift */; };
 		B5E94F362D0B21F800149265 /* IRGLScope3D.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DCF2D0B21F800149265 /* IRGLScope3D.swift */; };
 		B5E94F372D0B21F800149265 /* IRGLRenderModeDistortion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D922D0B21F800149265 /* IRGLRenderModeDistortion.swift */; };
 		B5E94F382D0B21F800149265 /* IRGLView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DEA2D0B21F800149265 /* IRGLView.swift */; };
@@ -386,6 +387,7 @@
 		B5E94DF92D0B21F800149265 /* IRFFFormatContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFormatContext.swift; sourceTree = "<group>"; };
 		B5E952322F6901800149265 /* IRFFFormatContextPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFormatContextPolicy.swift; sourceTree = "<group>"; };
 		B5E94DFC2D0B21F800149265 /* IRFFMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFMetadata.swift; sourceTree = "<group>"; };
+		B5E9527E2F6903E00149265 /* IRFFMetadataPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFMetadataPolicy.swift; sourceTree = "<group>"; };
 		B5E952702F6903700149265 /* IRFFLogPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFLogPolicy.swift; sourceTree = "<group>"; };
 		B5E94DFD2D0B21F800149265 /* IRFFTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFTools.swift; sourceTree = "<group>"; };
 		B5E9526C2F6903500149265 /* IRFFRuntimeDebugOutputPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFRuntimeDebugOutputPolicy.swift; sourceTree = "<group>"; };
@@ -879,6 +881,7 @@
 				B5E94DF92D0B21F800149265 /* IRFFFormatContext.swift */,
 				B5E952322F6901800149265 /* IRFFFormatContextPolicy.swift */,
 				B5E94DFC2D0B21F800149265 /* IRFFMetadata.swift */,
+				B5E9527E2F6903E00149265 /* IRFFMetadataPolicy.swift */,
 				B5E952702F6903700149265 /* IRFFLogPolicy.swift */,
 				B5E94DFD2D0B21F800149265 /* IRFFTools.swift */,
 				B5E9526C2F6903500149265 /* IRFFRuntimeDebugOutputPolicy.swift */,
@@ -1352,6 +1355,7 @@
 				4A5170FE2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift in Sources */,
 				B5E94F342D0B21F800149265 /* IRGLTransformController.swift in Sources */,
 				B5E94F352D0B21F800149265 /* IRFFMetadata.swift in Sources */,
+				B5E9527F2F6903E00149265 /* IRFFMetadataPolicy.swift in Sources */,
 				B5E94F362D0B21F800149265 /* IRGLScope3D.swift in Sources */,
 				B5E94F372D0B21F800149265 /* IRGLRenderModeDistortion.swift in Sources */,
 				B5E94F382D0B21F800149265 /* IRGLView.swift in Sources */,
