@@ -105,6 +105,75 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         )
     }
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            ),
+            IRFFAVYUVVideoFramePolicy.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertEqual(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: false,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            ),
+            IRFFAVYUVVideoFramePolicy.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: false,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertEqual(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 0,
+                linesizeU: 2,
+                linesizeV: 2
+            ),
+            IRFFAVYUVVideoFramePolicy.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 0,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+    }
+
     func testYUVChannelFilterNeedSizeCheckedRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 0, height: 4, channelCount: 1))
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 4, height: 0, channelCount: 1))

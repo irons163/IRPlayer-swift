@@ -31,14 +31,16 @@ import IRFFMpeg
                                       linesizeY: Int32,
                                       linesizeU: Int32,
                                       linesizeV: Int32) -> Bool {
-        return width > 0
-            && height > 0
-            && hasLuma
-            && hasChromaB
-            && hasChromaR
-            && linesizeY > 0
-            && linesizeU > 0
-            && linesizeV > 0
+        return IRFFAVYUVVideoFramePolicy.shouldAcceptFrameData(
+            width: width,
+            height: height,
+            hasLuma: hasLuma,
+            hasChromaB: hasChromaB,
+            hasChromaR: hasChromaR,
+            linesizeY: linesizeY,
+            linesizeU: linesizeU,
+            linesizeV: linesizeV
+        )
     }
 
     func setFrameData(_ frame: UnsafePointer<AVFrame>, width: Int, height: Int) {
