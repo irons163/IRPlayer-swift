@@ -8,7 +8,7 @@
 import Foundation
 import CoreGraphics
 
-enum IRGLProgramMultiMode {
+enum IRGLProgramMultiMode: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case multiDisplay
     case singleDisplay
 }

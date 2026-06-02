@@ -90,4 +90,6 @@ fastlane/test_output
 iOSInjectionProject/
 
 #os
+*.DS_Store
 .DS_Store
+**/.DS_Store

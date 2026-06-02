@@ -87,7 +87,7 @@ class IRGLWideDegreeRange {
         }
     }
 
-    enum ScrollToBounds {
+    enum ScrollToBounds: Int, Hashable, Equatable, Sendable, RawRepresentable {
         case none
         case horizontal
         case vertical

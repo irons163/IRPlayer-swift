@@ -7,7 +7,7 @@
 
 import UIKit
 
-struct IRBouncePathGeometry {
+struct IRBouncePathGeometry: Hashable, Equatable, Sendable {
     let start: CGPoint
     let control: CGPoint
     let end: CGPoint

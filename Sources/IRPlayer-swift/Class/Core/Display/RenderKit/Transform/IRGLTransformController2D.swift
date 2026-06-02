@@ -121,6 +121,7 @@ import simd
 
     override func scroll(dx: Float, dy: Float) {
         guard let delegate = delegate else { return }
+        delegate.willScroll(dx: dx, dy: dy, transformController: self)
 
         let scope2d = scope
         guard let decision = IRGLTransform2DPolicy.scrollDecision(

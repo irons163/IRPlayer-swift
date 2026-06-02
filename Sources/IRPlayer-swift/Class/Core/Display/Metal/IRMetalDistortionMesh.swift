@@ -9,7 +9,7 @@ import Foundation
 import Metal
 import simd
 
-enum IRDistortionModelType: Int {
+enum IRDistortionModelType: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case left
     case right
 }

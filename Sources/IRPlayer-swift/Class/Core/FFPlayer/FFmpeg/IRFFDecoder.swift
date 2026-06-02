@@ -141,6 +141,7 @@ protocol IRFFDecoderDelegate: AnyObject {
     var hardwareDecoderEnable: Bool = true
     var minBufferedDuration: TimeInterval = 0
     var reading = false
+    var isLiveStream: Bool = false
 
     var videoEnable: Bool {
         return formatContext?.videoEnable ?? false
@@ -177,6 +178,12 @@ protocol IRFFDecoderDelegate: AnyObject {
     var aspect: CGFloat {
         return formatContext?.videoAspect ?? 0
     }
+
+    // Buffering timeout tracking
+    private var bufferingStartTime: TimeInterval = 0
+    private let bufferingMaxDuration: TimeInterval = 2.0 // Maximum time to wait for buffering before forcing play
+    private let bufferingMinimumThreshold: TimeInterval = 0.3 // Minimum buffered duration before playing on poor network
+    private let liveStreamBufferingMaxDuration: TimeInterval = 1.0 // Shorter timeout for live streams
 
     var duration: TimeInterval {
         return formatContext?.duration ?? 0
@@ -474,6 +481,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                 playbackFinished = transition.playbackFinished
                 formatContext?.seekFile(withFFTimebase: seekToTime)
                 buffering = transition.buffering
+                if buffering {
+                    bufferingStartTime = Date().timeIntervalSince1970
+                }
                 audioDecoder?.flush()
                 videoDecoder?.flush()
                 videoDecoder?.paused = transition.videoPaused
@@ -740,6 +750,7 @@ protocol IRFFDecoderDelegate: AnyObject {
         videoDecoder?.endOfFile = false
         selectAudioTrack = false
         selectAudioTrackIndex = 0
+        bufferingStartTime = 0
     }
 
     private func closeOperation() {
@@ -751,12 +762,23 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     private func checkBufferingStatus() {
-        buffering = IRPlaybackTimePolicy.bufferingState(
+        let nextBuffering = IRPlaybackTimePolicy.bufferingState(
             currentlyBuffering: buffering,
             bufferedDuration: bufferedDuration,
             minBufferedDuration: minBufferedDuration,
-            endOfFile: endOfFile
+            endOfFile: endOfFile,
+            bufferingElapsed: Date().timeIntervalSince1970 - bufferingStartTime,
+            bufferingMaxDuration: bufferingMaxDuration,
+            bufferingMinimumThreshold: bufferingMinimumThreshold,
+            liveStreamBufferingMaxDuration: liveStreamBufferingMaxDuration,
+            isLiveStream: isLiveStream
         )
+        if nextBuffering && !buffering {
+            bufferingStartTime = Date().timeIntervalSince1970
+        } else if !nextBuffering {
+            bufferingStartTime = 0
+        }
+        buffering = nextBuffering
     }
 
     private func updateBufferedDurationByVideo() {
@@ -821,7 +843,7 @@ extension IRFFDecoder: IRFFAudioDecoderDelegate {
     func audioDecoder(_ audioDecoder: IRFFAudioDecoder, samplingRate: inout Float64) {
         samplingRate = audioOutput?.samplingRate ?? 0
     }
-    
+
     func audioDecoder(_ audioDecoder: IRFFAudioDecoder, channelCount: inout UInt32) {
         channelCount = audioOutput?.numberOfChannels ?? 0
     }

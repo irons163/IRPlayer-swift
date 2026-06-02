@@ -54,6 +54,35 @@ final class IRPlaybackTimePolicyTests: XCTestCase {
         XCTAssertFalse(IRPlaybackTimePolicy.bufferingState(currentlyBuffering: true, bufferedDuration: 1, minBufferedDuration: .nan, endOfFile: false))
     }
 
+    func testBufferingStateUsesLiveStreamThresholds() {
+        XCTAssertTrue(
+            IRPlaybackTimePolicy.bufferingState(
+                currentlyBuffering: false,
+                bufferedDuration: 0.05,
+                minBufferedDuration: 2,
+                endOfFile: false,
+                bufferingElapsed: 0,
+                bufferingMaxDuration: 2,
+                bufferingMinimumThreshold: 0.3,
+                liveStreamBufferingMaxDuration: 1,
+                isLiveStream: true
+            )
+        )
+        XCTAssertFalse(
+            IRPlaybackTimePolicy.bufferingState(
+                currentlyBuffering: true,
+                bufferedDuration: 0.15,
+                minBufferedDuration: 2,
+                endOfFile: false,
+                bufferingElapsed: 1.1,
+                bufferingMaxDuration: 2,
+                bufferingMinimumThreshold: 0.3,
+                liveStreamBufferingMaxDuration: 1,
+                isLiveStream: true
+            )
+        )
+    }
+
     func testProgressPostDecisionPostsAtStartEndAndThrottleBoundary() {
         XCTAssertEqual(
             IRPlaybackTimePolicy.progressPostDecision(progress: 0, oldProgress: 1, duration: 10, lastPostTime: 20, now: 20.1, seekEnabled: true),

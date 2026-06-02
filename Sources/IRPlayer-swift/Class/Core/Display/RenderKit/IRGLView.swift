@@ -329,7 +329,12 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                     return
                 }
             }
-            if renderer.render(frame: frame, to: drawable, contentMode: renderContentMode, drawableSize: drawableSize) {
+            if renderer.render(frame: frame,
+                               to: drawable,
+                               contentMode: renderContentMode,
+                               drawableSize: drawableSize,
+                               zoomScale: 1,
+                               translation: SIMD2<Float>(repeating: 0)) {
                 saveSnapShot()
                 return
             }
@@ -627,11 +632,15 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         } else {
             let viewports = program.programs.map { $0.viewprotRange }
             let contentModes = program.programs.map { $0.contentMode }
+            let zoomScales = program.programs.map { Float($0.getCurrentScale().x) }
+            let translations = Array(repeating: SIMD2<Float>(repeating: 0), count: program.programs.count)
             return renderer.renderMulti(frame: frame,
                                         to: drawable,
                                         drawableSize: drawableSize,
                                         viewports: viewports,
-                                        contentModes: contentModes)
+                                        contentModes: contentModes,
+                                        zoomScales: zoomScales,
+                                        translations: translations)
         }
     }
 
@@ -703,7 +712,8 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                         viewport: viewportRect,
                                         contentMode: effectiveContentMode,
                                         outputSize: outputSize,
-                                        zoomScale: Float(zoomScale))
+                                        zoomScale: Float(zoomScale),
+                                        translation: SIMD2<Float>(repeating: 0))
     }
 
     private func renderMetalDistortionIfNeeded(frame: IRFFVideoFrame,
@@ -917,20 +927,31 @@ private class IRGLRenderStrategyBase: IRGLRenderInternal {
     func render(frame: IRFFVideoFrame,
                 to drawable: CAMetalDrawable,
                 contentMode: IRGLRenderContentMode,
-                drawableSize: CGSize) -> Bool {
-        renderer.render(frame: frame, to: drawable, contentMode: contentMode, drawableSize: drawableSize)
+                drawableSize: CGSize,
+                zoomScale: Float,
+                translation: SIMD2<Float>) -> Bool {
+        renderer.render(frame: frame,
+                        to: drawable,
+                        contentMode: contentMode,
+                        drawableSize: drawableSize,
+                        zoomScale: zoomScale,
+                        translation: translation)
     }
 
     func renderMulti(frame: IRFFVideoFrame,
                      to drawable: CAMetalDrawable,
                      drawableSize: CGSize,
                      viewports: [CGRect],
-                     contentModes: [IRGLRenderContentMode]) -> Bool {
+                     contentModes: [IRGLRenderContentMode],
+                     zoomScales: [Float],
+                     translations: [SIMD2<Float>]) -> Bool {
         renderer.renderMulti(frame: frame,
                              to: drawable,
                              drawableSize: drawableSize,
                              viewports: viewports,
-                             contentModes: contentModes)
+                             contentModes: contentModes,
+                             zoomScales: zoomScales,
+                             translations: translations)
     }
 
     func renderClear(to drawable: CAMetalDrawable) {
@@ -945,7 +966,8 @@ private class IRGLRenderStrategyBase: IRGLRenderInternal {
                          viewport: CGRect,
                          contentMode: IRGLRenderContentMode,
                          outputSize: CGSize,
-                         zoomScale: Float) -> Bool {
+                         zoomScale: Float,
+                         translation: SIMD2<Float>) -> Bool {
         renderer.renderFish2Pano(frame: frame,
                                  params: params,
                                  texUVTextures: texUVTextures,
@@ -954,7 +976,8 @@ private class IRGLRenderStrategyBase: IRGLRenderInternal {
                                  viewport: viewport,
                                  contentMode: contentMode,
                                  outputSize: outputSize,
-                                 zoomScale: zoomScale)
+                                 zoomScale: zoomScale,
+                                 translation: translation)
     }
 
     func renderDistortion(frame: IRFFVideoFrame,

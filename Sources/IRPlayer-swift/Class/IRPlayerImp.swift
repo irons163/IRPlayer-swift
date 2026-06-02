@@ -7,9 +7,10 @@
 //
 
 import UIKit
+import OSLog
 
 // video type
-@objc public enum IRVideoType: Int {
+@objc public enum IRVideoType: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case normal // normal
     @objc(IRVideoTypeVR)
     case vr // virtual reality
@@ -19,9 +20,9 @@ import UIKit
 }
 
 // player state
-@objc public enum IRPlayerState: Int {
-    case none // normal
-    case buffering // virtual reality
+@objc public enum IRPlayerState: Int, Hashable, Equatable, Sendable, RawRepresentable {
+    case none
+    case buffering
     case readyToPlay
     case playing
     case suspend
@@ -30,20 +31,20 @@ import UIKit
 }
 
 // display mode
-public enum IRDisplayMode {
+public enum IRDisplayMode: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case normal // normal
     case box // virtual reality
 }
 
 // video content mode
-@objc public enum IRGravityMode: Int {
+@objc public enum IRGravityMode: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case resize
     case resizeAspect
     case resizeAspectFill
 }
 
 // background mode
-enum IRPlayerBackgroundMode {
+enum IRPlayerBackgroundMode: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case nothing
     case autoPlayAndPause
     case continuing
@@ -56,12 +57,13 @@ enum IRPlayerVolume {
     }
 }
 
-// Mark: - IRPlayerImp
+// MARK: - IRPlayerImp
 @objcMembers
 public class IRPlayerImp: NSObject {
 
     public var decoder: IRPlayerDecoder
     public private(set) var contentURL: NSURL?
+    public private(set) var contentHeaders: [String: String]?
     private(set) var videoInput: IRFFVideoInput?
     public private(set) var videoType: IRVideoType {
         didSet {
@@ -75,7 +77,8 @@ public class IRPlayerImp: NSObject {
     public var view: IRPLFView? {
         return self.displayView
     } // graphics view
-    var viewAnimationHidden: Bool // default is YES
+    public var viewAnimationHidden: Bool // default is YES
+    public var isLiveStream: Bool // default is NO
     public var viewGravityMode: IRGravityMode {
         didSet {
             self.displayView?.reloadGravityMode()
@@ -227,7 +230,8 @@ public class IRPlayerImp: NSObject {
         self.viewGravityMode = .resizeAspect
         self.playableBufferInterval = 2
         self.viewAnimationHidden = true
-        self.volume = 1;
+        self.isLiveStream = false
+        self.volume = 1
         super.init()
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         self.setupNotification()
@@ -384,6 +388,10 @@ public class IRPlayerImp: NSObject {
             self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
         }
     }
+
+    public func setRequestHeaderFields(_ fields: [String: String]?) {
+        self.contentHeaders = fields
+    }
 }
 
 public extension IRPlayerImp {
@@ -395,7 +403,7 @@ public extension IRPlayerImp {
     func replaceVideoWithURL(contentURL: NSURL?,
                              videoType: IRVideoType = .normal,
                              videoInput: IRFFVideoInput? = nil) {
-        self.error = nil;
+        self.error = nil
         self.contentURL = contentURL
         self.videoInput = videoInput
         if let videoInput = self.videoInput {
@@ -442,7 +450,7 @@ extension IRPlayerImp {
             if let view = self.displayView {
                 self.gestureControl?.removeGesture(to: view)
             }
-            self.gestureControl = nil;
+            self.gestureControl = nil
         }
         if self.displayView != nil {
             self.displayView?.close()
@@ -508,7 +516,7 @@ extension IRPlayerImp {
         case .playAndClearAutoPlay:
             self.needAutoPlay = false
             self.play()
-            self.lastForegroundTimeInterval = NSDate().timeIntervalSince1970
+            self.lastForegroundTimeInterval = Date().timeIntervalSince1970
         case .none:
             break
         }
@@ -516,7 +524,7 @@ extension IRPlayerImp {
 }
 #endif
 
-// Mark: - IRPlayer Action Category
+// MARK: - IRPlayer Action Category
 public extension IRPlayerImp {
 
     func registerPlayerNotification(target: Any?,
@@ -549,7 +557,7 @@ public extension IRPlayerImp {
     }
 }
 
-// Mark: - UIScrollViewDelegate
+// MARK: - IRGLViewDelegate
 extension IRPlayerImp: IRGLViewDelegate {
 
     public func glViewWillBeginZooming(_ glView: IRGLView?) {
@@ -575,5 +583,87 @@ extension IRPlayerImp: IRGLViewDelegate {
     }
 
     public func glViewDidScroll(toBounds glView: IRGLView?) {
+    }
+}
+
+// ******************************* MARK: - Logger Delegate
+
+/// Severity levels that mirror OSLog's level hierarchy.
+@objc public enum IRPlayerLogLevel: Int, Equatable, Hashable, Sendable {
+    case debug
+    case info
+    case warning
+    case error
+}
+
+/// Implement this protocol to intercept IRPlayer log messages and forward them
+/// to your own logging system. When a delegate is set it receives **all** log
+/// messages instead of (not in addition to) the built-in OSLog output.
+public protocol IRPlayerLoggerDelegate: AnyObject {
+    func irPlayer(didLog message: String, level: IRPlayerLogLevel, category: String)
+}
+
+// ******************************* MARK: - Constants
+
+public extension IRPlayerImp { enum Logger {} }
+public extension IRPlayerImp.Logger {
+    static var subsystem = Bundle.main.bundleIdentifier ?? "IRPlayerImp"
+
+    /// Set this delegate to receive all IRPlayer log messages in your own
+    /// logging system. Setting it to `nil` (the default) restores OSLog output.
+    nonisolated(unsafe) static weak var delegate: (any IRPlayerLoggerDelegate)?
+
+    static var libraryLogger = IRPlayerLogger(subsystem: subsystem, category: "library")
+}
+
+// ******************************* MARK: - IRPlayerLogger
+
+/// A thin logger wrapper that forwards messages to `IRPlayerImp.Logger.delegate`
+/// when one is set, and falls back to OSLog otherwise.
+/// It intentionally mirrors the `debug / info / warning / error` API of
+/// `OSLog.Logger` so all existing call sites remain unchanged.
+public struct IRPlayerLogger {
+    private let osLogger: Logger  // OSLog.Logger, available via `import OSLog`
+    private let category: String
+
+    public init(subsystem: String, category: String) {
+        self.osLogger = Logger(subsystem: subsystem, category: category)
+        self.category = category
+    }
+
+    public func debug(_ message: @autoclosure () -> String) {
+        let msg = message()
+        if let delegate = IRPlayerImp.Logger.delegate {
+            delegate.irPlayer(didLog: msg, level: .debug, category: category)
+        } else {
+            osLogger.debug("\(msg)")
+        }
+    }
+
+    public func info(_ message: @autoclosure () -> String) {
+        let msg = message()
+        if let delegate = IRPlayerImp.Logger.delegate {
+            delegate.irPlayer(didLog: msg, level: .info, category: category)
+        } else {
+            osLogger.info("\(msg)")
+        }
+    }
+
+    public func warning(_ message: @autoclosure () -> String) {
+        let msg = message()
+        if let delegate = IRPlayerImp.Logger.delegate {
+            delegate.irPlayer(didLog: msg, level: .warning, category: category)
+        } else {
+            osLogger.warning("\(msg)")
+        }
+    }
+
+    public func error(_ message: @autoclosure () -> String) {
+        let msg = message()
+        if let delegate = IRPlayerImp.Logger.delegate {
+            delegate.irPlayer(didLog: msg, level: .error, category: category)
+        } else {
+            osLogger.error("\(msg)")
+        }
     }
 }

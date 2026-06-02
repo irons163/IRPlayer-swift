@@ -10,7 +10,7 @@ import IRFFMpeg
 
 open class IRFFVideoInput: IRFFVideoDecoderDataSource {
 
-    public enum OutputType {
+    public enum OutputType: Int, Hashable, Equatable, Sendable, RawRepresentable {
         case displayView
         case decoder
     }

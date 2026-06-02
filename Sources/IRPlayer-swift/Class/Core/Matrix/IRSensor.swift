@@ -20,8 +20,8 @@ class IRSensor {
 
     init() {
         self.manager = CMMotionManager()
-        self.orientation = UIApplication.shared.statusBarOrientation
-        updateDeviceOrientation(orientation: self.orientation)
+        self.orientation = .portrait
+        updateDeviceOrientation(orientation: Self.currentInterfaceOrientation())
     }
 
     func updateDeviceOrientation(orientation: UIInterfaceOrientation) {
@@ -107,8 +107,10 @@ class IRSensor {
             lastOffsetYByDeviceMotion = newOffsetYByDeviceMotion
 
             DispatchQueue.main.async {
-                if self.orientation != UIApplication.shared.statusBarOrientation {
-                    self.updateDeviceOrientation(orientation: UIApplication.shared.statusBarOrientation)
+                let currentOrientation = self.targetView?.window?.windowScene?.interfaceOrientation
+                    ?? Self.currentInterfaceOrientation()
+                if self.orientation != currentOrientation {
+                    self.updateDeviceOrientation(orientation: currentOrientation)
                     return
                 }
                 if doScroll {
@@ -151,5 +153,23 @@ class IRSensor {
             return (false, true)
         }
         return (true, false)
+    }
+
+    private static func currentInterfaceOrientation() -> UIInterfaceOrientation {
+        if let activeSceneOrientation = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive })?
+            .interfaceOrientation {
+            return activeSceneOrientation
+        }
+
+        if let anySceneOrientation = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first?
+            .interfaceOrientation {
+            return anySceneOrientation
+        }
+
+        return .portrait
     }
 }

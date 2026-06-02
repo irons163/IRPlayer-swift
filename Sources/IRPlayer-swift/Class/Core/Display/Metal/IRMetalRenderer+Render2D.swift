@@ -16,16 +16,20 @@ extension IRMetalRenderer {
     func render(frame: IRFFVideoFrame,
                 to drawable: CAMetalDrawable,
                 contentMode: IRGLRenderContentMode,
-                drawableSize: CGSize) -> Bool {
+                drawableSize: CGSize,
+                zoomScale: Float,
+                translation: SIMD2<Float>) -> Bool {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
 
         let scale = computeScale(contentMode: contentMode, frameSize: CGSize(width: frame.width, height: frame.height), drawableSize: drawableSize)
-        var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height))
+        var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height)) * zoomScale
 
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         encoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
+        var translationVector = translation
+        encoder.setVertexBytes(&translationVector, length: MemoryLayout<SIMD2<Float>>.size, index: 2)
         encoder.setViewport(Self.metalViewport(drawableSize: drawableSize,
                                                viewport: CGRect(origin: .zero, size: drawableSize),
                                                orientation: .topLeftFlipped))
@@ -47,7 +51,9 @@ extension IRMetalRenderer {
                      to drawable: CAMetalDrawable,
                      drawableSize: CGSize,
                      viewports: [CGRect],
-                     contentModes: [IRGLRenderContentMode]) -> Bool {
+                     contentModes: [IRGLRenderContentMode],
+                     zoomScales: [Float],
+                     translations: [SIMD2<Float>]) -> Bool {
         guard !viewports.isEmpty, viewports.count == contentModes.count else { return false }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
@@ -66,8 +72,11 @@ extension IRMetalRenderer {
             let scale = computeScale(contentMode: contentModes[index],
                                      frameSize: CGSize(width: frame.width, height: frame.height),
                                      drawableSize: targetSize)
-            var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height))
+            let zoomScale = index < zoomScales.count ? zoomScales[index] : 1
+            var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height)) * zoomScale
             encoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
+            var translationVector = index < translations.count ? translations[index] : SIMD2<Float>(repeating: 0)
+            encoder.setVertexBytes(&translationVector, length: MemoryLayout<SIMD2<Float>>.size, index: 2)
 
             if let pixelRenderer = pixelRenderer(for: frame) {
                 didRender = pixelRenderer.render2D(renderer: self, frame: frame, encoder: encoder) || didRender

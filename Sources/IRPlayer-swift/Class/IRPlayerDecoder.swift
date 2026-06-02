@@ -8,13 +8,13 @@
 
 import Foundation
 
-public enum IRDecoderType {
+public enum IRDecoderType: String, Hashable, Equatable, Sendable, RawRepresentable {
     case error
     case avPlayer
     case ffmpeg
 }
 
-enum IRVideoFormat {
+enum IRVideoFormat: String, Hashable, Equatable, Sendable, RawRepresentable {
     case error
     case unknown
     case mpeg4

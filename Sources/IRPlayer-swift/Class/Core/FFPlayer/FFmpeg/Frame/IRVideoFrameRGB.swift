@@ -8,7 +8,7 @@
 import Foundation
 import UIKit
 
-enum IRFrameFormat {
+enum IRFrameFormat: String, Hashable, Equatable, Sendable, RawRepresentable {
     case RGB
 }
 

@@ -9,7 +9,7 @@ import UIKit // For CGSize
 import AVFoundation // For NSTimeInterval
 
 class IRFFPlayer: NSObject {
-    struct AudioCopyPlan: Equatable {
+    struct AudioCopyPlan: Equatable, Hashable, Sendable {
         let bytesToCopy: Int
         let framesToCopy: Int
         let hasRemainingFrameBytes: Bool
@@ -295,7 +295,21 @@ extension IRFFPlayer {
     }
 
     func reloadPlayableBufferInterval() {
-        decoder?.minBufferedDuration = abstractPlayer?.playableBufferInterval ?? 0
+        guard let decoder = decoder else { return }
+        var bufferInterval = abstractPlayer?.playableBufferInterval ?? 0
+        decoder.isLiveStream = abstractPlayer?.isLiveStream ?? false
+
+        // For live streams (RTSP, no duration), use much lower buffer threshold
+        // to prevent stuck buffering state
+        if decoder.isLiveStream {
+            // Use minimum of requested interval or 0.2 seconds for live streams
+            bufferInterval = min(bufferInterval, 0.2)
+            if bufferInterval == 0 {
+                bufferInterval = 0.2 // Default for live streams
+            }
+        }
+
+        decoder.minBufferedDuration = bufferInterval
     }
 
     func replaceVideo() {
@@ -359,7 +373,7 @@ extension IRFFPlayer: IRFFDecoderAudioOutput {
 }
 
 extension IRFFPlayer: IRAudioManagerDelegate {
-    
+
     func audioManager(_ audioManager: IRAudioManager, outputData: UnsafeMutablePointer<Float>, numberOfFrames: UInt32, numberOfChannels: UInt32) {
         guard self.playing else {
             if let byteCount = Self.audioSilenceByteCount(numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels) {

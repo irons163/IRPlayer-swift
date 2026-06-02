@@ -7,7 +7,7 @@
 
 import UIKit
 
-@objc public enum IRScrollDirectionType: Int {
+@objc public enum IRScrollDirectionType: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case none
     case left
     case right

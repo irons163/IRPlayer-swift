@@ -154,4 +154,8 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
         setFrameUnuse(frame)
     }
 
+    deinit {
+        IRPlayerImp.Logger.libraryLogger.debug("IRFFFramePool release")
+    }
+
 }

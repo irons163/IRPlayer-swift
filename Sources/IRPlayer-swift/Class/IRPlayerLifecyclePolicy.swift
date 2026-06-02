@@ -1,24 +1,24 @@
 import Foundation
 
 enum IRPlayerLifecyclePolicy {
-    enum BackendTarget: Equatable {
+    enum BackendTarget: Hashable, Equatable, Sendable {
         case none
         case avPlayer
         case ffmpeg
     }
 
-    struct ReplacementPlan: Equatable {
+    struct ReplacementPlan: Hashable, Equatable, Sendable {
         let stopAVPlayer: Bool
         let stopFFPlayer: Bool
         let replaceTarget: BackendTarget
     }
 
-    enum BackgroundAction: Equatable {
+    enum BackgroundAction: Hashable, Equatable, Sendable {
         case none
         case pauseAndRememberAutoPlay
     }
 
-    enum ForegroundAction: Equatable {
+    enum ForegroundAction: Hashable, Equatable, Sendable {
         case none
         case playAndClearAutoPlay
     }

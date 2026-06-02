@@ -8,7 +8,7 @@
 import Foundation
 
 // Enum for track type
-enum IRFFTrackType: UInt {
+enum IRFFTrackType: UInt, Hashable, Equatable, Sendable, RawRepresentable {
     case video = 0
     case audio
     case subtitle
