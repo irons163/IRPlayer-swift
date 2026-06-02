@@ -25,6 +25,14 @@ struct IRBounceAnimationPlan: Equatable {
 
 enum IRBouncePolicy {
     static func bouncePathGeometry(amount: CGFloat, direction type: IRScrollDirectionType, targetSize: CGSize) -> IRBouncePathGeometry {
+        guard amount.isFinite,
+              targetSize.width.isFinite,
+              targetSize.height.isFinite,
+              targetSize.width > 0,
+              targetSize.height > 0 else {
+            return IRBouncePathGeometry(start: .zero, control: .zero, end: .zero)
+        }
+
         let targetViewWidth = targetSize.width
         let targetViewHeight = targetSize.height
         let bounceWidth = min(targetViewWidth / 10, targetViewHeight / 10)

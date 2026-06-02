@@ -31,6 +31,16 @@ final class IRBounceControllerTests: XCTestCase {
         XCTAssertEqual(geometry.end, CGPoint(x: 100, y: 0))
     }
 
+    func testBounceGeometryRejectsMalformedInputs() {
+        let geometry = IRBouncePolicy.bouncePathGeometry(amount: .nan,
+                                                         direction: .left,
+                                                         targetSize: CGSize(width: CGFloat.infinity, height: -80))
+
+        XCTAssertEqual(geometry.start, .zero)
+        XCTAssertEqual(geometry.control, .zero)
+        XCTAssertEqual(geometry.end, .zero)
+    }
+
     func testBounceAnimationPlanMapsDirectionsToKeysAndAxes() {
         XCTAssertEqual(IRBounceController.animationPlan(for: .left), IRBounceAnimationPlan(key: "bounce_right", axis: .horizontal))
         XCTAssertEqual(IRBounceController.animationPlan(for: .right), IRBounceAnimationPlan(key: "bounce_left", axis: .horizontal))
