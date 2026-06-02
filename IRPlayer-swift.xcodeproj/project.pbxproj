@@ -1638,7 +1638,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Sources/IRPlayer-swift/ThirdParty/ffmpeg/lib",
 				);
 				MARKETING_VERSION = 1.0;
 				MODULEMAP_FILE = "Sources/IRPlayer-swift/include/public.modulemap";
@@ -1691,7 +1690,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Sources/IRPlayer-swift/ThirdParty/ffmpeg/lib",
 				);
 				MARKETING_VERSION = 1.0;
 				MODULEMAP_FILE = "Sources/IRPlayer-swift/include/public.modulemap";
