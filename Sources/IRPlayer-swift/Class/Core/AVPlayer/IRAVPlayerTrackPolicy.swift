@@ -13,11 +13,11 @@ enum IRAVPlayerTrackPolicy {
         guard let propertyList = propertyList as? [String: Any],
               let value = propertyList[IRAVPlayer.avMediaSelectionOptionTrackIDKey] else { return nil }
 
+        if let value = value as? NSNumber {
+            return IRPayloadNumber.integerRawValue(from: value)
+        }
         if let value = value as? Int {
             return value
-        }
-        if let value = value as? NSNumber {
-            return value.intValue
         }
         return nil
     }

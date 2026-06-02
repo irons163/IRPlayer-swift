@@ -24,6 +24,15 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertNil(IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: "not-a-dictionary"))
     }
 
+    func testMediaSelectionTrackIDRejectsMalformedNumericPropertyLists() {
+        XCTAssertNil(IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: NSNumber(value: true)
+        ]))
+        XCTAssertNil(IRAVPlayerTrackPolicy.mediaSelectionTrackID(from: [
+            IRAVPlayer.avMediaSelectionOptionTrackIDKey: NSNumber(value: 1.5)
+        ]))
+    }
+
     func testDefaultTrackFallsBackWhenPropertyListDoesNotMatch() {
         let first = IRPlayerTrack()
         first.index = 1
