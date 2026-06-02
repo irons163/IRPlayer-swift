@@ -184,6 +184,13 @@ final class IRFFFormatContextTests: XCTestCase {
         )
     }
 
+    func testAudioTrackSelectionActionRejectsNegativeRequestedIndex() {
+        XCTAssertEqual(
+            IRFFFormatContext.audioTrackSelectionAction(requestedIndex: -1, currentIndex: 0, containsRequestedTrack: true),
+            .noChange
+        )
+    }
+
     func testSeekTimestampConvertsSecondsToFFmpegTimebase() {
         XCTAssertEqual(IRFFFormatContext.seekTimestamp(for: 1.5), 1_500_000)
         XCTAssertEqual(IRFFFormatContext.seekTimestamp(for: 0), 0)

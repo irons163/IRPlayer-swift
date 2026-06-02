@@ -73,7 +73,8 @@ enum IRFFFormatContextPolicy {
     static func audioTrackSelectionAction(requestedIndex: Int,
                                           currentIndex: Int?,
                                           containsRequestedTrack: Bool) -> IRFFFormatContext.AudioTrackSelectionAction {
-        guard requestedIndex != (currentIndex ?? -1),
+        guard requestedIndex >= 0,
+              requestedIndex != (currentIndex ?? -1),
               containsRequestedTrack else {
             return .noChange
         }
