@@ -46,6 +46,12 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertEqual(duration, 1.25, accuracy: 0.0001)
     }
 
+    func testFrameDurationIgnoresNegativeRepeatPicture() {
+        let duration = IRFFVideoDecoder.frameDuration(ticks: 4, repeatPicture: -8, timebase: 0.25, fps: 30)
+
+        XCTAssertEqual(duration, 1, accuracy: 0.0001)
+    }
+
     func testFrameDurationUsesFPSFallbackWhenTicksAreMissing() {
         let duration = IRFFVideoDecoder.frameDuration(ticks: 0, repeatPicture: 0, timebase: 0.25, fps: 25)
 

@@ -13,7 +13,8 @@ enum IRFFVideoDecoderPolicy {
         if ticks != 0 {
             guard timebase.isFinite, timebase > 0 else { return 0 }
             let baseDuration = TimeInterval(ticks) * timebase
-            let repeatDuration = TimeInterval(repeatPicture) * timebase * 0.5
+            let normalizedRepeatPicture = max(0, repeatPicture)
+            let repeatDuration = TimeInterval(normalizedRepeatPicture) * timebase * 0.5
             let duration = baseDuration + repeatDuration
             return duration.isFinite && duration > 0 ? duration : 0
         }
