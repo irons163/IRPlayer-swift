@@ -26,6 +26,17 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
         )
     }
 
+    func testBufferedDurationTransitionNormalizesNonFiniteDurations() {
+        XCTAssertEqual(
+            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: .nan, endOfFile: true),
+            IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: true)
+        )
+        XCTAssertEqual(
+            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: .infinity, endOfFile: false),
+            IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: false)
+        )
+    }
+
     func testShouldFetchAudioFrameRequiresActiveAudioPlaybackState() {
         XCTAssertTrue(
             IRFFDecoderAudioPolicy.shouldFetchAudioFrame(

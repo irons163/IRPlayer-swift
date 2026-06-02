@@ -7,7 +7,7 @@ enum IRFFDecoderAudioPolicy {
     }
 
     static func bufferedDurationTransition(bufferedDuration: TimeInterval, endOfFile: Bool) -> IRFFDecoder.BufferedDurationTransition {
-        let normalizedDuration = bufferedDuration <= 0.000001 ? 0 : bufferedDuration
+        let normalizedDuration = bufferedDuration.isFinite && bufferedDuration > 0.000001 ? bufferedDuration : 0
         return IRFFDecoder.BufferedDurationTransition(
             bufferedDuration: normalizedDuration,
             shouldFinishPlayback: normalizedDuration <= 0 && endOfFile
