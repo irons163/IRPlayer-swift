@@ -57,6 +57,20 @@ final class IRMetalFisheyeMeshTests: XCTestCase {
         XCTAssertEqual(params.radius, 0)
     }
 
+    func testResolveParamsRejectsNonFiniteGeometry() {
+        let params = IRMetalFisheyeMeshPolicy.resolveParams(textureWidth: .infinity,
+                                                            textureHeight: 100,
+                                                            centerX: 20,
+                                                            centerY: 20,
+                                                            radius: .nan)
+
+        XCTAssertEqual(params.textureWidth, 0)
+        XCTAssertEqual(params.textureHeight, 0)
+        XCTAssertEqual(params.centerX, 0)
+        XCTAssertEqual(params.centerY, 0)
+        XCTAssertEqual(params.radius, 0)
+    }
+
     func testResolveParamsPreservesValidGeometry() {
         let params = IRMetalFisheyeMesh.resolveParams(textureWidth: 200, textureHeight: 100, centerX: 60, centerY: 50, radius: 40)
 

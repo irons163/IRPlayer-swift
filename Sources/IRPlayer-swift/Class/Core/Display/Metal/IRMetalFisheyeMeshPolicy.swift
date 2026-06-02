@@ -17,7 +17,7 @@ enum IRMetalFisheyeMeshPolicy {
         var cy = centerY
         var cr = radius
 
-        if tw <= 0 || th <= 0 {
+        if !tw.isFinite || !th.isFinite || !cx.isFinite || !cy.isFinite || !cr.isFinite || tw <= 0 || th <= 0 {
             return (0, 0, 0, 0, 0)
         }
 
