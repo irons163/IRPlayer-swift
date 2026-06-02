@@ -45,6 +45,35 @@ final class IRFFToolsTests: XCTestCase {
         }
     }
 
+    func testFFLogPolicyFormatsValidMessagesAndRejectsInvalidUTF8() throws {
+        "codec %@ %d".withCString { format in
+            withVaList(["ok", 7]) { args in
+                XCTAssertEqual(IRFFLogPolicy.message(format: format, args: args), "codec ok 7")
+            }
+        }
+
+        let invalidFormat: [CChar] = [-1, 0]
+
+        try invalidFormat.withUnsafeBufferPointer { formatBuffer in
+            let format = try XCTUnwrap(formatBuffer.baseAddress)
+            withVaList([]) { args in
+                XCTAssertNil(IRFFLogPolicy.message(format: format, args: args))
+            }
+        }
+    }
+
+    func testFFLogPolicyIsSilentByDefault() {
+        let output = captureStandardOutput {
+            "codec %@".withCString { format in
+                withVaList(["ok"]) { args in
+                    IRFFLogPolicy.write(context: nil, level: 0, format: format, args: args)
+                }
+            }
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testCheckErrorReturnsNilForSuccessAndUsesRequestedCodeForFailures() throws {
         XCTAssertNil(IRFFCheckError(0))
         XCTAssertNil(IRFFCheckErrorCode(1, errorCode: 99))

@@ -46,11 +46,7 @@ enum IRFFRuntimeDebugOutput {
 // MARK: - Utility Functions
 
 func IRFFLog(context: UnsafeMutableRawPointer?, level: Int32, format: UnsafePointer<CChar>, args: CVaListPointer) {
-#if IRFFFFmpegLogEnable
-    guard let formatString = String(validatingUTF8: format) else { return }
-    let message = NSString(format: formatString, arguments: args) as String
-    print("IRFFLog: \(message)")
-#endif
+    IRFFLogPolicy.write(context: context, level: level, format: format, args: args)
 }
 
 func IRFFCheckError(_ result: Int32) -> NSError? {
