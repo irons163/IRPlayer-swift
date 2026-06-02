@@ -23,6 +23,26 @@ final class IRFFFramePoolTests: XCTestCase {
         XCTAssertFalse(IRFFFramePool.isFrame(IRFFAVYUVVideoFrame(), compatibleWith: IRFFAudioFrame.self))
     }
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        let audioFrame = IRFFAudioFrame()
+        let videoFrame = IRFFAVYUVVideoFrame()
+
+        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: 4), IRFFFramePoolPolicy.reserveCapacity(from: 4))
+        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: -4), IRFFFramePoolPolicy.reserveCapacity(from: -4))
+        XCTAssertEqual(
+            IRFFFramePool.isFrame(audioFrame, compatibleWith: IRFFAudioFrame.self),
+            IRFFFramePoolPolicy.isFrame(audioFrame, compatibleWith: IRFFAudioFrame.self)
+        )
+        XCTAssertEqual(
+            IRFFFramePool.isFrame(videoFrame, compatibleWith: IRFFAudioFrame.self),
+            IRFFFramePoolPolicy.isFrame(videoFrame, compatibleWith: IRFFAudioFrame.self)
+        )
+        XCTAssertEqual(
+            IRFFFramePool.isFrame(nil, compatibleWith: IRFFAudioFrame.self),
+            IRFFFramePoolPolicy.isFrame(nil, compatibleWith: IRFFAudioFrame.self)
+        )
+    }
+
     func testFramePoolMovesFramesThroughUsedPlayingAndUnuseBuckets() throws {
         let pool = IRFFFramePool.pool(withCapacity: 2, frameClassName: IRFFFrame.self)
         let frame = try XCTUnwrap(pool.getUnuseFrame())

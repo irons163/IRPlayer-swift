@@ -41,11 +41,11 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     }
 
     static func reserveCapacity(from capacity: Int) -> Int {
-        return max(0, capacity)
+        return IRFFFramePoolPolicy.reserveCapacity(from: capacity)
     }
 
     static func isFrame(_ frame: IRFFFrame?, compatibleWith frameClassName: AnyClass) -> Bool {
-        return frame?.isKind(of: frameClassName) == true
+        return IRFFFramePoolPolicy.isFrame(frame, compatibleWith: frameClassName)
     }
 
     private static func makeFrameFactory(for frameClassName: AnyClass) -> () -> IRFFFrame? {
