@@ -153,8 +153,6 @@ public class IRFFFormatContext {
             }
             return error
         }
-//        self.metadata = IRFFFoundationBrigeOfAVDictionary((formatContext?.pointee.metadata)! as? [Character: Any])
-//        self.metadata = IRFFFoundationBrigeOfAVDictionary(formatContext?.pointee.metadata)
         if let avDict = formatContext?.pointee.metadata {
             self.metadata = IRFFFoundationBrigeOfAVDictionary(avDict) ?? [:]
         } else {

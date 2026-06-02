@@ -160,10 +160,6 @@ final class IRMetalRenderer {
             descriptor.fragmentFunction = fragmentNV12
             descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
             descriptor.vertexDescriptor = vertexDescriptor
-//            pipelineNV12 = try? device.makeRenderPipelineState(descriptor: descriptor)
-//            if pipelineNV12 == nil {
-//                print("IRMetalRenderer: failed to create NV12 pipeline")
-//            }
             do {
                 pipelineNV12 = try device.makeRenderPipelineState(descriptor: descriptor)
             } catch {
