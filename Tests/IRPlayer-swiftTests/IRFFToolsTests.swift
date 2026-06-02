@@ -124,6 +124,15 @@ final class IRFFToolsTests: XCTestCase {
         }
     }
 
+    func testDictionaryBridgeWrapperRemainsSourceCompatible() {
+        let dictionary: OpaquePointer? = nil
+
+        XCTAssertEqual(
+            IRFFFoundationBrigeOfAVDictionary(dictionary),
+            IRFFDictionaryPolicy.foundationDictionary(from: dictionary)
+        )
+    }
+
     func testStreamTimebaseFallsBackToFiniteValueForInvalidStreamAndDefault() {
         var stream = AVStream()
         stream.time_base = AVRational(num: 0, den: 0)
