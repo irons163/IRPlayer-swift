@@ -185,6 +185,43 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertEqual(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2), 24)
     }
 
+    func testYUVChannelFilterWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRYUVChannelFilterNeedSize(4, 8, 3, 2),
+            IRYUVChannelFilterPolicy.needSize(linesize: 4, width: 8, height: 3, channelCount: 2)
+        )
+        XCTAssertEqual(
+            IRYUVChannelFilterNeedSize(-1, 8, 3, 2),
+            IRYUVChannelFilterPolicy.needSize(linesize: -1, width: 8, height: 3, channelCount: 2)
+        )
+
+        var source = [UInt8](1...8)
+        var destination = [UInt8](repeating: 0, count: 4)
+        let destinationCount = destination.count
+        source.withUnsafeMutableBufferPointer { sourceBuffer in
+            destination.withUnsafeMutableBufferPointer { destinationBuffer in
+                IRYUVChannelFilter(sourceBuffer.baseAddress!, 4, 2, 2, destinationBuffer.baseAddress, destinationCount, 1)
+            }
+        }
+
+        XCTAssertEqual(destination, [1, 2, 5, 6])
+    }
+
+    func testYUVChannelFilterIgnoresMissingOrTooSmallDestination() {
+        var source = [UInt8](1...8)
+        var destination = [UInt8](repeating: 9, count: 3)
+        let destinationCount = destination.count
+        source.withUnsafeMutableBufferPointer { sourceBuffer in
+            IRYUVChannelFilter(sourceBuffer.baseAddress!, 4, 2, 2, nil, 4, 1)
+
+            destination.withUnsafeMutableBufferPointer { destinationBuffer in
+                IRYUVChannelFilter(sourceBuffer.baseAddress!, 4, 2, 2, destinationBuffer.baseAddress, destinationCount, 1)
+            }
+        }
+
+        XCTAssertEqual(destination, [9, 9, 9])
+    }
+
     func testYUVImageDimensions32RejectsInvalidOrOverflowingDimensions() {
         XCTAssertNil(IRYUVImageDimensions32(width: 0, height: 4))
         XCTAssertNil(IRYUVImageDimensions32(width: 4, height: 0))

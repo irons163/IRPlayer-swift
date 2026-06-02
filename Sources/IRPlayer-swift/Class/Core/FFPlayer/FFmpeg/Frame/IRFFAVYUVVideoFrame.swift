@@ -158,22 +158,19 @@ import IRFFMpeg
 //struct IRPLFImage {}
 
 func IRYUVChannelFilterNeedSize(_ linesize: Int32, _ width: Int, _ height: Int, _ a: Int) -> Int {
-    return IRYUVChannelFilterNeedSizeChecked(linesize: Int(linesize), width: width, height: height, channelCount: a) ?? 0
+    return IRYUVChannelFilterPolicy.needSize(linesize: linesize, width: width, height: height, channelCount: a)
 }
 
 func IRYUVChannelFilter(_ source: UnsafePointer<UInt8>, _ linesize: Int32, _ width: Int, _ height: Int, _ destination: UnsafeMutablePointer<UInt8>?, _ bufferSize: Int, _ a: Int) {
-    guard let destination = destination else { return }
-
-    let linesize = Int(linesize)
-    guard let rowByteCount = IRYUVChannelFilterNeedSizeChecked(linesize: linesize, width: width, height: 1, channelCount: a),
-          let totalByteCount = IRYUVChannelFilterNeedSizeChecked(linesize: linesize, width: width, height: height, channelCount: a),
-          totalByteCount <= bufferSize else { return }
-
-    for y in 0..<height {
-        let srcRow = source + y * linesize
-        let dstRow = destination + y * rowByteCount
-        memcpy(dstRow, srcRow, rowByteCount)
-    }
+    IRYUVChannelFilterPolicy.copy(
+        source,
+        linesize: linesize,
+        width: width,
+        height: height,
+        destination: destination,
+        bufferSize: bufferSize,
+        channelCount: a
+    )
 }
 
 //func IRYUVConvertToImage(_ channelPixels: [UnsafeMutablePointer<UInt8>?], _ channelLinesize: [Int], _ width: Int, _ height: Int, _ pixelFormat: AVPixelFormat?) -> IRPLFImage {
