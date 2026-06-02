@@ -11,6 +11,19 @@ import XCTest
 
 final class IRGLRenderModeFactoryTests: XCTestCase {
 
+    func testFactoryPolicyDescribesNormalAndFisheyeModePlans() {
+        XCTAssertEqual(IRGLRenderModeFactoryPolicy.normalModePlan(), [.normal2D])
+        XCTAssertEqual(
+            IRGLRenderModeFactoryPolicy.fisheyeModePlan(),
+            [
+                .panorama(name: "Panorama", wideDegreeX: 360, wideDegreeY: 20),
+                .fisheye3D(name: "Onelen"),
+                .multi4P(name: "Fourlens"),
+                .normal2DNamed(name: "Rawdata", shiftEnabled: false)
+            ]
+        )
+    }
+
     func testNormalModesContainOnly2DModeWithParameter() {
         let parameter = IRMediaParameter(width: 100, height: 50)
         let modes = IRGLRenderModeFactory.createNormalModes(with: parameter)
