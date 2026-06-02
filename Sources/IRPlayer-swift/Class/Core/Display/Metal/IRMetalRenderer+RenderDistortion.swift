@@ -35,7 +35,9 @@ extension IRMetalRenderer {
         func renderHalf(originX: Double, isLeft: Bool) -> Bool {
             // Distortion expects the offscreen texture to fill each eye half.
             var scaleVector = SIMD2<Float>(1.0, 1.0)
+            var translationVector = SIMD2<Float>(repeating: 0)
             offscreenEncoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
+            offscreenEncoder.setVertexBytes(&translationVector, length: MemoryLayout<SIMD2<Float>>.size, index: 2)
             if let buffer = isLeft ? vertexBufferLeft : vertexBufferRight {
                 offscreenEncoder.setVertexBuffer(buffer, offset: 0, index: 0)
             } else {

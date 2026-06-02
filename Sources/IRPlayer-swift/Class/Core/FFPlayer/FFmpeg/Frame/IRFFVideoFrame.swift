@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum IRYUVChannel: Int {
+enum IRYUVChannel: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case luma = 0
     case chromaB = 1
     case chromaR = 2

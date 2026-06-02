@@ -45,9 +45,10 @@ struct Fish2PanoParams {
 };
 
 vertex VertexOut irVertex(VertexIn in [[stage_in]],
-                          constant float2 &scale [[buffer(1)]]) {
+                          constant float2 &scale [[buffer(1)]],
+                          constant float2 &translation [[buffer(2)]]) {
     VertexOut out;
-    float2 scaled = in.position * scale;
+    float2 scaled = in.position * scale + translation;
     out.position = float4(scaled, 0.0, 1.0);
     out.texCoord = float2(in.texCoord.x, 1.0 - in.texCoord.y);
     return out;

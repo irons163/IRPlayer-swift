@@ -9,7 +9,7 @@ import Foundation
 
 class IRGLScope3D: IRGLScope2D {
 
-    enum TiltType: Int {
+    enum TiltType: Int, Hashable, Equatable, Sendable, RawRepresentable {
         case unknown = 0
         case up
         case toward

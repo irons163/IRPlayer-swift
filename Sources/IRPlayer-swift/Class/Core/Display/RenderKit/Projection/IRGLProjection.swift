@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum Attribute: Int {
+enum Attribute: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case vertex = 0
     case texcoord
 }

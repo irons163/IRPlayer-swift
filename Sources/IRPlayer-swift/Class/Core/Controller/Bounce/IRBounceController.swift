@@ -7,13 +7,13 @@
 
 import UIKit
 
-struct IRBouncePathGeometry {
+struct IRBouncePathGeometry: Hashable, Equatable, Sendable {
     let start: CGPoint
     let control: CGPoint
     let end: CGPoint
 }
 
-@objc public enum IRScrollDirectionType: Int {
+@objc public enum IRScrollDirectionType: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case none
     case left
     case right

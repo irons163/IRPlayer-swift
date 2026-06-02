@@ -21,6 +21,6 @@ public class IRFisheyeParameter: IRMediaParameter {
         self.cy = cy
         self.latmax = latmax
         super.init(width: width, height: height)
-        print("init FisheyeParameter up:\(up) rx:\(rx) ry:\(ry) cx:\(cx) cy:\(cy) latmax:\(latmax)")
+        IRPlayerImp.Logger.libraryLogger.debug("init FisheyeParameter up:\(up) rx:\(rx) ry:\(ry) cx:\(cx) cy:\(cy) latmax:\(latmax)")
     }
 }

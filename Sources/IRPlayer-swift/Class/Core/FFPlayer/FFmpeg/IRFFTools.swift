@@ -7,8 +7,9 @@
 
 import Foundation
 import IRFFMpeg
+import OSLog
 
-enum IRFFDecoderErrorCode: Int {
+enum IRFFDecoderErrorCode: Int, Hashable, Equatable, Sendable, RawRepresentable {
     case formatCreate = 0
     case formatOpenInput
     case formatFindStreamInfo
@@ -25,11 +26,11 @@ enum IRFFDecoderErrorCode: Int {
 }
 
 func IRFFErrorLog(_ text: String) {
-    print(text)
+    IRPlayerImp.Logger.libraryLogger.warning("\(text)")
 }
 
 func IRPlayerLog(_ text: String) {
-    print(text)
+    IRPlayerImp.Logger.libraryLogger.debug("\(text)")
 }
 
 // MARK: - Utility Functions
@@ -38,7 +39,7 @@ func IRFFLog(context: UnsafeMutableRawPointer?, level: Int32, format: UnsafePoin
 #if IRFFFFmpegLogEnable
     guard let formatString = String(validatingUTF8: format) else { return }
     let message = NSString(format: formatString, arguments: args) as String
-    print("IRFFLog: \(message)")
+    IRPlayerImp.Logger.libraryLogger.debug("IRFFLog: \(message)")
 #endif
 }
 

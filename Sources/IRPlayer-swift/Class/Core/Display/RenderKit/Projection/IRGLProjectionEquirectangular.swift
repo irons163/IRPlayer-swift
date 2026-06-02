@@ -53,7 +53,7 @@ class IRGLProjectionEquirectangular: IRGLProjection {
 
         if radius == 0 || centerX == 0 || centerY == 0 || radius > w / 2 || radius > h / 2 ||
             radius + centerX > w || radius + centerY > h {
-            print("illegal params, set default ones...")
+            IRPlayerImp.Logger.libraryLogger.debug("illegal params, set default ones...")
             centerX = w / 2
             centerY = h / 2
             radius = min(w, h) / 2
@@ -68,7 +68,7 @@ class IRGLProjectionEquirectangular: IRGLProjection {
 
     private func initBuffers(tw: Float, th: Float, cr: Float, cx: Float, cy: Float) {
         if cr <= 0 || cx <= 0 || cy <= 0 || tw < cr || th < cr || cx + cr > tw || cy + cr > th {
-            print("illegal params")
+            IRPlayerImp.Logger.libraryLogger.warning("illegal params")
             return
         }
 
@@ -78,7 +78,7 @@ class IRGLProjectionEquirectangular: IRGLProjection {
               let vectorCapacity = Self.elementCount(baseCount: vertexCount, components: 2),
               let sliceSquareCount = Self.elementCount(baseCount: slices, components: slices),
               let totalIndices = Self.elementCount(baseCount: sliceSquareCount, components: 6) else {
-            print("nSlices \(slices) too big for vertex")
+            IRPlayerImp.Logger.libraryLogger.warning("nSlices \(self.slices) too big for vertex")
             return
         }
         releaseBuffers()

@@ -29,7 +29,7 @@ enum IRFFFrameTime {
     }
 }
 
-enum IRFFFrameType: UInt {
+enum IRFFFrameType: UInt, Hashable, Equatable, Sendable, RawRepresentable {
     case video
     case avyuvVideo
     case cvyuvVideo

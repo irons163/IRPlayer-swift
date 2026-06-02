@@ -7,13 +7,14 @@
 
 import Photos
 import UIKit
+import OSLog
 
 enum IRPhotoSaver {
 
     static func save(_ image: UIImage, toAlbum albumName: String? = nil) {
         requestPermission { granted in
             guard granted else {
-                print("Photo permission not granted")
+                IRPlayerImp.Logger.libraryLogger.warning("Photo permission not granted")
                 return
             }
 
@@ -26,7 +27,7 @@ enum IRPhotoSaver {
 
             fetchOrCreateAlbum(named: albumName) { album in
                 guard let album = album else {
-                    print("Failed to fetch/create album")
+                    IRPlayerImp.Logger.libraryLogger.warning("Failed to fetch/create album")
                     return
                 }
 

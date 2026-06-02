@@ -7,7 +7,7 @@
 
 import UIKit
 
-enum IRGestureType: UInt {
+enum IRGestureType: UInt, Hashable, Equatable, Sendable, RawRepresentable {
     case unknown
     case singleTap
     case doubleTap
@@ -15,19 +15,19 @@ enum IRGestureType: UInt {
     case pinch
 }
 
-enum IRPanDirection: UInt {
+enum IRPanDirection: UInt, Hashable, Equatable, Sendable, RawRepresentable {
     case unknown
     case vertical
     case horizontal
 }
 
-enum IRPanLocation: UInt {
+enum IRPanLocation: UInt, Hashable, Equatable, Sendable, RawRepresentable{
     case unknown
     case left
     case right
 }
 
-enum IRPanMovingDirection: UInt {
+enum IRPanMovingDirection: UInt, Hashable, Equatable, Sendable, RawRepresentable {
     case unknown
     case top
     case left

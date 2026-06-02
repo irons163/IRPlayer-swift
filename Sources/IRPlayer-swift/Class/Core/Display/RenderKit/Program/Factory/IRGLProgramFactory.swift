@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 @objcMembers public class IRGLProgramFactory: NSObject {
 
@@ -47,6 +48,7 @@ import Foundation
 
     public static func createIRGLProgram3DFisheye(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram3DFisheye? {
         guard let fisheyeParameter = makeFisheyeParameter(from: parameter) else {
+            IRPlayerImp.Logger.libraryLogger.warning("createIRGLProgram failed.")
             return nil
         }
 
@@ -105,6 +107,7 @@ import Foundation
 
     public static func createIRGLProgram3DFisheye4P(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramMulti4P? {
         guard let fisheyeParameter = makeFisheyeParameter(from: parameter) else {
+            IRPlayerImp.Logger.libraryLogger.warning("createIRGLProgram failed.")
             return nil
         }
 
@@ -165,7 +168,7 @@ import Foundation
             return IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
         }
         guard let fisheyeParameter = parameter as? IRFisheyeParameter else {
-            print("createIRGLProgram failed.")
+            IRPlayerImp.Logger.libraryLogger.warning("createIRGLProgram failed.")
             return nil
         }
         return fisheyeParameter

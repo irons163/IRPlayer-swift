@@ -10,16 +10,15 @@ import Metal
 import QuartzCore
 import CoreImage
 import simd
+import OSLog
 
-enum IRDisplayRendererType: UInt {
+enum IRDisplayRendererType: UInt, Hashable, Equatable, Sendable, RawRepresentable {
     case empty
     case AVPlayerLayer
     case AVPlayerPixelBufferVR
     case FFmpegPixelBuffer
     case FFmpegPixelBufferVR
 }
-
-
 
 public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
@@ -123,7 +122,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                 }
             }
             if ciContext == nil {
-                print("Failed to setup Metal context")
+                IRPlayerImp.Logger.libraryLogger.error("Failed to setup Metal context")
                 return
             }
             updateDrawableSize(scale: 1.0)
@@ -131,7 +130,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
         viewprotRange = CGRect(x: 0, y: 0, width: backingWidth, height: backingHeight)
         setupModes()
-        print("OK setup Metal")
+        IRPlayerImp.Logger.libraryLogger.debug("OK setup Metal")
     }
 
     func close() {
@@ -235,17 +234,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     func updateScope(byFx fx: Float, fy: Float, dsx: Float, dsy: Float) {
         if let program = mode?.program {
-            if let panoProgram = program as? IRGLProgram2DFisheye2Pano,
-               let controller = panoProgram.tramsformController {
-                let scope = controller.getScope()
-                let scaleX = scope.scaleX * dsx
-                let scaleY = scope.scaleY * dsy
-                let centerX = Float(scope.w) / 2.0
-                let centerY = Float(scope.h) / 2.0
-                controller.update(fx: centerX, fy: centerY, sx: scaleX, sy: scaleY)
-            } else {
-                program.didPinchByfx(fx, fy: fy, dsx: dsx, dsy: dsy)
-            }
+            program.didPinchByfx(fx, fy: fy, dsx: dsx, dsy: dsy)
         } else {
             metalFisheyeController?.update(fx: fx, fy: fy, sx: dsx, sy: dsy)
         }
@@ -255,23 +244,6 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     func scroll(byDx dx: Float, dy: Float) {
         if let program = mode?.program {
             program.didPanBydx(dx, dy: dy)
-            if let panoProgram = program as? IRGLProgram2DFisheye2Pano,
-               let params = panoProgram.metalFish2PanoParams,
-               let controller = panoProgram.tramsformController {
-                let scope = controller.getScope()
-                if scope.w > 0, scope.scaleX != 0, params.outputWidth > 0 {
-                    let widthScale = Float(params.outputWidth) / Float(scope.w)
-                    params.offsetX -= (dx / scope.scaleX * widthScale)
-                    let outputWidth = Float(params.outputWidth)
-                    while params.offsetX > outputWidth || params.offsetX < -outputWidth {
-                        if params.offsetX > outputWidth {
-                            params.offsetX -= outputWidth
-                        } else if params.offsetX < -outputWidth {
-                            params.offsetX += outputWidth
-                        }
-                    }
-                }
-            }
         } else {
             metalFisheyeController?.scroll(dx: dx, dy: dy)
         }
@@ -339,7 +311,14 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                     return
                 }
             }
-            if renderer.render(frame: frame, to: drawable, contentMode: renderContentMode, drawableSize: drawableSize) {
+            let zoomScale = Float((mode?.program?.getCurrentScale().x) ?? 1)
+            let translation = Self.translationVector(for: mode?.program)
+            if renderer.render(frame: frame,
+                               to: drawable,
+                               contentMode: renderContentMode,
+                               drawableSize: drawableSize,
+                               zoomScale: zoomScale,
+                               translation: translation) {
                 saveSnapShot()
                 return
             }
@@ -648,11 +627,15 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         } else {
             let viewports = program.programs.map { $0.viewprotRange }
             let contentModes = program.programs.map { $0.contentMode }
+            let zoomScales = program.programs.map { Float($0.getCurrentScale().x) }
+            let translations = program.programs.map { Self.translationVector(for: $0) }
             return renderer.renderMulti(frame: frame,
                                         to: drawable,
                                         drawableSize: drawableSize,
                                         viewports: viewports,
-                                        contentModes: contentModes)
+                                        contentModes: contentModes,
+                                        zoomScales: zoomScales,
+                                        translations: translations)
         }
     }
 
@@ -716,6 +699,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         let effectiveProgram = mode?.program as? IRGLProgram2D
         let effectiveContentMode = effectiveProgram?.contentMode ?? renderContentMode
         let zoomScale = effectiveProgram?.getCurrentScale().x ?? 1
+        let translation = Self.translationVector(for: effectiveProgram)
         return renderer.renderFish2Pano(frame: frame,
                                         params: renderParams,
                                         texUVTextures: metalFish2PanoTexUV,
@@ -724,7 +708,42 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                         viewport: viewportRect,
                                         contentMode: effectiveContentMode,
                                         outputSize: outputSize,
-                                        zoomScale: Float(zoomScale))
+                                        zoomScale: Float(zoomScale),
+                                        translation: translation)
+    }
+
+    private static func translationVector(for program: IRGLProgram2D?) -> SIMD2<Float> {
+        guard let scope = program?.tramsformController?.getScope(),
+              scope.w > 0,
+              scope.h > 0,
+              scope.scaleX.isFinite,
+              scope.scaleY.isFinite,
+              scope.offsetX.isFinite,
+              scope.offsetY.isFinite,
+              scope.scaleX > 0,
+              scope.scaleY > 0 else {
+            return SIMD2<Float>(repeating: 0)
+        }
+
+        // When scale >= 1 the content overflows the viewport and the offset-based
+        // translation positions the visible region correctly.  When scale < 1 the
+        // content fits inside the viewport; Metal's computeScale already centres it,
+        // so the translation must be zero (offset is clamped to 0 by the controller).
+        let tx: Float
+        if scope.scaleX >= 1.0 {
+            tx = (scope.offsetX * scope.scaleX * 2 / Float(scope.w)) + 1.0 - scope.scaleX
+        } else {
+            tx = 0
+        }
+
+        let ty: Float
+        if scope.scaleY >= 1.0 {
+            ty = -((scope.offsetY * scope.scaleY * 2 / Float(scope.h)) + 1.0 - scope.scaleY)
+        } else {
+            ty = 0
+        }
+
+        return SIMD2<Float>(tx, ty)
     }
 
     private func renderMetalDistortionIfNeeded(frame: IRFFVideoFrame,
@@ -947,20 +966,26 @@ private class IRGLRenderStrategyBase: IRGLRenderInternal {
     func render(frame: IRFFVideoFrame,
                 to drawable: CAMetalDrawable,
                 contentMode: IRGLRenderContentMode,
-                drawableSize: CGSize) -> Bool {
-        renderer.render(frame: frame, to: drawable, contentMode: contentMode, drawableSize: drawableSize)
+                drawableSize: CGSize,
+                zoomScale: Float,
+                translation: SIMD2<Float>) -> Bool {
+        return renderer.render(frame: frame, to: drawable, contentMode: contentMode, drawableSize: drawableSize, zoomScale: zoomScale, translation: translation)
     }
 
     func renderMulti(frame: IRFFVideoFrame,
                      to drawable: CAMetalDrawable,
                      drawableSize: CGSize,
                      viewports: [CGRect],
-                     contentModes: [IRGLRenderContentMode]) -> Bool {
-        renderer.renderMulti(frame: frame,
-                             to: drawable,
-                             drawableSize: drawableSize,
-                             viewports: viewports,
-                             contentModes: contentModes)
+                     contentModes: [IRGLRenderContentMode],
+                     zoomScales: [Float],
+                     translations: [SIMD2<Float>]) -> Bool {
+        return renderer.renderMulti(frame: frame,
+                                    to: drawable,
+                                    drawableSize: drawableSize,
+                                    viewports: viewports,
+                                    contentModes: contentModes,
+                                    zoomScales: zoomScales,
+                                    translations: translations)
     }
 
     func renderClear(to drawable: CAMetalDrawable) {
@@ -975,16 +1000,18 @@ private class IRGLRenderStrategyBase: IRGLRenderInternal {
                          viewport: CGRect,
                          contentMode: IRGLRenderContentMode,
                          outputSize: CGSize,
-                         zoomScale: Float) -> Bool {
-        renderer.renderFish2Pano(frame: frame,
-                                 params: params,
-                                 texUVTextures: texUVTextures,
-                                 to: drawable,
-                                 drawableSize: drawableSize,
-                                 viewport: viewport,
-                                 contentMode: contentMode,
-                                 outputSize: outputSize,
-                                 zoomScale: zoomScale)
+                         zoomScale: Float,
+                         translation: SIMD2<Float>) -> Bool {
+        return renderer.renderFish2Pano(frame: frame,
+                                        params: params,
+                                        texUVTextures: texUVTextures,
+                                        to: drawable,
+                                        drawableSize: drawableSize,
+                                        viewport: viewport,
+                                        contentMode: contentMode,
+                                        outputSize: outputSize,
+                                        zoomScale: zoomScale,
+                                        translation: translation)
     }
 
     func renderDistortion(frame: IRFFVideoFrame,
@@ -993,12 +1020,12 @@ private class IRGLRenderStrategyBase: IRGLRenderInternal {
                           to drawable: CAMetalDrawable,
                           drawableSize: CGSize,
                           contentMode: IRGLRenderContentMode) -> Bool {
-        renderer.renderDistortion(frame: frame,
-                                  leftMesh: leftMesh,
-                                  rightMesh: rightMesh,
-                                  to: drawable,
-                                  drawableSize: drawableSize,
-                                  contentMode: contentMode)
+        return renderer.renderDistortion(frame: frame,
+                                         leftMesh: leftMesh,
+                                         rightMesh: rightMesh,
+                                         to: drawable,
+                                         drawableSize: drawableSize,
+                                         contentMode: contentMode)
     }
 
     func renderFisheye(frame: IRFFVideoFrame,
@@ -1008,13 +1035,13 @@ private class IRGLRenderStrategyBase: IRGLRenderInternal {
                        to drawable: CAMetalDrawable,
                        drawableSize: CGSize,
                        viewport: CGRect) -> Bool {
-        renderer.renderFisheye(frame: frame,
-                               mesh: mesh,
-                               mvp: mvp,
-                               textureMatrix: textureMatrix,
-                               to: drawable,
-                               drawableSize: drawableSize,
-                               viewport: viewport)
+        return renderer.renderFisheye(frame: frame,
+                                      mesh: mesh,
+                                      mvp: mvp,
+                                      textureMatrix: textureMatrix,
+                                      to: drawable,
+                                      drawableSize: drawableSize,
+                                      viewport: viewport)
     }
 
     func renderFisheyeMulti(frame: IRFFVideoFrame,
@@ -1024,13 +1051,13 @@ private class IRGLRenderStrategyBase: IRGLRenderInternal {
                             to drawable: CAMetalDrawable,
                             drawableSize: CGSize,
                             viewports: [CGRect]) -> Bool {
-        renderer.renderFisheyeMulti(frame: frame,
-                                    mesh: mesh,
-                                    mvpList: mvpList,
-                                    textureMatrix: textureMatrix,
-                                    to: drawable,
-                                    drawableSize: drawableSize,
-                                    viewports: viewports)
+        return renderer.renderFisheyeMulti(frame: frame,
+                                           mesh: mesh,
+                                           mvpList: mvpList,
+                                           textureMatrix: textureMatrix,
+                                           to: drawable,
+                                           drawableSize: drawableSize,
+                                           viewports: viewports)
     }
 }
 
@@ -1041,7 +1068,7 @@ private final class IRGLRenderStrategyFisheye: IRGLRenderStrategyBase {}
 private final class IRGLRenderStrategyVR: IRGLRenderStrategyBase {}
 private final class IRGLRenderStrategyMulti4P: IRGLRenderStrategyBase {}
 
-enum IRGLRenderStrategyKind {
+enum IRGLRenderStrategyKind: Hashable, Equatable, Sendable {
     case twoD
     case fish2Pano
     case distortion

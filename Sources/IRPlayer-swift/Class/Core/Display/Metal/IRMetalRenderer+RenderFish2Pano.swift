@@ -21,7 +21,8 @@ extension IRMetalRenderer {
                          viewport: CGRect,
                          contentMode: IRGLRenderContentMode,
                          outputSize: CGSize,
-                         zoomScale: Float) -> Bool {
+                         zoomScale: Float,
+                         translation: SIMD2<Float>) -> Bool {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
@@ -40,6 +41,8 @@ extension IRMetalRenderer {
 
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         encoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
+        var translationVector = translation
+        encoder.setVertexBytes(&translationVector, length: MemoryLayout<SIMD2<Float>>.size, index: 2)
 
         var fishParams = params
         encoder.setFragmentBytes(&fishParams, length: MemoryLayout<Fish2PanoParams>.size, index: 0)

@@ -174,7 +174,7 @@ extension IRAVPlayer {
                     self.seeking = false
                     self.playIfNeeded()
                     completionHandler?(finished)
-                    print("IRAVPlayer seek success")
+                    IRPlayerImp.Logger.libraryLogger.debug("IRAVPlayer seek success")
                 }
             }
         }
@@ -251,7 +251,7 @@ extension IRAVPlayer {
             let cgImage = try imageGenerator.copyCGImage(at: avPlayerItem.currentTime(), actualTime: nil)
             return IRPLFImage(cgImage: cgImage)
         } catch {
-            print("Error generating image: \(error)")
+            IRPlayerImp.Logger.libraryLogger.warning("Error generating image: \(error)")
             return nil
         }
     }
@@ -305,11 +305,11 @@ extension IRAVPlayer {
             switch item.status {
             case .unknown:
                 state = .buffering
-                print("IRAVPlayer item status unknown")
+                IRPlayerImp.Logger.libraryLogger.debug("IRAVPlayer item status unknown")
 
             case .readyToPlay:
                 setupTrackInfo()
-                print("IRAVPlayer item status ready to play")
+                IRPlayerImp.Logger.libraryLogger.debug("IRAVPlayer item status ready to play")
                 readyToPlayTime = Date().timeIntervalSince1970
                 switch state {
                 case .buffering, .playing:
@@ -321,9 +321,9 @@ extension IRAVPlayer {
                 }
 
             case .failed:
-                print("IRAVPlayer item status failed")
+                IRPlayerImp.Logger.libraryLogger.warning("IRAVPlayer item status failed")
                 failPlayback(with: playbackErrorInfo())
-
+                
             @unknown default:
                 let errorInfo = IRError()
                 errorInfo.error = NSError(domain: "AVPlayer item status unknown", code: -1, userInfo: [
@@ -358,7 +358,7 @@ extension IRAVPlayer {
     }
 
     func avAssetPrepareFailed(error: Error?) {
-        print("\(#function) - AVAsset load failed: \(error?.localizedDescription ?? "Unknown error")")
+        IRPlayerImp.Logger.libraryLogger.warning("\(#function) - AVAsset load failed: \(error?.localizedDescription ?? "Unknown error")")
     }
 
     private func playbackErrorInfo() -> IRError {
@@ -424,6 +424,7 @@ extension IRAVPlayer {
               let contentURL = abstractPlayer.contentURL else { return }
 
         avAsset = AVURLAsset(url: contentURL as URL)
+        avAsset?.resourceLoader.setDelegate(self, queue: DispatchQueue(label: "IRAVPlayer.AssetResourceLoaderDelegateQueue"))
         switch abstractPlayer.videoType {
         case .normal:
             setupAVPlayerItem(autoLoadedAsset: true)
@@ -441,7 +442,7 @@ extension IRAVPlayer {
                         let keyStatus = self.avAsset?.statusOfValue(forKey: loadKey, error: &error)
                         if keyStatus == .failed {
                             self.avAssetPrepareFailed(error: error)
-                            print("AVAsset load failed: \(error?.localizedDescription ?? "")")
+                            IRPlayerImp.Logger.libraryLogger.warning("AVAsset load failed: \(error?.localizedDescription ?? "")")
                             return
                         }
                     }
@@ -449,7 +450,7 @@ extension IRAVPlayer {
                     if trackStatus == .loaded {
                         self.setupOutput()
                     } else {
-                        print("AVAsset load failed")
+                        IRPlayerImp.Logger.libraryLogger.warning("AVAsset load failed")
                     }
                 }
             }
@@ -459,6 +460,35 @@ extension IRAVPlayer {
         case .custom:
             break
         }
+    }
+
+}
+
+extension IRAVPlayer: AVAssetResourceLoaderDelegate {
+    
+    func resourceLoader(_ resourceLoader: AVAssetResourceLoader, shouldWaitForLoadingOfRequestedResource loadingRequest: AVAssetResourceLoadingRequest) -> Bool {
+        guard let contentHeaders = abstractPlayer?.contentHeaders, !contentHeaders.isEmpty else {
+            return false
+        }
+        
+        guard let requestURL = loadingRequest.request.url else {
+            return false
+        }
+        
+        guard requestURL.scheme == "https" else {
+            return false
+        }
+
+        var redirectRequest = URLRequest(url: requestURL)
+        
+        contentHeaders.forEach { (key: String, value: String) in
+            redirectRequest.setValue(value, forHTTPHeaderField: key)
+        }
+
+        loadingRequest.redirect = redirectRequest
+        loadingRequest.finishLoading() // This signals AVFoundation to use the redirect request
+
+        return true
     }
 
 }
@@ -546,7 +576,7 @@ extension IRAVPlayer {
         guard let avOutput = avOutput else { return }
         avPlayerItem?.add(avOutput)
 
-        print("IRAVPlayer add output success") // Assuming IRPlayerLog is a custom logging function. Replace with your logging mechanism.
+        IRPlayerImp.Logger.libraryLogger.debug("IRAVPlayer add output success") // Assuming IRPlayerLog is a custom logging function. Replace with your logging mechanism.
     }
 
 

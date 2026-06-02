@@ -110,6 +110,7 @@ protocol IRFFDecoderDelegate: AnyObject {
     var hardwareDecoderEnable: Bool = true
     var minBufferedDuration: TimeInterval = 0
     var reading = false
+    var isLiveStream: Bool = false
 
     var videoEnable: Bool {
         return formatContext?.videoEnable ?? false
@@ -147,6 +148,12 @@ protocol IRFFDecoderDelegate: AnyObject {
         return formatContext?.videoAspect ?? 0
     }
 
+    // Buffering timeout tracking
+    private var bufferingStartTime: TimeInterval = 0
+    private let bufferingMaxDuration: TimeInterval = 2.0 // Maximum time to wait for buffering before forcing play
+    private let bufferingMinimumThreshold: TimeInterval = 0.3 // Minimum buffered duration before playing on poor network
+    private let liveStreamBufferingMaxDuration: TimeInterval = 1.0 // Shorter timeout for live streams
+    
     var duration: TimeInterval {
         return formatContext?.duration ?? 0
     }
@@ -179,7 +186,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 let message = NSString(format: formatString, arguments: args) as String
                 switch level {
                 default:
-                    print(message.trimmingCharacters(in: .newlines))
+                    IRPlayerImp.Logger.libraryLogger.debug("\(message.trimmingCharacters(in: .newlines))")
                     break;
                 }
             }
@@ -314,7 +321,7 @@ protocol IRFFDecoderDelegate: AnyObject {
         var packet = AVPacket()
         while !finished {
             if closed || error != nil {
-                print("read packet thread quit")
+                IRPlayerImp.Logger.libraryLogger.debug("read packet thread quit")
                 break
             }
             if seeking {
@@ -322,6 +329,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 playbackFinished = false
                 formatContext?.seekFile(withFFTimebase: seekToTime)
                 buffering = true
+                bufferingStartTime = Date().timeIntervalSince1970
                 audioDecoder?.flush()
                 videoDecoder?.flush()
                 videoDecoder?.paused = false
@@ -359,13 +367,13 @@ protocol IRFFDecoderDelegate: AnyObject {
             let max_packet_buffer_size = 20 * 1024 * 1024
             if size + packetSize >= max_packet_buffer_size {
                 let interval = paused ? 0.5 : 0.1
-                print("read thread sleep: \(interval)")
+                IRPlayerImp.Logger.libraryLogger.debug("read thread sleep: \(interval)")
                 Thread.sleep(forTimeInterval: interval)
                 continue
             }
             let result = formatContext?.readFrame(&packet)
             if (result ?? -1) < 0 {
-                print("read packet finished")
+                IRPlayerImp.Logger.libraryLogger.debug("read packet finished")
                 endOfFile = true
                 videoDecoder?.endOfFile = true
                 finished = true
@@ -373,11 +381,11 @@ protocol IRFFDecoderDelegate: AnyObject {
                 break
             }
             if packet.stream_index == (formatContext?.videoTrack?.index ?? 0) {
-                print("video: put packet")
+                IRPlayerImp.Logger.libraryLogger.debug("video: put packet")
                 videoDecoder?.putPacket(packet)
                 updateBufferedDurationByVideo()
             } else if packet.stream_index == (formatContext?.audioTrack?.index ?? 0) {
-                print("audio: put packet")
+                IRPlayerImp.Logger.libraryLogger.debug("audio: put packet")
                 let audioPacketResult = audioDecoder?.putPacket(packet) ?? -1
                 if audioPacketResult < 0 {
                     error = Self.audioPacketError(fromPacketResult: audioPacketResult)
@@ -394,7 +402,7 @@ protocol IRFFDecoderDelegate: AnyObject {
     private func displayThread() {
         while true {
             if closed || error != nil {
-                print("display thread quit")
+                IRPlayerImp.Logger.libraryLogger.debug("display thread quit")
                 break
             }
             if seeking || buffering {
@@ -407,7 +415,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 continue
             }
             if endOfFile, videoDecoder?.empty() ?? true {
-                print("display finished")
+                IRPlayerImp.Logger.libraryLogger.debug("display finished")
                 break
             }
             if formatContext?.audioEnable == true {
@@ -423,7 +431,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                         if sleepTime < 0.015 {
                             sleepTime = 0.015
                         }
-                        print("display thread sleep: \(sleepTime)")
+                        IRPlayerImp.Logger.libraryLogger.debug("display thread sleep: \(sleepTime)")
                         Thread.sleep(forTimeInterval: sleepTime)
                         continue
                     }
@@ -565,6 +573,7 @@ protocol IRFFDecoderDelegate: AnyObject {
         videoDecoder?.endOfFile = false
         selectAudioTrack = false
         selectAudioTrackIndex = 0
+        bufferingStartTime = 0
     }
 
     private func closeOperation() {
@@ -577,11 +586,38 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     private func checkBufferingStatus() {
         if buffering {
-            if bufferedDuration >= minBufferedDuration || endOfFile {
+            let currentTime = Date().timeIntervalSince1970
+            let bufferingElapsed = currentTime - bufferingStartTime
+            
+            // For live streams, use more aggressive buffering recovery
+            let maxDuration = isLiveStream ? liveStreamBufferingMaxDuration : bufferingMaxDuration
+            let minThreshold = isLiveStream ? 0.2 : bufferingMinimumThreshold
+            
+            // For live streams with no duration, use a lower minimum buffered duration requirement
+            let effectiveMinBufferedDuration: TimeInterval = isLiveStream ? 0 : minBufferedDuration
+            
+            // Exit buffering if any of these conditions are met:
+            // 1. We have enough buffered duration
+            // 2. We've reached the end of file
+            // 3. Buffering timeout exceeded (prevents indefinite buffering on poor network)
+            // 4. For live streams: any data buffered after timeout (even minimal)
+            let shouldExitBuffering = (bufferedDuration >= effectiveMinBufferedDuration) ||
+                                      endOfFile ||
+                                      (bufferingElapsed > maxDuration && bufferedDuration >= minThreshold) ||
+                                      (isLiveStream && bufferingElapsed > maxDuration && bufferedDuration > 0.1)
+            
+            if shouldExitBuffering {
                 buffering = false
+                bufferingStartTime = 0
             }
-        } else if bufferedDuration <= 0.2 && !endOfFile {
+        } else if bufferedDuration <= 0.2 && !endOfFile && !isLiveStream {
+            // For regular streams, enter buffering when buffer gets low
             buffering = true
+            bufferingStartTime = Date().timeIntervalSince1970
+        } else if bufferedDuration <= 0.05 && !endOfFile && isLiveStream {
+            // Live streams only enter buffering if buffer is critically low
+            buffering = true
+            bufferingStartTime = Date().timeIntervalSince1970
         }
     }
 
@@ -617,7 +653,7 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     deinit {
         closeFileAsync(false)
-        print("IRFFDecoder release")
+        IRPlayerImp.Logger.libraryLogger.debug("IRFFDecoder release")
     }
 }
 

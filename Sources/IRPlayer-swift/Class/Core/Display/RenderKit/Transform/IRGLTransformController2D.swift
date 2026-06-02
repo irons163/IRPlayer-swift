@@ -130,11 +130,12 @@ import simd
         scope2d.scaleY = scaleY
 
         updateVertices()
-        print("\(scope2d.offsetX ) \(scope2d.offsetY ) \(scope2d.scaleX ) \(scope2d.scaleY )")
+        IRPlayerImp.Logger.libraryLogger.debug("\(scope2d.offsetX ) \(scope2d.offsetY ) \(scope2d.scaleX ) \(scope2d.scaleY )")
     }
 
     override func scroll(dx: Float, dy: Float) {
         guard let delegate = delegate else { return }
+        delegate.willScroll(dx: dx, dy: dy, transformController: self)
 
         let scope2d = scope
         var status: IRGLTransformController.ScrollStatus = []
