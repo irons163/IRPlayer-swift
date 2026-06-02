@@ -36,6 +36,19 @@ enum IRMetalRendererGeometryPolicy {
     static func metalViewport(drawableSize: CGSize,
                               viewport: CGRect,
                               orientation: IRMetalRenderer.MetalViewportOrientation) -> MTLViewport {
+        guard drawableSize.width.isFinite,
+              drawableSize.height.isFinite,
+              viewport.origin.x.isFinite,
+              viewport.origin.y.isFinite,
+              viewport.size.width.isFinite,
+              viewport.size.height.isFinite,
+              drawableSize.width > 0,
+              drawableSize.height > 0,
+              viewport.size.width > 0,
+              viewport.size.height > 0 else {
+            return MTLViewport(originX: 0, originY: 0, width: 0, height: 0, znear: 0, zfar: 1)
+        }
+
         let originY: CGFloat
         let height: CGFloat
         switch orientation {

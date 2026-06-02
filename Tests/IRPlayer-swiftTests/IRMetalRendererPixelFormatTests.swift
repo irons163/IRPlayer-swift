@@ -141,6 +141,21 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         XCTAssertEqual(viewport.zfar, 1)
     }
 
+    func testMetalViewportRejectsMalformedGeometry() {
+        let viewport = IRMetalRendererGeometryPolicy.metalViewport(
+            drawableSize: CGSize(width: CGFloat.infinity, height: 240),
+            viewport: CGRect(x: CGFloat.nan, y: 20, width: 100, height: -50),
+            orientation: .bottomLeft
+        )
+
+        XCTAssertEqual(viewport.originX, 0)
+        XCTAssertEqual(viewport.originY, 0)
+        XCTAssertEqual(viewport.width, 0)
+        XCTAssertEqual(viewport.height, 0)
+        XCTAssertEqual(viewport.znear, 0)
+        XCTAssertEqual(viewport.zfar, 1)
+    }
+
     func testMetalViewportWrapperMatchesGeometryPolicy() {
         let drawableSize = CGSize(width: 320, height: 240)
         let viewport = CGRect(x: 10, y: 20, width: 100, height: 50)
