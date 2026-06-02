@@ -137,7 +137,7 @@ final class IRMetalRenderer {
         #if SWIFT_PACKAGE
         library = (try? device.makeDefaultLibrary(bundle: .module)) ?? (try? device.makeDefaultLibrary())
         #else
-        library = try? device.makeDefaultLibrary()
+        library = device.makeDefaultLibrary()
         #endif
         guard let library = library else {
             return
