@@ -329,12 +329,14 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                     return
                 }
             }
+            let zoomScale = Float((mode?.program?.getCurrentScale().x) ?? 1)
+            let translation = Self.translationVector(for: mode?.program as? IRGLProgram2D)
             if renderer.render(frame: frame,
                                to: drawable,
                                contentMode: renderContentMode,
                                drawableSize: drawableSize,
-                               zoomScale: 1,
-                               translation: Self.translationVector(for: mode?.program as? IRGLProgram2D)) {
+                               zoomScale: zoomScale,
+                               translation: translation) {
                 saveSnapShot()
                 return
             }
