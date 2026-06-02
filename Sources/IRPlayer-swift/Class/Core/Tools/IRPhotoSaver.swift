@@ -48,8 +48,7 @@ enum IRPhotoSaver {
     }
 
     static func writeDiagnostic(for failure: Failure) {
-        guard let message = diagnosticMessage(for: failure) else { return }
-        print(message)
+        IRPhotoSaverPolicy.writeDiagnostic(for: failure)
     }
 
     static func diagnosticMessage(for failure: Failure) -> String? {
