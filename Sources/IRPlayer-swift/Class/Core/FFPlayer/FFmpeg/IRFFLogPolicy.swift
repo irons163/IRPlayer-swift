@@ -13,10 +13,14 @@ enum IRFFLogPolicy {
         return NSString(format: formatString, arguments: args) as String
     }
 
+    static func logLine(for message: String) -> String {
+        "IRFFLog: \(message)"
+    }
+
     static func write(context: UnsafeMutableRawPointer?, level: Int32, format: UnsafePointer<CChar>, args: CVaListPointer) {
         #if IRFFFFmpegLogEnable
         guard let message = message(format: format, args: args) else { return }
-        print("IRFFLog: \(message)")
+        print(logLine(for: message))
         #endif
     }
 }

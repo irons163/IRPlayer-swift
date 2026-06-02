@@ -62,6 +62,10 @@ final class IRFFToolsTests: XCTestCase {
         }
     }
 
+    func testFFLogPolicyBuildsPrefixedLogLines() {
+        XCTAssertEqual(IRFFLogPolicy.logLine(for: "codec ok"), "IRFFLog: codec ok")
+    }
+
     func testFFLogPolicyIsSilentByDefault() {
         let output = captureStandardOutput {
             "codec %@".withCString { format in
