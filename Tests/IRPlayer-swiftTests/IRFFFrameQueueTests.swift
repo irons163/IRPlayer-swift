@@ -29,6 +29,29 @@ final class IRFFFrameQueueTests: XCTestCase {
         )
     }
 
+    func testFrameTimeStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRFFFrameTime.position(timestamp: 120, timebase: 0.001),
+            IRFFFrameTimePolicy.position(timestamp: 120, timebase: 0.001),
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            IRFFFrameTime.position(timestamp: Int64.min, timebase: 0.001),
+            IRFFFrameTimePolicy.position(timestamp: Int64.min, timebase: 0.001),
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            IRFFFrameTime.packetPosition(pts: 120, dts: 240, timebase: 0.001),
+            IRFFFrameTimePolicy.packetPosition(pts: 120, dts: 240, timebase: 0.001),
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            IRFFFrameTime.packetPosition(pts: Int64.min, dts: 240, timebase: 0.001),
+            IRFFFrameTimePolicy.packetPosition(pts: Int64.min, dts: 240, timebase: 0.001),
+            accuracy: 0.0001
+        )
+    }
+
     func testFrameQueueTracksCountDurationAndSizeWhenPuttingAndFetchingFrames() {
         let queue = IRFFFrameQueue.frameQueue()
         let first = makeFrame(position: 0, duration: 0.25, size: 10)

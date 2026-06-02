@@ -118,6 +118,7 @@
 		B5E953032F6904000149265 /* IRFFAVYUVVideoFramePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953022F6904000149265 /* IRFFAVYUVVideoFramePolicy.swift */; };
 		B5E94F152D0B21F800149265 /* IRFFFramePool.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF12D0B21F800149265 /* IRFFFramePool.swift */; };
 		B5E9527D2F6903D00149265 /* IRFFFramePoolPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9527C2F6903D00149265 /* IRFFFramePoolPolicy.swift */; };
+		B5E953052F6904100149265 /* IRFFFrameTimePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953042F6904100149265 /* IRFFFrameTimePolicy.swift */; };
 		B5E94F162D0B21F800149265 /* IRFFFrameQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF22D0B21F800149265 /* IRFFFrameQueue.swift */; };
 		B5E952792F6903B00149265 /* IRFFFrameQueuePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952782F6903B00149265 /* IRFFFrameQueuePolicy.swift */; };
 		B5E94F172D0B21F800149265 /* IRFFMpegErrorUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E0F2D0B21F800149265 /* IRFFMpegErrorUtil.swift */; };
@@ -372,6 +373,7 @@
 		B5E94DF02D0B21F800149265 /* IRFFFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrame.swift; sourceTree = "<group>"; };
 		B5E94DF12D0B21F800149265 /* IRFFFramePool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFramePool.swift; sourceTree = "<group>"; };
 		B5E9527C2F6903D00149265 /* IRFFFramePoolPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFramePoolPolicy.swift; sourceTree = "<group>"; };
+		B5E953042F6904100149265 /* IRFFFrameTimePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameTimePolicy.swift; sourceTree = "<group>"; };
 		B5E94DF22D0B21F800149265 /* IRFFFrameQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueue.swift; sourceTree = "<group>"; };
 		B5E952782F6903B00149265 /* IRFFFrameQueuePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueuePolicy.swift; sourceTree = "<group>"; };
 		B5E94DF32D0B21F800149265 /* IRFFPacketQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueue.swift; sourceTree = "<group>"; };
@@ -860,6 +862,7 @@
 				B5E94DF02D0B21F800149265 /* IRFFFrame.swift */,
 				B5E94DF12D0B21F800149265 /* IRFFFramePool.swift */,
 				B5E9527C2F6903D00149265 /* IRFFFramePoolPolicy.swift */,
+				B5E953042F6904100149265 /* IRFFFrameTimePolicy.swift */,
 				B5E94DF22D0B21F800149265 /* IRFFFrameQueue.swift */,
 				B5E952782F6903B00149265 /* IRFFFrameQueuePolicy.swift */,
 				B5E94DF32D0B21F800149265 /* IRFFPacketQueue.swift */,
@@ -1313,6 +1316,7 @@
 				4A9D78772F6436E500CDB43B /* IRGLMath.swift in Sources */,
 				B5E94F152D0B21F800149265 /* IRFFFramePool.swift in Sources */,
 				B5E9527D2F6903D00149265 /* IRFFFramePoolPolicy.swift in Sources */,
+				B5E953052F6904100149265 /* IRFFFrameTimePolicy.swift in Sources */,
 				B5E94F162D0B21F800149265 /* IRFFFrameQueue.swift in Sources */,
 				B5E952792F6903B00149265 /* IRFFFrameQueuePolicy.swift in Sources */,
 				B5E94F172D0B21F800149265 /* IRFFMpegErrorUtil.swift in Sources */,
