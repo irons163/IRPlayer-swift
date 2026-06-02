@@ -48,6 +48,13 @@ final class IRFFMetadataTests: XCTestCase {
         XCTAssertEqual(metadata.numberOfFrames, 300)
     }
 
+    func testMetadataDefaultsMalformedNumericObjects() {
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: true)), 0)
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: 12.5)), 0)
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: Double.nan)), 0)
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: Double.infinity)), 0)
+    }
+
     func testStaticPolicyWrappersRemainSourceCompatible() {
         XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: 42)), IRFFMetadataPolicy.int64Value(NSNumber(value: 42)))
         XCTAssertEqual(IRFFMetadata.int64Value(" 42 "), IRFFMetadataPolicy.int64Value(" 42 "))
