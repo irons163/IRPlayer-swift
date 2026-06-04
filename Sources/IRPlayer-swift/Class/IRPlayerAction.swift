@@ -26,79 +26,66 @@ public let IRPlayerPlayablePercentKey: String = "percent" // playable
 public let IRPlayerPlayableCurrentKey: String = "current" // playable
 public let IRPlayerPlayableTotalKey: String = "total" // playable
 
+enum IRPayloadNumber {
+
+    static func isBoolean(_ value: NSNumber) -> Bool {
+        return CFGetTypeID(value) == CFBooleanGetTypeID()
+    }
+
+    static func isInteger(_ value: NSNumber) -> Bool {
+        guard !isBoolean(value) else {
+            return false
+        }
+
+        switch String(cString: value.objCType) {
+        case "c", "C", "s", "S", "i", "I", "l", "L", "q", "Q":
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func integerRawValue(from value: NSNumber) -> Int? {
+        guard isInteger(value) else {
+            return nil
+        }
+        let decimalValue = value.decimalValue
+        guard decimalValue >= NSNumber(value: Int.min).decimalValue,
+              decimalValue <= NSNumber(value: Int.max).decimalValue else {
+            return nil
+        }
+        return value.intValue
+    }
+}
+
 enum IRPlayerNotificationPayload {
 
     static func state(previous: IRPlayerState, current: IRPlayerState) -> [AnyHashable: Any] {
-        return [
-            IRPlayerStatePreviousKey: previous,
-            IRPlayerStateCurrentKey: current
-        ]
+        return IRPlayerNotificationPayloadPolicy.state(previous: previous, current: current)
     }
 
     static func progress(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
-        return timePayload(percent: percent, current: current, total: total)
+        return IRPlayerNotificationPayloadPolicy.progress(percent: percent, current: current, total: total)
     }
 
     static func playable(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
-        return timePayload(percent: percent, current: current, total: total)
+        return IRPlayerNotificationPayloadPolicy.playable(percent: percent, current: current, total: total)
     }
 
     static func timePercent(current: TimeInterval, total: TimeInterval) -> NSNumber {
-        guard current.isFinite, total.isFinite, total > 0 else {
-            return NSNumber(value: 0)
-        }
-        let percent = current / total
-        return NSNumber(value: percent.isFinite ? percent : 0)
+        return IRPlayerNotificationPayloadPolicy.timePercent(current: current, total: total)
     }
 
     static func error(_ error: IRError) -> [AnyHashable: Any] {
-        return [IRPlayerErrorKey: error]
+        return IRPlayerNotificationPayloadPolicy.error(error)
     }
 
     static func cgFloat(_ value: Any?) -> CGFloat {
-        let converted: CGFloat
-        if let value = value as? CGFloat {
-            converted = value
-        } else if let value = value as? NSNumber {
-            converted = CGFloat(truncating: value)
-        } else if let value = value as? Double {
-            converted = CGFloat(value)
-        } else if let value = value as? Float {
-            converted = CGFloat(value)
-        } else if let value = value as? Int {
-            converted = CGFloat(value)
-        } else {
-            return 0
-        }
-        return converted.isFinite ? converted : 0
+        return IRPlayerNotificationPayloadPolicy.cgFloat(value)
     }
 
     static func state(_ value: Any?) -> IRPlayerState {
-        if let value = value as? IRPlayerState {
-            return value
-        }
-        if let value = value as? NSNumber {
-            return IRPlayerState(rawValue: value.intValue) ?? .none
-        }
-        if let value = value as? Int {
-            return IRPlayerState(rawValue: value) ?? .none
-        }
-        return .none
-    }
-
-    private static func timePayload(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
-        return [
-            IRPlayerProgressPercentKey: finiteNumber(percent),
-            IRPlayerProgressCurrentKey: finiteNumber(current),
-            IRPlayerProgressTotalKey: finiteNumber(total)
-        ]
-    }
-
-    private static func finiteNumber(_ value: NSNumber?) -> NSNumber {
-        guard let value = value, value.doubleValue.isFinite else {
-            return NSNumber(value: 0)
-        }
-        return value
+        return IRPlayerNotificationPayloadPolicy.state(value)
     }
 }
 

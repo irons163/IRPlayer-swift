@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Darwin
 @testable import IRPlayer_swift
 
 final class FormatContextInterruptDelegate: IRFFFormatContextDelegate {
@@ -40,4 +41,21 @@ func mirroredFFPlayer(from player: IRPlayerImp) -> IRFFPlayer? {
         return optionalMirror.children.first?.value as? IRFFPlayer
     }
     return childValue as? IRFFPlayer
+}
+
+func captureStandardOutput(_ body: () -> Void) -> String {
+    let pipe = Pipe()
+    let originalStdout = dup(STDOUT_FILENO)
+    fflush(stdout)
+    dup2(pipe.fileHandleForWriting.fileDescriptor, STDOUT_FILENO)
+
+    body()
+
+    fflush(stdout)
+    dup2(originalStdout, STDOUT_FILENO)
+    close(originalStdout)
+    pipe.fileHandleForWriting.closeFile()
+
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    return String(data: data, encoding: .utf8) ?? ""
 }

@@ -5,6 +5,63 @@ import XCTest
 
 final class IRFFFormatContextTests: XCTestCase {
 
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        let videoError = NSError(
+            domain: "video",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+        let audioError = NSError(
+            domain: "audio",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+        let metadata = IRFFMetadata(dictionary: ["language": "eng"])
+
+        XCTAssertEqual(
+            IRFFFormatContext.dictionaryOptionWasApplied(0),
+            IRFFFormatContextPolicy.dictionaryOptionWasApplied(0)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.durationSeconds(from: 1_500_000),
+            IRFFFormatContextPolicy.durationSeconds(from: 1_500_000)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.bitrateKbps(from: 1_500),
+            IRFFFormatContextPolicy.bitrateKbps(from: 1_500)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.presentationSize(width: 1920, height: 1080),
+            IRFFFormatContextPolicy.presentationSize(width: 1920, height: 1080)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.selectedSetupError(videoError: videoError, audioError: audioError),
+            IRFFFormatContextPolicy.selectedSetupError(videoError: videoError, audioError: audioError)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.seekTimestamp(for: 1.5),
+            IRFFFormatContextPolicy.seekTimestamp(for: 1.5)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.track(index: 3, codecType: AVMEDIA_TYPE_AUDIO, metadata: metadata)?.type,
+            IRFFFormatContextPolicy.track(index: 3, codecType: AVMEDIA_TYPE_AUDIO, metadata: metadata)?.type
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.videoAspect(width: 1920, height: 1080),
+            IRFFFormatContextPolicy.videoAspect(width: 1920, height: 1080)
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.audioTrackSelectionAction(
+                requestedIndex: 2,
+                currentIndex: 1,
+                containsRequestedTrack: true
+            ),
+            IRFFFormatContextPolicy.audioTrackSelectionAction(
+                requestedIndex: 2,
+                currentIndex: 1,
+                containsRequestedTrack: true
+            )
+        )
+    }
+
     func testStreamLookupRejectsMissingContextStreamsAndOutOfRangeIndex() {
         XCTAssertNil(IRFFFormatContext.stream(at: 0, in: nil))
 
@@ -48,6 +105,56 @@ final class IRFFFormatContextTests: XCTestCase {
         }
     }
 
+    func testDictionaryOptionApplicationRequiresNonNegativeResult() {
+        XCTAssertTrue(IRFFFormatContext.dictionaryOptionWasApplied(0))
+        XCTAssertTrue(IRFFFormatContext.dictionaryOptionWasApplied(1))
+        XCTAssertFalse(IRFFFormatContext.dictionaryOptionWasApplied(-1))
+    }
+
+    func testSelectedSetupErrorRequiresBothTrackErrors() {
+        let streamNotFound = NSError(
+            domain: "video",
+            code: Int(IRFFDecoderErrorCode.streamNotFound.rawValue)
+        )
+        let audioOpen = NSError(
+            domain: "audio",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+
+        XCTAssertNil(IRFFFormatContext.selectedSetupError(videoError: nil, audioError: audioOpen))
+        XCTAssertNil(IRFFFormatContext.selectedSetupError(videoError: streamNotFound, audioError: nil))
+    }
+
+    func testSelectedSetupErrorPrefersAudioWhenVideoStreamIsMissing() throws {
+        let streamNotFound = NSError(
+            domain: "video",
+            code: Int(IRFFDecoderErrorCode.streamNotFound.rawValue)
+        )
+        let audioOpen = NSError(
+            domain: "audio",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+
+        let selected = try XCTUnwrap(IRFFFormatContext.selectedSetupError(videoError: streamNotFound, audioError: audioOpen))
+
+        XCTAssertEqual(selected, audioOpen)
+    }
+
+    func testSelectedSetupErrorDefaultsToVideoError() throws {
+        let videoOpen = NSError(
+            domain: "video",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+        let audioOpen = NSError(
+            domain: "audio",
+            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
+        )
+
+        let selected = try XCTUnwrap(IRFFFormatContext.selectedSetupError(videoError: videoOpen, audioError: audioOpen))
+
+        XCTAssertEqual(selected, videoOpen)
+    }
+
     func testVideoAspectUsesFiniteRatioAndFallsBackForInvalidDimensions() {
         XCTAssertEqual(IRFFFormatContext.videoAspect(width: 1920, height: 1080), 16.0 / 9.0, accuracy: 0.0001)
         XCTAssertEqual(IRFFFormatContext.videoAspect(width: 0, height: 1080), 0)
@@ -62,6 +169,28 @@ final class IRFFFormatContextTests: XCTestCase {
         XCTAssertEqual(IRFFFormatContext.presentationSize(width: -1, height: 1080), .zero)
     }
 
+    func testAudioTrackSelectionActionOnlySelectsDifferentAvailableTracks() {
+        XCTAssertEqual(
+            IRFFFormatContext.audioTrackSelectionAction(requestedIndex: 2, currentIndex: 1, containsRequestedTrack: true),
+            .select
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.audioTrackSelectionAction(requestedIndex: 1, currentIndex: 1, containsRequestedTrack: true),
+            .noChange
+        )
+        XCTAssertEqual(
+            IRFFFormatContext.audioTrackSelectionAction(requestedIndex: 2, currentIndex: 1, containsRequestedTrack: false),
+            .noChange
+        )
+    }
+
+    func testAudioTrackSelectionActionRejectsNegativeRequestedIndex() {
+        XCTAssertEqual(
+            IRFFFormatContext.audioTrackSelectionAction(requestedIndex: -1, currentIndex: 0, containsRequestedTrack: true),
+            .noChange
+        )
+    }
+
     func testSeekTimestampConvertsSecondsToFFmpegTimebase() {
         XCTAssertEqual(IRFFFormatContext.seekTimestamp(for: 1.5), 1_500_000)
         XCTAssertEqual(IRFFFormatContext.seekTimestamp(for: 0), 0)
@@ -72,6 +201,19 @@ final class IRFFFormatContextTests: XCTestCase {
         XCTAssertNil(IRFFFormatContext.seekTimestamp(for: .nan))
         XCTAssertNil(IRFFFormatContext.seekTimestamp(for: .infinity))
         XCTAssertNil(IRFFFormatContext.seekTimestamp(for: Double(Int64.max)))
+    }
+
+    func testSeekFileIgnoresMissingFormatContext() {
+        let context = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
+
+        context.seekFile(withFFTimebase: 1)
+    }
+
+    func testReadFrameReturnsFailureWhenFormatContextIsMissing() {
+        let context = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
+        var packet = AVPacket()
+
+        XCTAssertLessThan(context.readFrame(&packet), 0)
     }
 
     func testDurationSecondsPreservesNoPTSBehavior() {
@@ -106,5 +248,19 @@ final class IRFFFormatContextTests: XCTestCase {
 
         delegate.shouldInterrupt = false
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 0)
+    }
+
+    func testReleaseDoesNotPrintDebugOutput() {
+        var context: IRFFFormatContext? = IRFFFormatContext(
+            contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"),
+            videoFormat: .mpeg4
+        )
+        XCTAssertNotNil(context)
+
+        let output = captureStandardOutput {
+            context = nil
+        }
+
+        XCTAssertEqual(output, "")
     }
 }

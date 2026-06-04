@@ -54,17 +54,29 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
     }
 
     static func viewportSize(from viewportRange: CGRect) -> (width: Int, height: Int)? {
-        let width = viewportRange.width
-        let height = viewportRange.height
-        guard width.isFinite,
-              height.isFinite,
-              width >= 0,
-              height >= 0,
-              width <= CGFloat(Int.max),
-              height <= CGFloat(Int.max) else {
-            return nil
-        }
-        return (Int(width), Int(height))
+        return IRGLProgram2DPolicy.viewportSize(from: viewportRange)
+    }
+
+    static func scrollToBounds(for status: IRGLTransformController.ScrollStatus) -> IRGLTransformController.ScrollToBounds {
+        return IRGLProgram2DPolicy.scrollToBounds(for: status)
+    }
+
+    static func outputScaleDecision(
+        outputWidth: Int,
+        outputHeight: Int,
+        viewportWidth: Int,
+        viewportHeight: Int,
+        contentMode: IRGLRenderContentMode,
+        shouldUpdateToDefaultWhenOutputSizeChanged: Bool
+    ) -> (scaleX: Float, scaleY: Float, shouldUpdateToDefault: Bool)? {
+        return IRGLProgram2DPolicy.outputScaleDecision(
+            outputWidth: outputWidth,
+            outputHeight: outputHeight,
+            viewportWidth: viewportWidth,
+            viewportHeight: viewportHeight,
+            contentMode: contentMode,
+            shouldUpdateToDefaultWhenOutputSizeChanged: shouldUpdateToDefaultWhenOutputSizeChanged
+        )
     }
 
     func initShaderParams() {
@@ -178,22 +190,7 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
     }
 
     public func didScroll(status: IRGLTransformController.ScrollStatus, transformController: IRGLTransformController) {
-        var didScrollToBoundsHorizontal = false
-        var didScrollToBoundsVertical = false
-        var scrollToBounds: IRGLTransformController.ScrollToBounds = .none
-
-        if status.contains(.toMaxX) || status.contains(.toMinX) {
-            didScrollToBoundsHorizontal = true
-            scrollToBounds = .horizontal
-        }
-        if status.contains(.toMaxY) || status.contains(.toMinY) {
-            didScrollToBoundsVertical = true
-            scrollToBounds = .vertical
-        }
-
-        if didScrollToBoundsHorizontal && didScrollToBoundsVertical {
-            scrollToBounds = .both
-        }
+        let scrollToBounds = Self.scrollToBounds(for: status)
 
         if let delegate = delegate, scrollToBounds != .none {
             delegate.didScrollToBounds(scrollToBounds, withProgram: self)
@@ -205,35 +202,21 @@ extension IRGLProgram2D: IRGLShaderParamsDelegate {
 
     public func didUpdateOutputWH(_ w: Int, _ h: Int) {
         if let transformController = transformController {
-            let width = Double(w)
-            let height = Double(h)
-            let viewportWidth = Double(transformController.getScope().w)
-            let viewportHeight = Double(transformController.getScope().h)
-            guard width > 0, height > 0, viewportWidth > 0, viewportHeight > 0 else { return }
-            let dH = viewportHeight / height
-            let dW = viewportWidth / width
-            var dd: Double
-
-            switch contentMode {
-            case .scaleAspectFit:
-                dd = min(dH, dW)
-            case .scaleAspectFill:
-                dd = max(dH, dW)
-            case .scaleToFill:
-                dd = 0
-            @unknown default:
-                dd = 0
+            guard let decision = Self.outputScaleDecision(
+                outputWidth: w,
+                outputHeight: h,
+                viewportWidth: transformController.getScope().w,
+                viewportHeight: transformController.getScope().h,
+                contentMode: contentMode,
+                shouldUpdateToDefaultWhenOutputSizeChanged: shouldUpdateToDefaultWhenOutputSizeChanged
+            ) else {
+                return
             }
 
-            if dd > 0 {
-                let sy = height * dd / viewportHeight
-                let sx = width * dd / viewportWidth
+            transformController.setupDefaultTransform(scaleX: decision.scaleX, scaleY: decision.scaleY)
 
-                transformController.setupDefaultTransform(scaleX: Float(sx), scaleY: Float(sy))
-
-                if (dH != 1 || dW != 1) && shouldUpdateToDefaultWhenOutputSizeChanged {
-                    transformController.updateToDefault()
-                }
+            if decision.shouldUpdateToDefault {
+                transformController.updateToDefault()
             }
         }
     }

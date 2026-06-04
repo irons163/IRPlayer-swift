@@ -32,4 +32,9 @@ final class IRFFTrackTests: XCTestCase {
         XCTAssertNil(IRFFFormatContext.track(index: 4, codecType: AVMEDIA_TYPE_SUBTITLE, metadata: nil))
         XCTAssertNil(IRFFFormatContext.track(index: 5, codecType: AVMEDIA_TYPE_UNKNOWN, metadata: nil))
     }
+
+    func testTrackBuilderRejectsNegativeStreamIndexes() {
+        XCTAssertNil(IRFFFormatContext.track(index: -1, codecType: AVMEDIA_TYPE_VIDEO, metadata: nil))
+        XCTAssertNil(IRFFFormatContext.track(index: -1, codecType: AVMEDIA_TYPE_AUDIO, metadata: nil))
+    }
 }

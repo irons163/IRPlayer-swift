@@ -9,17 +9,17 @@ import Foundation
 import AVFoundation
 import Accelerate
 
-enum IRAudioManagerInterruptionType: UInt, Hashable, Equatable, Sendable, RawRepresentable {
+enum IRAudioManagerInterruptionType: UInt {
     case begin
     case ended
 }
 
-enum IRAudioManagerInterruptionOption: UInt, Hashable, Equatable, Sendable, RawRepresentable {
+enum IRAudioManagerInterruptionOption: UInt {
     case none
     case shouldResume
 }
 
-enum IRAudioManagerRouteChangeReason: UInt, Hashable, Equatable, Sendable, RawRepresentable {
+enum IRAudioManagerRouteChangeReason: UInt {
     case oldDeviceUnavailable
 }
 
@@ -154,20 +154,14 @@ class IRAudioManager: NSObject {
     }
 
     static func unsignedInteger(from value: Any?) -> UInt? {
-        if let value = value as? UInt {
-            return value
-        }
-        if let value = value as? Int, value >= 0 {
-            return UInt(value)
-        }
-        if let value = value as? NSNumber {
-            guard value.int64Value >= 0 else { return nil }
-            return UInt(value.uint64Value)
-        }
-        return nil
+        return IRAudioManagerPolicy.unsignedInteger(from: value)
     }
 
     func registerAudioSession() -> Bool {
+        return registerAudioSession(setupAudioUnit)
+    }
+
+    func registerAudioSession(_ setupAudioUnit: () -> Bool) -> Bool {
         if !registered {
             if setupAudioUnit() {
                 registered = true
@@ -543,15 +537,9 @@ class IRAudioManager: NSObject {
     }
 
     private func delegateErrorCallback() {
-        if let error = error {
-            IRPlayerImp.Logger.libraryLogger.warning("IRAudioManager did error: \(error)")
-        }
     }
 
     private func delegateWarningCallback() {
-        if let warning = warning {
-            IRPlayerImp.Logger.libraryLogger.warning("IRAudioManager did warning: \(warning)")
-        }
     }
 
     private func checkError(_ result: OSStatus, domain: String) -> NSError? {
@@ -559,25 +547,15 @@ class IRAudioManager: NSObject {
     }
 
     static func requiredAudioGraph(_ graph: AUGraph?, domain: String) -> Result<AUGraph, NSError> {
-        guard let graph else {
-            return .failure(NSError(domain: domain, code: -1, userInfo: nil))
-        }
-        return .success(graph)
+        return IRAudioManagerPolicy.requiredAudioGraph(graph, domain: domain)
     }
 
     static func requiredAudioUnit(_ audioUnit: AudioUnit?, domain: String) -> Result<AudioUnit, NSError> {
-        guard let audioUnit else {
-            return .failure(NSError(domain: domain, code: -1, userInfo: nil))
-        }
-        return .success(audioUnit)
+        return IRAudioManagerPolicy.requiredAudioUnit(audioUnit, domain: domain)
     }
 
     static func renderSampleCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
-        guard numberOfFrames > 0, numberOfChannels > 0 else { return nil }
-
-        let (sampleCount, overflow) = Int(numberOfFrames).multipliedReportingOverflow(by: Int(numberOfChannels))
-        guard !overflow, sampleCount > 0 else { return nil }
-        return sampleCount
+        return IRAudioManagerPolicy.renderSampleCount(numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels)
     }
 
     private static var maxFrameSize = 4096

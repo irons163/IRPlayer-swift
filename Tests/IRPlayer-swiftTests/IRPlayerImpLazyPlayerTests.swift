@@ -15,6 +15,7 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
 
     func testLazyPlayerFactoriesReturnExistingPlayersOrCreateNewOnes() {
         let abstractPlayer = IRPlayerImp.player()
+        abstractPlayer.manager = nil
 
         let existingAVPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
         XCTAssertTrue(IRPlayerImp.makeAVPlayerIfNeeded(existingAVPlayer, abstractPlayer: abstractPlayer) === existingAVPlayer)
@@ -29,5 +30,27 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
         XCTAssertTrue(createdFFPlayer.abstractPlayer === abstractPlayer)
 
         withExtendedLifetime((existingAVPlayer, createdAVPlayer, existingFFPlayer, createdFFPlayer, abstractPlayer)) {}
+    }
+
+    func testScrollToBoundsDoesNotPrintDebugOutput() {
+        let player = IRPlayerImp.player()
+
+        let output = captureStandardOutput {
+            player.glViewDidScroll(toBounds: nil)
+        }
+
+        XCTAssertEqual(output, "")
+        withExtendedLifetime(player) {}
+    }
+
+    func testReleaseDoesNotPrintDebugOutput() {
+        var player: IRPlayerImp? = IRPlayerImp.player()
+        XCTAssertNotNil(player)
+
+        let output = captureStandardOutput {
+            player = nil
+        }
+
+        XCTAssertEqual(output, "")
     }
 }

@@ -106,6 +106,16 @@ final class IRGLTransformController2DTests: XCTestCase {
         XCTAssertEqual(controller.getScope().scaleY, 1, accuracy: 0.0001)
     }
 
+    func testUpdateDoesNotWriteDebugOutput() {
+        let controller = IRGLTransformController2D(viewportWidth: 100, viewportHeight: 100)
+
+        let output = captureStandardOutput {
+            controller.update(fx: 50, fy: 50, sx: 2, sy: 2)
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     private func assertFinite(
         _ matrix: simd_float4x4,
         file: StaticString = #filePath,
@@ -118,6 +128,7 @@ final class IRGLTransformController2DTests: XCTestCase {
             XCTAssertTrue(column.w.isFinite, file: file, line: line)
         }
     }
+
 }
 
 private final class TransformDelegateSpy: IRGLTransformControllerDelegate {

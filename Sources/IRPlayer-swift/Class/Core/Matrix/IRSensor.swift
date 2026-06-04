@@ -40,13 +40,12 @@ class IRSensor {
         manager.startDeviceMotionUpdates(to: motionQueue) { [weak self] motion, error in
             guard let self = self, let motion = motion else { return }
 
-            var doScroll = true
-            if self.referenceAttitude == nil {
-                IRPlayerImp.Logger.libraryLogger.debug("referenceAttitude nil")
+            let referencePolicy = Self.referenceAttitudePolicy(hasReferenceAttitude: self.referenceAttitude != nil)
+            let doScroll = referencePolicy.shouldScroll
+            if referencePolicy.shouldCaptureReferenceAttitude {
                 self.referenceAttitude = motion.attitude.copy() as? CMAttitude
                 lastOffsetXByDeviceMotion = 0
                 lastOffsetYByDeviceMotion = 0
-                doScroll = false
             }
 
             let pitch = motion.attitude.pitch * 180.0 / .pi
@@ -115,8 +114,8 @@ class IRSensor {
                     return
                 }
                 if doScroll {
-                    IRPlayerImp.Logger.libraryLogger.debug("scrollBy dx: \(dx * UIScreen.main.scale), dy: \(dy * UIScreen.main.scale)")
-                    self.smoothScroll?.shiftDegreeX(Float(dx), degreeY: Float(dy))
+                    guard let shift = Self.motionScrollShift(dx: dx, dy: dy) else { return }
+                    self.smoothScroll?.shiftDegreeX(shift.degreeX, degreeY: shift.degreeY)
                 }
             }
         }
@@ -133,12 +132,27 @@ class IRSensor {
             return 0
         }
         let delta = current - previous
+        guard delta.isFinite else {
+            return 0
+        }
         if delta < -180 {
             return 360 + delta
         } else if delta > 180 {
             return delta - 360
         }
         return delta
+    }
+
+    static func motionScrollShift(dx: CGFloat, dy: CGFloat) -> (degreeX: Float, degreeY: Float)? {
+        guard dx.isFinite, dy.isFinite else { return nil }
+        return (Float(dx), Float(dy))
+    }
+
+    static func referenceAttitudePolicy(hasReferenceAttitude: Bool) -> (shouldCaptureReferenceAttitude: Bool, shouldScroll: Bool) {
+        if hasReferenceAttitude {
+            return (false, true)
+        }
+        return (true, false)
     }
 
     private static func currentInterfaceOrientation() -> UIInterfaceOrientation {

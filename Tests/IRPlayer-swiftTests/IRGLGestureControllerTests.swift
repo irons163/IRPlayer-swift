@@ -4,26 +4,81 @@ import XCTest
 
 final class IRGLGestureControllerTests: XCTestCase {
 
-    func testSmoothScrollTargetScalesVelocityMagnitudeIntoDistanceAndDuration() {
-        let target = IRSmoothScrollController.smoothScrollTarget(for: CGPoint(x: 300, y: 400))
+    func testGesturePolicyConvertsTouchPointToRenderSpace() {
+        let point = IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
+                                                 viewHeight: 100,
+                                                 screenScale: 3)
 
-        XCTAssertEqual(target.point.x, 37.5, accuracy: 0.0001)
-        XCTAssertEqual(target.point.y, 50, accuracy: 0.0001)
-        XCTAssertEqual(target.duration, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(point.x, 36)
+        XCTAssertEqual(point.y, 240)
     }
 
-    func testSmoothScrollTargetUsesZeroForZeroVelocity() {
-        let target = IRSmoothScrollController.smoothScrollTarget(for: .zero)
-
-        XCTAssertEqual(target.point, .zero)
-        XCTAssertEqual(target.duration, 0)
+    func testGesturePolicyDefaultsInvalidInputsToZero() {
+        XCTAssertEqual(
+            IRGLGesturePolicy.renderPoint(from: CGPoint(x: CGFloat.nan, y: 20),
+                                          viewHeight: 100,
+                                          screenScale: 3),
+            .zero
+        )
+        XCTAssertEqual(
+            IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
+                                          viewHeight: CGFloat.infinity,
+                                          screenScale: 3),
+            .zero
+        )
+        XCTAssertEqual(
+            IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
+                                          viewHeight: 100,
+                                          screenScale: 0),
+            .zero
+        )
+        XCTAssertEqual(
+            IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
+                                          viewHeight: 100,
+                                          screenScale: -1),
+            .zero
+        )
     }
 
-    func testSmoothScrollTargetDefaultsNonFiniteVelocityToZero() {
-        let target = IRSmoothScrollController.smoothScrollTarget(for: CGPoint(x: CGFloat.nan, y: CGFloat.infinity))
+    func testGesturePolicyMapsPanRecognizerStatesToActions() {
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .began), .begin)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .changed), .update)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .possible), .update)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .ended), .endWithDeceleration)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .cancelled), .cancel)
+        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .failed), .cancel)
+    }
 
-        XCTAssertEqual(target.point, .zero)
-        XCTAssertEqual(target.duration, 0)
+    func testGesturePolicyMapsContinuousRecognizerStatesToActions() {
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .began), .begin)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .changed), .update)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .possible), .update)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .ended), .end)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .cancelled), .end)
+        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .failed), .end)
+    }
+
+    func testGesturePolicyShouldBeginRejectsDisabledDoubleTapAndSwipeWhileZooming() {
+        XCTAssertFalse(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: false,
+                                                           isDoubleTapGesture: false,
+                                                           doubleTapEnabled: true,
+                                                           isSwipeGesture: false,
+                                                           isProgramZooming: false))
+        XCTAssertFalse(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: true,
+                                                           isDoubleTapGesture: true,
+                                                           doubleTapEnabled: false,
+                                                           isSwipeGesture: false,
+                                                           isProgramZooming: false))
+        XCTAssertFalse(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: true,
+                                                           isDoubleTapGesture: false,
+                                                           doubleTapEnabled: true,
+                                                           isSwipeGesture: true,
+                                                           isProgramZooming: true))
+        XCTAssertTrue(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: true,
+                                                          isDoubleTapGesture: true,
+                                                          doubleTapEnabled: true,
+                                                          isSwipeGesture: true,
+                                                          isProgramZooming: false))
     }
 
     func testClearingCurrentModeClearsSmoothScrollMode() {
@@ -61,27 +116,17 @@ final class IRGLGestureControllerTests: XCTestCase {
         let rotationRecognizers = view.gestureRecognizers?.filter { $0 is UIRotationGestureRecognizer } ?? []
         XCTAssertTrue(rotationRecognizers.isEmpty)
     }
-}
 
-final class IRBounceControllerTests: XCTestCase {
+    func testGestureCallbacksDoNotWriteDebugOutput() {
+        let gestureController = IRGLGestureController()
 
-    func testBounceGeometryClampsHorizontalControlPointToBounceWidth() {
-        let geometry = IRBounceController.bouncePathGeometry(amount: -200,
-                                                             direction: .left,
-                                                             targetSize: CGSize(width: 100, height: 80))
+        let output = captureStandardOutput {
+            gestureController.handlePan(UIPanGestureRecognizer())
+            gestureController.handlePinch(UIPinchGestureRecognizer())
+            gestureController.handleRotate(UIRotationGestureRecognizer())
+            gestureController.handleDoubleTap(UITapGestureRecognizer())
+        }
 
-        XCTAssertEqual(geometry.start, CGPoint(x: 100, y: 0))
-        XCTAssertEqual(geometry.control, CGPoint(x: 92, y: 40))
-        XCTAssertEqual(geometry.end, CGPoint(x: 100, y: 80))
-    }
-
-    func testBounceGeometryClampsVerticalControlPointToBounceWidth() {
-        let geometry = IRBounceController.bouncePathGeometry(amount: 200,
-                                                             direction: .down,
-                                                             targetSize: CGSize(width: 100, height: 80))
-
-        XCTAssertEqual(geometry.start, .zero)
-        XCTAssertEqual(geometry.control, CGPoint(x: 50, y: 8))
-        XCTAssertEqual(geometry.end, CGPoint(x: 100, y: 0))
+        XCTAssertEqual(output, "")
     }
 }

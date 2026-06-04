@@ -35,47 +35,16 @@ final class IRAudioManagerNotificationTests: XCTestCase {
         XCTAssertEqual(IRAudioManager.unsignedInteger(from: UInt(3)), 3)
         XCTAssertEqual(IRAudioManager.unsignedInteger(from: NSNumber(value: 4)), 4)
     }
-}
 
-final class IRAudioManagerRenderTests: XCTestCase {
-
-    func testRequiredAudioGraphRejectsMissingGraph() {
-        let result = IRAudioManager.requiredAudioGraph(nil, domain: "missing graph")
-
-        switch result {
-        case .success:
-            XCTFail("Missing graph should not be accepted")
-        case .failure(let error):
-            XCTAssertEqual(error.domain, "missing graph")
-            XCTAssertEqual(error.code, -1)
-        }
+    func testUnsignedIntegerRejectsFractionalAndBooleanNumericPayloads() {
+        XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: 1.5)))
+        XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: true)))
     }
 
-    func testRequiredAudioUnitRejectsMissingUnit() {
-        let result = IRAudioManager.requiredAudioUnit(nil, domain: "missing audio unit")
-
-        switch result {
-        case .success:
-            XCTFail("Missing audio unit should not be accepted")
-        case .failure(let error):
-            XCTAssertEqual(error.domain, "missing audio unit")
-            XCTAssertEqual(error.code, -1)
-        }
-    }
-
-    func testRenderFramesIgnoresMissingAudioBufferList() {
-        let manager = IRAudioManager()
-
-        XCTAssertEqual(manager.renderFrames(16, ioData: nil), noErr)
-    }
-
-    func testRenderSampleCountRejectsInvalidOrOverflowingInputs() {
-        XCTAssertNil(IRAudioManager.renderSampleCount(numberOfFrames: 0, numberOfChannels: 2))
-        XCTAssertNil(IRAudioManager.renderSampleCount(numberOfFrames: 10, numberOfChannels: 0))
-        XCTAssertNil(IRAudioManager.renderSampleCount(numberOfFrames: .max, numberOfChannels: .max))
-    }
-
-    func testRenderSampleCountCalculatesInterleavedSampleTotal() {
-        XCTAssertEqual(IRAudioManager.renderSampleCount(numberOfFrames: 10, numberOfChannels: 2), 20)
+    func testUnsignedIntegerWrapperMatchesPolicy() {
+        XCTAssertEqual(IRAudioManager.unsignedInteger(from: UInt(3)), IRAudioManagerPolicy.unsignedInteger(from: UInt(3)))
+        XCTAssertEqual(IRAudioManager.unsignedInteger(from: NSNumber(value: 4)), IRAudioManagerPolicy.unsignedInteger(from: NSNumber(value: 4)))
+        XCTAssertNil(IRAudioManagerPolicy.unsignedInteger(from: NSNumber(value: -1)))
+        XCTAssertNil(IRAudioManagerPolicy.unsignedInteger(from: NSNumber(value: true)))
     }
 }

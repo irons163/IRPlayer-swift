@@ -39,13 +39,7 @@ class IRFFMetadata {
         return IRFFMetadata(avDictionary: avDictionary)
     }
 
-    private static func int64Value(_ value: Any?) -> Int64 {
-        if let value = value as? NSNumber {
-            return value.int64Value
-        }
-        if let value = value as? String {
-            return Int64(value) ?? 0
-        }
-        return 0
+    static func int64Value(_ value: Any?) -> Int64 {
+        return IRFFMetadataPolicy.int64Value(value)
     }
 }

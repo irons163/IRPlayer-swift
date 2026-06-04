@@ -4,6 +4,14 @@ import XCTest
 
 final class IRGLViewSnapshotTests: XCTestCase {
 
+    func testInitDoesNotPrintMetalSetupDebugOutput() {
+        let output = captureStandardOutput {
+            _ = IRGLView(frame: .zero)
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
     func testCreateImageFromFramebufferReturnsImageForZeroSizedView() {
         let view = IRGLView(frame: .zero)
 
@@ -61,6 +69,16 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(size?.height, 180)
     }
 
+    func testDrawablePixelSizeWrapperMatchesPolicy() {
+        let input = CGSize(width: 320.9, height: 180.2)
+
+        XCTAssertEqual(IRGLView.drawablePixelSize(from: input)?.width,
+                       IRGLViewPolicy.drawablePixelSize(from: input)?.width)
+        XCTAssertEqual(IRGLView.drawablePixelSize(from: input)?.height,
+                       IRGLViewPolicy.drawablePixelSize(from: input)?.height)
+        XCTAssertNil(IRGLViewPolicy.drawablePixelSize(from: CGSize(width: CGFloat.nan, height: 1)))
+    }
+
     func testTexUVTextureLayoutRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRGLView.texUVTextureLayout(width: 0, height: 1))
         XCTAssertNil(IRGLView.texUVTextureLayout(width: 1, height: 0))
@@ -72,5 +90,74 @@ final class IRGLViewSnapshotTests: XCTestCase {
 
         XCTAssertEqual(layout?.bytesPerRow, 24)
         XCTAssertEqual(layout?.totalByteCount, 48)
+    }
+
+    func testTexUVTextureLayoutWrapperMatchesPolicy() {
+        let wrapper = IRGLView.texUVTextureLayout(width: 3, height: 2)
+        let policy = IRGLViewPolicy.texUVTextureLayout(width: 3, height: 2)
+
+        XCTAssertEqual(wrapper?.bytesPerRow, policy?.bytesPerRow)
+        XCTAssertEqual(wrapper?.totalByteCount, policy?.totalByteCount)
+        XCTAssertNil(IRGLViewPolicy.texUVTextureLayout(width: Int.max, height: 2))
+    }
+
+    func testFittedImageTransformCalculatesAspectFitScaleAndCentering() throws {
+        let transform = try XCTUnwrap(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 400, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: 100, height: 100),
+                                          contentMode: .scaleAspectFit)
+        )
+
+        XCTAssertEqual(transform.scaleX, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(transform.scaleY, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationX, 0, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationY, 25, accuracy: 0.0001)
+    }
+
+    func testFittedImageTransformWrapperMatchesPolicy() throws {
+        let imageExtent = CGRect(x: 10, y: 5, width: 400, height: 200)
+        let targetRect = CGRect(x: 0, y: 0, width: 100, height: 100)
+
+        let wrapper = try XCTUnwrap(
+            IRGLView.fittedImageTransform(imageExtent: imageExtent,
+                                          targetRect: targetRect,
+                                          contentMode: .scaleAspectFit)
+        )
+        let policy = try XCTUnwrap(
+            IRGLViewPolicy.fittedImageTransform(imageExtent: imageExtent,
+                                                targetRect: targetRect,
+                                                contentMode: .scaleAspectFit)
+        )
+
+        XCTAssertEqual(wrapper.scaleX, policy.scaleX, accuracy: 0.0001)
+        XCTAssertEqual(wrapper.scaleY, policy.scaleY, accuracy: 0.0001)
+        XCTAssertEqual(wrapper.translationX, policy.translationX, accuracy: 0.0001)
+        XCTAssertEqual(wrapper.translationY, policy.translationY, accuracy: 0.0001)
+    }
+
+    func testFittedImageTransformCalculatesAspectFillScaleAndCentering() throws {
+        let transform = try XCTUnwrap(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 400, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: 100, height: 100),
+                                          contentMode: .scaleAspectFill)
+        )
+
+        XCTAssertEqual(transform.scaleX, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(transform.scaleY, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationX, -50, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationY, 0, accuracy: 0.0001)
+    }
+
+    func testFittedImageTransformRejectsInvalidGeometry() {
+        XCTAssertNil(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 0, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: 100, height: 100),
+                                          contentMode: .scaleAspectFit)
+        )
+        XCTAssertNil(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 400, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: CGFloat.nan, height: 100),
+                                          contentMode: .scaleAspectFit)
+        )
     }
 }

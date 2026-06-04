@@ -51,15 +51,16 @@ class IRFFVideoDecoder {
     var paused = false
     var endOfFile = false
 
-    static var flushPacket: AVPacket = {
+    static var flushPacket: AVPacket = makeFlushPacket()
+
+    static func makeFlushPacket() -> AVPacket {
         var packet = AVPacket()
-        av_init_packet(&packet)
         packet.data = withUnsafeMutablePointer(to: &packet) {
             return UnsafeMutableRawPointer($0).assumingMemoryBound(to: UInt8.self)
         }
         packet.duration = 0
         return packet
-    }()
+    }
 
     init(codecContext: UnsafeMutablePointer<AVCodecContext>, timebase: TimeInterval, fps: TimeInterval, delegate: IRFFVideoDecoderDelegate?) {
         self.codecContext = codecContext
@@ -100,17 +101,46 @@ class IRFFVideoDecoder {
     }
 
     static func frameDuration(ticks: Int64, repeatPicture: Int32, timebase: TimeInterval, fps: TimeInterval) -> TimeInterval {
-        if ticks != 0 {
-            guard timebase.isFinite, timebase > 0 else { return 0 }
-            let baseDuration = TimeInterval(ticks) * timebase
-            let repeatDuration = TimeInterval(repeatPicture) * timebase * 0.5
-            let duration = baseDuration + repeatDuration
-            return duration.isFinite && duration > 0 ? duration : 0
-        }
+        return IRFFVideoDecoderPolicy.frameDuration(
+            ticks: ticks,
+            repeatPicture: repeatPicture,
+            timebase: timebase,
+            fps: fps
+        )
+    }
 
-        guard fps.isFinite, fps > 0 else { return 0 }
-        let duration = 1.0 / fps
-        return duration.isFinite && duration > 0 ? duration : 0
+    static func decodeBackpressureSleepInterval(frameDuration: TimeInterval,
+                                                maxDecodeDuration: TimeInterval,
+                                                paused: Bool) -> TimeInterval? {
+        return IRFFVideoDecoderPolicy.decodeBackpressureSleepInterval(
+            frameDuration: frameDuration,
+            maxDecodeDuration: maxDecodeDuration,
+            paused: paused
+        )
+    }
+
+    static func packetDecodeResultIsFailure(_ result: Int32) -> Bool {
+        return IRFFVideoDecoderPolicy.packetDecodeResultIsFailure(result)
+    }
+
+    static func shouldFinishDecode(endOfFile: Bool, packetEmpty: Bool) -> Bool {
+        return IRFFVideoDecoderPolicy.shouldFinishDecode(endOfFile: endOfFile, packetEmpty: packetEmpty)
+    }
+
+    static func decodeIdleSleepInterval(paused: Bool) -> TimeInterval? {
+        return IRFFVideoDecoderPolicy.decodeIdleSleepInterval(paused: paused)
+    }
+
+    static func shouldCreateYUVFrame(hasFrame: Bool,
+                                     hasLuma: Bool,
+                                     hasChromaB: Bool,
+                                     hasChromaR: Bool) -> Bool {
+        return IRFFVideoDecoderPolicy.shouldCreateYUVFrame(
+            hasFrame: hasFrame,
+            hasLuma: hasLuma,
+            hasChromaB: hasChromaB,
+            hasChromaR: hasChromaR
+        )
     }
 
     func getFrameSync() -> IRFFVideoFrame? {
@@ -147,20 +177,21 @@ class IRFFVideoDecoder {
         decoding = true
         while true {
             if canceled || error != nil {
-                IRPlayerImp.Logger.libraryLogger.debug("decode video thread quit")
+                IRFFRuntimeDebugOutput.write("decode video thread quit")
                 break
             }
-            if paused {
-                Thread.sleep(forTimeInterval: 0.01)
+            if let sleepTime = Self.decodeIdleSleepInterval(paused: paused) {
+                Thread.sleep(forTimeInterval: sleepTime)
                 continue
             }
-            if endOfFile && packetEmpty() {
-                IRPlayerImp.Logger.libraryLogger.debug("decode video finished")
+            if Self.shouldFinishDecode(endOfFile: endOfFile, packetEmpty: packetEmpty()) {
+                IRFFRuntimeDebugOutput.write("decode video finished")
                 break
             }
-            if frameDuration() >= maxDecodeDuration {
-                let interval = paused ? max_video_frame_sleep_full_and_pause_time_interval : max_video_frame_sleep_full_time_interval
-                IRPlayerImp.Logger.libraryLogger.debug("decode video thread sleep : \(interval)")
+            if let interval = Self.decodeBackpressureSleepInterval(frameDuration: frameDuration(),
+                                                                   maxDecodeDuration: maxDecodeDuration,
+                                                                   paused: paused) {
+                IRFFRuntimeDebugOutput.write("decode video thread sleep : \(interval)")
                 Thread.sleep(forTimeInterval: interval)
                 continue
             }
@@ -170,7 +201,7 @@ class IRFFVideoDecoder {
                 delegate?.videoDecoderNeedUpdateBufferedDuration(self)
             }
             if packet.data == IRFFVideoDecoder.flushPacket.data {
-                IRPlayerImp.Logger.libraryLogger.debug("video codec flush")
+                IRFFRuntimeDebugOutput.write("video codec flush")
                 avcodec_flush_buffers(codecContext)
                 videoToolBox.flush()
                 continue
@@ -209,7 +240,7 @@ class IRFFVideoDecoder {
     private func decodeFrameWithFFmpeg(packet: AVPacket) -> IRFFVideoFrame? {
         var packet = packet
         var result = avcodec_send_packet(codecContext, &packet)
-        if result < 0 && result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF {
+        if Self.packetDecodeResultIsFailure(result) {
             handleDecodingError(IRFFCheckError(result))
             delegateErrorCallback()
             return nil
@@ -217,12 +248,11 @@ class IRFFVideoDecoder {
         while result >= 0 {
             result = avcodec_receive_frame(codecContext, tempFrame)
             if result < 0 {
-                if result == AVERROR(EAGAIN) || result == IR_AVERROR_EOF {
-                    break
-                } else {
+                if Self.packetDecodeResultIsFailure(result) {
                     handleDecodingError(IRFFCheckError(result))
                     return nil
                 }
+                break
             }
             return videoFrameFromTempFrame()
         }
@@ -230,7 +260,12 @@ class IRFFVideoDecoder {
     }
 
     private func videoFrameFromTempFrame() -> IRFFAVYUVVideoFrame? {
-        guard let frame = tempFrame, frame.pointee.data.0 != nil, frame.pointee.data.1 != nil, frame.pointee.data.2 != nil else {
+        guard Self.shouldCreateYUVFrame(
+            hasFrame: tempFrame != nil,
+            hasLuma: tempFrame?.pointee.data.0 != nil,
+            hasChromaB: tempFrame?.pointee.data.1 != nil,
+            hasChromaR: tempFrame?.pointee.data.2 != nil
+        ), let frame = tempFrame else {
             return nil
         }
 
@@ -275,7 +310,6 @@ class IRFFVideoDecoder {
         if let frame = tempFrame {
             av_free(frame)
         }
-        IRPlayerImp.Logger.libraryLogger.debug("IRFFVideoDecoder release")
     }
 }
 
@@ -284,6 +318,3 @@ extension IRFFVideoDecoder: IRFFDecoderVideoOutput {
         self.frameQueue.putSortFrame(videoFrame)
     }
 }
-
-private var max_video_frame_sleep_full_time_interval: TimeInterval = 0.1
-private var max_video_frame_sleep_full_and_pause_time_interval: TimeInterval = 0.5

@@ -155,7 +155,6 @@ extension IRGLProjectionVR {
     }
 
     static func glIndex(_ value: Int) -> GLushort? {
-        guard value >= 0, value <= Int(GLushort.max) else { return nil }
-        return GLushort(value)
+        return IRGLProjectionVRPolicy.glIndex(value)
     }
 }

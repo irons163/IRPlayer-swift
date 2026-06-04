@@ -7,9 +7,8 @@
 
 import Foundation
 import IRFFMpeg
-import OSLog
 
-enum IRFFDecoderErrorCode: Int, Hashable, Equatable, Sendable, RawRepresentable {
+enum IRFFDecoderErrorCode: Int {
     case formatCreate = 0
     case formatOpenInput
     case formatFindStreamInfo
@@ -26,21 +25,28 @@ enum IRFFDecoderErrorCode: Int, Hashable, Equatable, Sendable, RawRepresentable 
 }
 
 func IRFFErrorLog(_ text: String) {
-    IRPlayerImp.Logger.libraryLogger.warning("\(text)")
+    IRFFRuntimeDebugOutput.write(text)
 }
 
 func IRPlayerLog(_ text: String) {
-    IRPlayerImp.Logger.libraryLogger.debug("\(text)")
+    IRFFRuntimeDebugOutput.write(text)
+}
+
+enum IRFFRuntimeDebugOutput {
+    static var isEnabled: Bool {
+        IRFFRuntimeDebugOutputPolicy.isEnabled
+    }
+
+    static func write(_ message: @autoclosure () -> String) {
+        guard isEnabled else { return }
+        IRFFRuntimeDebugOutputPolicy.write(message())
+    }
 }
 
 // MARK: - Utility Functions
 
 func IRFFLog(context: UnsafeMutableRawPointer?, level: Int32, format: UnsafePointer<CChar>, args: CVaListPointer) {
-#if IRFFFFmpegLogEnable
-    guard let formatString = String(validatingUTF8: format) else { return }
-    let message = NSString(format: formatString, arguments: args) as String
-    IRPlayerImp.Logger.libraryLogger.debug("IRFFLog: \(message)")
-#endif
+    IRFFLogPolicy.write(context: context, level: level, format: format, args: args)
 }
 
 func IRFFCheckError(_ result: Int32) -> NSError? {
@@ -48,54 +54,21 @@ func IRFFCheckError(_ result: Int32) -> NSError? {
 }
 
 func IRFFCheckErrorCode(_ result: Int32, errorCode: Int) -> NSError? {
-    guard result < 0 else { return nil }
+    return IRFFErrorPolicy.error(result: result, errorCode: errorCode)
+}
 
-    var errorBuffer = [CChar](repeating: 0, count: 256)
-    av_strerror(result, &errorBuffer, errorBuffer.count)
-
-    let errorString = String(cString: errorBuffer)
-    let errorDescription = "ffmpeg code: \(result), ffmpeg msg: \(errorString)"
-    return NSError(domain: errorDescription, code: errorCode, userInfo: nil)
+func IRFFFinitePositiveValueOrDefault(_ value: Double, defaultValue: Double) -> Double {
+    return IRFFStreamTimingPolicy.finitePositiveValueOrDefault(value, defaultValue: defaultValue)
 }
 
 func IRFFStreamGetTimebase(_ stream: UnsafePointer<AVStream>, defaultTimebase: Double) -> Double {
-    let timebase: Double
-    if stream.pointee.time_base.den > 0 && stream.pointee.time_base.num > 0 {
-        timebase = av_q2d(stream.pointee.time_base)
-    } else {
-        timebase = defaultTimebase
-    }
-    return timebase.isFinite && timebase > 0 ? timebase : 1.0
+    return IRFFStreamTimingPolicy.timebase(stream, defaultTimebase: defaultTimebase)
 }
 
 func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Double {
-    let fps: Double
-    if stream.pointee.avg_frame_rate.den > 0 && stream.pointee.avg_frame_rate.num > 0 {
-        fps = av_q2d(stream.pointee.avg_frame_rate)
-    } else if stream.pointee.r_frame_rate.den > 0 && stream.pointee.r_frame_rate.num > 0 {
-        fps = av_q2d(stream.pointee.r_frame_rate)
-    } else if timebase > 0 {
-        fps = 1.0 / timebase
-    } else {
-        fps = 1.0
-    }
-    return fps.isFinite && fps > 0 ? fps : 1.0
+    return IRFFStreamTimingPolicy.fps(stream, timebase: timebase)
 }
 
 func IRFFFoundationBrigeOfAVDictionary(_ avDictionary: OpaquePointer?) -> [String: String]? {
-    guard let avDictionary = avDictionary else { return nil }
-
-    var dictionary: [String: String] = [:]
-    var entry: UnsafeMutablePointer<AVDictionaryEntry>? = nil
-
-    while let nextEntry = av_dict_get(avDictionary, "", entry, AV_DICT_IGNORE_SUFFIX) {
-        if let key = nextEntry.pointee.key, let value = nextEntry.pointee.value {
-            let keyString = String(cString: key)
-            let valueString = String(cString: value)
-            dictionary[keyString] = valueString
-        }
-        entry = nextEntry
-    }
-
-    return dictionary.isEmpty ? nil : dictionary
+    return IRFFDictionaryPolicy.foundationDictionary(from: avDictionary)
 }

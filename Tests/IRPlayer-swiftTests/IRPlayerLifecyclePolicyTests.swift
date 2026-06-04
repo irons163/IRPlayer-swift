@@ -60,4 +60,42 @@ final class IRPlayerLifecyclePolicyTests: XCTestCase {
         XCTAssertEqual(IRPlayerLifecyclePolicy.foregroundAction(mode: .nothing, state: .suspend, needAutoPlay: true), .none)
         XCTAssertEqual(IRPlayerLifecyclePolicy.foregroundAction(mode: .continuing, state: .suspend, needAutoPlay: true), .none)
     }
+
+    func testAudioInterruptionActionPausesOnlyActivePlaybackOutsideForegroundGracePeriod() {
+        XCTAssertEqual(
+            IRPlayerLifecyclePolicy.audioInterruptionAction(type: .begin, state: .playing, timeSinceForeground: 2),
+            .pause
+        )
+        XCTAssertEqual(
+            IRPlayerLifecyclePolicy.audioInterruptionAction(type: .begin, state: .buffering, timeSinceForeground: 2),
+            .pause
+        )
+        XCTAssertEqual(
+            IRPlayerLifecyclePolicy.audioInterruptionAction(type: .begin, state: .playing, timeSinceForeground: 1.5),
+            .none
+        )
+        XCTAssertEqual(
+            IRPlayerLifecyclePolicy.audioInterruptionAction(type: .ended, state: .playing, timeSinceForeground: 2),
+            .none
+        )
+        XCTAssertEqual(
+            IRPlayerLifecyclePolicy.audioInterruptionAction(type: .begin, state: .readyToPlay, timeSinceForeground: 2),
+            .none
+        )
+    }
+
+    func testAudioRouteChangeActionPausesOnlyActivePlaybackForOldDeviceUnavailable() {
+        XCTAssertEqual(
+            IRPlayerLifecyclePolicy.audioRouteChangeAction(reason: .oldDeviceUnavailable, state: .playing),
+            .pause
+        )
+        XCTAssertEqual(
+            IRPlayerLifecyclePolicy.audioRouteChangeAction(reason: .oldDeviceUnavailable, state: .buffering),
+            .pause
+        )
+        XCTAssertEqual(
+            IRPlayerLifecyclePolicy.audioRouteChangeAction(reason: .oldDeviceUnavailable, state: .readyToPlay),
+            .none
+        )
+    }
 }

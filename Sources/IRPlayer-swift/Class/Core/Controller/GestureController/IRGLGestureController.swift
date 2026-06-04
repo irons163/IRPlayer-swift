@@ -71,29 +71,28 @@ class IRGLGestureController: IRGestureController {
     @objc override func handlePan(_ gr: UIPanGestureRecognizer) {
         super.handlePan(gr)
 
-        IRPlayerImp.Logger.libraryLogger.debug("didPan, state \(gr.state.rawValue)")
-
         smoothScroll?.isPaned = true
         smoothScroll?.resetSmoothScroll()
 
-        switch gr.state {
-        case .cancelled, .failed:
+        switch IRGLGesturePolicy.panAction(for: gr.state) {
+        case .cancel:
             isTouchedInProgram = false
             delegate?.glViewDidEndDragging(targetGLView, willDecelerate: false)
 
-        case .ended:
+        case .endWithDeceleration:
             isTouchedInProgram = false
             let velocity = gr.velocity(in: targetView)
             smoothScroll?.calculateSmoothScroll(velocity: velocity)
             delegate?.glViewDidEndDragging(targetGLView, willDecelerate: velocity == .zero)
 
-        case .began:
+        case .begin:
             let touchedPoint = gr.location(in: targetView)
-            let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                      y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+            let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                            viewHeight: targetView?.frame.size.height ?? 0,
+                                                            screenScale: UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
-        default:
+        case .update:
             guard isTouchedInProgram else { return }
             delegate?.glViewWillBeginDragging(targetGLView)
             let screenOffset = gr.translation(in: targetView)
@@ -106,19 +105,18 @@ class IRGLGestureController: IRGestureController {
     @objc override func handlePinch(_ sender: UIPinchGestureRecognizer) {
         super.handlePinch(sender)
 
-        IRPlayerImp.Logger.libraryLogger.debug("didPinch \(sender.scale) state \(sender.state.rawValue)")
-
-        switch sender.state {
-        case .cancelled, .ended, .failed:
+        switch IRGLGesturePolicy.continuousAction(for: sender.state) {
+        case .end:
             isTouchedInProgram = false
 
-        case .began:
+        case .begin:
             let touchedPoint = sender.location(in: targetView)
-            let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                      y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+            let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                            viewHeight: targetView?.frame.size.height ?? 0,
+                                                            screenScale: UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
-        default:
+        case .update:
             guard isTouchedInProgram, sender.numberOfTouches >= 2 else { return }
 
             let p1 = sender.location(ofTouch: 0, in: targetView)
@@ -135,22 +133,21 @@ class IRGLGestureController: IRGestureController {
     }
 
     @objc func handleRotate(_ gr: UIRotationGestureRecognizer) {
-        IRPlayerImp.Logger.libraryLogger.debug("didRotate, state \(gr.state.rawValue)")
-        switch gr.state {
-        case .cancelled, .ended, .failed:
+        switch IRGLGesturePolicy.continuousAction(for: gr.state) {
+        case .end:
             isTouchedInProgram = false
 
-        case .began:
+        case .begin:
             let touchedPoint = gr.location(in: targetView)
-            let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                      y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+            let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                            viewHeight: targetView?.frame.size.height ?? 0,
+                                                            screenScale: UIScreen.main.scale)
             isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
-        default:
+        case .update:
             guard isTouchedInProgram else { return }
 
             delegate?.glViewWillBeginDragging(targetGLView)
-            IRPlayerImp.Logger.libraryLogger.debug("rotate: \(gr.rotation)")
             updateRotation(Float(gr.rotation))
             gr.rotation = 0
             delegate?.glViewDidEndDragging(nil, willDecelerate: false)
@@ -165,12 +162,11 @@ class IRGLGestureController: IRGestureController {
     @objc override func handleDoubleTap(_ gr: UITapGestureRecognizer) {
         super.handleDoubleTap(gr)
 
-        IRPlayerImp.Logger.libraryLogger.debug("didDoubleTap, state \(gr.state.rawValue)")
-
         isTouchedInProgram = false
         let touchedPoint = gr.location(in: targetView)
-        let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                  y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+        let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                        viewHeight: targetView?.frame.size.height ?? 0,
+                                                        screenScale: UIScreen.main.scale)
         isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
         guard isTouchedInProgram else { return }
@@ -200,16 +196,16 @@ class IRGLGestureController: IRGestureController {
         let shouldBegin = super.gestureRecognizerShouldBegin(gestureRecognizer)
 
         let touchedPoint = gestureRecognizer.location(in: targetView)
-        let scaledPoint = CGPoint(x: touchedPoint.x * UIScreen.main.scale,
-                                  y: ((targetView?.frame.size.height ?? 0) - touchedPoint.y) * UIScreen.main.scale)
+        let scaledPoint = IRGLGesturePolicy.renderPoint(from: touchedPoint,
+                                                        viewHeight: targetView?.frame.size.height ?? 0,
+                                                        screenScale: UIScreen.main.scale)
         isTouchedInProgram = currentMode?.program?.touchedInProgram(scaledPoint) ?? false
 
-        if (!doubleTapEnable), gestureRecognizer == doubleTapGR {
-            return false
-        } else if gestureRecognizer is UISwipeGestureRecognizer, isProgramZooming() {
-            return false
-        }
-        return shouldBegin
+        return IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: shouldBegin,
+                                                   isDoubleTapGesture: gestureRecognizer == doubleTapGR,
+                                                   doubleTapEnabled: doubleTapEnable,
+                                                   isSwipeGesture: gestureRecognizer is UISwipeGestureRecognizer,
+                                                   isProgramZooming: isProgramZooming())
     }
 
     override func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {

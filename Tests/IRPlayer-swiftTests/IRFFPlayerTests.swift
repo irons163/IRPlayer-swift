@@ -15,6 +15,20 @@ final class IRFFPlayerTests: XCTestCase {
         withExtendedLifetime(abstractPlayer) {}
     }
 
+    func testReleaseDoesNotPrintDebugOutput() {
+        let abstractPlayer = IRPlayerImp.player()
+        abstractPlayer.manager = nil
+        var ffPlayer: IRFFPlayer? = IRFFPlayer.player(with: abstractPlayer)
+        XCTAssertNotNil(ffPlayer)
+
+        let output = captureStandardOutput {
+            ffPlayer = nil
+        }
+
+        XCTAssertEqual(output, "")
+        withExtendedLifetime(abstractPlayer) {}
+    }
+
     func testPlayableBufferIntervalReloadsFFmpegDecoderBufferDuration() throws {
         let player = IRPlayerImp.player()
         player.decoder = IRPlayerDecoder.FFmpegDecoder()
@@ -38,6 +52,11 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: -1, remainingFrames: 32, numberOfChannels: 2))
         XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 129, remainingFrames: 32, numberOfChannels: 2))
         XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 0, remainingFrames: 32, numberOfChannels: 0))
+    }
+
+    func testAudioCopyPlanRejectsUnalignedFrameOffsets() {
+        XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 1, remainingFrames: 32, numberOfChannels: 2))
+        XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 4, remainingFrames: 32, numberOfChannels: 2))
     }
 
     func testAudioCopyPlanRejectsOverflowingFrameCalculations() {
@@ -85,6 +104,110 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertEqual(plan.bytesToCopy, 8)
         XCTAssertEqual(plan.framesToCopy, 1)
         XCTAssertTrue(plan.hasRemainingFrameBytes)
+    }
+
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: true, hasContentURL: true, hasDisplayView: false),
+            IRFFPlayerPlaybackPolicy.replaceVideoReadiness(
+                hasAbstractPlayer: true,
+                hasContentURL: true,
+                hasDisplayView: false
+            )
+        )
+        XCTAssertEqual(
+            IRFFPlayer.playTransition(from: .finished),
+            IRFFPlayerPlaybackPolicy.playTransition(from: .finished)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.pauseTransition(from: .playing),
+            IRFFPlayerPlaybackPolicy.pauseTransition(from: .playing)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: false, isPlaying: false, hasPreparedOnce: false),
+            IRFFPlayerPlaybackPolicy.bufferingTransition(
+                isBuffering: false,
+                isPlaying: false,
+                hasPreparedOnce: false
+            )
+        )
+        XCTAssertEqual(
+            IRFFPlayer.audioSilenceByteCount(numberOfFrames: 10, numberOfChannels: 2),
+            IRFFPlayerPlaybackPolicy.audioSilenceByteCount(numberOfFrames: 10, numberOfChannels: 2)
+        )
+
+        XCTAssertEqual(
+            IRFFPlayer.audioCopyPlan(
+                frameSize: 128,
+                outputOffset: 0,
+                remainingFrames: 10,
+                numberOfChannels: 2
+            ),
+            IRFFPlayerPlaybackPolicy.audioCopyPlan(
+                frameSize: 128,
+                outputOffset: 0,
+                remainingFrames: 10,
+                numberOfChannels: 2
+            )
+        )
+    }
+
+    func testReplaceVideoReadinessDistinguishesNoOpAndFailurePreconditions() {
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: false, hasContentURL: true, hasDisplayView: true),
+            .missingRequiredInput
+        )
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: true, hasContentURL: false, hasDisplayView: true),
+            .missingRequiredInput
+        )
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: true, hasContentURL: true, hasDisplayView: false),
+            .missingDisplayView
+        )
+        XCTAssertEqual(
+            IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: true, hasContentURL: true, hasDisplayView: true),
+            .ready
+        )
+    }
+
+    func testPlayTransitionMapsCurrentStateToNextStateAndSeekDecision() {
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .finished), IRFFPlayer.PlayTransition(nextState: .playing, shouldSeekToStart: true))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .none), IRFFPlayer.PlayTransition(nextState: .buffering, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .failed), IRFFPlayer.PlayTransition(nextState: .buffering, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .buffering), IRFFPlayer.PlayTransition(nextState: .buffering, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .readyToPlay), IRFFPlayer.PlayTransition(nextState: .playing, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .playing), IRFFPlayer.PlayTransition(nextState: .playing, shouldSeekToStart: false))
+        XCTAssertEqual(IRFFPlayer.playTransition(from: .suspend), IRFFPlayer.PlayTransition(nextState: .playing, shouldSeekToStart: false))
+    }
+
+    func testPauseTransitionSuspendsOnlyActiveOrTerminalPlaybackStates() {
+        XCTAssertNil(IRFFPlayer.pauseTransition(from: .none))
+        XCTAssertNil(IRFFPlayer.pauseTransition(from: .suspend))
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .failed), .suspend)
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .readyToPlay), .suspend)
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .finished), .suspend)
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .playing), .suspend)
+        XCTAssertEqual(IRFFPlayer.pauseTransition(from: .buffering), .suspend)
+    }
+
+    func testBufferingTransitionMapsDecoderBufferingStateAndPrepareToken() {
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: true, isPlaying: false, hasPreparedOnce: false),
+            IRFFPlayer.BufferingTransition(nextState: .buffering, hasPreparedOnce: false)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: false, isPlaying: true, hasPreparedOnce: false),
+            IRFFPlayer.BufferingTransition(nextState: .playing, hasPreparedOnce: false)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: false, isPlaying: false, hasPreparedOnce: false),
+            IRFFPlayer.BufferingTransition(nextState: .readyToPlay, hasPreparedOnce: true)
+        )
+        XCTAssertEqual(
+            IRFFPlayer.bufferingTransition(isBuffering: false, isPlaying: false, hasPreparedOnce: true),
+            IRFFPlayer.BufferingTransition(nextState: .suspend, hasPreparedOnce: true)
+        )
     }
 
 }

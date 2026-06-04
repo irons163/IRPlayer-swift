@@ -11,6 +11,20 @@ import XCTest
 
 final class IRGLRenderModeBuildTests: XCTestCase {
 
+    func testRenderModeSettingPolicyMapsConfigurationKeysToActions() {
+        XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: IRGLRenderModeConfigurationKey.setDefaultScale.rawValue), .defaultScale)
+        XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: IRGLRenderModeConfigurationKey.setWideDegreeX.rawValue), .wideDegreeX)
+        XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: IRGLRenderModeConfigurationKey.setWideDegreeY.rawValue), .wideDegreeY)
+        XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: IRGLRenderModeConfigurationKey.setContentMode.rawValue), .contentMode)
+        XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: IRGLRenderModeConfigurationKey.setScaleRange.rawValue), .scaleRange)
+        XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: IRGLRenderModeConfigurationKey.setScopeRange.rawValue), .scopeRange)
+    }
+
+    func testRenderModeSettingPolicyIgnoresUnknownConfigurationKeys() {
+        XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: "unknown"), .none)
+        XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: ""), .none)
+    }
+
     func testBuildProgramWiresProgramShiftControllerAndDelegate() throws {
         let mode = IRGLRenderMode2D()
         let delegate = RecordingRenderModeDelegate()
