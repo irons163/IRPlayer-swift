@@ -243,6 +243,7 @@
 			B5E953192F6905300149265 /* IRGLProgramVRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953182F6905300149265 /* IRGLProgramVRTests.swift */; };
 			B5E951F12F6900500149265 /* IRGLProjectionEquirectangularTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951F02F6900500149265 /* IRGLProjectionEquirectangularTests.swift */; };
 			B5E951F32F6900510149265 /* IRGLProjectionVRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951F22F6900510149265 /* IRGLProjectionVRTests.swift */; };
+			B5E9531B2F6910100149265 /* IRGLProgramMultiTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9531A2F6910100149265 /* IRGLProgramMultiTests.swift */; };
 			B5E950412F68A01E00149265 /* IRGLProgramMulti4PTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */; };
 			B5E950432F68A01F00149265 /* IRGLScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950422F68A01F00149265 /* IRGLScopeTests.swift */; };
 			B5E950452F68A02000149265 /* IRGLRenderModeBuildTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950442F68A02000149265 /* IRGLRenderModeBuildTests.swift */; };
@@ -501,6 +502,7 @@
 			B5E953182F6905300149265 /* IRGLProgramVRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramVRTests.swift; sourceTree = "<group>"; };
 			B5E951F02F6900500149265 /* IRGLProjectionEquirectangularTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionEquirectangularTests.swift; sourceTree = "<group>"; };
 			B5E951F22F6900510149265 /* IRGLProjectionVRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionVRTests.swift; sourceTree = "<group>"; };
+			B5E9531A2F6910100149265 /* IRGLProgramMultiTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMultiTests.swift; sourceTree = "<group>"; };
 			B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti4PTests.swift; sourceTree = "<group>"; };
 			B5E950422F68A01F00149265 /* IRGLScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLScopeTests.swift; sourceTree = "<group>"; };
 			B5E950442F68A02000149265 /* IRGLRenderModeBuildTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderModeBuildTests.swift; sourceTree = "<group>"; };
@@ -1077,6 +1079,7 @@
 					B5E953182F6905300149265 /* IRGLProgramVRTests.swift */,
 					B5E951F02F6900500149265 /* IRGLProjectionEquirectangularTests.swift */,
 					B5E951F22F6900510149265 /* IRGLProjectionVRTests.swift */,
+					B5E9531A2F6910100149265 /* IRGLProgramMultiTests.swift */,
 					B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */,
 				B5E950442F68A02000149265 /* IRGLRenderModeBuildTests.swift */,
 				B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */,
@@ -1464,6 +1467,7 @@
 					B5E953192F6905300149265 /* IRGLProgramVRTests.swift in Sources */,
 					B5E951F12F6900500149265 /* IRGLProjectionEquirectangularTests.swift in Sources */,
 					B5E951F32F6900510149265 /* IRGLProjectionVRTests.swift in Sources */,
+					B5E9531B2F6910100149265 /* IRGLProgramMultiTests.swift in Sources */,
 					B5E950412F68A01E00149265 /* IRGLProgramMulti4PTests.swift in Sources */,
 				B5E950452F68A02000149265 /* IRGLRenderModeBuildTests.swift in Sources */,
 				B5E9500B2F68A00600149265 /* IRGLRenderModeFactoryTests.swift in Sources */,
