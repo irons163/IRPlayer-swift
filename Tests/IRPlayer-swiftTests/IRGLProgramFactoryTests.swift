@@ -207,6 +207,33 @@ final class IRGLProgramFactoryTests: XCTestCase {
         XCTAssertTrue(distortionProgram.mapProjection is IRGLProjectionVR)
     }
 
+    func testProgramFactoryWrappersReturnExpectedProgramTypes() {
+        let viewport = CGRect(x: 0, y: 0, width: 320, height: 180)
+        let parameter = makeFisheyeParameter()
+
+        XCTAssertNotNil(IRGLProgram2DFactory().createIRGLProgram(pixelFormat: .RGB_IRPixelFormat,
+                                                                 viewportRange: viewport,
+                                                                 parameter: nil))
+        XCTAssertTrue(IRGLProgram2DFisheye2PanoFactory().createIRGLProgram(pixelFormat: .RGB_IRPixelFormat,
+                                                                          viewportRange: viewport,
+                                                                          parameter: nil) is IRGLProgram2DFisheye2Pano)
+        XCTAssertTrue(IRGLProgramVRFactory().createIRGLProgram(pixelFormat: .RGB_IRPixelFormat,
+                                                              viewportRange: viewport,
+                                                              parameter: nil) is IRGLProgramVR)
+        XCTAssertTrue(IRGLProgramDistortionFactory().createIRGLProgram(pixelFormat: .RGB_IRPixelFormat,
+                                                                      viewportRange: viewport,
+                                                                      parameter: nil) is IRGLProgramDistortion)
+        XCTAssertTrue(IRGLProgram3DFisheyeFactory().createIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
+                                                                     viewportRange: viewport,
+                                                                     parameter: parameter) is IRGLProgram3DFisheye)
+        XCTAssertTrue(IRGLProgram3DFisheye4PFactory().createIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
+                                                                       viewportRange: viewport,
+                                                                       parameter: parameter) is IRGLProgramMulti4P)
+        XCTAssertNil(IRGLProgram3DFisheyeFactory().createIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
+                                                                    viewportRange: viewport,
+                                                                    parameter: IRMediaParameter(width: 320, height: 180)))
+    }
+
     private func makeFisheyeParameter() -> IRFisheyeParameter {
         IRFisheyeParameter(width: 1440,
                            height: 1080,

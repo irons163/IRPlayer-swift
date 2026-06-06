@@ -192,6 +192,8 @@
 		B5E950092F68A00500149265 /* IRFFFrameQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */; };
 		B5E950492F68A02200149265 /* IRFFPacketQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */; };
 		B5E950532F68A02600149265 /* IRFFVideoDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */; };
+		B5E953132F6905000149265 /* IRFFDictionaryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953122F6905000149265 /* IRFFDictionaryPolicyTests.swift */; };
+		B5E953152F6905100149265 /* IRFFVideoInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953142F6905100149265 /* IRFFVideoInputTests.swift */; };
 		B5E950552F68A02700149265 /* IRPlayerLifecyclePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950542F68A02700149265 /* IRPlayerLifecyclePolicyTests.swift */; };
 		B5E950592F68A02900149265 /* IRPlaybackTimePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950582F68A02900149265 /* IRPlaybackTimePolicyTests.swift */; };
 		B5E9505D2F68A02B00149265 /* IRGLFisheyeTransformPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9505C2F68A02B00149265 /* IRGLFisheyeTransformPolicyTests.swift */; };
@@ -445,6 +447,8 @@
 		B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueueTests.swift; sourceTree = "<group>"; };
 		B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueueTests.swift; sourceTree = "<group>"; };
 		B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoDecoderTests.swift; sourceTree = "<group>"; };
+		B5E953122F6905000149265 /* IRFFDictionaryPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDictionaryPolicyTests.swift; sourceTree = "<group>"; };
+		B5E953142F6905100149265 /* IRFFVideoInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoInputTests.swift; sourceTree = "<group>"; };
 		B5E950542F68A02700149265 /* IRPlayerLifecyclePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlayerLifecyclePolicyTests.swift; sourceTree = "<group>"; };
 		B5E950582F68A02900149265 /* IRPlaybackTimePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlaybackTimePolicyTests.swift; sourceTree = "<group>"; };
 		B5E9505A2F68A02A00149265 /* IRPlaybackTimePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPlaybackTimePolicy.swift; sourceTree = "<group>"; };
@@ -1051,6 +1055,8 @@
 				B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */,
 				B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */,
 				B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */,
+				B5E953122F6905000149265 /* IRFFDictionaryPolicyTests.swift */,
+				B5E953142F6905100149265 /* IRFFVideoInputTests.swift */,
 				B5E9504A2F68A02300149265 /* IRFFMetadataTests.swift */,
 				B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */,
 				B5E951E42F6900420149265 /* IRBounceControllerTests.swift */,
@@ -1435,6 +1441,8 @@
 				B5E950092F68A00500149265 /* IRFFFrameQueueTests.swift in Sources */,
 				B5E950492F68A02200149265 /* IRFFPacketQueueTests.swift in Sources */,
 				B5E950532F68A02600149265 /* IRFFVideoDecoderTests.swift in Sources */,
+				B5E953132F6905000149265 /* IRFFDictionaryPolicyTests.swift in Sources */,
+				B5E953152F6905100149265 /* IRFFVideoInputTests.swift in Sources */,
 				B5E9504B2F68A02300149265 /* IRFFMetadataTests.swift in Sources */,
 				B5E9504D2F68A02400149265 /* IRFFTrackTests.swift in Sources */,
 				B5E951E52F6900420149265 /* IRBounceControllerTests.swift in Sources */,
