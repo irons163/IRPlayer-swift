@@ -57,6 +57,66 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(size?.height, 960)
     }
 
+    func testProgramInitializesAndUpdatesFish2PanoShaderParams() throws {
+        let program = IRGLProgram2DFisheye2Pano(pixelFormat: .RGB_IRPixelFormat,
+                                                viewportRange: .zero,
+                                                parameter: nil)
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+
+        program.updateTextureWidth(64, height: 48)
+
+        let outputSize = try XCTUnwrap(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 64, height: 48))
+        XCTAssertEqual(params.textureWidth, 64)
+        XCTAssertEqual(params.textureHeight, 48)
+        XCTAssertEqual(params.fishcenterx, 32)
+        XCTAssertEqual(params.fishcentery, 24)
+        XCTAssertEqual(params.fishradiush, 32)
+        XCTAssertEqual(params.fishradiusv, 24)
+        XCTAssertEqual(params.outputWidth, GLint(outputSize.width))
+        XCTAssertEqual(params.outputHeight, GLint(outputSize.height))
+        XCTAssertEqual(params.enableTransformX, 1)
+        XCTAssertEqual(params.enableTransformZ, 1)
+        XCTAssertEqual(params.transformZ, -90, accuracy: 0.0001)
+    }
+
+    func testProgramSetRenderFrameUpdatesFish2PanoTextureSize() throws {
+        let program = IRGLProgram2DFisheye2Pano(pixelFormat: .RGB_IRPixelFormat,
+                                                viewportRange: .zero,
+                                                parameter: nil)
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+        let frame = IRFFVideoFrame()
+        frame.width = 32
+        frame.height = 24
+
+        program.setRenderFrame(frame)
+
+        XCTAssertEqual(params.textureWidth, 32)
+        XCTAssertEqual(params.textureHeight, 24)
+    }
+
+    func testProgramHorizontalBoundsScrollWrapsFish2PanoOffset() throws {
+        let program = IRGLProgram2DFisheye2Pano(pixelFormat: .RGB_IRPixelFormat,
+                                                viewportRange: .zero,
+                                                parameter: nil)
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+        params.outputWidth = 100
+        params.offsetX = 0
+        let controller = Fish2PanoRecordingTransformController(scope: IRGLScope2D(scaleX: 2,
+                                                                                  scaleY: 1,
+                                                                                  offsetX: 0,
+                                                                                  offsetY: 0,
+                                                                                  panDegree: 0,
+                                                                                  w: 50,
+                                                                                  h: 50))
+        program.tramsformController = controller
+
+        program.willScroll(dx: 50, dy: 0, transformController: controller)
+        let shouldContinue = program.doScrollHorizontal(status: .toMaxX, transformController: controller)
+
+        XCTAssertFalse(shouldContinue)
+        XCTAssertEqual(params.offsetX, -50, accuracy: 0.0001)
+    }
+
     func testPanoShaderParamsDefaultValuesMatchExpectedProjectionInputs() {
         let params = IRGLFish2PanoShaderParams()
 
@@ -201,5 +261,18 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(value.x, x, accuracy: 0.0001, file: file, line: line)
         XCTAssertEqual(value.y, y, accuracy: 0.0001, file: file, line: line)
         XCTAssertEqual(value.z, z, accuracy: 0.0001, file: file, line: line)
+    }
+}
+
+private final class Fish2PanoRecordingTransformController: IRGLTransformController {
+    private let scope: IRGLScope2D
+
+    init(scope: IRGLScope2D) {
+        self.scope = scope
+        super.init()
+    }
+
+    override func getScope() -> IRGLScope2D {
+        scope
     }
 }
