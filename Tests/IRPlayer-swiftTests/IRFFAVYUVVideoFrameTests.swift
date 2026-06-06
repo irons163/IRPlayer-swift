@@ -242,6 +242,42 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertEqual(destination, [9, 9, 9])
     }
 
+    func testYUVConvertToImageRejectsInvalidDimensions() {
+        var source = [UInt8](repeating: 0, count: 3)
+        let image = source.withUnsafeMutableBufferPointer { sourceBuffer in
+            IRYUVConvertToImage(
+                srcData: [UnsafePointer(sourceBuffer.baseAddress!)],
+                srcLinesize: [3],
+                width: 0,
+                height: 1,
+                pixelFormat: AV_PIX_FMT_RGB24
+            )
+        }
+
+        XCTAssertNil(image)
+    }
+
+    func testYUVConvertToImageBuildsImageFromRGB24Data() throws {
+        var source: [UInt8] = [
+            255, 0, 0, 0, 255, 0,
+            0, 0, 255, 255, 255, 255
+        ]
+        let image = source.withUnsafeMutableBufferPointer { sourceBuffer in
+            IRYUVConvertToImage(
+                srcData: [UnsafePointer(sourceBuffer.baseAddress!)],
+                srcLinesize: [6],
+                width: 2,
+                height: 2,
+                pixelFormat: AV_PIX_FMT_RGB24
+            )
+        }
+
+        let unwrappedImage = try XCTUnwrap(image)
+        XCTAssertEqual(unwrappedImage.size.width, 2)
+        XCTAssertEqual(unwrappedImage.size.height, 2)
+        XCTAssertNotNil(unwrappedImage.cgImage)
+    }
+
     func testYUVImageDimensions32RejectsInvalidOrOverflowingDimensions() {
         XCTAssertNil(IRYUVImageDimensions32(width: 0, height: 4))
         XCTAssertNil(IRYUVImageDimensions32(width: 4, height: 0))
