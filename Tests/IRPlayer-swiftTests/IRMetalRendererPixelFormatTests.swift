@@ -43,6 +43,15 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
             throw XCTSkip("Offscreen Metal encoder unavailable")
         }
 
+        guard let vertexBuffer = renderer.vertexBuffer else {
+            throw XCTSkip("Metal vertex buffer unavailable")
+        }
+        encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+        var scaleVector = SIMD2<Float>(repeating: 1)
+        encoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
+        var translationVector = SIMD2<Float>(repeating: 0)
+        encoder.setVertexBytes(&translationVector, length: MemoryLayout<SIMD2<Float>>.size, index: 2)
+
         try body(encoder)
         encoder.endEncoding()
         commandBuffer.commit()
