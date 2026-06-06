@@ -11,6 +11,95 @@ import XCTest
 
 final class IRAudioManagerNotificationTests: XCTestCase {
 
+    func testAudioSessionInterruptionNotificationCallsHandlerWithMappedTypeAndOption() {
+        let manager = IRAudioManager()
+        let target = NSObject()
+        var received: [(type: IRAudioManagerInterruptionType, option: IRAudioManagerInterruptionOption)] = []
+        manager.setHandlerTarget(target, interruption: { handlerTarget, _, type, option in
+            XCTAssertTrue(handlerTarget === target)
+            received.append((type, option))
+        }, routeChange: { _, _, _ in
+            XCTFail("Route change handler should not be called for interruption notifications")
+        })
+
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification,
+            object: nil,
+            userInfo: [
+                AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue
+            ]
+        )
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification,
+            object: nil,
+            userInfo: [
+                AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.ended.rawValue,
+                AVAudioSessionInterruptionOptionKey: AVAudioSession.InterruptionOptions.shouldResume.rawValue
+            ]
+        )
+
+        XCTAssertEqual(received.map(\.type), [.begin, .ended])
+        XCTAssertEqual(received.map(\.option), [.none, .shouldResume])
+    }
+
+    func testAudioSessionRouteChangeNotificationCallsHandlerForOldDeviceUnavailable() {
+        let manager = IRAudioManager()
+        let target = NSObject()
+        var receivedReasons: [IRAudioManagerRouteChangeReason] = []
+        manager.setHandlerTarget(target, interruption: { _, _, _, _ in
+            XCTFail("Interruption handler should not be called for route change notifications")
+        }, routeChange: { handlerTarget, _, reason in
+            XCTAssertTrue(handlerTarget === target)
+            receivedReasons.append(reason)
+        })
+
+        NotificationCenter.default.post(
+            name: AVAudioSession.routeChangeNotification,
+            object: nil,
+            userInfo: [
+                AVAudioSessionRouteChangeReasonKey: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue
+            ]
+        )
+        NotificationCenter.default.post(
+            name: AVAudioSession.routeChangeNotification,
+            object: nil,
+            userInfo: [
+                AVAudioSessionRouteChangeReasonKey: AVAudioSession.RouteChangeReason.newDeviceAvailable.rawValue
+            ]
+        )
+
+        XCTAssertEqual(receivedReasons, [.oldDeviceUnavailable])
+    }
+
+    func testRemoveHandlerTargetClearsMatchingOrMissingTarget() {
+        let manager = IRAudioManager()
+        let target = NSObject()
+        var interruptionCallCount = 0
+        manager.setHandlerTarget(target, interruption: { _, _, _, _ in
+            interruptionCallCount += 1
+        }, routeChange: { _, _, _ in })
+
+        manager.removeHandlerTarget(NSObject())
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification,
+            object: nil,
+            userInfo: [
+                AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue
+            ]
+        )
+        manager.removeHandlerTarget(target)
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification,
+            object: nil,
+            userInfo: [
+                AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue
+            ]
+        )
+        manager.removeHandlerTarget(target)
+
+        XCTAssertEqual(interruptionCallCount, 1)
+    }
+
     func testMalformedAudioSessionNotificationsAreIgnored() {
         let manager = IRAudioManager()
         let target = NSObject()

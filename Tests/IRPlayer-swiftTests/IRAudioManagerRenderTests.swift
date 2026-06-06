@@ -11,6 +11,21 @@ import XCTest
 
 final class IRAudioManagerRenderTests: XCTestCase {
 
+    func testUnregisteredManagerUsesFallbackStateAndIgnoresPlaybackControls() {
+        let manager = IRAudioManager()
+        let delegate = RecordingAudioManagerDelegate()
+
+        manager.volume = 0.25
+        manager.play(withDelegate: delegate)
+        manager.pause()
+
+        XCTAssertEqual(manager.volume, 1.0)
+        XCTAssertFalse(manager.playing)
+        XCTAssertTrue(manager.delegate === delegate)
+        XCTAssertGreaterThanOrEqual(manager.samplingRate, 0)
+        XCTAssertGreaterThanOrEqual(manager.numberOfChannels, 0)
+    }
+
     func testRegisterAudioSessionDoesNotPrintDebugDiagnostics() {
         let manager = IRAudioManager()
         var setupCallCount = 0
@@ -99,5 +114,16 @@ final class IRAudioManagerRenderTests: XCTestCase {
         default:
             XCTFail("Missing audio unit should fail for wrapper and policy")
         }
+    }
+}
+
+private final class RecordingAudioManagerDelegate: IRAudioManagerDelegate {
+    private(set) var renderCallCount = 0
+
+    func audioManager(_ audioManager: IRAudioManager,
+                      outputData: UnsafeMutablePointer<Float>,
+                      numberOfFrames: UInt32,
+                      numberOfChannels: UInt32) {
+        renderCallCount += 1
     }
 }
