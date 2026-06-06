@@ -235,10 +235,12 @@
 		B5E951B72F6900130149265 /* IRMetalRendererDistortionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951B62F6900130149265 /* IRMetalRendererDistortionTests.swift */; };
 		B5E950352F68A01800149265 /* IRePTZShiftControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950342F68A01800149265 /* IRePTZShiftControllerTests.swift */; };
 		B5E950372F68A01900149265 /* IRGLProgram2DTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950362F68A01900149265 /* IRGLProgram2DTests.swift */; };
+		B5E953172F6905200149265 /* IRGLProgram3DFisheyeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953162F6905200149265 /* IRGLProgram3DFisheyeTests.swift */; };
 		B5E950392F68A01A00149265 /* IRGLTransformController2DTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950382F68A01A00149265 /* IRGLTransformController2DTests.swift */; };
 		B5E9503B2F68A01B00149265 /* IRGLTransformController3DFisheyeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9503A2F68A01B00149265 /* IRGLTransformController3DFisheyeTests.swift */; };
 			B5E9503D2F68A01C00149265 /* IRGLTransformControllerVRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9503C2F68A01C00149265 /* IRGLTransformControllerVRTests.swift */; };
 			B5E9503F2F68A01D00149265 /* IRGLProgramFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9503E2F68A01D00149265 /* IRGLProgramFactoryTests.swift */; };
+			B5E953192F6905300149265 /* IRGLProgramVRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953182F6905300149265 /* IRGLProgramVRTests.swift */; };
 			B5E951F12F6900500149265 /* IRGLProjectionEquirectangularTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951F02F6900500149265 /* IRGLProjectionEquirectangularTests.swift */; };
 			B5E951F32F6900510149265 /* IRGLProjectionVRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951F22F6900510149265 /* IRGLProjectionVRTests.swift */; };
 			B5E950412F68A01E00149265 /* IRGLProgramMulti4PTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */; };
@@ -491,10 +493,12 @@
 		B5E951B62F6900130149265 /* IRMetalRendererDistortionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalRendererDistortionTests.swift; sourceTree = "<group>"; };
 		B5E950342F68A01800149265 /* IRePTZShiftControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRePTZShiftControllerTests.swift; sourceTree = "<group>"; };
 		B5E950362F68A01900149265 /* IRGLProgram2DTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgram2DTests.swift; sourceTree = "<group>"; };
+		B5E953162F6905200149265 /* IRGLProgram3DFisheyeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgram3DFisheyeTests.swift; sourceTree = "<group>"; };
 		B5E950382F68A01A00149265 /* IRGLTransformController2DTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformController2DTests.swift; sourceTree = "<group>"; };
 		B5E9503A2F68A01B00149265 /* IRGLTransformController3DFisheyeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformController3DFisheyeTests.swift; sourceTree = "<group>"; };
 			B5E9503C2F68A01C00149265 /* IRGLTransformControllerVRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformControllerVRTests.swift; sourceTree = "<group>"; };
 			B5E9503E2F68A01D00149265 /* IRGLProgramFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramFactoryTests.swift; sourceTree = "<group>"; };
+			B5E953182F6905300149265 /* IRGLProgramVRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramVRTests.swift; sourceTree = "<group>"; };
 			B5E951F02F6900500149265 /* IRGLProjectionEquirectangularTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionEquirectangularTests.swift; sourceTree = "<group>"; };
 			B5E951F22F6900510149265 /* IRGLProjectionVRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionVRTests.swift; sourceTree = "<group>"; };
 			B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti4PTests.swift; sourceTree = "<group>"; };
@@ -1067,8 +1071,10 @@
 					B5E950242F68A01300149265 /* IRGLProgram2DFisheye2PanoTests.swift */,
 					B5E950302F68A01600149265 /* IRGLProgram2DFisheye2PerspTests.swift */,
 					B5E950362F68A01900149265 /* IRGLProgram2DTests.swift */,
+					B5E953162F6905200149265 /* IRGLProgram3DFisheyeTests.swift */,
 					B5E950502F68A02500149265 /* IRGLProgramDistortionTests.swift */,
 					B5E9503E2F68A01D00149265 /* IRGLProgramFactoryTests.swift */,
+					B5E953182F6905300149265 /* IRGLProgramVRTests.swift */,
 					B5E951F02F6900500149265 /* IRGLProjectionEquirectangularTests.swift */,
 					B5E951F22F6900510149265 /* IRGLProjectionVRTests.swift */,
 					B5E950402F68A01E00149265 /* IRGLProgramMulti4PTests.swift */,
@@ -1452,8 +1458,10 @@
 					B5E950252F68A01300149265 /* IRGLProgram2DFisheye2PanoTests.swift in Sources */,
 					B5E950312F68A01600149265 /* IRGLProgram2DFisheye2PerspTests.swift in Sources */,
 					B5E950372F68A01900149265 /* IRGLProgram2DTests.swift in Sources */,
+					B5E953172F6905200149265 /* IRGLProgram3DFisheyeTests.swift in Sources */,
 					B5E950512F68A02500149265 /* IRGLProgramDistortionTests.swift in Sources */,
 					B5E9503F2F68A01D00149265 /* IRGLProgramFactoryTests.swift in Sources */,
+					B5E953192F6905300149265 /* IRGLProgramVRTests.swift in Sources */,
 					B5E951F12F6900500149265 /* IRGLProjectionEquirectangularTests.swift in Sources */,
 					B5E951F32F6900510149265 /* IRGLProjectionVRTests.swift in Sources */,
 					B5E950412F68A01E00149265 /* IRGLProgramMulti4PTests.swift in Sources */,
