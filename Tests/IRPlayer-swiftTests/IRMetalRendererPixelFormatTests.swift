@@ -11,6 +11,55 @@ import XCTest
 
 final class IRMetalRendererPixelFormatTests: XCTestCase {
 
+    private func makeRenderer() throws -> IRMetalRenderer {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let renderer = IRMetalRenderer(device: device) else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        return renderer
+    }
+
+    private func withOffscreenEncoder(
+        renderer: IRMetalRenderer,
+        _ body: (MTLRenderCommandEncoder) throws -> Void
+    ) throws {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: 2,
+            height: 2,
+            mipmapped: false
+        )
+        descriptor.usage = [.renderTarget, .shaderRead]
+        guard let texture = renderer.device.makeTexture(descriptor: descriptor),
+              let commandBuffer = renderer.commandQueue.makeCommandBuffer() else {
+            throw XCTSkip("Offscreen Metal rendering unavailable")
+        }
+
+        let renderPass = MTLRenderPassDescriptor()
+        renderPass.colorAttachments[0].texture = texture
+        renderPass.colorAttachments[0].loadAction = .clear
+        renderPass.colorAttachments[0].storeAction = .store
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else {
+            throw XCTSkip("Offscreen Metal encoder unavailable")
+        }
+
+        try body(encoder)
+        encoder.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+    }
+
+    private func makeRGBFrame(width: Int = 2, height: Int = 2) -> IRVideoFrameRGB {
+        let bytesPerRow = width * 4
+        let frame = IRVideoFrameRGB(
+            linesize: UInt(bytesPerRow),
+            rgb: Data(repeating: 0xff, count: bytesPerRow * height)
+        )
+        frame.width = width
+        frame.height = height
+        return frame
+    }
+
     func testRuntimeDebugOutputIsSilentByDefault() {
         XCTAssertFalse(IRMetalRuntimeDebugOutput.isEnabled)
 
@@ -200,14 +249,144 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
     }
 
     func testMakeRGBTextureRejectsLinesizeThatCannotFitBytesPerRow() throws {
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let renderer = IRMetalRenderer(device: device) else {
-            throw XCTSkip("Metal device unavailable")
-        }
+        let renderer = try makeRenderer()
         let frame = IRVideoFrameRGB(linesize: UInt(Int.max) + 1, rgb: Data([0, 0, 0, 0]))
         frame.width = 1
         frame.height = 1
 
         XCTAssertNil(renderer.makeRGBTexture(from: frame))
+    }
+
+    func testMakeRGBTextureCreatesBGRATextureForValidFrame() throws {
+        let renderer = try makeRenderer()
+        let texture = renderer.makeRGBTexture(from: makeRGBFrame())
+
+        XCTAssertEqual(texture?.width, 2)
+        XCTAssertEqual(texture?.height, 2)
+        XCTAssertEqual(texture?.pixelFormat, .bgra8Unorm)
+    }
+
+    func testMakeTextureRejectsInvalidSizeAndCreatesValidTexture() throws {
+        let renderer = try makeRenderer()
+        var bytes = [UInt8](repeating: 0x7f, count: 4)
+
+        bytes.withUnsafeMutableBytes { buffer in
+            XCTAssertNil(renderer.makeTexture(width: 0,
+                                              height: 1,
+                                              pixelFormat: .r8Unorm,
+                                              bytes: buffer.baseAddress!))
+
+            let texture = renderer.makeTexture(width: 2,
+                                               height: 2,
+                                               pixelFormat: .r8Unorm,
+                                               bytes: buffer.baseAddress!)
+            XCTAssertEqual(texture?.width, 2)
+            XCTAssertEqual(texture?.height, 2)
+            XCTAssertEqual(texture?.pixelFormat, .r8Unorm)
+        }
+    }
+
+    func testPixelRendererSelectionMatchesFrameTypes() throws {
+        let renderer = try makeRenderer()
+        var pixelBuffer: CVPixelBuffer?
+        CVPixelBufferCreate(kCFAllocatorDefault,
+                            2,
+                            2,
+                            kCVPixelFormatType_32BGRA,
+                            nil,
+                            &pixelBuffer)
+        let cvFrame = IRFFCVYUVVideoFrame(pixelBuffer: try XCTUnwrap(pixelBuffer))
+
+        XCTAssertTrue(renderer.pixelRenderer(for: cvFrame) is IRMetalPixelRendererNV12)
+        XCTAssertTrue(renderer.pixelRenderer(for: IRFFAVYUVVideoFrame()) is IRMetalPixelRendererI420)
+        XCTAssertTrue(renderer.pixelRenderer(for: makeRGBFrame()) is IRMetalPixelRendererRGB)
+        XCTAssertNil(renderer.pixelRenderer(for: IRFFVideoFrame()))
+    }
+
+    func testRenderRGBDrawsValidFrameToOffscreenEncoder() throws {
+        let renderer = try makeRenderer()
+        guard renderer.pipelineRGB != nil else {
+            throw XCTSkip("RGB Metal pipeline unavailable")
+        }
+
+        try withOffscreenEncoder(renderer: renderer) { encoder in
+            XCTAssertTrue(renderer.renderRGB(rgbFrame: makeRGBFrame(), encoder: encoder))
+        }
+    }
+
+    func testRGBPixelRendererRenders2DAndRejectsMesh() throws {
+        let renderer = try makeRenderer()
+        guard renderer.pipelineRGB != nil else {
+            throw XCTSkip("RGB Metal pipeline unavailable")
+        }
+        let pixelRenderer = IRMetalPixelRendererRGB()
+        let frame = makeRGBFrame()
+
+        try withOffscreenEncoder(renderer: renderer) { encoder in
+            XCTAssertTrue(pixelRenderer.render2D(renderer: renderer, frame: frame, encoder: encoder))
+            XCTAssertFalse(pixelRenderer.renderMesh(renderer: renderer,
+                                                    frame: frame,
+                                                    encoder: encoder,
+                                                    indexCount: 0,
+                                                    indexBuffer: renderer.vertexBuffer!))
+        }
+    }
+
+    func testRGBPixelRendererRejectsRenderingWhenPipelineIsMissing() throws {
+        let renderer = try makeRenderer()
+        renderer.pipelineRGB = nil
+        let pixelRenderer = IRMetalPixelRendererRGB()
+        let frame = makeRGBFrame()
+
+        try withOffscreenEncoder(renderer: renderer) { encoder in
+            XCTAssertFalse(renderer.renderRGB(rgbFrame: frame, encoder: encoder))
+            XCTAssertFalse(pixelRenderer.render2D(renderer: renderer, frame: frame, encoder: encoder))
+            XCTAssertFalse(pixelRenderer.renderMesh(renderer: renderer,
+                                                    frame: frame,
+                                                    encoder: encoder,
+                                                    indexCount: 0,
+                                                    indexBuffer: renderer.vertexBuffer!))
+        }
+    }
+
+    func testPixelRenderersRejectMismatchedFrameTypes() throws {
+        let renderer = try makeRenderer()
+        let nv12Renderer = IRMetalPixelRendererNV12()
+        let i420Renderer = IRMetalPixelRendererI420()
+        let rgbFrame = makeRGBFrame()
+        let params = IRMetalRenderer.Fish2PanoParams(
+            fishwidth: 2,
+            fishheight: 2,
+            panowidth: 2,
+            panoheight: 2,
+            antialias: 0,
+            offsetX: 0
+        )
+
+        try withOffscreenEncoder(renderer: renderer) { encoder in
+            XCTAssertFalse(nv12Renderer.render2D(renderer: renderer, frame: rgbFrame, encoder: encoder))
+            XCTAssertFalse(nv12Renderer.renderMesh(renderer: renderer,
+                                                   frame: rgbFrame,
+                                                   encoder: encoder,
+                                                   indexCount: 0,
+                                                   indexBuffer: renderer.vertexBuffer!))
+            XCTAssertFalse(nv12Renderer.renderFish2Pano(renderer: renderer,
+                                                        frame: rgbFrame,
+                                                        encoder: encoder,
+                                                        params: params,
+                                                        texUVTextures: []))
+
+            XCTAssertFalse(i420Renderer.render2D(renderer: renderer, frame: rgbFrame, encoder: encoder))
+            XCTAssertFalse(i420Renderer.renderMesh(renderer: renderer,
+                                                   frame: rgbFrame,
+                                                   encoder: encoder,
+                                                   indexCount: 0,
+                                                   indexBuffer: renderer.vertexBuffer!))
+            XCTAssertFalse(i420Renderer.renderFish2Pano(renderer: renderer,
+                                                        frame: rgbFrame,
+                                                        encoder: encoder,
+                                                        params: params,
+                                                        texUVTextures: []))
+        }
     }
 }
