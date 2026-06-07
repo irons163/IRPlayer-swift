@@ -168,6 +168,18 @@ final class IRFFToolsTests: XCTestCase {
         XCTAssertEqual(fps, 24, accuracy: 0.0001)
     }
 
+    func testStreamFPSFallsBackToTimebaseWhenFrameRatesAreInvalid() {
+        var stream = AVStream()
+        stream.avg_frame_rate = AVRational(num: 0, den: 0)
+        stream.r_frame_rate = AVRational(num: 0, den: 0)
+
+        let fps = withUnsafePointer(to: &stream) { streamPointer in
+            IRFFStreamGetFPS(streamPointer, timebase: 0.02)
+        }
+
+        XCTAssertEqual(fps, 50, accuracy: 0.0001)
+    }
+
     func testStreamFPSFallsBackToFiniteValueForInvalidRatesAndTimebase() {
         var stream = AVStream()
         stream.avg_frame_rate = AVRational(num: 0, den: 0)
