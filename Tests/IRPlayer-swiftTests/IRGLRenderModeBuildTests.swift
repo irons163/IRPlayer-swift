@@ -11,6 +11,43 @@ import XCTest
 
 final class IRGLRenderModeBuildTests: XCTestCase {
 
+    func testBaseRenderModeExposesDefaultsFactoryAndNoOpUpdate() {
+        let mode = IRGLRenderMode()
+
+        XCTAssertEqual(mode.name, "")
+        XCTAssertEqual(mode.defaultScale, 1)
+        XCTAssertEqual(mode.contentMode, .scaleAspectFit)
+        XCTAssertEqual(String(describing: type(of: mode.programFactory)), "IRGLProgram2DFactory")
+
+        mode.update()
+    }
+
+    func testSettingWithoutProgramIgnoresQueuedConfiguration() {
+        let mode = IRGLRenderMode()
+
+        mode.defaultScale = 2
+        mode.wideDegreeX = 180
+        mode.wideDegreeY = 90
+        mode.contentMode = .scaleToFill
+        mode.scaleRange = IRGLScaleRange(minScaleX: 1,
+                                         minScaleY: 1,
+                                         maxScaleX: 2,
+                                         maxScaleY: 2,
+                                         defaultScaleX: 1,
+                                         defaultScaleY: 1)
+        mode.scopeRange = IRGLScopeRange(minLat: -1,
+                                         maxLat: 1,
+                                         minLng: -2,
+                                         maxLng: 2,
+                                         defaultLat: 0,
+                                         defaultLng: 0)
+
+        mode.setting()
+
+        XCTAssertNil(mode.program)
+        XCTAssertNil(mode.shiftController.program)
+    }
+
     func testRenderModeSettingPolicyMapsConfigurationKeysToActions() {
         XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: IRGLRenderModeConfigurationKey.setDefaultScale.rawValue), .defaultScale)
         XCTAssertEqual(IRGLRenderModeSettingPolicy.action(for: IRGLRenderModeConfigurationKey.setWideDegreeX.rawValue), .wideDegreeX)
@@ -61,6 +98,8 @@ final class IRGLRenderModeBuildTests: XCTestCase {
         mode.defaultScale = 2.5
         mode.scopeRange = scopeRange
         mode.contentMode = .scaleAspectFill
+        mode.wideDegreeX = 360
+        mode.wideDegreeY = 180
 
         mode.buildIRGLProgram(pixelFormat: .RGB_IRPixelFormat,
                               viewprotRange: CGRect(x: 0, y: 0, width: 100, height: 50),
@@ -79,6 +118,8 @@ final class IRGLRenderModeBuildTests: XCTestCase {
         XCTAssertEqual(appliedScaleRange.defaultScaleX, 2.5)
         XCTAssertEqual(appliedScaleRange.defaultScaleY, 2.5)
         XCTAssertTrue(appliedScopeRange === scopeRange)
+        XCTAssertEqual(mode.wideDegreeX, 360)
+        XCTAssertEqual(mode.wideDegreeY, 180)
     }
 
     func testBuildProgramClearsProgramAndShiftControllerWhenFactoryRejectsParameter() {
