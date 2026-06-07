@@ -220,6 +220,19 @@ final class IRSmoothScrollPolicyTests: XCTestCase {
         XCTAssertNil(invalid.vertical)
     }
 
+    func testSmoothScrollBoundsPolicyIgnoresMissingBounds() {
+        let result = IRSmoothScrollPolicy.boundsBounce(
+            bounds: .none,
+            finalPoint: CGPoint(x: 30, y: 40),
+            alreadyPoint: .zero,
+            didHorizontalBounce: false,
+            didVerticalBounce: false
+        )
+
+        XCTAssertNil(result.horizontal)
+        XCTAssertNil(result.vertical)
+    }
+
     private func pointState(_ controller: IRSmoothScrollController, _ label: String) -> CGPoint {
         return state(controller, label) as? CGPoint ?? .zero
     }
