@@ -20,6 +20,20 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         return renderer
     }
 
+    private func makeOffscreenDrawable(renderer: IRMetalRenderer,
+                                       width: Int = 4,
+                                       height: Int = 2) throws -> IRPixelFormatTestMetalDrawable {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+                                                                  width: width,
+                                                                  height: height,
+                                                                  mipmapped: false)
+        descriptor.usage = [.renderTarget, .shaderRead]
+        guard let texture = renderer.device.makeTexture(descriptor: descriptor) else {
+            throw XCTSkip("Offscreen Metal drawable texture unavailable")
+        }
+        return IRPixelFormatTestMetalDrawable(texture: texture)
+    }
+
     private func withOffscreenEncoder(
         renderer: IRMetalRenderer,
         _ body: (MTLRenderCommandEncoder) throws -> Void
@@ -462,6 +476,30 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         }
     }
 
+    func testRenderMultiRejectsUnsupportedFrameAfterWalkingViewportList() throws {
+        let renderer = try makeRenderer()
+        let drawable = try makeOffscreenDrawable(renderer: renderer)
+        let frame = IRFFVideoFrame()
+        frame.width = 2
+        frame.height = 2
+
+        XCTAssertFalse(renderer.renderMulti(frame: frame,
+                                            to: drawable,
+                                            drawableSize: CGSize(width: 4, height: 2),
+                                            viewports: [
+                                                CGRect(x: 0, y: 0, width: 2, height: 2),
+                                                CGRect(x: 2, y: 0, width: 0, height: 2),
+                                                CGRect(x: 2, y: 0, width: 2, height: 2)
+                                            ],
+                                            contentModes: [
+                                                .scaleAspectFit,
+                                                .scaleAspectFill,
+                                                .scaleToFill
+                                            ],
+                                            zoomScales: [1.25],
+                                            translations: [SIMD2<Float>(0.1, -0.1)]))
+    }
+
     func testRenderMeshHelpersRejectRenderingWhenPipelinesAreMissing() throws {
         let renderer = try makeRenderer()
         renderer.pipelineNV12Mesh = nil
@@ -563,5 +601,33 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
                                                         params: params,
                                                         texUVTextures: []))
         }
+    }
+}
+
+private final class IRPixelFormatTestMetalDrawable: NSObject, CAMetalDrawable {
+    let texture: MTLTexture
+    let layer = CAMetalLayer()
+
+    init(texture: MTLTexture) {
+        self.texture = texture
+        super.init()
+    }
+
+    func present() {}
+
+    func present(at presentationTime: CFTimeInterval) {
+        present()
+    }
+
+    @objc func presentAfterMinimumDuration(_ duration: CFTimeInterval) {
+        present()
+    }
+
+    @objc func addPresentScheduledHandler(_ block: @escaping (MTLDrawable) -> Void) {
+        block(self)
+    }
+
+    @objc func addPresentedHandler(_ block: @escaping (MTLDrawable) -> Void) {
+        block(self)
     }
 }
