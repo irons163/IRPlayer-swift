@@ -139,6 +139,37 @@ final class IRGLRenderModeBuildTests: XCTestCase {
             XCTAssertEqual(program.contentMode, .scaleToFill)
         }
     }
+
+    func testSpecializedFisheyeModesExposeFactoriesAnglesAndSyncLiveContentMode() throws {
+        let fisheyeParameter = IRFisheyeParameter(width: 1440,
+                                                  height: 1080,
+                                                  up: false,
+                                                  rx: 520,
+                                                  ry: 520,
+                                                  cx: 720,
+                                                  cy: 540,
+                                                  latmax: 80)
+        let cases: [(mode: IRGLRenderMode, factoryType: IRGLProgram2DFactory.Type, pan: Float, tilt: Float)] = [
+            (IRGLRenderMode2DFisheye2Pano(), IRGLProgram2DFisheye2PanoFactory.self, 180, 360),
+            (IRGLRenderMode3DFisheye(), IRGLProgram3DFisheyeFactory.self, 180, 360),
+            (IRGLRenderModeMulti4P(), IRGLProgram3DFisheye4PFactory.self, 360, 360)
+        ]
+
+        for testCase in cases {
+            XCTAssertTrue(type(of: testCase.mode.programFactory) == testCase.factoryType)
+            XCTAssertEqual(testCase.mode.shiftController.panAngle, testCase.pan)
+            XCTAssertEqual(testCase.mode.shiftController.tiltAngle, testCase.tilt)
+
+            testCase.mode.buildIRGLProgram(pixelFormat: .RGB_IRPixelFormat,
+                                           viewprotRange: CGRect(x: 0, y: 0, width: 320, height: 180),
+                                           parameter: fisheyeParameter)
+
+            testCase.mode.contentMode = .scaleAspectFill
+
+            let program = try XCTUnwrap(testCase.mode.program)
+            XCTAssertEqual(program.contentMode, .scaleAspectFill)
+        }
+    }
 }
 
 private final class RecordingRenderModeDelegate: IRGLRenderModeDelegate {
