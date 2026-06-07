@@ -101,6 +101,65 @@ final class IRGLRenderAdapterTests: XCTestCase {
         }
     }
 
+    func testRenderAdaptersRejectUnsupportedDistortionFrames() throws {
+        let drawable = try makeOffscreenDrawable()
+        let frame = IRFFVideoFrame()
+        let device = drawable.texture.device
+        let leftMesh = try XCTUnwrap(IRMetalDistortionMesh(device: device, modelType: .left))
+        let rightMesh = try XCTUnwrap(IRMetalDistortionMesh(device: device, modelType: .right))
+        let adapters: [IRGLRenderInternal] = [IRGLRenderNV12(), IRGLRenderYUV()]
+
+        for adapter in adapters {
+            XCTAssertFalse(adapter.renderDistortion(frame: frame,
+                                                    leftMesh: leftMesh,
+                                                    rightMesh: rightMesh,
+                                                    to: drawable,
+                                                    drawableSize: CGSize(width: 2, height: 2),
+                                                    contentMode: .scaleAspectFit))
+        }
+    }
+
+    func testRenderAdaptersRejectUnsupportedFisheyeFrames() throws {
+        let drawable = try makeOffscreenDrawable()
+        let frame = IRFFVideoFrame()
+        let mesh = try makeTriangleFisheyeMesh(device: drawable.texture.device)
+        let adapters: [IRGLRenderInternal] = [IRGLRenderNV12(), IRGLRenderYUV()]
+
+        for adapter in adapters {
+            XCTAssertFalse(adapter.renderFisheye(frame: frame,
+                                                 mesh: mesh,
+                                                 mvp: matrix_identity_float4x4,
+                                                 textureMatrix: matrix_identity_float4x4,
+                                                 to: drawable,
+                                                 drawableSize: CGSize(width: 2, height: 2),
+                                                 viewport: CGRect(x: 0, y: 0, width: 2, height: 2)))
+        }
+    }
+
+    func testRenderAdaptersRejectUnsupportedFisheyeMultiFramesAndMismatchedInputs() throws {
+        let drawable = try makeOffscreenDrawable()
+        let frame = IRFFVideoFrame()
+        let mesh = try makeTriangleFisheyeMesh(device: drawable.texture.device)
+        let adapters: [IRGLRenderInternal] = [IRGLRenderNV12(), IRGLRenderYUV()]
+
+        for adapter in adapters {
+            XCTAssertFalse(adapter.renderFisheyeMulti(frame: frame,
+                                                      mesh: mesh,
+                                                      mvpList: [],
+                                                      textureMatrix: matrix_identity_float4x4,
+                                                      to: drawable,
+                                                      drawableSize: CGSize(width: 2, height: 2),
+                                                      viewports: [CGRect(x: 0, y: 0, width: 2, height: 2)]))
+            XCTAssertFalse(adapter.renderFisheyeMulti(frame: frame,
+                                                      mesh: mesh,
+                                                      mvpList: [matrix_identity_float4x4],
+                                                      textureMatrix: matrix_identity_float4x4,
+                                                      to: drawable,
+                                                      drawableSize: CGSize(width: 2, height: 2),
+                                                      viewports: [CGRect(x: 0, y: 0, width: 2, height: 2)]))
+        }
+    }
+
     func testRenderAdaptersClearOffscreenDrawableWithoutCrashing() throws {
         let drawable = try makeOffscreenDrawable()
         let adapters: [IRGLRenderInternal] = [IRGLRenderNV12(), IRGLRenderYUV()]
@@ -108,6 +167,23 @@ final class IRGLRenderAdapterTests: XCTestCase {
         for adapter in adapters {
             adapter.renderClear(to: drawable)
         }
+    }
+
+    private func makeTriangleFisheyeMesh(device: MTLDevice) throws -> IRMetalFisheyeMesh {
+        try XCTUnwrap(
+            IRMetalFisheyeMesh(device: device,
+                               positions: [
+                                SIMD3<Float>(-1, -1, 0),
+                                SIMD3<Float>(1, -1, 0),
+                                SIMD3<Float>(0, 1, 0)
+                               ],
+                               texcoords: [
+                                SIMD2<Float>(0, 0),
+                                SIMD2<Float>(1, 0),
+                                SIMD2<Float>(0.5, 1)
+                               ],
+                               indices: [0, 1, 2])
+        )
     }
 }
 
