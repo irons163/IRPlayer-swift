@@ -58,6 +58,20 @@ final class IRFFAudioFrameTests: XCTestCase {
         XCTAssertTrue(frame.samples == initialSamples)
     }
 
+    func testSetSamplesLengthReallocatesStorageWhenCapacityIsTooSmall() throws {
+        let frame = IRFFAudioFrame()
+        frame.setSamplesLength(MemoryLayout<Float>.size)
+        frame.outputOffset = 2
+
+        frame.setSamplesLength(MemoryLayout<Float>.size * 3)
+
+        XCTAssertEqual(frame.size, MemoryLayout<Float>.size * 3)
+        XCTAssertEqual(frame.outputOffset, 0)
+        let samples = try XCTUnwrap(frame.samples)
+        samples[2] = 3.5
+        XCTAssertEqual(samples[2], 3.5, accuracy: 0.0001)
+    }
+
     func testSetSamplesLengthRejectsInvalidLengthsWithoutAllocatingStorage() {
         let frame = IRFFAudioFrame()
         frame.outputOffset = 4
