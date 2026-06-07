@@ -26,6 +26,13 @@ final class IRGLTransformControllerVRTests: XCTestCase {
             minLng: -180,
             maxLng: 180
         )
+        assertVRScopeRange(
+            IRGLTransformControllerVR.getScopeRange(of: .unknown),
+            minLat: 0,
+            maxLat: 0,
+            minLng: 0,
+            maxLng: 0
+        )
     }
 
     func testDistortionControllerProducesDistinctEyeMatrices() {
@@ -35,6 +42,18 @@ final class IRGLTransformControllerVRTests: XCTestCase {
         let rightMatrix = controller.getModelViewProjectionMatrix2()
 
         XCTAssertFalse(matrixAlmostEqual(leftMatrix, rightMatrix))
+    }
+
+    func testScrollDelegatesToFisheyeTransform() {
+        let controller = IRGLTransformControllerVR(viewportWidth: 100, viewportHeight: 100, tileType: .up)
+
+        controller.scroll(dx: 20, dy: -10)
+
+        let scope = controller.getScope()
+        XCTAssertNotEqual(scope.lng, 0, accuracy: 0.0001)
+        XCTAssertNotEqual(scope.lat, 0, accuracy: 0.0001)
+        XCTAssertTrue(scope.lng.isFinite)
+        XCTAssertTrue(scope.lat.isFinite)
     }
 }
 
