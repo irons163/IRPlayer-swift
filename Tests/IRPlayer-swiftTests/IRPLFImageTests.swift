@@ -42,6 +42,16 @@ final class IRPLFImageTests: XCTestCase {
         XCTAssertNotNil(image?.cgImage)
     }
 
+    func testImageWithRGBDataReturnsNilForInvalidGeometry() {
+        let pixels: [UInt8] = [0, 0, 0]
+
+        let image = pixels.withUnsafeBufferPointer { buffer in
+            IRPLFImageWithRGBData(buffer.baseAddress!, linesize: 0, width: 1, height: 1)
+        }
+
+        XCTAssertNil(image)
+    }
+
     func testRGBDataByteCountRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 0, width: 4, height: 4))
         XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 12, width: 0, height: 4))
