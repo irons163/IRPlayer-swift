@@ -120,6 +120,13 @@ final class IRFFPacketQueueTests: XCTestCase {
             10,
             accuracy: 0.0001
         )
+        XCTAssertEqual(
+            IRFFPacketQueue.accountedDuration(for: makePacket(size: 10, duration: Int64.max),
+                                              fallbackDuration: 10,
+                                              timebase: .greatestFiniteMagnitude),
+            0,
+            accuracy: 0.0001
+        )
     }
 
     func testStaticPolicyWrappersRemainSourceCompatible() {
