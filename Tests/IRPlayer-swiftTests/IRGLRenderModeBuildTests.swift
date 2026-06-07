@@ -118,6 +118,27 @@ final class IRGLRenderModeBuildTests: XCTestCase {
         XCTAssertEqual(scaleRange.maxScaleX, 8)
         XCTAssertEqual(scaleRange.maxScaleY, 9)
     }
+
+    func testVRAndDistortionModesExposeFactoriesAndSyncLiveContentMode() throws {
+        let modes: [IRGLRenderMode] = [
+            IRGLRenderModeVR(),
+            IRGLRenderModeDistortion()
+        ]
+
+        XCTAssertTrue(modes[0].programFactory is IRGLProgramVRFactory)
+        XCTAssertTrue(modes[1].programFactory is IRGLProgramDistortionFactory)
+
+        for mode in modes {
+            mode.buildIRGLProgram(pixelFormat: .RGB_IRPixelFormat,
+                                  viewprotRange: CGRect(x: 0, y: 0, width: 100, height: 50),
+                                  parameter: nil)
+
+            mode.contentMode = .scaleToFill
+
+            let program = try XCTUnwrap(mode.program)
+            XCTAssertEqual(program.contentMode, .scaleToFill)
+        }
+    }
 }
 
 private final class RecordingRenderModeDelegate: IRGLRenderModeDelegate {
