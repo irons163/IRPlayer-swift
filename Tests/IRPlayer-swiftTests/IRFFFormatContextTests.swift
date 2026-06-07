@@ -175,6 +175,10 @@ final class IRFFFormatContextTests: XCTestCase {
             .select
         )
         XCTAssertEqual(
+            IRFFFormatContext.audioTrackSelectionAction(requestedIndex: 2, currentIndex: nil, containsRequestedTrack: true),
+            .select
+        )
+        XCTAssertEqual(
             IRFFFormatContext.audioTrackSelectionAction(requestedIndex: 1, currentIndex: 1, containsRequestedTrack: true),
             .noChange
         )
