@@ -102,6 +102,36 @@ final class IRFFPacketQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 0)
     }
 
+    func testGetPacketWaitsUntilPacketIsEnqueued() {
+        let queue = IRFFPacketQueue.packetQueue(withTimebase: 0.001)
+        let completion = expectation(description: "getPacket returns after packet is enqueued")
+        let lock = NSLock()
+        var returnedPacket: AVPacket?
+        defer { queue.destroy() }
+
+        DispatchQueue.global().async {
+            let packet = queue.getPacket()
+            lock.lock()
+            returnedPacket = packet
+            lock.unlock()
+            completion.fulfill()
+        }
+
+        Thread.sleep(forTimeInterval: 0.05)
+        queue.putPacket(makePacket(size: 12, duration: 250), duration: 10)
+
+        wait(for: [completion], timeout: 1)
+
+        lock.lock()
+        let packet = returnedPacket
+        lock.unlock()
+
+        XCTAssertEqual(packet?.size, 12)
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 0)
+    }
+
     func testAccountedDurationUsesPacketDurationOnlyWithValidTimebase() {
         let packet = makePacket(size: 10, duration: 250)
 
