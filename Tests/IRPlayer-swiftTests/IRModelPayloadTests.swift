@@ -93,6 +93,11 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(state.current, .none)
     }
 
+    func testStatePayloadDefaultsOutOfRangeRawValues() {
+        XCTAssertEqual(IRPlayerNotificationPayload.state(NSNumber(value: Int.max)), .none)
+        XCTAssertEqual(IRPlayerNotificationPayload.state(Int.min), .none)
+    }
+
     func testProgressParserAcceptsNumericPayloadsAndDefaultsMissingValues() {
         let progress = IRModel.progress(fromUserInfo: [
             IRPlayerProgressPercentKey: NSNumber(value: 0.5),
@@ -149,6 +154,16 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(playable.percent, 0)
         XCTAssertEqual(playable.current, 0)
         XCTAssertEqual(playable.total, 0)
+    }
+
+    func testCGFloatPayloadConvertsNumericInputsAndDefaultsInvalidValues() {
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(CGFloat(2.5)), 2.5, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(NSNumber(value: 4.5)), 4.5, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(Double(6.5)), 6.5, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(Float(8.5)), 8.5, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(10), 10, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat("not-a-number"), 0)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(Double.infinity), 0)
     }
 
     func testProgressPayloadDefaultsNonFiniteNumbers() {
