@@ -67,6 +67,7 @@ final class IRePTZShiftControllerTests: XCTestCase {
                        accuracy: 0.0001)
         XCTAssertEqual(IRePTZShiftPolicy.adjustedDegree(.nan, angle: 180, factor: 1), 0)
         XCTAssertEqual(IRePTZShiftPolicy.adjustedDegree(45, angle: 0, factor: 1), 0)
+        XCTAssertEqual(IRePTZShiftPolicy.adjustedDegree(.greatestFiniteMagnitude, angle: 1, factor: 2), 0)
     }
 }
 
