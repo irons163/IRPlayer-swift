@@ -94,6 +94,17 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         return buffer
     }
 
+    private func makeFish2PanoParams() -> IRMetalRenderer.Fish2PanoParams {
+        return IRMetalRenderer.Fish2PanoParams(
+            fishwidth: 2,
+            fishheight: 2,
+            panowidth: 2,
+            panoheight: 2,
+            antialias: 0,
+            offsetX: 0
+        )
+    }
+
     private func makePixelBuffer(width: Int = 2,
                                  height: Int = 2,
                                  format: OSType) throws -> CVPixelBuffer {
@@ -545,6 +556,73 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         }
     }
 
+    func testPixelRenderersRejectRenderingWhenTypedPipelinesAreMissing() throws {
+        let renderer = try makeRenderer()
+        renderer.pipelineNV12 = nil
+        renderer.pipelineRGB = nil
+        renderer.pipelineI420 = nil
+        renderer.pipelineNV12Mesh = nil
+        renderer.pipelineRGBMesh = nil
+        renderer.pipelineI420Mesh = nil
+        renderer.pipelineNV12Fish2Pano = nil
+        renderer.pipelineRGBFish2Pano = nil
+        renderer.pipelineI420Fish2Pano = nil
+        let nv12Renderer = IRMetalPixelRendererNV12()
+        let i420Renderer = IRMetalPixelRendererI420()
+        let rgbRenderer = IRMetalPixelRendererRGB()
+        let indexBuffer = try makeIndexBuffer(renderer: renderer)
+        let nv12Frame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange))
+        let bgraFrame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_32BGRA))
+        let rgbFrame = makeRGBFrame()
+        let params = makeFish2PanoParams()
+
+        try withI420Frame { frame in
+            try withOffscreenEncoder(renderer: renderer) { encoder in
+                XCTAssertFalse(nv12Renderer.render2D(renderer: renderer, frame: nv12Frame, encoder: encoder))
+                XCTAssertFalse(nv12Renderer.render2D(renderer: renderer, frame: bgraFrame, encoder: encoder))
+                XCTAssertFalse(nv12Renderer.renderMesh(renderer: renderer,
+                                                       frame: nv12Frame,
+                                                       encoder: encoder,
+                                                       indexCount: 3,
+                                                       indexBuffer: indexBuffer))
+                XCTAssertFalse(nv12Renderer.renderMesh(renderer: renderer,
+                                                       frame: bgraFrame,
+                                                       encoder: encoder,
+                                                       indexCount: 3,
+                                                       indexBuffer: indexBuffer))
+                XCTAssertFalse(nv12Renderer.renderFish2Pano(renderer: renderer,
+                                                            frame: nv12Frame,
+                                                            encoder: encoder,
+                                                            params: params,
+                                                            texUVTextures: []))
+                XCTAssertFalse(nv12Renderer.renderFish2Pano(renderer: renderer,
+                                                            frame: bgraFrame,
+                                                            encoder: encoder,
+                                                            params: params,
+                                                            texUVTextures: []))
+
+                XCTAssertFalse(i420Renderer.render2D(renderer: renderer, frame: frame, encoder: encoder))
+                XCTAssertFalse(i420Renderer.renderMesh(renderer: renderer,
+                                                       frame: frame,
+                                                       encoder: encoder,
+                                                       indexCount: 3,
+                                                       indexBuffer: indexBuffer))
+                XCTAssertFalse(i420Renderer.renderFish2Pano(renderer: renderer,
+                                                            frame: frame,
+                                                            encoder: encoder,
+                                                            params: params,
+                                                            texUVTextures: []))
+
+                XCTAssertFalse(rgbRenderer.render2D(renderer: renderer, frame: rgbFrame, encoder: encoder))
+                XCTAssertFalse(rgbRenderer.renderFish2Pano(renderer: renderer,
+                                                           frame: rgbFrame,
+                                                           encoder: encoder,
+                                                           params: params,
+                                                           texUVTextures: []))
+            }
+        }
+    }
+
     func testRGBPixelRendererRejectsRenderingWhenPipelineIsMissing() throws {
         let renderer = try makeRenderer()
         renderer.pipelineRGB = nil
@@ -567,14 +645,7 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let nv12Renderer = IRMetalPixelRendererNV12()
         let i420Renderer = IRMetalPixelRendererI420()
         let rgbFrame = makeRGBFrame()
-        let params = IRMetalRenderer.Fish2PanoParams(
-            fishwidth: 2,
-            fishheight: 2,
-            panowidth: 2,
-            panoheight: 2,
-            antialias: 0,
-            offsetX: 0
-        )
+        let params = makeFish2PanoParams()
 
         try withOffscreenEncoder(renderer: renderer) { encoder in
             XCTAssertFalse(nv12Renderer.render2D(renderer: renderer, frame: rgbFrame, encoder: encoder))
