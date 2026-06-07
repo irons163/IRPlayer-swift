@@ -116,6 +116,59 @@ final class IRGLTransformController2DTests: XCTestCase {
         XCTAssertEqual(output, "")
     }
 
+    func testBaseControllerInitializesRangesAndDefaultScale() throws {
+        let scopeRange = IRGLScopeRange(minLat: -10,
+                                        maxLat: 20,
+                                        minLng: -30,
+                                        maxLng: 40,
+                                        defaultLat: 5,
+                                        defaultLng: 6)
+        let scaleRange = IRGLScaleRange(minScaleX: 0.5,
+                                        minScaleY: 0.75,
+                                        maxScaleX: 3,
+                                        maxScaleY: 4,
+                                        defaultScaleX: 1.5,
+                                        defaultScaleY: 2)
+
+        let controller = IRGLTransformController(scopeRange: scopeRange, scaleRange: scaleRange)
+
+        XCTAssertTrue(controller.scopeRange === scopeRange)
+        XCTAssertTrue(controller.scaleRange === scaleRange)
+        XCTAssertEqual(controller.getDefaultTransformScale().x, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(controller.getDefaultTransformScale().y, 2, accuracy: 0.0001)
+        XCTAssertEqual(scopeRange.wideDegreeX, 70, accuracy: 0.0001)
+        XCTAssertEqual(scopeRange.wideDegreeY, 30, accuracy: 0.0001)
+    }
+
+    func testBaseControllerReturnsDefaultScopeAndIdentityMatrix() {
+        let controller = IRGLTransformController()
+
+        let scope = controller.getScope()
+        XCTAssertEqual(scope.w, 0)
+        XCTAssertEqual(scope.h, 0)
+        XCTAssertEqual(scope.scaleX, 1, accuracy: 0.0001)
+        XCTAssertEqual(scope.scaleY, 1, accuracy: 0.0001)
+        assertIdentity(controller.getModelViewProjectionMatrix())
+    }
+
+    func testBaseControllerNoOpMethodsRemainCallable() {
+        let controller = IRGLTransformController()
+
+        controller.setupDefaultTransform(scaleX: 2, scaleY: 3)
+        controller.updateToDefault()
+        controller.scroll(degreeX: 10, degreeY: 20)
+        controller.update(fx: 1, fy: 2, sx: 3, sy: 4)
+        controller.scroll(dx: 5, dy: 6)
+        controller.rotate(degree: 45)
+        controller.updateVertices()
+        controller.resetViewport(width: 320, height: 180, resetTransform: true)
+        controller.reset()
+
+        XCTAssertEqual(controller.getDefaultTransformScale().x, 2, accuracy: 0.0001)
+        XCTAssertEqual(controller.getDefaultTransformScale().y, 3, accuracy: 0.0001)
+        assertIdentity(controller.getModelViewProjectionMatrix())
+    }
+
     private func assertFinite(
         _ matrix: simd_float4x4,
         file: StaticString = #filePath,
@@ -127,6 +180,21 @@ final class IRGLTransformController2DTests: XCTestCase {
             XCTAssertTrue(column.z.isFinite, file: file, line: line)
             XCTAssertTrue(column.w.isFinite, file: file, line: line)
         }
+    }
+
+    private func assertIdentity(
+        _ matrix: simd_float4x4,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(matrix.columns.0.x, 1, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(matrix.columns.1.y, 1, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(matrix.columns.2.z, 1, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(matrix.columns.3.w, 1, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(matrix.columns.0.y, 0, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(matrix.columns.1.x, 0, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(matrix.columns.2.x, 0, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(matrix.columns.3.x, 0, accuracy: 0.0001, file: file, line: line)
     }
 
 }
