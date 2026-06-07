@@ -60,6 +60,26 @@ final class IRAudioManagerRenderTests: XCTestCase {
         }
     }
 
+    func testRequiredAudioGraphAcceptsExistingGraph() throws {
+        var graph: AUGraph?
+        XCTAssertEqual(NewAUGraph(&graph), noErr)
+        defer {
+            if let graph {
+                DisposeAUGraph(graph)
+            }
+        }
+
+        let unwrappedGraph = try XCTUnwrap(graph)
+        let result = IRAudioManager.requiredAudioGraph(unwrappedGraph, domain: "existing graph")
+
+        switch result {
+        case .success(let acceptedGraph):
+            XCTAssertEqual(acceptedGraph, unwrappedGraph)
+        case .failure:
+            XCTFail("Existing graph should be accepted")
+        }
+    }
+
     func testRequiredAudioUnitRejectsMissingUnit() {
         let result = IRAudioManager.requiredAudioUnit(nil, domain: "missing audio unit")
 
