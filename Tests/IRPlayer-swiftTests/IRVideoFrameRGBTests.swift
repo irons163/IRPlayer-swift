@@ -39,6 +39,14 @@ final class IRVideoFrameRGBTests: XCTestCase {
         XCTAssertNil(frame.asImage())
     }
 
+    func testAsImageReturnsNilWhenImageCannotBeCreated() {
+        let frame = IRVideoFrameRGB(linesize: 3, rgb: Data([0, 0, 0]))
+        frame.width = 0
+        frame.height = 1
+
+        XCTAssertNil(frame.asImage())
+    }
+
     func testAsImageBuildsImageFromValidRGBData() throws {
         let frame = IRVideoFrameRGB(linesize: 3, rgb: Data([0xff, 0, 0]))
         frame.width = 1
