@@ -65,6 +65,13 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(error.error.code, -1)
     }
 
+    func testDefaultIRErrorEventUsesEmptyStatusFields() {
+        let event = IRErrorEvent()
+
+        XCTAssertEqual(event.errorStatusCode, 0)
+        XCTAssertEqual(event.errorDomain, "")
+    }
+
     func testStatePayloadRoundTripsThroughModelParser() {
         let payload = IRPlayerNotificationPayload.state(previous: .buffering, current: .playing)
         let state = IRModel.state(fromUserInfo: payload)
@@ -216,5 +223,12 @@ final class IRModelPayloadTests: XCTestCase {
         let wrappedError = IRModel.error(fromUserInfo: [IRPlayerErrorKey: nsError])
         XCTAssertEqual(wrappedError.error.domain, "wrapped")
         XCTAssertEqual(wrappedError.error.code, 8)
+    }
+
+    func testErrorParserDefaultsMalformedPayloads() {
+        let error = IRModel.error(fromUserInfo: [IRPlayerErrorKey: "not-an-error"])
+
+        XCTAssertEqual(error.error.domain, "IRPlayer error")
+        XCTAssertEqual(error.error.code, -1)
     }
 }
