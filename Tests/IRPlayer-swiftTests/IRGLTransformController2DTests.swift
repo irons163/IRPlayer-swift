@@ -138,6 +138,10 @@ final class IRGLTransformController2DTests: XCTestCase {
         XCTAssertEqual(controller.getDefaultTransformScale().y, 2, accuracy: 0.0001)
         XCTAssertEqual(scopeRange.wideDegreeX, 70, accuracy: 0.0001)
         XCTAssertEqual(scopeRange.wideDegreeY, 30, accuracy: 0.0001)
+
+        let wideDegreeRange = IRGLWideDegreeRange(wideDegreeX: 90, wideDegreeY: 45)
+        XCTAssertEqual(wideDegreeRange.wideDegreeX, 90, accuracy: 0.0001)
+        XCTAssertEqual(wideDegreeRange.wideDegreeY, 45, accuracy: 0.0001)
     }
 
     func testBaseControllerReturnsDefaultScopeAndIdentityMatrix() {
