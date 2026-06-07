@@ -120,6 +120,7 @@ final class IRGLProjectionEquirectangularTests: XCTestCase {
     func testBufferPlanRejectsOverflowWithoutDebugOutput() {
         let output = captureStandardOutput {
             XCTAssertNil(IRGLProjectionEquirectangular.bufferPlan(slices: Int.max, indicesPerVertex: 1))
+            XCTAssertNil(IRGLProjectionEquirectangular.bufferPlan(slices: 3_037_000_499, indicesPerVertex: 1))
         }
 
         XCTAssertEqual(output, "")
