@@ -1,8 +1,27 @@
+import CoreVideo
 import IRFFMpeg
 import XCTest
 @testable import IRPlayer_swift
 
 final class IRFFAVYUVVideoFrameTests: XCTestCase {
+
+    private func makePixelBuffer(width: Int = 3,
+                                 height: Int = 5,
+                                 format: OSType = kCVPixelFormatType_32BGRA) throws -> CVPixelBuffer {
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            format,
+            [kCVPixelBufferIOSurfacePropertiesKey as String: [:]] as CFDictionary,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let pixelBuffer else {
+            throw XCTSkip("CVPixelBuffer unavailable")
+        }
+        return pixelBuffer
+    }
 
     func testImageReturnsNilWhenFrameDataIsMissing() {
         let frame = IRFFAVYUVVideoFrame()
@@ -10,6 +29,17 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         let image: IRPLFImage? = frame.image()
 
         XCTAssertNil(image)
+    }
+
+    func testCVYUVVideoFrameUsesPixelBufferDimensionsAndType() throws {
+        let pixelBuffer = try makePixelBuffer(width: 3, height: 5)
+
+        let frame = IRFFCVYUVVideoFrame(pixelBuffer: pixelBuffer)
+
+        XCTAssertEqual(frame.type, .cvyuvVideo)
+        XCTAssertEqual(frame.width, 3)
+        XCTAssertEqual(frame.height, 5)
+        XCTAssertTrue(frame.pixelBuffer === pixelBuffer)
     }
 
     func testSetFrameDataIgnoresMissingPlaneData() {

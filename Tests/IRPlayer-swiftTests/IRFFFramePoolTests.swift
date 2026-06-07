@@ -3,6 +3,49 @@ import XCTest
 
 final class IRFFFramePoolTests: XCTestCase {
 
+    private final class DelegateSpy: NSObject, IRFFFrameDelegate {
+        private(set) var startedFrame: IRFFFrame?
+        private(set) var stoppedFrame: IRFFFrame?
+        private(set) var canceledFrame: IRFFFrame?
+
+        func frameDidStartPlaying(_ frame: IRFFFrame) {
+            startedFrame = frame
+        }
+
+        func frameDidStopPlaying(_ frame: IRFFFrame) {
+            stoppedFrame = frame
+        }
+
+        func frameDidCancel(_ frame: IRFFFrame) {
+            canceledFrame = frame
+        }
+    }
+
+    func testSubtitleAndArtworkFramesReportSpecializedTypes() {
+        let artwork = IRFFArtworkFrame()
+        let picture = Data([1, 2, 3])
+
+        artwork.picture = picture
+
+        XCTAssertEqual(IRFFSubtitleFrame().type, .subtitle)
+        XCTAssertEqual(artwork.type, .artwork)
+        XCTAssertEqual(artwork.picture, picture)
+    }
+
+    func testFrameCancelClearsPlayingAndNotifiesDelegate() {
+        let frame = IRFFFrame()
+        let delegate = DelegateSpy()
+        frame.delegate = delegate
+
+        frame.startPlaying()
+        frame.cancel()
+
+        XCTAssertFalse(frame.playing)
+        XCTAssertTrue(delegate.startedFrame === frame)
+        XCTAssertTrue(delegate.canceledFrame === frame)
+        XCTAssertNil(delegate.stoppedFrame)
+    }
+
     func testDefaultPoolsCreateExpectedFrameTypesWithoutModuleNameLookup() {
         let videoFrame = IRFFFramePool.videoPool().getUnuseFrame()
         let audioFrame = IRFFFramePool.audioPool().getUnuseFrame()

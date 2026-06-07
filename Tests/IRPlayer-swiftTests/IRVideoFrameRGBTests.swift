@@ -11,6 +11,14 @@ import XCTest
 
 final class IRVideoFrameRGBTests: XCTestCase {
 
+    func testBaseVideoFrameDefaultsToVideoTypeAndZeroDimensions() {
+        let frame = IRFFVideoFrame()
+
+        XCTAssertEqual(frame.type, .video)
+        XCTAssertEqual(frame.width, 0)
+        XCTAssertEqual(frame.height, 0)
+    }
+
     func testFrameReportsVideoTypeAndRGBFormat() {
         let frame = IRVideoFrameRGB(linesize: 3, rgb: Data([0, 0, 0]))
 
