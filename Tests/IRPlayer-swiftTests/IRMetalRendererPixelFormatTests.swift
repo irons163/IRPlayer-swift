@@ -70,6 +70,16 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         return frame
     }
 
+    private func makeIndexBuffer(renderer: IRMetalRenderer) throws -> MTLBuffer {
+        var indices: [UInt16] = [0, 1, 2]
+        guard let buffer = renderer.device.makeBuffer(bytes: &indices,
+                                                      length: MemoryLayout<UInt16>.stride * indices.count,
+                                                      options: .storageModeShared) else {
+            throw XCTSkip("Metal index buffer unavailable")
+        }
+        return buffer
+    }
+
     private func makePixelBuffer(width: Int = 2,
                                  height: Int = 2,
                                  format: OSType) throws -> CVPixelBuffer {
@@ -448,6 +458,33 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         try withI420Frame { frame in
             try withOffscreenEncoder(renderer: renderer) { encoder in
                 XCTAssertTrue(renderer.renderI420(yuvFrame: frame, encoder: encoder))
+            }
+        }
+    }
+
+    func testRenderMeshHelpersRejectRenderingWhenPipelinesAreMissing() throws {
+        let renderer = try makeRenderer()
+        renderer.pipelineNV12Mesh = nil
+        renderer.pipelineRGBMesh = nil
+        renderer.pipelineI420Mesh = nil
+        let indexBuffer = try makeIndexBuffer(renderer: renderer)
+        let bgraFrame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_32BGRA))
+        let nv12Frame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange))
+
+        try withI420Frame { yuvFrame in
+            try withOffscreenEncoder(renderer: renderer) { encoder in
+                XCTAssertFalse(renderer.renderNV12Mesh(cvFrame: nv12Frame,
+                                                       encoder: encoder,
+                                                       indexCount: 3,
+                                                       indexBuffer: indexBuffer))
+                XCTAssertFalse(renderer.renderBGRAMesh(cvFrame: bgraFrame,
+                                                       encoder: encoder,
+                                                       indexCount: 3,
+                                                       indexBuffer: indexBuffer))
+                XCTAssertFalse(renderer.renderI420Mesh(yuvFrame: yuvFrame,
+                                                       encoder: encoder,
+                                                       indexCount: 3,
+                                                       indexBuffer: indexBuffer))
             }
         }
     }
