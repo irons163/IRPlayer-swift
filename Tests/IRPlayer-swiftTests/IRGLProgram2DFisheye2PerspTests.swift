@@ -120,4 +120,58 @@ final class IRGLProgram2DFisheye2PerspTests: XCTestCase {
         XCTAssertFalse(shouldContinue)
         XCTAssertEqual(params.transformY, -90, accuracy: 0.0001)
     }
+
+    func testHorizontalBoundsScrollUpdatesTransformY() {
+        let program = IRGLProgram2DFisheye2Persp()
+        guard let params = program.metalFish2PerspParams else {
+            return XCTFail("Expected fisheye-to-perspective params")
+        }
+        params.outputWidth = 360
+        params.transformY = -90
+
+        program.willScroll(dx: 18, dy: 0, transformController: IRGLTransformController())
+        let shouldContinue = program.doScrollHorizontal(status: [.toMinX], transformController: IRGLTransformController())
+
+        XCTAssertFalse(shouldContinue)
+        XCTAssertEqual(params.transformY, -81, accuracy: 0.0001)
+    }
+
+    func testVerticalBoundsScrollUpdatesAndClampsTransformX() {
+        let program = IRGLProgram2DFisheye2Persp()
+        guard let params = program.metalFish2PerspParams else {
+            return XCTFail("Expected fisheye-to-perspective params")
+        }
+        params.fishradiush = 90
+        params.transformX = 10
+
+        program.willScroll(dx: 0, dy: -100, transformController: IRGLTransformController())
+        let shouldContinueAtMax = program.doScrollVertical(status: [.toMaxY], transformController: IRGLTransformController())
+
+        XCTAssertFalse(shouldContinueAtMax)
+        XCTAssertEqual(params.transformX, 55, accuracy: 0.0001)
+
+        program.willScroll(dx: 0, dy: 100, transformController: IRGLTransformController())
+        let shouldContinueAtMin = program.doScrollVertical(status: [.toMinY], transformController: IRGLTransformController())
+
+        XCTAssertFalse(shouldContinueAtMin)
+        XCTAssertEqual(params.transformX, 0, accuracy: 0.0001)
+    }
+
+    func testScrollAwayFromBoundsContinuesControllerHandling() {
+        let program = IRGLProgram2DFisheye2Persp()
+        guard let params = program.metalFish2PerspParams else {
+            return XCTFail("Expected fisheye-to-perspective params")
+        }
+        params.outputWidth = 360
+        params.fishradiush = 90
+        params.transformX = 10
+        params.transformY = -90
+
+        program.willScroll(dx: 18, dy: -18, transformController: IRGLTransformController())
+
+        XCTAssertTrue(program.doScrollHorizontal(status: [], transformController: IRGLTransformController()))
+        XCTAssertTrue(program.doScrollVertical(status: [], transformController: IRGLTransformController()))
+        XCTAssertEqual(params.transformX, 10, accuracy: 0.0001)
+        XCTAssertEqual(params.transformY, -90, accuracy: 0.0001)
+    }
 }
