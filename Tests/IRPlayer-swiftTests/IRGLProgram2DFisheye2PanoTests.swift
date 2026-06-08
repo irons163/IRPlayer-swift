@@ -117,6 +117,31 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(params.offsetX, -50, accuracy: 0.0001)
     }
 
+    func testProgramHorizontalBoundsScrollStopsWhenTransformControllerIsMissing() throws {
+        let program = IRGLProgram2DFisheye2Pano(pixelFormat: .RGB_IRPixelFormat,
+                                                viewportRange: .zero,
+                                                parameter: nil)
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+        params.outputWidth = 100
+        params.offsetX = 25
+
+        program.willScroll(dx: 50, dy: 0, transformController: Fish2PanoRecordingTransformController(scope: IRGLScope2D()))
+        let shouldContinue = program.doScrollHorizontal(status: .toMinX, transformController: IRGLTransformController())
+
+        XCTAssertFalse(shouldContinue)
+        XCTAssertEqual(params.offsetX, 25)
+    }
+
+    func testProgramDoubleTapRemainsCallableWithoutTransformController() {
+        let program = IRGLProgram2DFisheye2Pano(pixelFormat: .RGB_IRPixelFormat,
+                                                viewportRange: .zero,
+                                                parameter: nil)
+
+        program.didDoubleTap()
+
+        XCTAssertNotNil(program.metalFish2PanoParams)
+    }
+
     func testPanoShaderParamsDefaultValuesMatchExpectedProjectionInputs() {
         let params = IRGLFish2PanoShaderParams()
 
