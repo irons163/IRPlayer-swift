@@ -74,6 +74,24 @@ final class IRGLTransformController2DTests: XCTestCase {
         assertFinite(controller.getModelViewProjectionMatrix())
     }
 
+    func testResetViewportWithResetTransformAppliesNewSizeAndDefaultScale() {
+        let controller = IRGLTransformController2D(viewportWidth: 100, viewportHeight: 100)
+        controller.setupDefaultTransform(scaleX: 1.5, scaleY: 2)
+        controller.update(fx: 50, fy: 50, sx: 3, sy: 3)
+
+        controller.resetViewport(width: 320, height: 180, resetTransform: true)
+
+        XCTAssertEqual(controller.getScope().w, 320)
+        XCTAssertEqual(controller.getScope().h, 180)
+        XCTAssertEqual(controller.getScope().scaleX, 1, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().scaleY, 1, accuracy: 0.0001)
+        XCTAssertEqual(controller.getDefaultTransformScale().x, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(controller.getDefaultTransformScale().y, 2, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().offsetX, 0, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().offsetY, 0, accuracy: 0.0001)
+        assertFinite(controller.getModelViewProjectionMatrix())
+    }
+
     func testUpdateWithZeroViewportKeepsMatrixFinite() {
         let controller = IRGLTransformController2D()
 
