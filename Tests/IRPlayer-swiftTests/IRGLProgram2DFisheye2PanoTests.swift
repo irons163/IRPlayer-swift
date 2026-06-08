@@ -156,6 +156,18 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertTrue(delegate.outputSizes.isEmpty)
     }
 
+    func testPanoShaderParamsConsumePixUVWhenMapIsReady() throws {
+        let params = IRGLFish2PanoShaderParams()
+
+        XCTAssertNil(params.consumePixUVIfReady())
+
+        params.updateTextureWidth(32, height: 24)
+        let pixUV = try waitForPixUV(from: params)
+
+        XCTAssertEqual(pixUV.count, 1)
+        XCTAssertNil(params.consumePixUVIfReady())
+    }
+
     func testPanoShaderParamsHugeTextureUpdateDoesNotBuildOutputMap() {
         let params = IRGLFish2PanoShaderParams()
         let delegate = ShaderParamsDelegateSpy()
@@ -261,6 +273,23 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(value.x, x, accuracy: 0.0001, file: file, line: line)
         XCTAssertEqual(value.y, y, accuracy: 0.0001, file: file, line: line)
         XCTAssertEqual(value.z, z, accuracy: 0.0001, file: file, line: line)
+    }
+
+    private func waitForPixUV(
+        from params: IRGLFish2PanoShaderParams,
+        timeout: TimeInterval = 1,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> [UnsafeMutablePointer<GLfloat>] {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let pixUV = params.consumePixUVIfReady() {
+                return pixUV
+            }
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+        XCTFail("Expected fish2pano pixel map to become ready", file: file, line: line)
+        throw XCTSkip("Pixel map did not become ready before timeout")
     }
 }
 
