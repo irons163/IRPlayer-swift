@@ -92,6 +92,18 @@ final class IRAudioManagerRenderTests: XCTestCase {
         }
     }
 
+    func testRequiredAudioUnitAcceptsExistingUnit() throws {
+        let audioUnit = try XCTUnwrap(AudioUnit(bitPattern: 1))
+        let result = IRAudioManager.requiredAudioUnit(audioUnit, domain: "existing audio unit")
+
+        switch result {
+        case .success(let acceptedUnit):
+            XCTAssertEqual(acceptedUnit, audioUnit)
+        case .failure:
+            XCTFail("Existing audio unit should be accepted")
+        }
+    }
+
     func testRenderFramesIgnoresMissingAudioBufferList() {
         let manager = IRAudioManager()
 
