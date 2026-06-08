@@ -198,6 +198,19 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(transform.translationY, 0, accuracy: 0.0001)
     }
 
+    func testFittedImageTransformCalculatesScaleToFillIndependentAxes() throws {
+        let transform = try XCTUnwrap(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 400, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: 100, height: 80),
+                                          contentMode: .scaleToFill)
+        )
+
+        XCTAssertEqual(transform.scaleX, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(transform.scaleY, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationX, 0, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationY, 0, accuracy: 0.0001)
+    }
+
     func testFittedImageTransformRejectsInvalidGeometry() {
         XCTAssertNil(
             IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 0, height: 200),
