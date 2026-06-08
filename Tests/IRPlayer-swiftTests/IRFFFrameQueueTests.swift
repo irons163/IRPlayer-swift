@@ -70,6 +70,18 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 20)
     }
 
+    func testFrameQueueSyncFetchReturnsQueuedFrameAndUpdatesAccounting() {
+        let queue = IRFFFrameQueue.frameQueue()
+        let frame = makeFrame(position: 0, duration: 0.25, size: 10)
+
+        queue.putFrame(frame)
+
+        XCTAssertTrue(queue.getFrameSync() === frame)
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 0)
+    }
+
     func testPutSortFrameReturnsFramesInAscendingPositionOrder() {
         let queue = IRFFFrameQueue.frameQueue()
         let later = makeFrame(position: 3, duration: 0.1, size: 1)
