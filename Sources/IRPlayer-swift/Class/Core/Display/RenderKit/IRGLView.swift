@@ -24,7 +24,11 @@ enum IRDisplayRendererType: UInt {
 public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     var abstractPlayer: IRPlayerImp?
-    private var metalLayer: CAMetalLayer? { layer as? CAMetalLayer }
+    private var metalLayer: CAMetalLayer? {
+        syncOnMain {
+            layer as? CAMetalLayer
+        }
+    }
     private var device: MTLDevice?
     private var commandQueue: MTLCommandQueue?
     private var ciContext: CIContext?
@@ -102,12 +106,21 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         return CAMetalLayer.self
     }
 
+    private func syncOnMain<T>(_ block: () -> T) -> T {
+        if Thread.isMainThread {
+            return block()
+        }
+
+        return DispatchQueue.main.sync(execute: block)
+    }
+
     func initGL(with pixelFormat: IRPixelFormat) {
         CATransaction.flush()
         queue.sync {
             reset()
-            guard let metalLayer = self.layer as? CAMetalLayer else { return }
-            metalLayer.contentsScale = UIScreen.main.scale
+            guard let metalLayer = self.metalLayer else { return }
+            let screenScale = self.syncOnMain { UIScreen.main.scale }
+            metalLayer.contentsScale = screenScale
             metalLayer.isOpaque = true
             if device == nil {
                 device = MTLCreateSystemDefaultDevice()
@@ -177,8 +190,9 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     private func updateDrawableSize(scale: CGFloat) {
         guard let metalLayer = metalLayer else { return }
-        let effectiveScale = scale * UIScreen.main.scale
-        let size = CGSize(width: bounds.width * effectiveScale, height: bounds.height * effectiveScale)
+        let (viewBounds, screenScale) = syncOnMain { (bounds, UIScreen.main.scale) }
+        let effectiveScale = scale * screenScale
+        let size = CGSize(width: viewBounds.width * effectiveScale, height: viewBounds.height * effectiveScale)
         guard let pixelSize = Self.drawablePixelSize(from: size) else { return }
         metalLayer.drawableSize = size
         backingWidth = pixelSize.width
@@ -433,7 +447,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     private func clearImage() -> CIImage {
-        let size = metalLayer?.drawableSize ?? bounds.size
+        let size = metalLayer?.drawableSize ?? syncOnMain { bounds.size }
         let rect = CGRect(origin: .zero, size: size)
         return CIImage(color: .black).cropped(to: rect)
     }

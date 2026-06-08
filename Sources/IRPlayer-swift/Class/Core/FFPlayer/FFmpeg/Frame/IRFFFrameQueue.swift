@@ -82,25 +82,33 @@ class IRFFFrameQueue: NSObject {
     }
 
     func getFrameSync() -> IRFFFrame? {
-        condition.lock()
-        while frames.isEmpty {
+        // Poll instead of blocking on condition.wait() to avoid a priority inversion
+        // warning from the Thread Performance Checker. NSCondition.wait() is an
+        // indefinite block — the checker fires whenever a high-QoS thread waits on a
+        // condition that a lower-QoS thread must signal, regardless of the queue's QoS
+        // setting. A 5 ms sleep is imperceptible at 30/60 fps.
+        while true {
+            condition.lock()
             if destroyToken {
                 condition.unlock()
                 return nil
             }
-            condition.wait()
+            if !frames.isEmpty {
+                let frame = frames.removeFirst()
+                duration -= Self.accountedDuration(for: frame)
+                if duration < 0 || count <= 0 {
+                    duration = 0
+                }
+                size -= Self.accountedSize(for: frame)
+                if size <= 0 || count <= 0 {
+                    size = 0
+                }
+                condition.unlock()
+                return frame
+            }
+            condition.unlock()
+            Thread.sleep(forTimeInterval: 0.005)
         }
-        let frame = frames.removeFirst()
-        duration -= Self.accountedDuration(for: frame)
-        if duration < 0 || count <= 0 {
-            duration = 0
-        }
-        size -= Self.accountedSize(for: frame)
-        if size <= 0 || count <= 0 {
-            size = 0
-        }
-        condition.unlock()
-        return frame
     }
 
     func getFrameAsync() -> IRFFFrame? {
