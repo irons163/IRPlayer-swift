@@ -67,16 +67,7 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     class func getScopeRange(of type: IRGLScope3D.TiltType) -> IRGLScopeRange {
-        switch type {
-        case .up:
-            return IRGLScopeRange(minLat: -80, maxLat: 80, minLng: -75, maxLng: 75, defaultLat: 0, defaultLng: 0)
-        case .toward:
-            return IRGLScopeRange(minLat: 0, maxLat: 80, minLng: -180, maxLng: 180, defaultLat: 80, defaultLng: -90)
-        case .backward:
-            return IRGLScopeRange(minLat: -85, maxLat: -20, minLng: -180, maxLng: 180, defaultLat: -80, defaultLng: 90)
-        default:
-            return IRGLScopeRange(minLat: 0, maxLat: 0, minLng: 0, maxLng: 0, defaultLat: 0, defaultLng: 0)
-        }
+        return IRGLFisheyeTransformPolicy.scopeRange(for: type)
     }
 
     override func getModelViewProjectionMatrix() -> simd_float4x4 {
@@ -102,20 +93,21 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     func updateBy(fx: Float, fy: Float, sx: Float, sy: Float, renew: Bool) {
-        guard sx.isFinite, sy.isFinite, sx > 0, sy > 0 else { return }
-        let oldScale = scope.scaleX 
-        if sx <= 1.0 {
-            scope.scaleX = 1
-            scope.scaleY = 1
-        } else {
-            let s2 = sx > (scaleRange?.maxScaleX ?? 1) ? scaleRange?.maxScaleX ?? 1 : sx
-            scope.scaleX = s2
-            scope.scaleY = s2
+        guard sy.isFinite, sy > 0,
+              let decision = IRGLFisheyeTransformPolicy.scaleDecision(
+                requestedScale: sx,
+                maxScale: scaleRange?.maxScaleX ?? 1,
+                tanbase: tanbase
+              ) else {
+            return
         }
 
+        let oldScale = scope.scaleX 
+        scope.scaleX = decision.scale
+        scope.scaleY = decision.scale
+
         if oldScale != scope.scaleX {
-            let newFov = atan(Double(tanbase) / Double(scope.scaleX )) * 2
-            fov = Float(newFov * (180 / .pi))
+            fov = decision.fovDegrees
             let aspectRatio = Self.aspectRatio(width: scope.w, height: scope.h)
             let fovyRadians = fov * .pi / 180.0
             projectMatrix = IRMatrix4.makePerspective(fovyRadians, aspectRatio, 1.0, 1000.0)
@@ -126,27 +118,23 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     override func scroll(dx: Float, dy: Float) {
-        guard dx.isFinite, dy.isFinite else { return }
+        guard let decision = IRGLFisheyeTransformPolicy.scrollDecision(
+            currentLat: scope.lat,
+            currentLng: scope.lng,
+            dx: dx,
+            dy: dy,
+            friction: DRAG_FRICTION,
+            range: scopeRange
+        ) else {
+            return
+        }
 
         let oldLng = scope.lng
         let oldLat = scope.lat
 
-        scope.lng = -dx * DRAG_FRICTION + scope.lng
-        scope.lat = -dy * DRAG_FRICTION + scope.lat
-
-        var status: IRGLTransformController.ScrollStatus = []
-
-        if min(scopeRange?.maxLng ?? 0, scope.lng) == scopeRange?.maxLng {
-            status.insert(.toMaxX)
-        } else if max(scopeRange?.minLng ?? 0, scope.lng) == scopeRange?.minLng {
-            status.insert(.toMinX)
-        }
-
-        if min(scopeRange?.maxLat ?? 0, scope.lat) == scopeRange?.maxLat {
-            status.insert(.toMaxY)
-        } else if max(scopeRange?.minLat ?? 0, scope.lat) == scopeRange?.minLat {
-            status.insert(.toMinY)
-        }
+        scope.lng = decision.lng
+        scope.lat = decision.lat
+        var status = decision.status
 
         var doScrollHorizontal = true
         var doScrollVertical = true
@@ -247,20 +235,14 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     override func updateVertices() {
-        while scope.lat > 90 {
-            scope.lat = scope.lat - 180
-        }
-        while scope.lat <= -90 {
-            scope.lat = 180 + scope.lat
-        }
-        scope.lat = max(scopeRange?.minLat ?? 0, min((scopeRange?.maxLat ?? 0) - fov / 2, scope.lat))
-        while scope.lng > 180 {
-            scope.lng = scope.lng - 360
-        }
-        while scope.lng <= -180 {
-            scope.lng = 360 + scope.lng
-        }
-        scope.lng = max(scopeRange?.minLng ?? 0, min(scopeRange?.maxLng ?? 0, scope.lng))
+        let normalizedScope = IRGLFisheyeTransformPolicy.normalizedScope(
+            lat: scope.lat,
+            lng: scope.lng,
+            fov: fov,
+            range: scopeRange
+        )
+        scope.lat = normalizedScope.lat
+        scope.lng = normalizedScope.lng
 
         let lng = scope.lng + 180
         let phi = (90 - scope.lat) * .pi / 180.0
@@ -276,7 +258,6 @@ class IRGLTransformController3DFisheye: IRGLTransformController {
     }
 
     static func aspectRatio(width: Int, height: Int) -> Float {
-        guard width > 0, height > 0 else { return 1.0 }
-        return Float(width) / Float(height)
+        return IRGLFisheyeTransformPolicy.aspectRatio(width: width, height: height)
     }
 }

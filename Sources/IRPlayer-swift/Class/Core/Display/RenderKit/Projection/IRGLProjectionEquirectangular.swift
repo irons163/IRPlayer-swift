@@ -33,6 +33,14 @@ class IRGLProjectionEquirectangular: IRGLProjection {
     private var cx: Float = 0
     private var cy: Float = 0
 
+    struct BufferPlan {
+        let iMax: Int
+        let vertexCount: Int
+        let vertexCapacity: Int
+        let vectorCapacity: Int
+        let totalIndices: Int
+    }
+
     init(textureWidth w: Float, height h: Float, centerX: Float, centerY: Float, radius: Float) {
         setup(textureWidth: w, height: h, centerX: centerX, centerY: centerY, radius: radius)
     }
@@ -53,7 +61,6 @@ class IRGLProjectionEquirectangular: IRGLProjection {
 
         if radius == 0 || centerX == 0 || centerY == 0 || radius > w / 2 || radius > h / 2 ||
             radius + centerX > w || radius + centerY > h {
-            IRPlayerImp.Logger.libraryLogger.debug("illegal params, set default ones...")
             centerX = w / 2
             centerY = h / 2
             radius = min(w, h) / 2
@@ -68,25 +75,17 @@ class IRGLProjectionEquirectangular: IRGLProjection {
 
     private func initBuffers(tw: Float, th: Float, cr: Float, cx: Float, cy: Float) {
         if cr <= 0 || cx <= 0 || cy <= 0 || tw < cr || th < cr || cx + cr > tw || cy + cr > th {
-            IRPlayerImp.Logger.libraryLogger.warning("illegal params")
             return
         }
 
-        let iMax = slices + 1
-        guard let vertexCount = Self.elementCount(baseCount: iMax, components: iMax),
-              let vertexCapacity = Self.elementCount(baseCount: vertexCount, components: 3),
-              let vectorCapacity = Self.elementCount(baseCount: vertexCount, components: 2),
-              let sliceSquareCount = Self.elementCount(baseCount: slices, components: slices),
-              let totalIndices = Self.elementCount(baseCount: sliceSquareCount, components: 6) else {
-            IRPlayerImp.Logger.libraryLogger.warning("nSlices \(self.slices) too big for vertex")
-            return
-        }
+        guard let plan = Self.bufferPlan(slices: slices, indicesPerVertex: indicesPerVertex) else { return }
         releaseBuffers()
 
-        nVertices = vertexCount
-        mVertices = UnsafeMutablePointer<Float>.allocate(capacity: vertexCapacity)
-        mVectors = UnsafeMutablePointer<Float>.allocate(capacity: vectorCapacity)
-        mTotalIndices = totalIndices
+        let iMax = plan.iMax
+        nVertices = plan.vertexCount
+        mVertices = UnsafeMutablePointer<Float>.allocate(capacity: plan.vertexCapacity)
+        mVectors = UnsafeMutablePointer<Float>.allocate(capacity: plan.vectorCapacity)
+        mTotalIndices = plan.totalIndices
         mIndices = UnsafeMutablePointer<UnsafeMutablePointer<Int16>>.allocate(capacity: indicesPerVertex)
         mNumIndices = UnsafeMutablePointer<Int>.allocate(capacity: indicesPerVertex)
 
@@ -186,14 +185,7 @@ class IRGLProjectionEquirectangular: IRGLProjection {
     }
 
     static func maxItem(in array: UnsafeMutablePointer<Int>?, size: Int) -> Int? {
-        guard let array, size > 0 else { return nil }
-        var max = array[0]
-        for i in 1..<size {
-            if array[i] > max {
-                max = array[i]
-            }
-        }
-        return max
+        return IRGLProjectionEquirectangularPolicy.maxItem(in: array, size: size)
     }
 
     func update(with parameter: IRMediaParameter) {
@@ -261,26 +253,22 @@ class IRGLProjectionEquirectangular: IRGLProjection {
         return (positions, texcoords, indices)
     }
 
+    static func bufferPlan(slices: Int, indicesPerVertex: Int) -> BufferPlan? {
+        return IRGLProjectionEquirectangularPolicy.bufferPlan(slices: slices,
+                                                              indicesPerVertex: indicesPerVertex)
+    }
+
     static func elementCount(baseCount: Int, components: Int) -> Int? {
-        guard baseCount > 0, components > 0 else { return nil }
-
-        let (count, overflow) = baseCount.multipliedReportingOverflow(by: components)
-        guard !overflow, count > 0 else { return nil }
-
-        return count
+        return IRGLProjectionEquirectangularPolicy.elementCount(baseCount: baseCount,
+                                                                components: components)
     }
 
     static func byteCount(elementCount: Int, stride: Int) -> Int? {
-        guard elementCount > 0, stride > 0 else { return nil }
-
-        let (count, overflow) = elementCount.multipliedReportingOverflow(by: stride)
-        guard !overflow, count > 0 else { return nil }
-
-        return count
+        return IRGLProjectionEquirectangularPolicy.byteCount(elementCount: elementCount,
+                                                             stride: stride)
     }
 
     static func indexValue(_ value: Int) -> Int16? {
-        guard value >= Int(Int16.min), value <= Int(Int16.max) else { return nil }
-        return Int16(value)
+        return IRGLProjectionEquirectangularPolicy.indexValue(value)
     }
 }

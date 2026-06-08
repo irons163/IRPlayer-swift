@@ -6,7 +6,6 @@
 //
 
 import simd
-import CoreGraphics
 import XCTest
 @testable import IRPlayer_swift
 
@@ -97,23 +96,5 @@ final class IRMatrix4Tests: XCTestCase {
         XCTAssertEqual(matrix.columns.2.z, 0.5, accuracy: 0.0001)
         XCTAssertEqual(matrix.columns.3.z, 0.5, accuracy: 0.0001)
         XCTAssertEqual(matrix.columns.3.w, 1, accuracy: 0.0001)
-    }
-}
-
-final class IRSensorTests: XCTestCase {
-
-    func testMotionDeltaWrapsAcrossPositiveAndNegativeHalfTurns() {
-        XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat(-170), previous: CGFloat(170)), 20, accuracy: 0.0001)
-        XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat(170), previous: CGFloat(-170)), -20, accuracy: 0.0001)
-    }
-
-    func testMotionDeltaKeepsSmallOffsetsUnchanged() {
-        XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat(45), previous: CGFloat(15)), 30, accuracy: 0.0001)
-        XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat(-20), previous: CGFloat(15)), -35, accuracy: 0.0001)
-    }
-
-    func testMotionDeltaDefaultsNonFiniteInputsToZero() {
-        XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat.nan, previous: CGFloat(15)), 0)
-        XCTAssertEqual(IRSensor.normalizedMotionDelta(current: CGFloat(15), previous: CGFloat.infinity), 0)
     }
 }

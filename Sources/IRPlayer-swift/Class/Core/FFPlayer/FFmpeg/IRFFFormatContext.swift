@@ -15,6 +15,16 @@ public protocol IRFFFormatContextDelegate: AnyObject {
 }
 
 public class IRFFFormatContext {
+    enum AudioTrackSelectionAction: Equatable {
+        case noChange
+        case select
+    }
+
+    struct AudioTrackSelectionResult {
+        let error: NSError?
+        let didChangeTrack: Bool
+    }
+
     weak var delegate: IRFFFormatContextDelegate?
 
     private var formatContext: UnsafeMutablePointer<AVFormatContext>?
@@ -70,28 +80,28 @@ public class IRFFFormatContext {
         return avcodec_find_decoder(codecContext.pointee.codec_id)
     }
 
+    static func dictionaryOptionWasApplied(_ result: Int32) -> Bool {
+        return IRFFFormatContextPolicy.dictionaryOptionWasApplied(result)
+    }
+
     static func durationSeconds(from duration: Int64) -> TimeInterval {
-        guard duration != IR_AV_NOPTS_VALUE else {
-            return TimeInterval(MAXFLOAT)
-        }
-        guard duration >= 0 else { return 0 }
-        let seconds = TimeInterval(duration) / TimeInterval(AV_TIME_BASE)
-        return seconds.isFinite ? seconds : 0
+        return IRFFFormatContextPolicy.durationSeconds(from: duration)
     }
 
     static func bitrateKbps(from bitRate: Int64) -> TimeInterval {
-        guard bitRate >= 0 else { return 0 }
-        let bitrate = TimeInterval(bitRate) / 1000.0
-        return bitrate.isFinite ? bitrate : 0
+        return IRFFFormatContextPolicy.bitrateKbps(from: bitRate)
     }
 
     static func presentationSize(width: Int32, height: Int32) -> CGSize {
-        guard width > 0, height > 0 else { return .zero }
-        return CGSize(width: CGFloat(width), height: CGFloat(height))
+        return IRFFFormatContextPolicy.presentationSize(width: width, height: height)
     }
 
     static func interruptOpaquePointer(for context: IRFFFormatContext) -> UnsafeMutableRawPointer {
         return UnsafeMutableRawPointer(Unmanaged.passUnretained(context).toOpaque())
+    }
+
+    static func selectedSetupError(videoError: NSError?, audioError: NSError?) -> NSError? {
+        return IRFFFormatContextPolicy.selectedSetupError(videoError: videoError, audioError: audioError)
     }
 
     func setupSync() {
@@ -101,17 +111,7 @@ public class IRFFFormatContext {
         openTracks()
         let videoError = openVideoTrack()
         let audioError = openAudioTrack()
-
-        guard let videoError = videoError, let audioError = audioError else {
-            return
-        }
-        
-        if videoError.code == IRFFDecoderErrorCode.streamNotFound.rawValue && audioError.code != IRFFDecoderErrorCode.streamNotFound.rawValue {
-            self.error = audioError
-        } else {
-            self.error = videoError
-        }
-        return
+        self.error = Self.selectedSetupError(videoError: videoError, audioError: audioError)
     }
 
     private func openStream() -> NSError? {
@@ -131,8 +131,8 @@ public class IRFFFormatContext {
         var opts = AVDictionary(rawPointer: nil)
         if videoFormat == .rtsp {
             let ret = av_dict_set(&opts.rawPointer, "rtsp_transport", "tcp", 0)
-            if ret < 0 {
-                IRPlayerImp.Logger.libraryLogger.debug("Failed to set dictionary option: \(ret)")
+            if !Self.dictionaryOptionWasApplied(ret) {
+                // Continue opening input; FFmpeg will surface fatal stream errors.
             }
         }
         result = avformat_open_input(&formatContext, contentURL.absoluteString, nil, &opts.rawPointer)
@@ -153,8 +153,6 @@ public class IRFFFormatContext {
             }
             return error
         }
-//        self.metadata = IRFFFoundationBrigeOfAVDictionary((formatContext?.pointee.metadata)! as? [Character: Any])
-//        self.metadata = IRFFFoundationBrigeOfAVDictionary(formatContext?.pointee.metadata)
         if let avDict = formatContext?.pointee.metadata {
             self.metadata = IRFFFoundationBrigeOfAVDictionary(avDict) ?? [:]
         } else {
@@ -276,7 +274,6 @@ public class IRFFFormatContext {
             avcodec_free_context(&codecContext)
             return error
         }
-//        av_codec_set_pkt_timebase(codecContext, (stream?.pointee.time_base)!)
         openedCodecContext.pointee.pkt_timebase = stream.pointee.time_base
 
         guard let codec = Self.decoder(for: openedCodecContext) else {
@@ -297,22 +294,17 @@ public class IRFFFormatContext {
     }
 
     static func seekTimestamp(for time: TimeInterval) -> Int64? {
-        guard time.isFinite, time >= 0 else { return nil }
-        let timestamp = time * Double(AV_TIME_BASE)
-        guard timestamp.isFinite,
-              timestamp >= 0,
-              timestamp <= Double(Int64.max) else {
-            return nil
-        }
-        return Int64(timestamp)
+        return IRFFFormatContextPolicy.seekTimestamp(for: time)
     }
 
     func seekFile(withFFTimebase time: TimeInterval) {
-        guard let ts = Self.seekTimestamp(for: time) else { return }
+        guard let ts = Self.seekTimestamp(for: time),
+              let formatContext else { return }
         av_seek_frame(formatContext, -1, ts, AVSEEK_FLAG_BACKWARD)
     }
 
     func readFrame(_ packet: UnsafeMutablePointer<AVPacket>) -> Int32 {
+        guard let formatContext else { return -1 }
         return av_read_frame(formatContext, packet)
     }
 
@@ -321,25 +313,31 @@ public class IRFFFormatContext {
     }
 
     static func track(index: Int, codecType: AVMediaType, metadata: IRFFMetadata?) -> IRFFTrack? {
-        switch codecType {
-        case AVMEDIA_TYPE_VIDEO:
-            return IRFFTrack(index: index, type: .video, metadata: metadata)
-        case AVMEDIA_TYPE_AUDIO:
-            return IRFFTrack(index: index, type: .audio, metadata: metadata)
-        default:
-            return nil
-        }
+        return IRFFFormatContextPolicy.track(index: index, codecType: codecType, metadata: metadata)
     }
 
     static func videoAspect(width: Int32, height: Int32) -> CGFloat {
-        guard width > 0, height > 0 else { return 0 }
-        let aspect = CGFloat(width) / CGFloat(height)
-        return aspect.isFinite ? aspect : 0
+        return IRFFFormatContextPolicy.videoAspect(width: width, height: height)
     }
 
-    func selectAudioTrackIndex(_ audioTrackIndex: Int) -> NSError? {
-        guard audioTrackIndex != (audioTrack?.index ?? -1),
-              containAudioTrack(audioTrackIndex) else { return nil }
+    static func audioTrackSelectionAction(requestedIndex: Int,
+                                          currentIndex: Int?,
+                                          containsRequestedTrack: Bool) -> AudioTrackSelectionAction {
+        return IRFFFormatContextPolicy.audioTrackSelectionAction(
+            requestedIndex: requestedIndex,
+            currentIndex: currentIndex,
+            containsRequestedTrack: containsRequestedTrack
+        )
+    }
+
+    func selectAudioTrackIndexResult(_ audioTrackIndex: Int) -> AudioTrackSelectionResult {
+        guard Self.audioTrackSelectionAction(
+            requestedIndex: audioTrackIndex,
+            currentIndex: audioTrack?.index,
+            containsRequestedTrack: containAudioTrack(audioTrackIndex)
+        ) == .select else {
+            return AudioTrackSelectionResult(error: nil, didChangeTrack: false)
+        }
 
         var codecContext: UnsafeMutablePointer<AVCodecContext>?
         let error = openStream(with: audioTrackIndex, codecContext: &codecContext, domain: "audio select")
@@ -354,10 +352,15 @@ public class IRFFFormatContext {
                 audioTimebase = IRFFStreamGetTimebase(stream, defaultTimebase: 0.000025)
             }
             audioCodecContext = codecContext
+            return AudioTrackSelectionResult(error: nil, didChangeTrack: true)
         } else {
-            IRPlayerImp.Logger.libraryLogger.debug("select audio track error: \(String(describing: error))")
+            IRFFRuntimeDebugOutput.write("select audio track error: \(String(describing: error))")
         }
-        return error
+        return AudioTrackSelectionResult(error: error, didChangeTrack: false)
+    }
+
+    func selectAudioTrackIndex(_ audioTrackIndex: Int) -> NSError? {
+        return selectAudioTrackIndexResult(audioTrackIndex).error
     }
 
     var contentURLString: String {
@@ -401,7 +404,6 @@ public class IRFFFormatContext {
 
     deinit {
         destroy()
-        IRPlayerImp.Logger.libraryLogger.debug("IRFFFormatContext release")
     }
 }
 

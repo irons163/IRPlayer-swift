@@ -24,13 +24,9 @@ extension IRMetalRenderer {
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
 
-        let originY = drawableSize.height - viewport.origin.y - viewport.size.height
-        encoder.setViewport(MTLViewport(originX: Double(viewport.origin.x),
-                                        originY: Double(originY),
-                                        width: Double(viewport.size.width),
-                                        height: Double(viewport.size.height),
-                                        znear: 0,
-                                        zfar: 1))
+        encoder.setViewport(Self.metalViewport(drawableSize: drawableSize,
+                                               viewport: viewport,
+                                               orientation: .bottomLeft))
         encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)
         var mvpMatrix = mvp
         var texMatrix = textureMatrix
@@ -74,13 +70,9 @@ extension IRMetalRenderer {
 
         if let pixelRenderer = pixelRenderer(for: frame) {
             for (index, viewport) in viewports.enumerated() {
-                let originY = drawableSize.height - viewport.origin.y - viewport.size.height
-                encoder.setViewport(MTLViewport(originX: Double(viewport.origin.x),
-                                                originY: Double(originY),
-                                                width: Double(viewport.size.width),
-                                                height: Double(viewport.size.height),
-                                                znear: 0,
-                                                zfar: 1))
+                encoder.setViewport(Self.metalViewport(drawableSize: drawableSize,
+                                                       viewport: viewport,
+                                                       orientation: .bottomLeft))
                 var mvpMatrix = mvpList[index]
                 encoder.setVertexBytes(&mvpMatrix, length: MemoryLayout<simd_float4x4>.size, index: 1)
                 if !pixelRenderer.renderMesh(renderer: self,

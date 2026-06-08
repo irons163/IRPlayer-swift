@@ -72,17 +72,16 @@ class IRGLFish2PerspShaderParams: IRGLShaderParams {
     }
 
     func updateOutputWH() {
-        outputWidth = 1280
-        outputHeight = 720
-        fishcenterx = 680
-        fishcentery = 545
-        fishradiush = 515
-        enableTransformX = 1
-        enableTransformY = 1
-        enableTransformZ = 1
-        let fishfovDegree: GLfloat = 180
-        fishfov = min(fishfovDegree, 360.0) * Float(DTOR)
-        let perspfovDegree: GLfloat = 100
-        perspfov = min(perspfovDegree, 170.0) * Float(DTOR)
+        let configuration = IRGLFish2PerspShaderParamsPolicy.outputConfiguration()
+        outputWidth = configuration.outputWidth
+        outputHeight = configuration.outputHeight
+        fishcenterx = configuration.fishCenterX
+        fishcentery = configuration.fishCenterY
+        fishradiush = configuration.fishRadiusH
+        enableTransformX = configuration.enableTransformX
+        enableTransformY = configuration.enableTransformY
+        enableTransformZ = configuration.enableTransformZ
+        fishfov = configuration.fishFov
+        perspfov = configuration.perspFov
     }
 }

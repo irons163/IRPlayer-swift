@@ -23,7 +23,7 @@ import Foundation
             return
         }
 
-        if bufferSize < sampleCapacity {
+        if Self.shouldAllocateSampleBuffer(currentCapacity: bufferSize, requiredCapacity: sampleCapacity) {
             if bufferSize > 0, let samples = samples {
                 samples.deallocate()
             }
@@ -41,13 +41,10 @@ import Foundation
     }
 
     static func sampleCapacity(forByteLength byteLength: Int) -> Int? {
-        guard byteLength > 0 else { return nil }
+        return IRFFAudioFramePolicy.sampleCapacity(forByteLength: byteLength)
+    }
 
-        let floatSize = MemoryLayout<Float>.size
-        let (adjustedByteLength, overflow) = byteLength.addingReportingOverflow(floatSize - 1)
-        guard !overflow else { return nil }
-
-        let capacity = adjustedByteLength / floatSize
-        return capacity > 0 ? capacity : nil
+    static func shouldAllocateSampleBuffer(currentCapacity: Int, requiredCapacity: Int) -> Bool {
+        return IRFFAudioFramePolicy.shouldAllocateSampleBuffer(currentCapacity: currentCapacity, requiredCapacity: requiredCapacity)
     }
 }

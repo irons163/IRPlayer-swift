@@ -10,39 +10,15 @@ import Foundation
 class IRGLRenderModeFactory: NSObject {
 
     static func createNormalModes(with parameter: IRMediaParameter?) -> [IRGLRenderMode] {
-        let mode = IRGLRenderMode2D()
-        mode.parameter = parameter
-        return [mode]
+        IRGLRenderModeFactoryPolicy.normalModePlan().map {
+            makeMode(for: $0, parameter: parameter)
+        }
     }
 
     static func createFisheyeModes(with parameter: IRMediaParameter?) -> [IRGLRenderMode] {
-        let normal = IRGLRenderMode2D()
-        let fisheye2Pano = IRGLRenderMode2DFisheye2Pano()
-        let fisheye = IRGLRenderMode3DFisheye()
-        let fisheye4P = IRGLRenderModeMulti4P()
-
-        normal.shiftController.enabled = false
-        fisheye2Pano.contentMode = .scaleAspectFill
-        fisheye2Pano.wideDegreeX = 360
-        fisheye2Pano.wideDegreeY = 20
-
-        let modes: [IRGLRenderMode] = [
-            fisheye2Pano,
-            fisheye,
-            fisheye4P,
-            normal
-        ]
-
-        for mode in modes {
-            mode.parameter = parameter
+        IRGLRenderModeFactoryPolicy.fisheyeModePlan().map {
+            makeMode(for: $0, parameter: parameter)
         }
-
-        normal.name = "Rawdata"
-        fisheye2Pano.name = "Panorama"
-        fisheye.name = "Onelen"
-        fisheye4P.name = "Fourlens"
-
-        return modes
     }
 
     static func createVRMode(with parameter: IRMediaParameter?) -> IRGLRenderMode {
@@ -64,11 +40,40 @@ class IRGLRenderModeFactory: NSObject {
     }
 
     static func createPanoramaMode(with parameter: IRMediaParameter?) -> IRGLRenderMode {
-        let mode = IRGLRenderMode2DFisheye2Pano()
+        makeMode(for: IRGLRenderModeFactoryPolicy.panoramaModePlan(),
+                 parameter: parameter)
+    }
+
+    private static func makeMode(for plan: IRGLRenderModeFactoryPolicy.ModePlan,
+                                 parameter: IRMediaParameter?) -> IRGLRenderMode {
+        let mode: IRGLRenderMode
+
+        switch plan {
+        case .normal2D:
+            mode = IRGLRenderMode2D()
+        case let .normal2DNamed(name, shiftEnabled):
+            let normal = IRGLRenderMode2D()
+            normal.name = name
+            normal.shiftController.enabled = shiftEnabled
+            mode = normal
+        case let .panorama(name, wideDegreeX, wideDegreeY):
+            let panorama = IRGLRenderMode2DFisheye2Pano()
+            panorama.name = name
+            panorama.contentMode = .scaleAspectFill
+            panorama.wideDegreeX = wideDegreeX
+            panorama.wideDegreeY = wideDegreeY
+            mode = panorama
+        case let .fisheye3D(name):
+            let fisheye = IRGLRenderMode3DFisheye()
+            fisheye.name = name
+            mode = fisheye
+        case let .multi4P(name):
+            let multi4P = IRGLRenderModeMulti4P()
+            multi4P.name = name
+            mode = multi4P
+        }
+
         mode.parameter = parameter
-        mode.contentMode = .scaleAspectFill
-        mode.wideDegreeX = 360
-        mode.wideDegreeY = 20
         return mode
     }
 }

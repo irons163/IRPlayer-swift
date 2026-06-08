@@ -42,15 +42,18 @@ import UIKit
             startTimestamp = sender.timestamp
         }
 
-        let duration = min(slideDuration, CGFloat(sender.timestamp - startTimestamp))
-        var percentage = duration / slideDuration
-        percentage = -1 * percentage * (percentage - 2) // quadratic easing out
+        let elapsed = CGFloat(sender.timestamp - startTimestamp)
+        guard let step = IRSmoothScrollPolicy.step(finalPoint: finalPoint,
+                                                   alreadyPoint: alreadyPoint,
+                                                   elapsed: elapsed,
+                                                   duration: slideDuration) else {
+            resetSmoothScroll()
+            return
+        }
 
-        let moveX = finalPoint.x * percentage - alreadyPoint.x
-        let moveY = finalPoint.y * percentage - alreadyPoint.y
-
-        alreadyPoint.x += moveX
-        alreadyPoint.y += moveY
+        let moveX = step.move.x
+        let moveY = step.move.y
+        alreadyPoint = step.alreadyPoint
 
         if self.isPaned {
             self.targetView?.scroll(byDx: Float(moveX * UIScreen.main.scale), dy: Float(-moveY * UIScreen.main.scale))
@@ -59,7 +62,7 @@ import UIKit
             self.targetView?.render(nil)
         }
 
-        if finalPoint == alreadyPoint {
+        if step.isFinished {
             self.resetSmoothScroll()
             delegate?.glViewDidEndDecelerating(self.targetView)
         }
@@ -100,56 +103,26 @@ import UIKit
     }
 
     static func smoothScrollTarget(for velocity: CGPoint) -> (point: CGPoint, duration: CGFloat) {
-        guard velocity.x.isFinite, velocity.y.isFinite else {
-            return (point: .zero, duration: 0)
-        }
-        let magnitude = sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y))
-        let slideFactor = 0.05 * (magnitude / 200)
-        return (
-            point: CGPoint(x: velocity.x * slideFactor, y: velocity.y * slideFactor),
-            duration: slideFactor * 2
-        )
+        return IRSmoothScrollPolicy.smoothScrollTarget(for: velocity)
     }
 }
 
 extension IRSmoothScrollController: IRGLProgramDelegate {
 
     func didScrollToBounds(_ bounds: IRGLTransformController.ScrollToBounds, withProgram program: IRGLProgram2D) {
-        var moveX = finalPoint.x - alreadyPoint.x
-        var moveY = finalPoint.y - alreadyPoint.y
-        var scrollDirectionType = IRScrollDirectionType.none
+        let boundsBounce = IRSmoothScrollPolicy.boundsBounce(bounds: bounds,
+                                                             finalPoint: finalPoint,
+                                                             alreadyPoint: alreadyPoint,
+                                                             didHorizontalBounce: didHorizontalBoundsBounce,
+                                                             didVerticalBounce: didVerticalBoundsBounce)
 
-        switch bounds {
-        case .horizontal:
-            moveY = 0
-        case .vertical:
-            moveX = 0
-        case .both:
-            break
-        default:
-            moveX = 0
-            moveY = 0
-        }
-
-        if moveX > 0 {
-            scrollDirectionType = .right
-        } else if moveX < 0 {
-            scrollDirectionType = .left
-        }
-
-        if !didHorizontalBoundsBounce && (scrollDirectionType == .left || scrollDirectionType == .right) {
-            bounce?.removeAndAddAnimate(with: moveX, byScrollDirection: scrollDirectionType)
+        if let horizontal = boundsBounce.horizontal {
+            bounce?.removeAndAddAnimate(with: horizontal.amount, byScrollDirection: horizontal.direction)
             didHorizontalBoundsBounce = true
         }
 
-        if moveY > 0 {
-            scrollDirectionType = .down
-        } else if moveY < 0 {
-            scrollDirectionType = .up
-        }
-
-        if !didVerticalBoundsBounce && (scrollDirectionType == .up || scrollDirectionType == .down) {
-            bounce?.removeAndAddAnimate(with: moveY, byScrollDirection: scrollDirectionType)
+        if let vertical = boundsBounce.vertical {
+            bounce?.removeAndAddAnimate(with: vertical.amount, byScrollDirection: vertical.direction)
             didVerticalBoundsBounce = true
         }
 

@@ -15,6 +15,22 @@ class IRFFPlayer: NSObject {
         let hasRemainingFrameBytes: Bool
     }
 
+    struct PlayTransition: Equatable {
+        let nextState: IRPlayerState
+        let shouldSeekToStart: Bool
+    }
+
+    struct BufferingTransition: Equatable {
+        let nextState: IRPlayerState
+        let hasPreparedOnce: Bool
+    }
+
+    enum ReplaceVideoReadiness {
+        case ready
+        case missingRequiredInput
+        case missingDisplayView
+    }
+
     private let stateLock = NSLock()
     weak var abstractPlayer: IRPlayerImp?
     var decoder: IRFFDecoder?
@@ -45,36 +61,38 @@ class IRFFPlayer: NSObject {
     var progress: TimeInterval = 0 {
         didSet {
             guard progress != oldValue else { return }
-            
-            var duration = self.duration
-            if progress <= 0.000001 || progress == duration {
-                IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: progress, total: duration), current: progress as NSNumber, total: duration as NSNumber)
-            } else {
-                let currentTime = Date().timeIntervalSince1970
-                if currentTime - self.lastPostProgressTime >= 1 {
-                    self.lastPostProgressTime = currentTime
-                    if decoder?.seekEnable == false {
-                        duration = progress
-                    }
-                    IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: progress, total: duration), current: progress as NSNumber, total: duration as NSNumber)
-                }
-            }
+
+            let decision = IRPlaybackTimePolicy.progressPostDecision(
+                progress: progress,
+                oldProgress: oldValue,
+                duration: duration,
+                lastPostTime: lastPostProgressTime,
+                now: Date().timeIntervalSince1970,
+                seekEnabled: decoder?.seekEnable != false
+            )
+            guard decision.shouldPost else { return }
+            lastPostProgressTime = decision.nextLastPostTime
+            IRPlayerNotification.postPlayer(
+                abstractPlayer,
+                progressPercent: IRPlaybackTimePolicy.percent(current: decision.current, total: decision.total),
+                current: decision.current as NSNumber,
+                total: decision.total as NSNumber
+            )
         }
     }
 
     var playableTime: TimeInterval = 0 {
         didSet {
-            var newPlayableTime = playableTime
             let duration = self.duration
-            if newPlayableTime > duration {
-                newPlayableTime = duration
-            } else if newPlayableTime < 0 {
-                newPlayableTime = 0
-            }
-
+            let newPlayableTime = IRPlaybackTimePolicy.clampedPlayableTime(playableTime, duration: duration)
             if playableTime != newPlayableTime {
                 playableTime = newPlayableTime
-                IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: IRPlayerNotificationPayload.timePercent(current: playableTime, total: duration), current: playableTime as NSNumber, total: duration as NSNumber)
+                IRPlayerNotification.postPlayer(
+                    abstractPlayer,
+                    playablePercent: IRPlaybackTimePolicy.percent(current: playableTime, total: duration),
+                    current: playableTime as NSNumber,
+                    total: duration as NSNumber
+                )
             }
         }
     }
@@ -97,51 +115,49 @@ class IRFFPlayer: NSObject {
     deinit {
         clean()
         audioManager?.unregisterAudioSession()
-        IRPlayerImp.Logger.libraryLogger.debug("IRFFPlayer release")
     }
 
     static func player(with abstractPlayer: IRPlayerImp) -> IRFFPlayer {
         return IRFFPlayer(abstractPlayer: abstractPlayer)
     }
 
+    static func replaceVideoReadiness(hasAbstractPlayer: Bool, hasContentURL: Bool, hasDisplayView: Bool) -> ReplaceVideoReadiness {
+        return IRFFPlayerPlaybackPolicy.replaceVideoReadiness(
+            hasAbstractPlayer: hasAbstractPlayer,
+            hasContentURL: hasContentURL,
+            hasDisplayView: hasDisplayView
+        )
+    }
+
+    static func playTransition(from state: IRPlayerState) -> PlayTransition {
+        return IRFFPlayerPlaybackPolicy.playTransition(from: state)
+    }
+
+    static func pauseTransition(from state: IRPlayerState) -> IRPlayerState? {
+        return IRFFPlayerPlaybackPolicy.pauseTransition(from: state)
+    }
+
+    static func bufferingTransition(isBuffering: Bool, isPlaying: Bool, hasPreparedOnce: Bool) -> BufferingTransition {
+        return IRFFPlayerPlaybackPolicy.bufferingTransition(
+            isBuffering: isBuffering,
+            isPlaying: isPlaying,
+            hasPreparedOnce: hasPreparedOnce
+        )
+    }
+
     static func audioSilenceByteCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
-        guard numberOfFrames > 0, numberOfChannels > 0 else { return nil }
-
-        let (sampleCount, sampleCountOverflow) = Int(numberOfFrames).multipliedReportingOverflow(by: Int(numberOfChannels))
-        guard !sampleCountOverflow, sampleCount > 0 else { return nil }
-
-        let (byteCount, byteCountOverflow) = sampleCount.multipliedReportingOverflow(by: MemoryLayout<Float>.size)
-        guard !byteCountOverflow else { return nil }
-        return byteCount
+        return IRFFPlayerPlaybackPolicy.audioSilenceByteCount(
+            numberOfFrames: numberOfFrames,
+            numberOfChannels: numberOfChannels
+        )
     }
 
     static func audioCopyPlan(frameSize: Int, outputOffset: Int, remainingFrames: UInt32, numberOfChannels: UInt32) -> AudioCopyPlan? {
-        guard frameSize > 0,
-              outputOffset >= 0,
-              outputOffset <= frameSize,
-              remainingFrames > 0,
-              numberOfChannels > 0 else {
-            return nil
-        }
-
-        let (frameSizeOf, frameSizeOverflow) = Int(numberOfChannels).multipliedReportingOverflow(by: MemoryLayout<Float>.size)
-        guard !frameSizeOverflow, frameSizeOf > 0 else { return nil }
-
-        let bytesLeft = frameSize - outputOffset
-        guard bytesLeft > 0 else { return nil }
-
-        let (requestedBytes, requestedBytesOverflow) = Int(remainingFrames).multipliedReportingOverflow(by: frameSizeOf)
-        guard !requestedBytesOverflow else { return nil }
-
-        let boundedBytesToCopy = min(requestedBytes, bytesLeft)
-        let bytesToCopy = boundedBytesToCopy - (boundedBytesToCopy % frameSizeOf)
-        let framesToCopy = bytesToCopy / frameSizeOf
-        guard bytesToCopy > 0, framesToCopy > 0 else { return nil }
-
-        return AudioCopyPlan(
-            bytesToCopy: bytesToCopy,
-            framesToCopy: framesToCopy,
-            hasRemainingFrameBytes: bytesToCopy < bytesLeft
+        return IRFFPlayerPlaybackPolicy.audioCopyPlan(
+            frameSize: frameSize,
+            outputOffset: outputOffset,
+            remainingFrames: remainingFrames,
+            numberOfChannels: numberOfChannels
         )
     }
 
@@ -149,25 +165,19 @@ class IRFFPlayer: NSObject {
         playing = true
         decoder?.resume()
 
-        switch state {
-        case .finished:
+        let transition = Self.playTransition(from: state)
+        if transition.shouldSeekToStart {
             seek(to: 0)
-        case .none, .failed, .buffering:
-            state = .buffering
-        case .readyToPlay, .playing, .suspend:
-            state = .playing
         }
+        state = transition.nextState
     }
 
     func pause() {
         playing = false
         decoder?.pause()
 
-        switch state {
-        case .none, .suspend:
-            break
-        case .failed, .readyToPlay, .finished, .playing, .buffering:
-            state = .suspend
+        if let nextState = Self.pauseTransition(from: state) {
+            state = nextState
         }
     }
 
@@ -240,18 +250,13 @@ extension IRFFPlayer: IRFFDecoderDelegate {
     }
 
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBuffering buffering: Bool) {
-        if buffering {
-            self.state = .buffering
-        } else {
-            if self.playing {
-                self.state = .playing
-            } else if !self.prepareToken {
-                self.state = .readyToPlay
-                self.prepareToken = true
-            } else {
-                self.state = .suspend
-            }
-        }
+        let transition = Self.bufferingTransition(
+            isBuffering: buffering,
+            isPlaying: playing,
+            hasPreparedOnce: prepareToken
+        )
+        state = transition.nextState
+        prepareToken = transition.hasPreparedOnce
     }
 
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBufferedDuration bufferedDuration: TimeInterval) {
@@ -293,7 +298,7 @@ extension IRFFPlayer {
         guard let decoder = decoder else { return }
         var bufferInterval = abstractPlayer?.playableBufferInterval ?? 0
         decoder.isLiveStream = abstractPlayer?.isLiveStream ?? false
-        
+
         // For live streams (RTSP, no duration), use much lower buffer threshold
         // to prevent stuck buffering state
         if decoder.isLiveStream {
@@ -303,20 +308,34 @@ extension IRFFPlayer {
                 bufferInterval = 0.2 // Default for live streams
             }
         }
-        
+
         decoder.minBufferedDuration = bufferInterval
     }
 
     func replaceVideo() {
         clean()
-        guard let abstractPlayer = abstractPlayer,
-              let contentURL = abstractPlayer.contentURL else { return }
-        guard let displayView = abstractPlayer.displayView else {
+
+        let readiness = Self.replaceVideoReadiness(
+            hasAbstractPlayer: abstractPlayer != nil,
+            hasContentURL: abstractPlayer?.contentURL != nil,
+            hasDisplayView: abstractPlayer?.displayView != nil
+        )
+
+        switch readiness {
+        case .missingRequiredInput:
+            return
+        case .missingDisplayView:
             errorHandler(error: NSError(domain: "IRFFPlayer", code: -1, userInfo: [
                 NSLocalizedDescriptionKey: "Cannot replace FFmpeg video without a display view."
             ]))
             return
+        case .ready:
+            break
         }
+
+        guard let abstractPlayer = abstractPlayer,
+              let contentURL = abstractPlayer.contentURL,
+              let displayView = abstractPlayer.displayView else { return }
 
         decoder = IRFFDecoder(contentURL: contentURL as URL,
                               videoFormat: abstractPlayer.decoder.formatForContentURL(contentURL: contentURL),
@@ -354,7 +373,7 @@ extension IRFFPlayer: IRFFDecoderAudioOutput {
 }
 
 extension IRFFPlayer: IRAudioManagerDelegate {
-    
+
     func audioManager(_ audioManager: IRAudioManager, outputData: UnsafeMutablePointer<Float>, numberOfFrames: UInt32, numberOfChannels: UInt32) {
         guard self.playing else {
             if let byteCount = Self.audioSilenceByteCount(numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels) {

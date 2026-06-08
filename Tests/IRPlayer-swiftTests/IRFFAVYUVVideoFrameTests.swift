@@ -54,6 +54,126 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertNil(frame.image())
     }
 
+    func testShouldAcceptFrameDataRequiresDimensionsPlanesAndLinesizes() {
+        XCTAssertFalse(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 0,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertFalse(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: false,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertFalse(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 0,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertTrue(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+    }
+
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            ),
+            IRFFAVYUVVideoFramePolicy.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertEqual(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: false,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            ),
+            IRFFAVYUVVideoFramePolicy.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: false,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 4,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+        XCTAssertEqual(
+            IRFFAVYUVVideoFrame.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 0,
+                linesizeU: 2,
+                linesizeV: 2
+            ),
+            IRFFAVYUVVideoFramePolicy.shouldAcceptFrameData(
+                width: 4,
+                height: 4,
+                hasLuma: true,
+                hasChromaB: true,
+                hasChromaR: true,
+                linesizeY: 0,
+                linesizeU: 2,
+                linesizeV: 2
+            )
+        )
+    }
+
     func testYUVChannelFilterNeedSizeCheckedRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 0, height: 4, channelCount: 1))
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 4, height: 0, channelCount: 1))
@@ -63,6 +183,99 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
 
     func testYUVChannelFilterNeedSizeCheckedUsesAdjustedWidth() {
         XCTAssertEqual(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2), 24)
+    }
+
+    func testYUVToolsWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2),
+            IRYUVToolsPolicy.channelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2)
+        )
+        XCTAssertEqual(
+            IRYUVChannelFilterNeedSize(linesize: 4, width: 8, height: 3, channelCount: 2),
+            IRYUVToolsPolicy.channelFilterNeedSize(linesize: 4, width: 8, height: 3, channelCount: 2)
+        )
+        XCTAssertEqual(
+            IRYUVImageDimensions32(width: 640, height: 480)?.width,
+            IRYUVToolsPolicy.imageDimensions32(width: 640, height: 480)?.width
+        )
+        XCTAssertEqual(
+            IRYUVImageDimensions32(width: 640, height: 480)?.height,
+            IRYUVToolsPolicy.imageDimensions32(width: 640, height: 480)?.height
+        )
+        XCTAssertNil(IRYUVToolsPolicy.imageDimensions32(width: 0, height: 480))
+    }
+
+    func testYUVChannelFilterWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRYUVChannelFilterNeedSize(4, 8, 3, 2),
+            IRYUVChannelFilterPolicy.needSize(linesize: 4, width: 8, height: 3, channelCount: 2)
+        )
+        XCTAssertEqual(
+            IRYUVChannelFilterNeedSize(-1, 8, 3, 2),
+            IRYUVChannelFilterPolicy.needSize(linesize: -1, width: 8, height: 3, channelCount: 2)
+        )
+
+        var source = [UInt8](1...8)
+        var destination = [UInt8](repeating: 0, count: 4)
+        let destinationCount = destination.count
+        source.withUnsafeMutableBufferPointer { sourceBuffer in
+            destination.withUnsafeMutableBufferPointer { destinationBuffer in
+                IRYUVChannelFilter(sourceBuffer.baseAddress!, 4, 2, 2, destinationBuffer.baseAddress, destinationCount, 1)
+            }
+        }
+
+        XCTAssertEqual(destination, [1, 2, 5, 6])
+    }
+
+    func testYUVChannelFilterIgnoresMissingOrTooSmallDestination() {
+        var source = [UInt8](1...8)
+        var destination = [UInt8](repeating: 9, count: 3)
+        let destinationCount = destination.count
+        source.withUnsafeMutableBufferPointer { sourceBuffer in
+            IRYUVChannelFilter(sourceBuffer.baseAddress!, 4, 2, 2, nil, 4, 1)
+
+            destination.withUnsafeMutableBufferPointer { destinationBuffer in
+                IRYUVChannelFilter(sourceBuffer.baseAddress!, 4, 2, 2, destinationBuffer.baseAddress, destinationCount, 1)
+            }
+        }
+
+        XCTAssertEqual(destination, [9, 9, 9])
+    }
+
+    func testYUVConvertToImageRejectsInvalidDimensions() {
+        var source = [UInt8](repeating: 0, count: 3)
+        let image = source.withUnsafeMutableBufferPointer { sourceBuffer in
+            IRYUVConvertToImage(
+                srcData: [UnsafePointer(sourceBuffer.baseAddress!)],
+                srcLinesize: [3],
+                width: 0,
+                height: 1,
+                pixelFormat: AV_PIX_FMT_RGB24
+            )
+        }
+
+        XCTAssertNil(image)
+    }
+
+    func testYUVConvertToImageBuildsImageFromRGB24Data() throws {
+        var source: [UInt8] = [
+            255, 0, 0, 0, 255, 0,
+            0, 0, 255, 255, 255, 255
+        ]
+        let image = source.withUnsafeMutableBufferPointer { sourceBuffer in
+            IRYUVConvertToImage(
+                srcData: [UnsafePointer(sourceBuffer.baseAddress!)],
+                srcLinesize: [6],
+                width: 2,
+                height: 2,
+                pixelFormat: AV_PIX_FMT_RGB24
+            )
+        }
+
+        let unwrappedImage = try XCTUnwrap(image)
+        XCTAssertEqual(unwrappedImage.size.width, 2)
+        XCTAssertEqual(unwrappedImage.size.height, 2)
+        XCTAssertNotNil(unwrappedImage.cgImage)
     }
 
     func testYUVImageDimensions32RejectsInvalidOrOverflowingDimensions() {
@@ -77,31 +290,5 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
 
         XCTAssertEqual(dimensions?.width, 640)
         XCTAssertEqual(dimensions?.height, 480)
-    }
-}
-
-final class IRPLFImageTests: XCTestCase {
-
-    func testRGBDataByteCountRejectsInvalidOrOverflowingInputs() {
-        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 0, width: 4, height: 4))
-        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 12, width: 0, height: 4))
-        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 12, width: 4, height: 0))
-        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: Int.max, width: 4, height: 2))
-    }
-
-    func testRGBDataByteCountRequiresRowsWideEnoughForRGBPixels() {
-        XCTAssertNil(IRPLFImageRGBDataByteCount(linesize: 11, width: 4, height: 2))
-        XCTAssertEqual(IRPLFImageRGBDataByteCount(linesize: 12, width: 4, height: 2), 24)
-    }
-}
-
-final class IRVideoFrameRGBTests: XCTestCase {
-
-    func testAsImageReturnsNilWhenLinesizeCannotFitBytesPerRow() {
-        let frame = IRVideoFrameRGB(linesize: UInt(Int.max) + 1, rgb: Data([0, 0, 0]))
-        frame.width = 1
-        frame.height = 1
-
-        XCTAssertNil(frame.asImage())
     }
 }

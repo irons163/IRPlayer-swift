@@ -10,9 +10,35 @@ import Metal
 import CoreVideo
 import simd
 import QuartzCore
-import OSLog
+
+enum IRMetalRuntimeDebugOutput {
+    static var isEnabled: Bool {
+        IRMetalRuntimeDebugOutputPolicy.isEnabled
+    }
+
+    static func write(_ message: @autoclosure () -> String) {
+        guard isEnabled else { return }
+        IRMetalRuntimeDebugOutputPolicy.write(message())
+    }
+}
 
 final class IRMetalRenderer {
+    struct QuadVertex: Equatable {
+        let position: SIMD2<Float>
+        let texCoord: SIMD2<Float>
+    }
+
+    enum QuadTextureRange {
+        case full
+        case left
+        case right
+    }
+
+    enum MetalViewportOrientation {
+        case topLeftFlipped
+        case bottomLeft
+    }
+
     struct Fish2PanoParams {
         var fishwidth: Int32
         var fishheight: Int32
@@ -111,10 +137,9 @@ final class IRMetalRenderer {
         #if SWIFT_PACKAGE
         library = (try? device.makeDefaultLibrary(bundle: .module)) ?? (try? device.makeDefaultLibrary())
         #else
-        library = try? device.makeDefaultLibrary()
+        library = device.makeDefaultLibrary()
         #endif
         guard let library = library else {
-            IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to load default Metal library")
             return
         }
 
@@ -138,7 +163,7 @@ final class IRMetalRenderer {
             do {
                 pipelineNV12 = try device.makeRenderPipelineState(descriptor: descriptor)
             } catch {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create NV12 pipeline: \(error.localizedDescription)")
+                IRMetalRuntimeDebugOutput.write("Metal Pipeline Error: \(error)")
             }
         }
 
@@ -150,7 +175,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineI420 = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineI420 == nil {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create I420 pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create I420 pipeline")
             }
         }
 
@@ -162,7 +187,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineRGB = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineRGB == nil {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create RGB pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create RGB pipeline")
             }
         }
 
@@ -174,7 +199,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor3D
             pipelineNV12Mesh = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineNV12Mesh == nil {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create NV12 mesh pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create NV12 mesh pipeline")
             }
         }
 
@@ -186,7 +211,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor3D
             pipelineI420Mesh = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineI420Mesh == nil {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create I420 mesh pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create I420 mesh pipeline")
             }
         }
 
@@ -198,7 +223,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor3D
             pipelineRGBMesh = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineRGBMesh == nil {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create RGB mesh pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create RGB mesh pipeline")
             }
         }
 
@@ -210,7 +235,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineNV12Fish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineNV12Fish2Pano == nil {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create NV12 fish2pano pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create NV12 fish2pano pipeline")
             }
         }
 
@@ -222,7 +247,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineI420Fish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineI420Fish2Pano == nil {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create I420 fish2pano pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create I420 fish2pano pipeline")
             }
         }
 
@@ -234,7 +259,7 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptor
             pipelineRGBFish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineRGBFish2Pano == nil {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create RGB fish2pano pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create RGB fish2pano pipeline")
             }
         }
 
@@ -246,41 +271,20 @@ final class IRMetalRenderer {
             descriptor.vertexDescriptor = vertexDescriptorDistortion
             pipelineDistortion = try? device.makeRenderPipelineState(descriptor: descriptor)
             if pipelineDistortion == nil {
-                IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create distortion pipeline")
+                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create distortion pipeline")
             }
         }
     }
 
     func buildVertexBuffer() {
-        struct Vertex {
-            let position: SIMD2<Float>
-            let texCoord: SIMD2<Float>
-        }
+        let vertices = Self.quadVertices(textureRange: .full)
+        vertexBuffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<QuadVertex>.stride * vertices.count, options: .storageModeShared)
 
-        let vertices: [Vertex] = [
-            Vertex(position: SIMD2<Float>(-1.0, -1.0), texCoord: SIMD2<Float>(0.0, 1.0)),
-            Vertex(position: SIMD2<Float>( 1.0, -1.0), texCoord: SIMD2<Float>(1.0, 1.0)),
-            Vertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(0.0, 0.0)),
-            Vertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(1.0, 0.0))
-        ]
+        let leftVertices = Self.quadVertices(textureRange: .left)
+        vertexBufferLeft = device.makeBuffer(bytes: leftVertices, length: MemoryLayout<QuadVertex>.stride * leftVertices.count, options: .storageModeShared)
 
-        vertexBuffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<Vertex>.stride * vertices.count, options: .storageModeShared)
-
-        let leftVertices: [Vertex] = [
-            Vertex(position: SIMD2<Float>(-1.0, -1.0), texCoord: SIMD2<Float>(0.0, 1.0)),
-            Vertex(position: SIMD2<Float>( 1.0, -1.0), texCoord: SIMD2<Float>(0.5, 1.0)),
-            Vertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(0.0, 0.0)),
-            Vertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(0.5, 0.0))
-        ]
-        vertexBufferLeft = device.makeBuffer(bytes: leftVertices, length: MemoryLayout<Vertex>.stride * leftVertices.count, options: .storageModeShared)
-
-        let rightVertices: [Vertex] = [
-            Vertex(position: SIMD2<Float>(-1.0, -1.0), texCoord: SIMD2<Float>(0.5, 1.0)),
-            Vertex(position: SIMD2<Float>( 1.0, -1.0), texCoord: SIMD2<Float>(1.0, 1.0)),
-            Vertex(position: SIMD2<Float>(-1.0,  1.0), texCoord: SIMD2<Float>(0.5, 0.0)),
-            Vertex(position: SIMD2<Float>( 1.0,  1.0), texCoord: SIMD2<Float>(1.0, 0.0))
-        ]
-        vertexBufferRight = device.makeBuffer(bytes: rightVertices, length: MemoryLayout<Vertex>.stride * rightVertices.count, options: .storageModeShared)
+        let rightVertices = Self.quadVertices(textureRange: .right)
+        vertexBufferRight = device.makeBuffer(bytes: rightVertices, length: MemoryLayout<QuadVertex>.stride * rightVertices.count, options: .storageModeShared)
     }
 
     func currentRenderPassDescriptor(drawable: CAMetalDrawable) -> MTLRenderPassDescriptor? {
@@ -310,32 +314,21 @@ final class IRMetalRenderer {
     }
 
     static func computeScale(contentMode: IRGLRenderContentMode, frameSize: CGSize, drawableSize: CGSize) -> CGSize {
-        guard frameSize.width.isFinite,
-              frameSize.height.isFinite,
-              drawableSize.width.isFinite,
-              drawableSize.height.isFinite,
-              frameSize.width > 0,
-              frameSize.height > 0,
-              drawableSize.width > 0,
-              drawableSize.height > 0 else {
-            return CGSize(width: 1, height: 1)
-        }
+        IRMetalRendererScalePolicy.computeScale(contentMode: contentMode,
+                                                frameSize: frameSize,
+                                                drawableSize: drawableSize)
+    }
 
-        let sx = drawableSize.width / frameSize.width
-        let sy = drawableSize.height / frameSize.height
+    static func quadVertices(textureRange: QuadTextureRange) -> [QuadVertex] {
+        IRMetalRendererGeometryPolicy.quadVertices(textureRange: textureRange)
+    }
 
-        switch contentMode {
-        case .scaleAspectFit:
-            let s = min(sx, sy)
-            return CGSize(width: s / sx, height: s / sy)
-        case .scaleAspectFill:
-            let s = max(sx, sy)
-            return CGSize(width: s / sx, height: s / sy)
-        case .scaleToFill:
-            return CGSize(width: 1, height: 1)
-        @unknown default:
-            return CGSize(width: 1, height: 1)
-        }
+    static func metalViewport(drawableSize: CGSize,
+                              viewport: CGRect,
+                              orientation: MetalViewportOrientation) -> MTLViewport {
+        IRMetalRendererGeometryPolicy.metalViewport(drawableSize: drawableSize,
+                                                    viewport: viewport,
+                                                    orientation: orientation)
     }
 }
 

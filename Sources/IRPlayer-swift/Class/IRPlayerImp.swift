@@ -252,7 +252,6 @@ public class IRPlayerImp: NSObject {
     }
 
     deinit {
-        IRPlayerImp.Logger.libraryLogger.debug("IRPlayer release")
         self.cleanPlayer()
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         NotificationCenter.default.removeObserver(self)
@@ -389,7 +388,7 @@ public class IRPlayerImp: NSObject {
             self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
         }
     }
-    
+
     public func setRequestHeaderFields(_ fields: [String: String]?) {
         self.contentHeaders = fields
     }
@@ -483,22 +482,20 @@ extension IRPlayerImp {
 
         self.manager = IRAudioManager()
         self.manager?.setHandlerTarget(self, interruption: { [weak self] (handlerTarget, audioManager, type, option) in
-            guard type == .begin else { return }
-            switch self?.state {
-            case .playing, .buffering:
-                // fix : maybe receive interruption notification when enter foreground.
-                let timeInterval = Date().timeIntervalSince1970
-                guard timeInterval - (self?.lastForegroundTimeInterval ?? 0) > 1.5 else { break }
-                self?.pause()
-            default:
+            guard let self = self else { return }
+            let timeSinceForeground = NSDate().timeIntervalSince1970 - (self.lastForegroundTimeInterval ?? 0)
+            switch IRPlayerLifecyclePolicy.audioInterruptionAction(type: type, state: self.state, timeSinceForeground: timeSinceForeground) {
+            case .pause:
+                self.pause()
+            case .none:
                 break
             }
         }, routeChange: { [weak self] (handlerTarget, audioManager, reason) in
-            guard reason == .oldDeviceUnavailable else { return }
-            switch self?.state {
-            case .playing, .buffering:
-                self?.pause()
-            default:
+            guard let self = self else { return }
+            switch IRPlayerLifecyclePolicy.audioRouteChangeAction(reason: reason, state: self.state) {
+            case .pause:
+                self.pause()
+            case .none:
                 break
             }
         })
@@ -586,7 +583,6 @@ extension IRPlayerImp: IRGLViewDelegate {
     }
 
     public func glViewDidScroll(toBounds glView: IRGLView?) {
-        IRPlayerImp.Logger.libraryLogger.debug("scroll to bounds")
     }
 }
 

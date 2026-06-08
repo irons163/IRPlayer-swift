@@ -10,19 +10,18 @@ import Metal
 import CoreVideo
 import simd
 import QuartzCore
-import OSLog
-import OSLog
 
 extension IRMetalRenderer {
 
     func renderNV12(cvFrame: IRFFCVYUVVideoFrame, encoder: MTLRenderCommandEncoder) -> Bool {
         guard let pipeline = pipelineNV12 else { return false }
-        let pixelBuffer = cvFrame.pixelBuffer
+        guard let pixelBuffer = Optional.some(cvFrame.pixelBuffer) else { return false }
         guard let textureCache = textureCache else { return false }
 
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
         let format = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        IRMetalRuntimeDebugOutput.write("IRMetalRenderer: CVPixelBuffer format=\(format)")
         guard format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange ||
               format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else {
             return false
@@ -35,7 +34,7 @@ extension IRMetalRenderer {
         CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, pixelBuffer, nil, .rg8Unorm, width / 2, height / 2, 1, &uvTextureRef)
 
         guard let yTextureRef = yTextureRef, let uvTextureRef = uvTextureRef else {
-            IRPlayerImp.Logger.libraryLogger.error("IRMetalRenderer: failed to create CVMetalTexture")
+            IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create CVMetalTexture")
             return false
         }
         guard let yTexture = CVMetalTextureGetTexture(yTextureRef), let uvTexture = CVMetalTextureGetTexture(uvTextureRef) else { return false }
@@ -157,15 +156,10 @@ extension IRMetalRenderer {
     }
 
     static func rgbTextureLayout(width: Int, height: Int, linesize: Int, byteCount: Int) -> (bytesPerRow: Int, totalByteCount: Int)? {
-        guard width > 0, height > 0, linesize > 0, byteCount >= 0 else { return nil }
-
-        let (expectedBytesPerRow, rowOverflow) = width.multipliedReportingOverflow(by: 4)
-        guard !rowOverflow, expectedBytesPerRow > 0, linesize == expectedBytesPerRow else { return nil }
-
-        let (totalByteCount, totalOverflow) = expectedBytesPerRow.multipliedReportingOverflow(by: height)
-        guard !totalOverflow, totalByteCount > 0, byteCount >= totalByteCount else { return nil }
-
-        return (bytesPerRow: expectedBytesPerRow, totalByteCount: totalByteCount)
+        IRMetalRendererPixelFormatPolicy.rgbTextureLayout(width: width,
+                                                          height: height,
+                                                          linesize: linesize,
+                                                          byteCount: byteCount)
     }
 
     func makeTexture(width: Int, height: Int, pixelFormat: MTLPixelFormat, bytes: UnsafeRawPointer) -> MTLTexture? {

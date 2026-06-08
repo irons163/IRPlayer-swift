@@ -35,4 +35,30 @@ final class IRFFMetadataTests: XCTestCase {
         XCTAssertEqual(metadata.numberOfBytes, 0)
         XCTAssertEqual(metadata.numberOfFrames, 0)
     }
+
+    func testMetadataParsesNumericStringsWithSurroundingWhitespace() {
+        let metadata = IRFFMetadata(dictionary: [
+            "BPS": " 192000 ",
+            "NUMBER_OF_BYTES": "\t240000\n",
+            "NUMBER_OF_FRAMES": " 300"
+        ])
+
+        XCTAssertEqual(metadata.BPS, 192000)
+        XCTAssertEqual(metadata.numberOfBytes, 240000)
+        XCTAssertEqual(metadata.numberOfFrames, 300)
+    }
+
+    func testMetadataDefaultsMalformedNumericObjects() {
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: true)), 0)
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: 12.5)), 0)
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: Double.nan)), 0)
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: Double.infinity)), 0)
+    }
+
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: 42)), IRFFMetadataPolicy.int64Value(NSNumber(value: 42)))
+        XCTAssertEqual(IRFFMetadata.int64Value(" 42 "), IRFFMetadataPolicy.int64Value(" 42 "))
+        XCTAssertEqual(IRFFMetadata.int64Value("not-a-number"), IRFFMetadataPolicy.int64Value("not-a-number"))
+        XCTAssertEqual(IRFFMetadata.int64Value(nil), IRFFMetadataPolicy.int64Value(nil))
+    }
 }

@@ -41,7 +41,11 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     }
 
     static func reserveCapacity(from capacity: Int) -> Int {
-        return max(0, capacity)
+        return IRFFFramePoolPolicy.reserveCapacity(from: capacity)
+    }
+
+    static func isFrame(_ frame: IRFFFrame?, compatibleWith frameClassName: AnyClass) -> Bool {
+        return IRFFFramePoolPolicy.isFrame(frame, compatibleWith: frameClassName)
     }
 
     private static func makeFrameFactory(for frameClassName: AnyClass) -> () -> IRFFFrame? {
@@ -79,25 +83,31 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     }
 
     func setFrameUnuse(_ frame: IRFFFrame?) {
-        guard let frame = frame, frame.isKind(of: frameClassName) else { return }
+        guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
         lock.lock()
         unuseFrames.insert(frame)
         usedFrames.remove(frame)
+        if playingFrame == frame {
+            playingFrame = nil
+        }
         lock.unlock()
     }
 
     func setFramesUnuse(_ frames: [IRFFFrame]) {
         guard !frames.isEmpty else { return }
         lock.lock()
-        for frame in frames where frame.isKind(of: frameClassName) {
+        for frame in frames where Self.isFrame(frame, compatibleWith: frameClassName) {
             usedFrames.remove(frame)
             unuseFrames.insert(frame)
+            if playingFrame == frame {
+                playingFrame = nil
+            }
         }
         lock.unlock()
     }
 
     func setFrameStartDrawing(_ frame: IRFFFrame?) {
-        guard let frame = frame, frame.isKind(of: frameClassName) else { return }
+        guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
         lock.lock()
         if let playingFrame = playingFrame {
             unuseFrames.insert(playingFrame)
@@ -108,7 +118,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     }
 
     func setFrameStopDrawing(_ frame: IRFFFrame?) {
-        guard let frame = frame, frame.isKind(of: frameClassName) else { return }
+        guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
         lock.lock()
         if playingFrame == frame {
             unuseFrames.insert(frame)
@@ -123,6 +133,10 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
             unuseFrames.insert(frame)
         }
         usedFrames.removeAll()
+        if let playingFrame {
+            unuseFrames.insert(playingFrame)
+            self.playingFrame = nil
+        }
         lock.unlock()
     }
 
@@ -143,5 +157,5 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     deinit {
         IRPlayerImp.Logger.libraryLogger.debug("IRFFFramePool release")
     }
-    
+
 }

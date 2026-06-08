@@ -3,6 +3,48 @@ import XCTest
 
 final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
 
+    func testPanoShaderParamPolicyWrappersRemainSourceCompatible() {
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: 480)?.width,
+            IRGLFish2PanoShaderParamsPolicy.outputSize(forTextureWidth: 640, height: 480)?.width
+        )
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: 480)?.height,
+            IRGLFish2PanoShaderParamsPolicy.outputSize(forTextureWidth: 640, height: 480)?.height
+        )
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.pixelMapTextureCount(antialias: 3),
+            IRGLFish2PanoShaderParamsPolicy.pixelMapTextureCount(antialias: 3)
+        )
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.pixelMapCapacity(outputWidth: 10, outputHeight: 20),
+            IRGLFish2PanoShaderParamsPolicy.pixelMapCapacity(outputWidth: 10, outputHeight: 20)
+        )
+        XCTAssertEqual(
+            IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 20, x: 3, y: 2),
+            IRGLFish2PanoShaderParamsPolicy.pixelMapUVOffset(outputWidth: 10, outputHeight: 20, x: 3, y: 2)
+        )
+    }
+
+    func testStaticPolicyWrappersRemainSourceCompatible() {
+        let params = IRGLFish2PanoShaderParams()
+        params.textureWidth = 1920
+        params.textureHeight = 960
+
+        XCTAssertEqual(
+            IRGLProgram2DFisheye2Pano.textureSize(from: params)?.width,
+            IRGLProgram2DFisheye2PanoPolicy.textureSize(from: params)?.width
+        )
+        XCTAssertEqual(
+            IRGLProgram2DFisheye2Pano.textureSize(from: params)?.height,
+            IRGLProgram2DFisheye2PanoPolicy.textureSize(from: params)?.height
+        )
+        XCTAssertEqual(
+            IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 260, outputWidth: 100),
+            IRGLProgram2DFisheye2PanoPolicy.normalizedOffsetX(currentOffset: 0, delta: 260, outputWidth: 100)
+        )
+    }
+
     func testTextureSizeRejectsMissingParamsAndReturnsExistingDimensions() {
         XCTAssertNil(IRGLProgram2DFisheye2Pano.textureSize(from: nil))
 
@@ -13,6 +55,66 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         let size = IRGLProgram2DFisheye2Pano.textureSize(from: params)
         XCTAssertEqual(size?.width, 1920)
         XCTAssertEqual(size?.height, 960)
+    }
+
+    func testProgramInitializesAndUpdatesFish2PanoShaderParams() throws {
+        let program = IRGLProgram2DFisheye2Pano(pixelFormat: .RGB_IRPixelFormat,
+                                                viewportRange: .zero,
+                                                parameter: nil)
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+
+        program.updateTextureWidth(64, height: 48)
+
+        let outputSize = try XCTUnwrap(IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 64, height: 48))
+        XCTAssertEqual(params.textureWidth, 64)
+        XCTAssertEqual(params.textureHeight, 48)
+        XCTAssertEqual(params.fishcenterx, 32)
+        XCTAssertEqual(params.fishcentery, 24)
+        XCTAssertEqual(params.fishradiush, 32)
+        XCTAssertEqual(params.fishradiusv, 24)
+        XCTAssertEqual(params.outputWidth, GLint(outputSize.width))
+        XCTAssertEqual(params.outputHeight, GLint(outputSize.height))
+        XCTAssertEqual(params.enableTransformX, 1)
+        XCTAssertEqual(params.enableTransformZ, 1)
+        XCTAssertEqual(params.transformZ, -90, accuracy: 0.0001)
+    }
+
+    func testProgramSetRenderFrameUpdatesFish2PanoTextureSize() throws {
+        let program = IRGLProgram2DFisheye2Pano(pixelFormat: .RGB_IRPixelFormat,
+                                                viewportRange: .zero,
+                                                parameter: nil)
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+        let frame = IRFFVideoFrame()
+        frame.width = 32
+        frame.height = 24
+
+        program.setRenderFrame(frame)
+
+        XCTAssertEqual(params.textureWidth, 32)
+        XCTAssertEqual(params.textureHeight, 24)
+    }
+
+    func testProgramHorizontalBoundsScrollWrapsFish2PanoOffset() throws {
+        let program = IRGLProgram2DFisheye2Pano(pixelFormat: .RGB_IRPixelFormat,
+                                                viewportRange: .zero,
+                                                parameter: nil)
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+        params.outputWidth = 100
+        params.offsetX = 0
+        let controller = Fish2PanoRecordingTransformController(scope: IRGLScope2D(scaleX: 2,
+                                                                                  scaleY: 1,
+                                                                                  offsetX: 0,
+                                                                                  offsetY: 0,
+                                                                                  panDegree: 0,
+                                                                                  w: 50,
+                                                                                  h: 50))
+        program.tramsformController = controller
+
+        program.willScroll(dx: 50, dy: 0, transformController: controller)
+        let shouldContinue = program.doScrollHorizontal(status: .toMaxX, transformController: controller)
+
+        XCTAssertFalse(shouldContinue)
+        XCTAssertEqual(params.offsetX, -50, accuracy: 0.0001)
     }
 
     func testPanoShaderParamsDefaultValuesMatchExpectedProjectionInputs() {
@@ -159,5 +261,18 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(value.x, x, accuracy: 0.0001, file: file, line: line)
         XCTAssertEqual(value.y, y, accuracy: 0.0001, file: file, line: line)
         XCTAssertEqual(value.z, z, accuracy: 0.0001, file: file, line: line)
+    }
+}
+
+private final class Fish2PanoRecordingTransformController: IRGLTransformController {
+    private let scope: IRGLScope2D
+
+    init(scope: IRGLScope2D) {
+        self.scope = scope
+        super.init()
+    }
+
+    override func getScope() -> IRGLScope2D {
+        scope
     }
 }
