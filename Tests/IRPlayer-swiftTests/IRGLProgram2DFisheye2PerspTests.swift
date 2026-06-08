@@ -92,6 +92,28 @@ final class IRGLProgram2DFisheye2PerspTests: XCTestCase {
         XCTAssertTrue(delegate.outputSizes.isEmpty)
     }
 
+    func testSetRenderFrameUpdatesPerspShaderTextureSize() {
+        let program = IRGLProgram2DFisheye2Persp()
+        guard let params = program.metalFish2PerspParams else {
+            return XCTFail("Expected fisheye-to-perspective params")
+        }
+        let frame = IRFFVideoFrame()
+        frame.width = 1920
+        frame.height = 960
+
+        program.setRenderFrame(frame)
+
+        XCTAssertEqual(params.textureWidth, 1920)
+        XCTAssertEqual(params.textureHeight, 960)
+        XCTAssertEqual(params.outputWidth, 1280)
+        XCTAssertEqual(params.outputHeight, 720)
+
+        params.outputWidth = 777
+        program.setRenderFrame(frame)
+
+        XCTAssertEqual(params.outputWidth, 777)
+    }
+
     func testVerticalBoundsScrollIgnoresInvalidFishRadius() {
         let program = IRGLProgram2DFisheye2Persp()
         guard let params = program.metalFish2PerspParams else {
