@@ -207,6 +207,22 @@ final class IRGLProgramFactoryTests: XCTestCase {
         XCTAssertTrue(distortionProgram.mapProjection is IRGLProjectionVR)
     }
 
+    func testVRAndDistortionFactoriesKeepProjectionWhenViewportIsInvalid() {
+        let invalidViewport = CGRect(x: 0, y: 0, width: CGFloat.nan, height: 180)
+
+        let vrProgram = IRGLProgramFactory.createIRGLProgramVR(pixelFormat: .RGB_IRPixelFormat,
+                                                              viewportRange: invalidViewport,
+                                                              parameter: nil)
+        let distortionProgram = IRGLProgramFactory.createIRGLProgramDistortion(pixelFormat: .RGB_IRPixelFormat,
+                                                                               viewportRange: invalidViewport,
+                                                                               parameter: nil)
+
+        XCTAssertNil(vrProgram.tramsformController)
+        XCTAssertTrue(vrProgram.mapProjection is IRGLProjectionVR)
+        XCTAssertNil(distortionProgram.tramsformController)
+        XCTAssertTrue(distortionProgram.mapProjection is IRGLProjectionVR)
+    }
+
     func testProgramFactoryWrappersReturnExpectedProgramTypes() {
         let viewport = CGRect(x: 0, y: 0, width: 320, height: 180)
         let parameter = makeFisheyeParameter()
