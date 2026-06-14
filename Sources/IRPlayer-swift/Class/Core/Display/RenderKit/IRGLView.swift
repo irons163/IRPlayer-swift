@@ -25,9 +25,10 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     var abstractPlayer: IRPlayerImp?
     private var metalLayer: CAMetalLayer? {
-        syncOnMain {
-            layer as? CAMetalLayer
-        }
+        // layerClass is overridden to always return CAMetalLayer.self, so the layer
+        // pointer is stable after init. Reading it from any thread is safe; we no
+        // longer call syncOnMain here to avoid lock inversion with queue.sync callers.
+        layer as? CAMetalLayer
     }
     private var device: MTLDevice?
     private var commandQueue: MTLCommandQueue?
@@ -116,10 +117,15 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     func initGL(with pixelFormat: IRPixelFormat) {
         CATransaction.flush()
+        // Capture main-thread state before entering queue.sync to avoid lock inversion:
+        // queue.sync would block the render queue, and any syncOnMain call from inside
+        // it would deadlock if main is simultaneously waiting on queue.sync elsewhere
+        // (e.g. layoutSubviews → updateViewPort → queue.sync).
+        let (viewBounds, screenScale) = syncOnMain { (bounds, UIScreen.main.scale) }
+        guard let metalLayer = self.metalLayer else { return }
+
         queue.sync {
             reset()
-            guard let metalLayer = self.metalLayer else { return }
-            let screenScale = self.syncOnMain { UIScreen.main.scale }
             metalLayer.contentsScale = screenScale
             metalLayer.isOpaque = true
             if device == nil {
@@ -138,7 +144,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             if ciContext == nil {
                 return
             }
-            updateDrawableSize(scale: 1.0)
+            updateDrawableSize(scale: 1.0, metalLayer: metalLayer, viewBounds: viewBounds, screenScale: screenScale)
         }
 
         viewprotRange = CGRect(x: 0, y: 0, width: backingWidth, height: backingHeight)
@@ -181,16 +187,16 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     func updateViewPort(_ viewportScale: Float) {
         CATransaction.flush()
+        guard let metalLayer = self.metalLayer else { return }
+        let (viewBounds, screenScale) = syncOnMain { (bounds, UIScreen.main.scale) }
         queue.sync {
-            updateDrawableSize(scale: CGFloat(viewportScale))
+            updateDrawableSize(scale: CGFloat(viewportScale), metalLayer: metalLayer, viewBounds: viewBounds, screenScale: screenScale)
         }
 
         resetAllViewport(w: Float(backingWidth), h: Float(backingHeight), resetTransform: false)
     }
 
-    private func updateDrawableSize(scale: CGFloat) {
-        guard let metalLayer = metalLayer else { return }
-        let (viewBounds, screenScale) = syncOnMain { (bounds, UIScreen.main.scale) }
+    private func updateDrawableSize(scale: CGFloat, metalLayer: CAMetalLayer, viewBounds: CGRect, screenScale: CGFloat) {
         let effectiveScale = scale * screenScale
         let size = CGSize(width: viewBounds.width * effectiveScale, height: viewBounds.height * effectiveScale)
         guard let pixelSize = Self.drawablePixelSize(from: size) else { return }
