@@ -232,7 +232,11 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     private func setupOperationQueue() {
         ffmpegOperationQueue?.maxConcurrentOperationCount = 3
-        ffmpegOperationQueue?.qualityOfService = .userInteractive
+        // .userInitiated is appropriate for streaming video: high-priority but not
+        // user-interactive. Using .userInteractive here causes a priority inversion
+        // because the display thread blocks on NSCondition.wait() in getFrameSync(),
+        // and NSCondition does not propagate QoS to the signaling thread.
+        ffmpegOperationQueue?.qualityOfService = .userInitiated
         setupOpenFileOperation()
     }
 
@@ -241,7 +245,7 @@ protocol IRFFDecoderDelegate: AnyObject {
             self?.openFormatContext()
         }
         operation.queuePriority = .veryHigh
-        operation.qualityOfService = .userInteractive
+        operation.qualityOfService = .userInitiated
         openFileOperation = operation
         Self.enqueue(operation, on: ffmpegOperationQueue)
     }
@@ -258,7 +262,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 self?.readPacketThread()
             }
             operation.queuePriority = .veryHigh
-            operation.qualityOfService = .userInteractive
+            operation.qualityOfService = .userInitiated
             Self.addDependency(openFileOperation, to: operation)
             readPacketOperation = operation
             Self.enqueue(operation, on: ffmpegOperationQueue)
@@ -269,7 +273,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                     self?.videoDecoder?.decodeFrameThread()
                 }
                 operation.queuePriority = .veryHigh
-                operation.qualityOfService = .userInteractive
+                operation.qualityOfService = .userInitiated
                 Self.addDependency(openFileOperation, to: operation)
                 decodeFrameOperation = operation
                 Self.enqueue(operation, on: ffmpegOperationQueue)
@@ -279,7 +283,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                     self?.displayThread()
                 }
                 operation.queuePriority = .veryHigh
-                operation.qualityOfService = .userInteractive
+                operation.qualityOfService = .userInitiated
                 Self.addDependency(openFileOperation, to: operation)
                 displayOperation = operation
                 Self.enqueue(operation, on: ffmpegOperationQueue)

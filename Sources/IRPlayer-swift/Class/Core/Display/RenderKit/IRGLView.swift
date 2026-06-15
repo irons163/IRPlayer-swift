@@ -24,7 +24,12 @@ enum IRDisplayRendererType: UInt {
 public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     var abstractPlayer: IRPlayerImp?
-    private var metalLayer: CAMetalLayer? { layer as? CAMetalLayer }
+    private var metalLayer: CAMetalLayer? {
+        // layerClass is overridden to always return CAMetalLayer.self, so the layer
+        // pointer is stable after init. Reading it from any thread is safe; we no
+        // longer call syncOnMain here to avoid lock inversion with queue.sync callers.
+        layer as? CAMetalLayer
+    }
     private var device: MTLDevice?
     private var commandQueue: MTLCommandQueue?
     private var ciContext: CIContext?
@@ -102,12 +107,26 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         return CAMetalLayer.self
     }
 
+    private func syncOnMain<T>(_ block: () -> T) -> T {
+        if Thread.isMainThread {
+            return block()
+        }
+
+        return DispatchQueue.main.sync(execute: block)
+    }
+
     func initGL(with pixelFormat: IRPixelFormat) {
         CATransaction.flush()
+        // Capture main-thread state before entering queue.sync to avoid lock inversion:
+        // queue.sync would block the render queue, and any syncOnMain call from inside
+        // it would deadlock if main is simultaneously waiting on queue.sync elsewhere
+        // (e.g. layoutSubviews → updateViewPort → queue.sync).
+        let (viewBounds, screenScale) = syncOnMain { (bounds, UIScreen.main.scale) }
+        guard let metalLayer = self.metalLayer else { return }
+
         queue.sync {
             reset()
-            guard let metalLayer = self.layer as? CAMetalLayer else { return }
-            metalLayer.contentsScale = UIScreen.main.scale
+            metalLayer.contentsScale = screenScale
             metalLayer.isOpaque = true
             if device == nil {
                 device = MTLCreateSystemDefaultDevice()
@@ -125,7 +144,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             if ciContext == nil {
                 return
             }
-            updateDrawableSize(scale: 1.0)
+            updateDrawableSize(scale: 1.0, metalLayer: metalLayer, viewBounds: viewBounds, screenScale: screenScale)
         }
 
         viewprotRange = CGRect(x: 0, y: 0, width: backingWidth, height: backingHeight)
@@ -168,17 +187,18 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     func updateViewPort(_ viewportScale: Float) {
         CATransaction.flush()
+        guard let metalLayer = self.metalLayer else { return }
+        let (viewBounds, screenScale) = syncOnMain { (bounds, UIScreen.main.scale) }
         queue.sync {
-            updateDrawableSize(scale: CGFloat(viewportScale))
+            updateDrawableSize(scale: CGFloat(viewportScale), metalLayer: metalLayer, viewBounds: viewBounds, screenScale: screenScale)
         }
 
         resetAllViewport(w: Float(backingWidth), h: Float(backingHeight), resetTransform: false)
     }
 
-    private func updateDrawableSize(scale: CGFloat) {
-        guard let metalLayer = metalLayer else { return }
-        let effectiveScale = scale * UIScreen.main.scale
-        let size = CGSize(width: bounds.width * effectiveScale, height: bounds.height * effectiveScale)
+    private func updateDrawableSize(scale: CGFloat, metalLayer: CAMetalLayer, viewBounds: CGRect, screenScale: CGFloat) {
+        let effectiveScale = scale * screenScale
+        let size = CGSize(width: viewBounds.width * effectiveScale, height: viewBounds.height * effectiveScale)
         guard let pixelSize = Self.drawablePixelSize(from: size) else { return }
         metalLayer.drawableSize = size
         backingWidth = pixelSize.width
@@ -433,7 +453,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     private func clearImage() -> CIImage {
-        let size = metalLayer?.drawableSize ?? bounds.size
+        let size = metalLayer?.drawableSize ?? syncOnMain { bounds.size }
         let rect = CGRect(origin: .zero, size: size)
         return CIImage(color: .black).cropped(to: rect)
     }
