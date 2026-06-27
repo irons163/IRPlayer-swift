@@ -11,6 +11,17 @@ import XCTest
 
 final class IRSmoothScrollPolicyTests: XCTestCase {
 
+    func testSmoothScrollControllerDoesNotRetainItselfThroughDisplayLink() {
+        weak var weakController: IRSmoothScrollController?
+
+        autoreleasepool {
+            let controller = IRSmoothScrollController(targetView: IRGLView(frame: .zero))
+            weakController = controller
+        }
+
+        XCTAssertNil(weakController)
+    }
+
     func testSmoothScrollTargetScalesVelocityMagnitudeIntoDistanceAndDuration() {
         let target = IRSmoothScrollController.smoothScrollTarget(for: CGPoint(x: 300, y: 400))
 

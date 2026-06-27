@@ -7,6 +7,22 @@
 
 import UIKit
 
+private final class IRSmoothScrollDisplayLinkProxy {
+    weak var controller: IRSmoothScrollController?
+
+    init(controller: IRSmoothScrollController) {
+        self.controller = controller
+    }
+
+    @objc func tick(_ sender: CADisplayLink) {
+        guard let controller else {
+            sender.invalidate()
+            return
+        }
+        controller.tick(sender)
+    }
+}
+
 @objcMembers public class IRSmoothScrollController: NSObject {
     weak var delegate: IRGLViewDelegate?
     var currentMode: IRGLRenderMode?
@@ -17,6 +33,7 @@ import UIKit
     private var alreadyPoint = CGPoint.zero
     private var slideDuration: CGFloat = 0.0
     private var timer: CADisplayLink?
+    private var displayLinkProxy: IRSmoothScrollDisplayLinkProxy?
     private var startTimestamp: TimeInterval = 0
     private var lastTimestamp: TimeInterval = 0
     private var didHorizontalBoundsBounce: Bool = false
@@ -29,11 +46,17 @@ import UIKit
         self.bounce = IRBounceController()
         self.bounce?.addBounceToView(targetView)
 
-        self.timer = CADisplayLink(target: self, selector: #selector(tick(_:)))
+        let proxy = IRSmoothScrollDisplayLinkProxy(controller: self)
+        self.displayLinkProxy = proxy
+        self.timer = CADisplayLink(target: proxy, selector: #selector(IRSmoothScrollDisplayLinkProxy.tick(_:)))
         self.timer?.add(to: .main, forMode: .default)
     }
 
-    @objc private func tick(_ sender: CADisplayLink) {
+    deinit {
+        timer?.invalidate()
+    }
+
+    fileprivate func tick(_ sender: CADisplayLink) {
         guard finalPoint != .zero else {
             return
         }
