@@ -145,6 +145,10 @@ final class IRFFDecoderOperationTests: XCTestCase {
             IRFFDecoder.shouldFinishDisplay(endOfFile: true, videoDecoderEmpty: true),
             IRFFDecoderDisplayPolicy.shouldFinishDisplay(endOfFile: true, videoDecoderEmpty: true)
         )
+        XCTAssertEqual(
+            IRFFDecoder.shouldNotifyError(closed: false, hasError: true),
+            IRFFDecoderOperationPolicy.shouldNotifyError(closed: false, hasError: true)
+        )
     }
 
     func testCodecContextHelpersRejectMissingOrDisabledFormatContext() {

@@ -19,4 +19,8 @@ enum IRFFDecoderOperationPolicy {
         queue.addOperation(operation)
         return true
     }
+
+    static func shouldNotifyError(closed: Bool, hasError: Bool) -> Bool {
+        return hasError && !closed
+    }
 }

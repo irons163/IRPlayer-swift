@@ -35,4 +35,10 @@ final class IRFFDecoderOperationPolicyTests: XCTestCase {
         queue.cancelAllOperations()
         queue.isSuspended = false
     }
+
+    func testErrorNotificationPolicyRequiresOpenDecoderWithError() {
+        XCTAssertTrue(IRFFDecoderOperationPolicy.shouldNotifyError(closed: false, hasError: true))
+        XCTAssertFalse(IRFFDecoderOperationPolicy.shouldNotifyError(closed: true, hasError: true))
+        XCTAssertFalse(IRFFDecoderOperationPolicy.shouldNotifyError(closed: false, hasError: false))
+    }
 }

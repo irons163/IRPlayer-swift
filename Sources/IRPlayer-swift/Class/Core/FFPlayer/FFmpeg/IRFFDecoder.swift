@@ -444,6 +444,10 @@ protocol IRFFDecoderDelegate: AnyObject {
         return IRFFDecoderDisplayPolicy.shouldFinishDisplay(endOfFile: endOfFile, videoDecoderEmpty: videoDecoderEmpty)
     }
 
+    static func shouldNotifyError(closed: Bool, hasError: Bool) -> Bool {
+        return IRFFDecoderOperationPolicy.shouldNotifyError(closed: closed, hasError: hasError)
+    }
+
     private func openFormatContext() {
         delegate?.decoderWillOpenInputStream(self)
         formatContext = IRFFFormatContext(contentURL: contentURL, videoFormat: videoFormat)
@@ -724,20 +728,17 @@ protocol IRFFDecoderDelegate: AnyObject {
         closed = true
         videoDecoder?.destroy()
         audioDecoder?.destroy()
-        if async {
-            DispatchQueue.global().async { [weak self] in
-                self?.ffmpegOperationQueue?.cancelAllOperations()
-                self?.ffmpegOperationQueue?.waitUntilAllOperationsAreFinished()
-                self?.closePropertyValue()
-                self?.formatContext?.destroy()
-                self?.closeOperation()
-            }
-        } else {
+        let cleanup = { [self] in
             ffmpegOperationQueue?.cancelAllOperations()
             ffmpegOperationQueue?.waitUntilAllOperationsAreFinished()
             closePropertyValue()
             formatContext?.destroy()
             closeOperation()
+        }
+        if async {
+            DispatchQueue.global().async(execute: cleanup)
+        } else {
+            cleanup()
         }
     }
 
@@ -827,9 +828,9 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     private func delegateErrorCallback() {
-        if let error = error {
-            delegate?.decoder(self, didError: error)
-        }
+        guard Self.shouldNotifyError(closed: closed, hasError: error != nil),
+              let error = error else { return }
+        delegate?.decoder(self, didError: error)
     }
 
     deinit {
