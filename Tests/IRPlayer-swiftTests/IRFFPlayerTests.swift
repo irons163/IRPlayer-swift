@@ -48,6 +48,33 @@ final class IRFFPlayerTests: XCTestCase {
         withExtendedLifetime(player) {}
     }
 
+    func testPlayableTimePostsNotificationWhenBufferedTimeChangesWithinDuration() throws {
+        let abstractPlayer = IRPlayerImp.player()
+        abstractPlayer.manager = nil
+        let ffPlayer = IRFFPlayer.player(with: abstractPlayer)
+        ffPlayer.decoder = FixedDurationFFDecoder(duration: 10)
+
+        let expectation = expectation(description: "playable notification")
+        let observer = NotificationCenter.default.addObserver(
+            forName: Notification.Name(IRPlayerPlayableChangeNotificationName),
+            object: abstractPlayer,
+            queue: .main
+        ) { notification in
+            let playable = IRModel.playable(fromUserInfo: notification.userInfo ?? [:])
+            XCTAssertEqual(playable.current, 4, accuracy: 0.0001)
+            XCTAssertEqual(playable.total, 10, accuracy: 0.0001)
+            expectation.fulfill()
+        }
+        addTeardownBlock {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        ffPlayer.playableTime = 4
+
+        wait(for: [expectation], timeout: 1)
+        withExtendedLifetime(abstractPlayer) {}
+    }
+
     func testAudioCopyPlanRejectsInvalidFrameOffsets() {
         XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: -1, remainingFrames: 32, numberOfChannels: 2))
         XCTAssertNil(IRFFPlayer.audioCopyPlan(frameSize: 128, outputOffset: 129, remainingFrames: 32, numberOfChannels: 2))
@@ -210,4 +237,22 @@ final class IRFFPlayerTests: XCTestCase {
         )
     }
 
+}
+
+private final class FixedDurationFFDecoder: IRFFDecoder {
+    private let fixedDuration: TimeInterval
+
+    init(duration: TimeInterval) {
+        self.fixedDuration = duration
+        super.init(
+            contentURL: URL(fileURLWithPath: "/tmp/fixed-duration.mp4"),
+            videoFormat: .mpeg4,
+            videoOutput: nil,
+            audioOutput: nil
+        )
+    }
+
+    override var duration: TimeInterval {
+        fixedDuration
+    }
 }

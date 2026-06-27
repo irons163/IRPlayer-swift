@@ -87,13 +87,15 @@ class IRFFPlayer: NSObject {
             let newPlayableTime = IRPlaybackTimePolicy.clampedPlayableTime(playableTime, duration: duration)
             if playableTime != newPlayableTime {
                 playableTime = newPlayableTime
-                IRPlayerNotification.postPlayer(
-                    abstractPlayer,
-                    playablePercent: IRPlaybackTimePolicy.percent(current: playableTime, total: duration),
-                    current: playableTime as NSNumber,
-                    total: duration as NSNumber
-                )
+                return
             }
+            guard playableTime != oldValue else { return }
+            IRPlayerNotification.postPlayer(
+                abstractPlayer,
+                playablePercent: IRPlaybackTimePolicy.percent(current: playableTime, total: duration),
+                current: playableTime as NSNumber,
+                total: duration as NSNumber
+            )
         }
     }
 
