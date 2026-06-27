@@ -4,6 +4,18 @@ import XCTest
 
 final class IRAVPlayerTests: XCTestCase {
 
+    func testDisplayLinkDoesNotRetainPlayerAfterScopeEnds() {
+        weak var weakPlayer: IRAVPlayer?
+
+        autoreleasepool {
+            let abstractPlayer = IRPlayerImp.player()
+            let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+            weakPlayer = avPlayer
+        }
+
+        XCTAssertNil(weakPlayer)
+    }
+
     func testTrackNameFallsBackWhenLanguageCodeIsMissingOrEmpty() {
         XCTAssertEqual(IRAVPlayerTrackPolicy.trackName(languageCode: nil, trackID: 7), "Track 7")
         XCTAssertEqual(IRAVPlayerTrackPolicy.trackName(languageCode: "", trackID: 8), "Track 8")

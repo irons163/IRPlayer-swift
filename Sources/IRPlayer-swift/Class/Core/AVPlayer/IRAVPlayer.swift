@@ -8,6 +8,22 @@
 import AVFoundation
 import UIKit
 
+private final class IRAVPlayerDisplayLinkProxy {
+    weak var player: IRAVPlayer?
+
+    init(player: IRAVPlayer) {
+        self.player = player
+    }
+
+    @objc func displayLinkCallback(_ sender: CADisplayLink) {
+        guard let player else {
+            sender.invalidate()
+            return
+        }
+        player.displayLinkCallback(sender)
+    }
+}
+
 class IRAVPlayer: NSObject {
 
     static let pixelBufferRequestInterval: CGFloat = 0.03
@@ -36,6 +52,7 @@ class IRAVPlayer: NSObject {
     var playBackTimeObserver: Any?
     var avPlayer: AVPlayer?
     var avPlayerItem: AVPlayerItem?
+    private var avPlayerItemObserversAdded = false
     var avAsset: AVURLAsset?
     var avOutput: AVPlayerItemVideoOutput?
     var readyToPlayTime: TimeInterval = 0
@@ -45,6 +62,7 @@ class IRAVPlayer: NSObject {
     var hasPixelBuffer = false
 
     var displayLink: CADisplayLink?
+    private var displayLinkProxy: IRAVPlayerDisplayLinkProxy?
 
     var videoEnable = false
     var audioEnable = false
@@ -313,7 +331,9 @@ extension IRAVPlayer {
 extension IRAVPlayer {
 
     func setupDisplayLink() {
-        self.displayLink = CADisplayLink(target: self, selector: #selector(displayLinkCallback))
+        let proxy = IRAVPlayerDisplayLinkProxy(player: self)
+        self.displayLinkProxy = proxy
+        self.displayLink = CADisplayLink(target: proxy, selector: #selector(IRAVPlayerDisplayLinkProxy.displayLinkCallback(_:)))
         self.displayLink?.add(to: .current, forMode: .default)
         self.displayLink?.isPaused = false
     }
@@ -553,6 +573,7 @@ extension IRAVPlayer {
         avPlayerItem?.addObserver(self, forKeyPath: "status", options: [], context: nil)
         avPlayerItem?.addObserver(self, forKeyPath: "playbackBufferEmpty", options: [.new], context: nil)
         avPlayerItem?.addObserver(self, forKeyPath: "loadedTimeRanges", options: [.new], context: nil)
+        avPlayerItemObserversAdded = true
         NotificationCenter.default.addObserver(self, selector: #selector(avplayerItemDidPlayToEnd(_:)), name: .AVPlayerItemDidPlayToEndTime, object: avPlayerItem)
 
         setupOutput()
@@ -560,9 +581,12 @@ extension IRAVPlayer {
 
     func cleanAVPlayerItem() {
         avPlayerItem?.cancelPendingSeeks()
-        avPlayerItem?.removeObserver(self, forKeyPath: "status")
-        avPlayerItem?.removeObserver(self, forKeyPath: "playbackBufferEmpty")
-        avPlayerItem?.removeObserver(self, forKeyPath: "loadedTimeRanges")
+        if avPlayerItemObserversAdded {
+            avPlayerItem?.removeObserver(self, forKeyPath: "status")
+            avPlayerItem?.removeObserver(self, forKeyPath: "playbackBufferEmpty")
+            avPlayerItem?.removeObserver(self, forKeyPath: "loadedTimeRanges")
+            avPlayerItemObserversAdded = false
+        }
         avPlayerItem?.outputs.forEach { avPlayerItem?.remove($0) }
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: avPlayerItem)
         avPlayerItem = nil
