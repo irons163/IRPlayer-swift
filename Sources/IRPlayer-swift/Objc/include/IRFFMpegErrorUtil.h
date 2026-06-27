@@ -9,6 +9,6 @@
 #define IRFFMpegErrorUtil_h
 
 extern int IR_AVERROR_EOF;
-long long IR_AV_NOPTS_VALUE;
+extern long long IR_AV_NOPTS_VALUE;
 
 #endif /* YourHeader_h */
