@@ -160,6 +160,16 @@ final class IRAVPlayerTests: XCTestCase {
             IRAVPlayer.avAssetLoadDecision(keyStatuses: [.loaded, .failed], trackStatus: .loaded),
             IRAVPlayerAssetLoadPolicy.decision(keyStatuses: [.loaded, .failed], trackStatus: .loaded)
         )
+        XCTAssertEqual(
+            IRAVPlayer.resourceLoaderRedirectRequest(
+                for: URLRequest(url: URL(string: "https://example.com/video.m3u8")!),
+                headers: ["Authorization": "Bearer token"]
+            )?.value(forHTTPHeaderField: "Authorization"),
+            IRAVPlayerResourceLoaderPolicy.redirectRequest(
+                for: URLRequest(url: URL(string: "https://example.com/video.m3u8")!),
+                headers: ["Authorization": "Bearer token"]
+            )?.value(forHTTPHeaderField: "Authorization")
+        )
 
         let wrapperError = IRAVPlayer.playbackErrorInfo(playerItem: nil, player: nil)
         let policyError = IRAVPlayerErrorPolicy.playbackErrorInfo(playerItem: nil, player: nil)
@@ -397,6 +407,42 @@ final class IRAVPlayerTests: XCTestCase {
             IRAVPlayerAssetLoadPolicy.decision(keyStatuses: [.loaded, .loaded], trackStatus: nil),
             .ignore
         )
+    }
+
+    func testResourceLoaderRedirectRequestAppliesHeadersToHTTPSRequests() throws {
+        var request = URLRequest(url: URL(string: "https://example.com/video.m3u8")!)
+        request.httpMethod = "POST"
+        request.httpBody = Data("payload".utf8)
+
+        let redirectRequest = try XCTUnwrap(IRAVPlayerResourceLoaderPolicy.redirectRequest(
+            for: request,
+            headers: [
+                "Authorization": "Bearer token",
+                "X-Playback-Session": "abc"
+            ]
+        ))
+
+        XCTAssertEqual(redirectRequest.url, request.url)
+        XCTAssertEqual(redirectRequest.httpMethod, "POST")
+        XCTAssertEqual(redirectRequest.httpBody, request.httpBody)
+        XCTAssertEqual(redirectRequest.value(forHTTPHeaderField: "Authorization"), "Bearer token")
+        XCTAssertEqual(redirectRequest.value(forHTTPHeaderField: "X-Playback-Session"), "abc")
+    }
+
+    func testResourceLoaderRedirectRequestRejectsMissingHeaders() {
+        let request = URLRequest(url: URL(string: "https://example.com/video.m3u8")!)
+
+        XCTAssertNil(IRAVPlayerResourceLoaderPolicy.redirectRequest(for: request, headers: nil))
+        XCTAssertNil(IRAVPlayerResourceLoaderPolicy.redirectRequest(for: request, headers: [:]))
+    }
+
+    func testResourceLoaderRedirectRequestRejectsNonHTTPSURLs() {
+        let request = URLRequest(url: URL(string: "http://example.com/video.m3u8")!)
+
+        XCTAssertNil(IRAVPlayerResourceLoaderPolicy.redirectRequest(
+            for: request,
+            headers: ["Authorization": "Bearer token"]
+        ))
     }
 
     func testUnknownItemStatusBuffersWithoutDebugOutput() {

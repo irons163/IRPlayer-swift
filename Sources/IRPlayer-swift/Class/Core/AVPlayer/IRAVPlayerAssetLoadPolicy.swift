@@ -12,3 +12,22 @@ enum IRAVPlayerAssetLoadPolicy {
         return .ignore
     }
 }
+
+enum IRAVPlayerResourceLoaderPolicy {
+
+    static func redirectRequest(for request: URLRequest, headers: [String: String]?) -> URLRequest? {
+        guard let headers = headers, !headers.isEmpty else {
+            return nil
+        }
+
+        guard request.url?.scheme?.lowercased() == "https" else {
+            return nil
+        }
+
+        var redirectRequest = request
+        headers.forEach { key, value in
+            redirectRequest.setValue(value, forHTTPHeaderField: key)
+        }
+        return redirectRequest
+    }
+}

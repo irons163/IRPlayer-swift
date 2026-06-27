@@ -501,22 +501,11 @@ extension IRAVPlayer {
 extension IRAVPlayer: AVAssetResourceLoaderDelegate {
 
     func resourceLoader(_ resourceLoader: AVAssetResourceLoader, shouldWaitForLoadingOfRequestedResource loadingRequest: AVAssetResourceLoadingRequest) -> Bool {
-        guard let contentHeaders = abstractPlayer?.contentHeaders, !contentHeaders.isEmpty else {
+        guard let redirectRequest = Self.resourceLoaderRedirectRequest(
+            for: loadingRequest.request,
+            headers: abstractPlayer?.contentHeaders
+        ) else {
             return false
-        }
-
-        guard let requestURL = loadingRequest.request.url else {
-            return false
-        }
-
-        guard requestURL.scheme == "https" else {
-            return false
-        }
-
-        var redirectRequest = URLRequest(url: requestURL)
-
-        contentHeaders.forEach { (key: String, value: String) in
-            redirectRequest.setValue(value, forHTTPHeaderField: key)
         }
 
         loadingRequest.redirect = redirectRequest
@@ -531,6 +520,10 @@ extension IRAVPlayer {
 
     static func avAssetLoadDecision(keyStatuses: [AVKeyValueStatus], trackStatus: AVKeyValueStatus?) -> AVAssetLoadDecision {
         return IRAVPlayerAssetLoadPolicy.decision(keyStatuses: keyStatuses, trackStatus: trackStatus)
+    }
+
+    static func resourceLoaderRedirectRequest(for request: URLRequest, headers: [String: String]?) -> URLRequest? {
+        return IRAVPlayerResourceLoaderPolicy.redirectRequest(for: request, headers: headers)
     }
 
     func setupAVPlayer() {
