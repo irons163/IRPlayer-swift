@@ -208,6 +208,19 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 0)
     }
 
+    func testFrameQueueDestroyClearsQueuedFramesAndAccounting() {
+        let queue = IRFFFrameQueue.frameQueue()
+        queue.putFrame(makeFrame(position: 0, duration: 0.25, size: 10))
+        queue.putFrame(makeFrame(position: 1, duration: 0.5, size: 20))
+
+        queue.destroy()
+
+        XCTAssertNil(queue.getFrameAsync())
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 0)
+    }
+
     func testFrameQueueIgnoresNilFrames() {
         let queue = IRFFFrameQueue.frameQueue()
 

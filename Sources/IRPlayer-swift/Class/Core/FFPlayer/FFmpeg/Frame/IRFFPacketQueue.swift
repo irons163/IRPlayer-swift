@@ -70,21 +70,25 @@ class IRFFPacketQueue: NSObject {
 
     func flush() {
         condition.lock()
+        flushLocked()
+        condition.unlock()
+    }
+
+    func destroy() {
+        condition.lock()
+        flushLocked()
+        destroyToken = true
+        condition.broadcast()
+        condition.unlock()
+    }
+
+    private func flushLocked() {
         for i in packets.indices {
             av_packet_unref(&packets[i].packet)
         }
         packets.removeAll()
         size = 0
         duration = 0
-        condition.unlock()
-    }
-
-    func destroy() {
-        flush()
-        condition.lock()
-        destroyToken = true
-        condition.broadcast()
-        condition.unlock()
     }
 
     static func accountedDuration(for packet: AVPacket,

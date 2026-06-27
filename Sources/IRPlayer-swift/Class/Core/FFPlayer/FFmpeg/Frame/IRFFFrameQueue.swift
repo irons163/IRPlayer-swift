@@ -132,17 +132,21 @@ class IRFFFrameQueue: NSObject {
 
     func flush() {
         condition.lock()
-        frames.removeAll()
-        duration = 0
-        size = 0
+        flushLocked()
         condition.unlock()
     }
 
     func destroy() {
-        flush()
         condition.lock()
+        flushLocked()
         destroyToken = true
         condition.broadcast()
         condition.unlock()
+    }
+
+    private func flushLocked() {
+        frames.removeAll()
+        duration = 0
+        size = 0
     }
 }

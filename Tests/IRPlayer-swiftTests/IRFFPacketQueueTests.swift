@@ -102,6 +102,20 @@ final class IRFFPacketQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 0)
     }
 
+    func testPacketQueueDestroyClearsQueuedPacketsAndAccounting() {
+        let queue = IRFFPacketQueue.packetQueue(withTimebase: 0.001)
+        queue.putPacket(makePacket(size: 10, duration: 250), duration: 10)
+        queue.putPacket(makePacket(size: 20, duration: 500), duration: 10)
+
+        queue.destroy()
+        let packet = queue.getPacket()
+
+        XCTAssertEqual(packet.stream_index, -2)
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 0)
+    }
+
     func testGetPacketWaitsUntilPacketIsEnqueued() {
         let queue = IRFFPacketQueue.packetQueue(withTimebase: 0.001)
         let completion = expectation(description: "getPacket returns after packet is enqueued")
