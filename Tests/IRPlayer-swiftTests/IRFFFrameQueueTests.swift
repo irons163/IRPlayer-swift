@@ -70,6 +70,29 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 20)
     }
 
+    func testFrameQueueSyncFetchReturnsQueuedFrameAndUpdatesAccounting() {
+        let queue = IRFFFrameQueue.frameQueue()
+        let frame = makeFrame(position: 0, duration: 0.25, size: 10)
+
+        queue.putFrame(frame)
+
+        XCTAssertTrue(queue.getFrameSync() === frame)
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 0)
+    }
+
+    func testFrameQueueSyncFetchClampsStalePositiveSizeWhenQueueBecomesEmpty() {
+        let queue = IRFFFrameQueue.frameQueue()
+        let frame = makeFrame(position: 0, duration: 0.25, size: 10)
+        queue.putFrame(frame)
+        frame.size = -10
+
+        XCTAssertTrue(queue.getFrameSync() === frame)
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.size, 0)
+    }
+
     func testPutSortFrameReturnsFramesInAscendingPositionOrder() {
         let queue = IRFFFrameQueue.frameQueue()
         let later = makeFrame(position: 3, duration: 0.1, size: 1)
@@ -156,6 +179,44 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertTrue(queue.getFrameAsync() === malformed)
         XCTAssertEqual(queue.duration, 0.5, accuracy: 0.0001)
         XCTAssertEqual(queue.size, 20)
+    }
+
+    func testFrameQueueFlushClearsFramesAndAccounting() {
+        let queue = IRFFFrameQueue.frameQueue()
+
+        queue.putFrame(makeFrame(position: 0, duration: 0.25, size: 10))
+        queue.putFrame(makeFrame(position: 1, duration: 0.5, size: 20))
+        queue.flush()
+
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 0)
+        XCTAssertNil(queue.getFrameAsync())
+    }
+
+    func testFrameQueueDestroyUnblocksSyncFetchAndIgnoresFutureFrames() {
+        let queue = IRFFFrameQueue.frameQueue()
+
+        queue.destroy()
+        queue.putFrame(makeFrame(position: 0, duration: 0.25, size: 10))
+        queue.putSortFrame(makeFrame(position: 1, duration: 0.5, size: 20))
+
+        XCTAssertNil(queue.getFrameSync())
+        XCTAssertNil(queue.getFrameAsync())
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 0)
+    }
+
+    func testFrameQueueIgnoresNilFrames() {
+        let queue = IRFFFrameQueue.frameQueue()
+
+        queue.putFrame(nil)
+        queue.putSortFrame(nil)
+
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+        XCTAssertEqual(queue.size, 0)
     }
 
     private func makeFrame(position: TimeInterval, duration: TimeInterval, size: Int) -> IRFFFrame {

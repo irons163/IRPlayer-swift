@@ -120,6 +120,7 @@ final class IRGLProjectionEquirectangularTests: XCTestCase {
     func testBufferPlanRejectsOverflowWithoutDebugOutput() {
         let output = captureStandardOutput {
             XCTAssertNil(IRGLProjectionEquirectangular.bufferPlan(slices: Int.max, indicesPerVertex: 1))
+            XCTAssertNil(IRGLProjectionEquirectangular.bufferPlan(slices: 3_037_000_499, indicesPerVertex: 1))
         }
 
         XCTAssertEqual(output, "")
@@ -145,5 +146,21 @@ final class IRGLProjectionEquirectangularTests: XCTestCase {
         XCTAssertFalse(updatedMesh.positions.isEmpty)
         XCTAssertFalse(updatedMesh.texcoords.isEmpty)
         XCTAssertFalse(updatedMesh.indices.isEmpty)
+    }
+
+    func testProjectionNoOpUpdateAndDrawKeepMeshAvailable() throws {
+        let projection = IRGLProjectionEquirectangular(textureWidth: 1440,
+                                                      height: 1080,
+                                                      centerX: 720,
+                                                      centerY: 540,
+                                                      radius: 520)
+
+        projection.updateVertex()
+        projection.draw()
+
+        let mesh = try XCTUnwrap(projection.exportMesh())
+        XCTAssertFalse(mesh.positions.isEmpty)
+        XCTAssertFalse(mesh.texcoords.isEmpty)
+        XCTAssertFalse(mesh.indices.isEmpty)
     }
 }

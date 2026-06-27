@@ -29,4 +29,28 @@ final class IRGLProgramDistortionTests: XCTestCase {
         XCTAssertEqual(transformController.getScope().w, 160)
         XCTAssertEqual(transformController.getScope().h, 180)
     }
+
+    func testTransformControllerDistortionReturnsOnlyDistortionControllers() {
+        let program = IRGLProgramDistortion(pixelFormat: .RGB_IRPixelFormat,
+                                           viewportRange: CGRect(x: 0, y: 0, width: 320, height: 180),
+                                           parameter: nil)
+
+        program.tramsformController = IRGLTransformController2D(viewportWidth: 320, viewportHeight: 180)
+        XCTAssertNil(program.transformControllerDistortion)
+
+        let distortionController = IRGLTransformControllerDistortion(viewportWidth: 160, viewportHeight: 180, tileType: .up)
+        program.tramsformController = distortionController
+        XCTAssertTrue(program.transformControllerDistortion === distortionController)
+    }
+
+    func testVerticalScrollStopsAtDistortionBounds() {
+        let program = IRGLProgramDistortion(pixelFormat: .RGB_IRPixelFormat,
+                                           viewportRange: CGRect(x: 0, y: 0, width: 320, height: 180),
+                                           parameter: nil)
+        let controller = IRGLTransformController()
+
+        XCTAssertFalse(program.doScrollVertical(status: [.toMaxY], transformController: controller))
+        XCTAssertFalse(program.doScrollVertical(status: [.toMinY], transformController: controller))
+        XCTAssertTrue(program.doScrollVertical(status: [], transformController: controller))
+    }
 }

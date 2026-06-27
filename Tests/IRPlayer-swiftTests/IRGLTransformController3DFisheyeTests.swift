@@ -91,6 +91,28 @@ final class IRGLTransformController3DFisheyeTests: XCTestCase {
         XCTAssertEqual(controller.getScope().scaleY, 1, accuracy: 0.0001)
     }
 
+    func testDefaultScaleAndDegreeScrollUpdateFisheyeScope() {
+        let controller = IRGLTransformController3DFisheye(viewportWidth: 100, viewportHeight: 100, tileType: .up)
+        controller.scaleRange = IRGLScaleRange(minScaleX: 1,
+                                               minScaleY: 1,
+                                               maxScaleX: 4,
+                                               maxScaleY: 4,
+                                               defaultScaleX: 2,
+                                               defaultScaleY: 2)
+
+        controller.updateToDefault()
+        let defaultScale = controller.getDefaultTransformScale()
+        controller.scroll(degreeX: 15, degreeY: -6)
+
+        XCTAssertEqual(defaultScale.x, 1, accuracy: 0.0001)
+        XCTAssertEqual(defaultScale.y, 1, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().scaleX, 2, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().scaleY, 2, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().lng, -15, accuracy: 0.0001)
+        XCTAssertEqual(controller.getScope().lat, 6, accuracy: 0.0001)
+        assertFinite(controller.getModelViewProjectionMatrix())
+    }
+
     func testScrollIgnoresNonFiniteDeltas() {
         let controller = IRGLTransformController3DFisheye(viewportWidth: 100, viewportHeight: 100, tileType: .up)
 

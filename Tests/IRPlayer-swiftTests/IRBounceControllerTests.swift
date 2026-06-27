@@ -31,10 +31,38 @@ final class IRBounceControllerTests: XCTestCase {
         XCTAssertEqual(geometry.end, CGPoint(x: 100, y: 0))
     }
 
+    func testBounceGeometryBuildsRightAndUpEdges() {
+        let targetSize = CGSize(width: 100, height: 80)
+
+        let rightGeometry = IRBouncePolicy.bouncePathGeometry(amount: 3,
+                                                             direction: .right,
+                                                             targetSize: targetSize)
+        XCTAssertEqual(rightGeometry.start, .zero)
+        XCTAssertEqual(rightGeometry.control, CGPoint(x: 3, y: 40))
+        XCTAssertEqual(rightGeometry.end, CGPoint(x: 0, y: 80))
+
+        let upGeometry = IRBouncePolicy.bouncePathGeometry(amount: -4,
+                                                          direction: .up,
+                                                          targetSize: targetSize)
+        XCTAssertEqual(upGeometry.start, CGPoint(x: 0, y: 80))
+        XCTAssertEqual(upGeometry.control, CGPoint(x: 50, y: 76))
+        XCTAssertEqual(upGeometry.end, CGPoint(x: 100, y: 80))
+    }
+
     func testBounceGeometryRejectsMalformedInputs() {
         let geometry = IRBouncePolicy.bouncePathGeometry(amount: .nan,
                                                          direction: .left,
                                                          targetSize: CGSize(width: CGFloat.infinity, height: -80))
+
+        XCTAssertEqual(geometry.start, .zero)
+        XCTAssertEqual(geometry.control, .zero)
+        XCTAssertEqual(geometry.end, .zero)
+    }
+
+    func testBounceGeometryReturnsZeroForUnsupportedDirection() {
+        let geometry = IRBouncePolicy.bouncePathGeometry(amount: 4,
+                                                         direction: .none,
+                                                         targetSize: CGSize(width: 100, height: 80))
 
         XCTAssertEqual(geometry.start, .zero)
         XCTAssertEqual(geometry.control, .zero)

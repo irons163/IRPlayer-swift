@@ -55,6 +55,56 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(view.viewprotRange, CGRect(x: 0, y: 0, width: 320, height: 180))
     }
 
+    func testReloadViewFrameFillsSuperviewWhenAspectIsUnset() {
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 180))
+        let view = IRGLView(frame: .zero)
+        container.addSubview(view)
+
+        view.aspect = 0
+        view.reloadViewFrame()
+
+        XCTAssertEqual(view.frame, container.bounds)
+    }
+
+    func testReloadViewFrameLetterboxesWiderContent() {
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 240))
+        let view = IRGLView(frame: .zero)
+        container.addSubview(view)
+
+        view.aspect = 2
+        view.reloadViewFrame()
+
+        XCTAssertEqual(view.frame.origin.x, 0, accuracy: 0.0001)
+        XCTAssertEqual(view.frame.origin.y, 40, accuracy: 0.0001)
+        XCTAssertEqual(view.frame.width, 320, accuracy: 0.0001)
+        XCTAssertEqual(view.frame.height, 160, accuracy: 0.0001)
+    }
+
+    func testReloadViewFramePillarboxesTallerContent() {
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 180))
+        let view = IRGLView(frame: .zero)
+        container.addSubview(view)
+
+        view.aspect = 1
+        view.reloadViewFrame()
+
+        XCTAssertEqual(view.frame.origin.x, 70, accuracy: 0.0001)
+        XCTAssertEqual(view.frame.origin.y, 0, accuracy: 0.0001)
+        XCTAssertEqual(view.frame.width, 180, accuracy: 0.0001)
+        XCTAssertEqual(view.frame.height, 180, accuracy: 0.0001)
+    }
+
+    func testReloadViewFrameUsesSuperviewFrameForMatchingAspect() {
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 180))
+        let view = IRGLView(frame: .zero)
+        container.addSubview(view)
+
+        view.aspect = 320.0 / 180.0
+        view.reloadViewFrame()
+
+        XCTAssertEqual(view.frame, container.bounds)
+    }
+
     func testDrawablePixelSizeRejectsInvalidDimensions() {
         XCTAssertNil(IRGLView.drawablePixelSize(from: CGSize(width: 0, height: 1)))
         XCTAssertNil(IRGLView.drawablePixelSize(from: CGSize(width: 1, height: CGFloat.nan)))
@@ -145,6 +195,19 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(transform.scaleX, 0.5, accuracy: 0.0001)
         XCTAssertEqual(transform.scaleY, 0.5, accuracy: 0.0001)
         XCTAssertEqual(transform.translationX, -50, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationY, 0, accuracy: 0.0001)
+    }
+
+    func testFittedImageTransformCalculatesScaleToFillIndependentAxes() throws {
+        let transform = try XCTUnwrap(
+            IRGLView.fittedImageTransform(imageExtent: CGRect(x: 0, y: 0, width: 400, height: 200),
+                                          targetRect: CGRect(x: 0, y: 0, width: 100, height: 80),
+                                          contentMode: .scaleToFill)
+        )
+
+        XCTAssertEqual(transform.scaleX, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(transform.scaleY, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(transform.translationX, 0, accuracy: 0.0001)
         XCTAssertEqual(transform.translationY, 0, accuracy: 0.0001)
     }
 

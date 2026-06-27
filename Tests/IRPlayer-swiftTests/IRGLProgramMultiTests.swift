@@ -81,6 +81,19 @@ final class IRGLProgramMultiTests: XCTestCase {
         ])
         XCTAssertEqual(children.map(\.doubleTapCallCount), [1, 1])
     }
+
+    func testRelativePinchUsesIdentityScaleWhenChildTransformControllerIsMissing() {
+        let child = RecordingProgram2D()
+        let program = IRGLProgramMulti(programs: [child],
+                                       viewprotRange: CGRect(x: 0, y: 0, width: 100, height: 50))
+
+        child.tramsformController = nil
+        program.didPinchByfx(10, fy: 20, dsx: 1.5, dsy: 2)
+
+        XCTAssertEqual(child.pinchCalls, [
+            .init(fx: 10, fy: 20, sx: 1.5, sy: 2)
+        ])
+    }
 }
 
 private final class RecordingProgram2D: IRGLProgram2D {

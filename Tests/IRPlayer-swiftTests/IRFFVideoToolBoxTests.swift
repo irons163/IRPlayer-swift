@@ -1,6 +1,7 @@
 import CoreMedia
 import Foundation
 import IRFFMpeg
+import VideoToolbox
 import XCTest
 @testable import IRPlayer_swift
 
@@ -91,6 +92,12 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         XCTAssertNil(
             IRFFVideoToolBox.setupValidationError(codecID: AV_CODEC_ID_H264, extradata: UnsafeMutablePointer<UInt8>(bitPattern: 1), extradataSize: 7, firstExtradataByte: 1)
         )
+    }
+
+    func testDecodeFrameSucceededRequiresStatusCallbackAndOutput() {
+        XCTAssertFalse(IRFFVideoToolBoxPolicy.decodeFrameSucceeded(status: -1, callbackStatus: noErr, hasOutput: true))
+        XCTAssertFalse(IRFFVideoToolBoxPolicy.decodeFrameSucceeded(status: noErr, callbackStatus: -1, hasOutput: true))
+        XCTAssertFalse(IRFFVideoToolBoxPolicy.decodeFrameSucceeded(status: noErr, callbackStatus: noErr, hasOutput: false))
     }
 
     func testNALLengthSizePolicyNormalizesThreeByteMarker() {
@@ -234,6 +241,63 @@ final class IRFFVideoToolBoxTests: XCTestCase {
 
     func testDecodeFramePayloadRejectsMissingInputs() {
         XCTAssertNil(IRFFVideoToolBox.decodeFramePayload(session: nil, sampleBuffer: nil))
+    }
+
+    func testDecodeFramePayloadWrapsValidInputs() throws {
+        var createdFormatDescription: CMFormatDescription?
+        let formatStatus = CMVideoFormatDescriptionCreate(
+            allocator: nil,
+            codecType: kCMVideoCodecType_H264,
+            width: 16,
+            height: 8,
+            extensions: nil,
+            formatDescriptionOut: &createdFormatDescription
+        )
+        XCTAssertEqual(formatStatus, noErr)
+        let formatDescription = try XCTUnwrap(createdFormatDescription)
+
+        let pixelBufferAttributes: [CFString: Any] = [
+            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelBufferWidthKey: 16,
+            kCVPixelBufferHeightKey: 8,
+            kCVPixelBufferIOSurfacePropertiesKey: [:]
+        ]
+
+        var session: VTDecompressionSession?
+        var callbackRecord = VTDecompressionOutputCallbackRecord()
+        let sessionStatus = VTDecompressionSessionCreate(
+            allocator: nil,
+            formatDescription: formatDescription,
+            decoderSpecification: nil,
+            imageBufferAttributes: pixelBufferAttributes as CFDictionary,
+            outputCallback: &callbackRecord,
+            decompressionSessionOut: &session
+        )
+        guard sessionStatus == noErr, let session else {
+            throw XCTSkip("VideoToolbox decompression session unavailable")
+        }
+        defer { VTDecompressionSessionInvalidate(session) }
+
+        var sampleBuffer: CMSampleBuffer?
+        let sampleStatus = CMSampleBufferCreate(
+            allocator: nil,
+            dataBuffer: nil,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: formatDescription,
+            sampleCount: 0,
+            sampleTimingEntryCount: 0,
+            sampleTimingArray: nil,
+            sampleSizeEntryCount: 0,
+            sampleSizeArray: nil,
+            sampleBufferOut: &sampleBuffer
+        )
+        XCTAssertEqual(sampleStatus, noErr)
+
+        let payload = try XCTUnwrap(IRFFVideoToolBox.decodeFramePayload(session: session, sampleBuffer: sampleBuffer))
+        XCTAssertTrue(VTDecompressionSessionCanAcceptFormatDescription(payload.session, formatDescription: formatDescription))
+        XCTAssertEqual(CFGetTypeID(payload.sampleBuffer), CMSampleBufferGetTypeID())
     }
 
     func testDecodeFrameSuccessRequiresAllStatusesAndOutput() {

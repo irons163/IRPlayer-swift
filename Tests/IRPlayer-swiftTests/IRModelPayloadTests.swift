@@ -65,6 +65,13 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(error.error.code, -1)
     }
 
+    func testDefaultIRErrorEventUsesEmptyStatusFields() {
+        let event = IRErrorEvent()
+
+        XCTAssertEqual(event.errorStatusCode, 0)
+        XCTAssertEqual(event.errorDomain, "")
+    }
+
     func testStatePayloadRoundTripsThroughModelParser() {
         let payload = IRPlayerNotificationPayload.state(previous: .buffering, current: .playing)
         let state = IRModel.state(fromUserInfo: payload)
@@ -91,6 +98,11 @@ final class IRModelPayloadTests: XCTestCase {
 
         XCTAssertEqual(state.previous, .none)
         XCTAssertEqual(state.current, .none)
+    }
+
+    func testStatePayloadDefaultsOutOfRangeRawValues() {
+        XCTAssertEqual(IRPlayerNotificationPayload.state(NSNumber(value: Int.max)), .none)
+        XCTAssertEqual(IRPlayerNotificationPayload.state(Int.min), .none)
     }
 
     func testProgressParserAcceptsNumericPayloadsAndDefaultsMissingValues() {
@@ -151,6 +163,16 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(playable.total, 0)
     }
 
+    func testCGFloatPayloadConvertsNumericInputsAndDefaultsInvalidValues() {
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(CGFloat(2.5)), 2.5, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(NSNumber(value: 4.5)), 4.5, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(Double(6.5)), 6.5, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(Float(8.5)), 8.5, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(10), 10, accuracy: 0.0001)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat("not-a-number"), 0)
+        XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(Double.infinity), 0)
+    }
+
     func testProgressPayloadDefaultsNonFiniteNumbers() {
         let payload = IRPlayerNotificationPayload.progress(
             percent: NSNumber(value: Double.nan),
@@ -201,5 +223,12 @@ final class IRModelPayloadTests: XCTestCase {
         let wrappedError = IRModel.error(fromUserInfo: [IRPlayerErrorKey: nsError])
         XCTAssertEqual(wrappedError.error.domain, "wrapped")
         XCTAssertEqual(wrappedError.error.code, 8)
+    }
+
+    func testErrorParserDefaultsMalformedPayloads() {
+        let error = IRModel.error(fromUserInfo: [IRPlayerErrorKey: "not-an-error"])
+
+        XCTAssertEqual(error.error.domain, "IRPlayer error")
+        XCTAssertEqual(error.error.code, -1)
     }
 }

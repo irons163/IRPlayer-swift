@@ -10,6 +10,16 @@ import XCTest
 
 final class IRFFMetadataTests: XCTestCase {
 
+    func testMetadataWithNilAVDictionaryUsesEmptyDefaults() {
+        let metadata = IRFFMetadata.metadata(with: AVDictionary(rawPointer: nil))
+
+        XCTAssertEqual(metadata.language, "")
+        XCTAssertEqual(metadata.BPS, 0)
+        XCTAssertEqual(metadata.duration, "")
+        XCTAssertEqual(metadata.numberOfBytes, 0)
+        XCTAssertEqual(metadata.numberOfFrames, 0)
+    }
+
     func testMetadataParsesStringValuesFromDictionary() {
         let metadata = IRFFMetadata(dictionary: [
             "language": "en",

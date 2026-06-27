@@ -30,6 +30,24 @@ final class IRFFDecoderPacketPolicyTests: XCTestCase {
             ),
             0.5
         )
+        XCTAssertEqual(
+            IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
+                audioSize: 10,
+                videoPacketSize: 0,
+                maxBufferSize: 10,
+                paused: false
+            ),
+            0.1
+        )
+        XCTAssertEqual(
+            IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
+                audioSize: 0,
+                videoPacketSize: 10,
+                maxBufferSize: 10,
+                paused: true
+            ),
+            0.5
+        )
     }
 
     func testPacketBufferBackpressureSleepIntervalRejectsInvalidSizes() {

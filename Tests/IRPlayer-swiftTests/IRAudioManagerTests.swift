@@ -121,6 +121,7 @@ final class IRAudioManagerNotificationTests: XCTestCase {
     func testUnsignedIntegerRejectsNegativeNumericPayloads() {
         XCTAssertNil(IRAudioManager.unsignedInteger(from: -1))
         XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: -1)))
+        XCTAssertEqual(IRAudioManager.unsignedInteger(from: 2), 2)
         XCTAssertEqual(IRAudioManager.unsignedInteger(from: UInt(3)), 3)
         XCTAssertEqual(IRAudioManager.unsignedInteger(from: NSNumber(value: 4)), 4)
     }
@@ -128,6 +129,7 @@ final class IRAudioManagerNotificationTests: XCTestCase {
     func testUnsignedIntegerRejectsFractionalAndBooleanNumericPayloads() {
         XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: 1.5)))
         XCTAssertNil(IRAudioManager.unsignedInteger(from: NSNumber(value: true)))
+        XCTAssertNil(IRAudioManager.unsignedInteger(from: "not-a-number"))
     }
 
     func testUnsignedIntegerWrapperMatchesPolicy() {

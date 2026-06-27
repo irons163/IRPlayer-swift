@@ -1,8 +1,27 @@
+import CoreVideo
 import IRFFMpeg
 import XCTest
 @testable import IRPlayer_swift
 
 final class IRFFAVYUVVideoFrameTests: XCTestCase {
+
+    private func makePixelBuffer(width: Int = 3,
+                                 height: Int = 5,
+                                 format: OSType = kCVPixelFormatType_32BGRA) throws -> CVPixelBuffer {
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            format,
+            [kCVPixelBufferIOSurfacePropertiesKey as String: [:]] as CFDictionary,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let pixelBuffer else {
+            throw XCTSkip("CVPixelBuffer unavailable")
+        }
+        return pixelBuffer
+    }
 
     func testImageReturnsNilWhenFrameDataIsMissing() {
         let frame = IRFFAVYUVVideoFrame()
@@ -10,6 +29,17 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         let image: IRPLFImage? = frame.image()
 
         XCTAssertNil(image)
+    }
+
+    func testCVYUVVideoFrameUsesPixelBufferDimensionsAndType() throws {
+        let pixelBuffer = try makePixelBuffer(width: 3, height: 5)
+
+        let frame = IRFFCVYUVVideoFrame(pixelBuffer: pixelBuffer)
+
+        XCTAssertEqual(frame.type, .cvyuvVideo)
+        XCTAssertEqual(frame.width, 3)
+        XCTAssertEqual(frame.height, 5)
+        XCTAssertTrue(frame.pixelBuffer === pixelBuffer)
     }
 
     func testSetFrameDataIgnoresMissingPlaneData() {
@@ -179,6 +209,7 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 4, height: 0, channelCount: 1))
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 4, height: 4, channelCount: 0))
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: .max, width: .max, height: 2, channelCount: 2))
+        XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: .max, width: .max, height: 2, channelCount: 1))
     }
 
     func testYUVChannelFilterNeedSizeCheckedUsesAdjustedWidth() {
@@ -203,6 +234,52 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
             IRYUVToolsPolicy.imageDimensions32(width: 640, height: 480)?.height
         )
         XCTAssertNil(IRYUVToolsPolicy.imageDimensions32(width: 0, height: 480))
+    }
+
+    func testYUVToolsPolicyChannelFilterCopiesAdjustedRowsAndClearsDestination() {
+        var source: [UInt8] = [
+            1, 2, 3, 4,
+            5, 6, 7, 8,
+            9, 10, 11, 12
+        ]
+        var destination = [UInt8](repeating: 0xff, count: 6)
+
+        source.withUnsafeMutableBufferPointer { sourceBuffer in
+            destination.withUnsafeMutableBufferPointer { destinationBuffer in
+                IRYUVToolsPolicy.channelFilter(
+                    src: sourceBuffer.baseAddress!,
+                    linesize: 4,
+                    width: 2,
+                    height: 3,
+                    dst: destinationBuffer.baseAddress!,
+                    dstsize: destinationBuffer.count,
+                    channelCount: 1
+                )
+            }
+        }
+
+        XCTAssertEqual(destination, [1, 2, 5, 6, 9, 10])
+    }
+
+    func testYUVToolsPolicyChannelFilterLeavesDestinationZeroedWhenOutputIsTooSmall() {
+        var source = [UInt8](1...8)
+        var destination = [UInt8](repeating: 0xff, count: 3)
+
+        source.withUnsafeMutableBufferPointer { sourceBuffer in
+            destination.withUnsafeMutableBufferPointer { destinationBuffer in
+                IRYUVToolsPolicy.channelFilter(
+                    src: sourceBuffer.baseAddress!,
+                    linesize: 4,
+                    width: 2,
+                    height: 2,
+                    dst: destinationBuffer.baseAddress!,
+                    dstsize: destinationBuffer.count,
+                    channelCount: 1
+                )
+            }
+        }
+
+        XCTAssertEqual(destination, [0, 0, 0])
     }
 
     func testYUVChannelFilterWrappersRemainSourceCompatible() {
