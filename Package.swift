@@ -1,6 +1,31 @@
 // swift-tools-version:5.9
 import PackageDescription
 
+let sourceAgentInstructionFiles = [
+    "AGENTS.md",
+    "IRPlayer-swift/Class/AGENTS.md",
+    "IRPlayer-swift/Class/Core/AGENTS.md",
+    "IRPlayer-swift/Class/Core/AVPlayer/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Audio/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Config/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Controller/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Display/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Display/Metal/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Display/RenderKit/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Display/RenderKit/Mode/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Display/RenderKit/Params/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Display/RenderKit/Program/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Display/RenderKit/Projection/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Display/RenderKit/Scope/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Display/RenderKit/Transform/AGENTS.md",
+    "IRPlayer-swift/Class/Core/FFPlayer/AGENTS.md",
+    "IRPlayer-swift/Class/Core/FFPlayer/FFmpeg/AGENTS.md",
+    "IRPlayer-swift/Class/Core/FFPlayer/FFmpeg/Frame/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Matrix/AGENTS.md",
+    "IRPlayer-swift/Class/Core/Tools/AGENTS.md",
+    "IRPlayer-swift/Class/Platform/AGENTS.md"
+]
+
 let package = Package(
     name: "IRPlayer",
     platforms: [
@@ -18,7 +43,7 @@ let package = Package(
             name: "IRPlayerSwift",
             dependencies: ["IRPlayerObjc", "IRFFMpeg"],
             path: "Sources",
-            exclude: ["IRPlayer-swift/ThirdParty", "IRPlayer-swift/Objc"],
+            exclude: ["IRPlayer-swift/ThirdParty", "IRPlayer-swift/Objc"] + sourceAgentInstructionFiles,
             resources: [
                 .process("IRPlayer-swift/Class/Core/Display/Metal/IRMetalShaders.metal")
             ],
@@ -89,7 +114,8 @@ let package = Package(
         .testTarget(
             name: "IRPlayer-swiftTests",
             dependencies: ["IRPlayerSwift"],
-            path: "Tests"
+            path: "Tests",
+            exclude: ["AGENTS.md"]
         )
     ]
 )
