@@ -427,6 +427,28 @@ final class IRAVPlayerTests: XCTestCase {
         withExtendedLifetime(abstractPlayer) {}
     }
 
+    func testAVAssetPrepareFailureMarksPlayerFailedAndPostsError() throws {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+        let error = NSError(domain: "IRAVPlayerTests.assetLoad", code: 7)
+        let expectation = observeNotification(
+            name: IRPlayerErrorNotificationName,
+            object: abstractPlayer
+        ) { notification in
+            let playerError = IRModel.error(fromUserInfo: try XCTUnwrap(notification.userInfo))
+            XCTAssertEqual(playerError.error.domain, error.domain)
+            XCTAssertEqual(playerError.error.code, error.code)
+        }
+
+        avPlayer.avAssetPrepareFailed(error: error)
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(avPlayer.state, .failed)
+        XCTAssertEqual(abstractPlayer.error?.error.domain, error.domain)
+        XCTAssertEqual(abstractPlayer.error?.error.code, error.code)
+        withExtendedLifetime(abstractPlayer) {}
+    }
+
     func testPixelBufferAtCurrentTimeReturnsNilWhenPlayerItemIsMissing() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
@@ -476,5 +498,29 @@ final class IRAVPlayerTests: XCTestCase {
 
         XCTAssertEqual(output, "")
         withExtendedLifetime(abstractPlayer) {}
+    }
+
+    private func observeNotification(
+        name: String,
+        object: Any?,
+        verify: @escaping (Notification) throws -> Void
+    ) -> XCTestExpectation {
+        let expectation = expectation(description: "\(name) posted")
+        let observer = NotificationCenter.default.addObserver(
+            forName: Notification.Name(name),
+            object: object,
+            queue: .main
+        ) { notification in
+            do {
+                try verify(notification)
+            } catch {
+                XCTFail("Notification verification failed: \(error)")
+            }
+            expectation.fulfill()
+        }
+        addTeardownBlock {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        return expectation
     }
 }

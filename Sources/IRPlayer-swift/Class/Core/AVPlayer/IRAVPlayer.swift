@@ -410,6 +410,12 @@ extension IRAVPlayer {
     }
 
     func avAssetPrepareFailed(error: Error?) {
+        readyToPlayTime = 0
+        let errorInfo = IRError()
+        if let error = error {
+            errorInfo.error = error as NSError
+        }
+        failPlayback(with: errorInfo)
     }
 
     private func playbackErrorInfo() -> IRError {
