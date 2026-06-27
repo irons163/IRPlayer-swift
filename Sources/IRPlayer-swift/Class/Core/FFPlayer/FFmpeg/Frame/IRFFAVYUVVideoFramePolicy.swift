@@ -25,4 +25,12 @@ enum IRFFAVYUVVideoFramePolicy {
             && linesizeU > 0
             && linesizeV > 0
     }
+
+    static func channelBufferSize(for channel: IRYUVChannel, capacities: [Int]) -> Int? {
+        guard channel != .count,
+              capacities.indices.contains(channel.rawValue) else {
+            return nil
+        }
+        return capacities[channel.rawValue]
+    }
 }

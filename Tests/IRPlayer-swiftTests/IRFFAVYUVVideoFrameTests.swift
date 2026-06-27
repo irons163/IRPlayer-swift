@@ -204,6 +204,16 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         )
     }
 
+    func testChannelBufferSizeUsesRequestedPlaneCapacity() {
+        let capacities = [16, 4, 5]
+
+        XCTAssertEqual(IRFFAVYUVVideoFrame.channelBufferSize(for: .luma, capacities: capacities), 16)
+        XCTAssertEqual(IRFFAVYUVVideoFrame.channelBufferSize(for: .chromaB, capacities: capacities), 4)
+        XCTAssertEqual(IRFFAVYUVVideoFrame.channelBufferSize(for: .chromaR, capacities: capacities), 5)
+        XCTAssertNil(IRFFAVYUVVideoFrame.channelBufferSize(for: .count, capacities: capacities))
+        XCTAssertNil(IRFFAVYUVVideoFrame.channelBufferSize(for: .chromaR, capacities: [16, 4]))
+    }
+
     func testYUVChannelFilterNeedSizeCheckedRejectsInvalidOrOverflowingInputs() {
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 0, height: 4, channelCount: 1))
         XCTAssertNil(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 4, height: 0, channelCount: 1))
