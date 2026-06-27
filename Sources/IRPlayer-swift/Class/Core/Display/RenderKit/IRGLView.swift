@@ -719,6 +719,8 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         }
 
         if let pixUV = params.consumePixUVIfReady() {
+            defer { params.releaseConsumedPixUV(pixUV) }
+
             let texCount = min(pixUV.count, antialias * antialias)
             var newTextures: [MTLTexture] = []
             newTextures.reserveCapacity(texCount)

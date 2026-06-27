@@ -32,17 +32,18 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     var offsetX: GLfloat = 0.0
 
     private var pixUV: UnsafeMutablePointer<UnsafeMutablePointer<GLfloat>?>?
+    private var pixUVTextureCount = 0
     private var useTexUVs = false
     private var metalPixUVReady = false
 
     func consumePixUVIfReady() -> [UnsafeMutablePointer<GLfloat>]? {
         guard metalPixUVReady else { return nil }
-        guard let texnum = Self.pixelMapTextureCount(antialias: antialias) else { return nil }
+        guard pixUVTextureCount > 0 else { return nil }
         guard let pixUV = pixUV else { return nil }
 
         var result: [UnsafeMutablePointer<GLfloat>] = []
-        result.reserveCapacity(texnum)
-        for i in 0..<texnum {
+        result.reserveCapacity(pixUVTextureCount)
+        for i in 0..<pixUVTextureCount {
             guard let ptr = pixUV[i] else { return nil }
             result.append(ptr)
         }
@@ -51,9 +52,43 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         return result
     }
 
+    func releaseConsumedPixUV(_ consumed: [UnsafeMutablePointer<GLfloat>]) {
+        guard let pixUV = pixUV, pixUVTextureCount == consumed.count else { return }
+
+        for i in 0..<pixUVTextureCount {
+            guard pixUV[i] == consumed[i] else { return }
+        }
+
+        releaseCurrentPixUV()
+    }
+
+    private func releaseCurrentPixUV() {
+        guard let pixUV = pixUV else {
+            pixUVTextureCount = 0
+            useTexUVs = false
+            metalPixUVReady = false
+            return
+        }
+
+        for i in 0..<pixUVTextureCount {
+            pixUV[i]?.deallocate()
+            pixUV[i] = nil
+        }
+        pixUV.deallocate()
+
+        self.pixUV = nil
+        pixUVTextureCount = 0
+        useTexUVs = false
+        metalPixUVReady = false
+    }
+
     override init() {
         super.init()
         setDefaultValues()
+    }
+
+    deinit {
+        releaseCurrentPixUV()
     }
 
     static func outputSize(forTextureWidth textureWidth: Int, height textureHeight: Int) -> (width: Int, height: Int)? {
@@ -202,7 +237,11 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
                   let pixelMapCapacity = Self.pixelMapCapacity(outputWidth: self.outputWidth, outputHeight: self.outputHeight) else {
                 return
             }
+            if self.metalPixUVReady {
+                self.releaseCurrentPixUV()
+            }
             self.pixUV = .allocate(capacity: texnum)
+            self.pixUVTextureCount = texnum
             for i in 0..<texnum {
                 self.pixUV?[i] = .allocate(capacity: pixelMapCapacity)
             }
