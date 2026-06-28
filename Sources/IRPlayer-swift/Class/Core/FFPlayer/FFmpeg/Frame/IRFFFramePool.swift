@@ -85,6 +85,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     func setFrameUnuse(_ frame: IRFFFrame?) {
         guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
         lock.lock()
+        frame.prepareForReuse()
         unuseFrames.insert(frame)
         usedFrames.remove(frame)
         if playingFrame == frame {
@@ -97,6 +98,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
         guard !frames.isEmpty else { return }
         lock.lock()
         for frame in frames where Self.isFrame(frame, compatibleWith: frameClassName) {
+            frame.prepareForReuse()
             usedFrames.remove(frame)
             unuseFrames.insert(frame)
             if playingFrame == frame {
@@ -110,6 +112,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
         guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
         lock.lock()
         if let playingFrame = playingFrame {
+            playingFrame.prepareForReuse()
             unuseFrames.insert(playingFrame)
         }
         playingFrame = frame
@@ -121,6 +124,7 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
         guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
         lock.lock()
         if playingFrame == frame {
+            frame.prepareForReuse()
             unuseFrames.insert(frame)
             playingFrame = nil
         }
@@ -130,10 +134,12 @@ class IRFFFramePool: NSObject, IRFFFrameDelegate {
     func flush() {
         lock.lock()
         for frame in usedFrames {
+            frame.prepareForReuse()
             unuseFrames.insert(frame)
         }
         usedFrames.removeAll()
         if let playingFrame {
+            playingFrame.prepareForReuse()
             unuseFrames.insert(playingFrame)
             self.playingFrame = nil
         }

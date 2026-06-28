@@ -49,6 +49,10 @@ enum IRFFFrameType: UInt, Hashable, Equatable, Sendable, RawRepresentable {
         playing = false
         delegate?.frameDidCancel(self)
     }
+
+    func prepareForReuse() {
+        playing = false
+    }
 }
 
 @objcMembers public class IRFFSubtitleFrame: IRFFFrame {

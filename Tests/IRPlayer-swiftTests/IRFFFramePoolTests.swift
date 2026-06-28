@@ -113,6 +113,7 @@ final class IRFFFramePoolTests: XCTestCase {
         pool.flush()
 
         XCTAssertNil(pool.playingFrame)
+        XCTAssertFalse(playingFrame.playing)
         XCTAssertEqual(pool.usedCount, 0)
         XCTAssertEqual(pool.unuseCount, 2)
         XCTAssertEqual(pool.count, 2)
@@ -128,6 +129,7 @@ final class IRFFFramePoolTests: XCTestCase {
         pool.setFrameUnuse(frame)
 
         XCTAssertNil(pool.playingFrame)
+        XCTAssertFalse(frame.playing)
         XCTAssertEqual(pool.usedCount, 0)
         XCTAssertEqual(pool.unuseCount, 1)
     }
@@ -164,6 +166,7 @@ final class IRFFFramePoolTests: XCTestCase {
 
         XCTAssertTrue(pool.playingFrame === secondFrame)
         XCTAssertTrue(pool.unuseFrames.contains(reusedFrame))
+        XCTAssertFalse(reusedFrame.playing)
         XCTAssertEqual(pool.usedCount, 0)
     }
 }
