@@ -269,6 +269,11 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 20, x: 3, y: 2), 46)
     }
 
+    func testPanoPixelMapGenerationRejectsStaleJobs() {
+        XCTAssertTrue(IRGLFish2PanoShaderParamsPolicy.shouldPublishPixelMap(jobGeneration: 2, currentGeneration: 2))
+        XCTAssertFalse(IRGLFish2PanoShaderParamsPolicy.shouldPublishPixelMap(jobGeneration: 1, currentGeneration: 2))
+    }
+
     func testNormalizedOffsetRejectsInvalidOutputWidth() {
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: 0))
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: -1))

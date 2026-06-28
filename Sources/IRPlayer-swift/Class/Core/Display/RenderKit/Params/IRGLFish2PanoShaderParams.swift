@@ -35,6 +35,9 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     private var pixUVTextureCount = 0
     private var useTexUVs = false
     private var metalPixUVReady = false
+    private let pixelMapQueue = DispatchQueue(label: "irplayer.fish2pano.pixelmap")
+    private let pixelMapGenerationLock = NSLock()
+    private var pixelMapGeneration = 0
 
     func consumePixUVIfReady() -> [UnsafeMutablePointer<GLfloat>]? {
         guard metalPixUVReady else { return nil }
@@ -80,6 +83,19 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         pixUVTextureCount = 0
         useTexUVs = false
         metalPixUVReady = false
+    }
+
+    private func nextPixelMapGeneration() -> Int {
+        pixelMapGenerationLock.lock()
+        defer { pixelMapGenerationLock.unlock() }
+        pixelMapGeneration += 1
+        return pixelMapGeneration
+    }
+
+    private func currentPixelMapGeneration() -> Int {
+        pixelMapGenerationLock.lock()
+        defer { pixelMapGenerationLock.unlock() }
+        return pixelMapGeneration
     }
 
     override init() {
@@ -216,6 +232,8 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     }
 
     func updateOutputWH() {
+        let jobGeneration = nextPixelMapGeneration()
+
         lat1 = 0.0
         lat2 = 60.0
         vaperture = abs(lat2 - lat1)
@@ -232,7 +250,7 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         enableTransformZ = 1
         transformZ = -90.0
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        pixelMapQueue.async {
             guard let texnum = Self.pixelMapTextureCount(antialias: self.antialias),
                   let pixelMapCapacity = Self.pixelMapCapacity(outputWidth: self.outputWidth, outputHeight: self.outputHeight) else {
                 return
@@ -246,6 +264,13 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
                 self.pixUV?[i] = .allocate(capacity: pixelMapCapacity)
             }
             self.initPixelMaps()
+            guard IRGLFish2PanoShaderParamsPolicy.shouldPublishPixelMap(
+                jobGeneration: jobGeneration,
+                currentGeneration: self.currentPixelMapGeneration()
+            ) else {
+                self.releaseCurrentPixUV()
+                return
+            }
             self.useTexUVs = true
             self.metalPixUVReady = true
         }

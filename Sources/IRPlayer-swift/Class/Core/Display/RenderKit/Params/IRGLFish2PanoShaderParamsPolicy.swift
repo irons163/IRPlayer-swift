@@ -60,4 +60,8 @@ enum IRGLFish2PanoShaderParamsPolicy {
         guard !uvOffsetOverflow else { return nil }
         return uvOffset
     }
+
+    static func shouldPublishPixelMap(jobGeneration: Int, currentGeneration: Int) -> Bool {
+        jobGeneration == currentGeneration
+    }
 }
