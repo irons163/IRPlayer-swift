@@ -74,7 +74,7 @@ class IRGLProjectionEquirectangular: IRGLProjection {
     }
 
     private func initBuffers(tw: Float, th: Float, cr: Float, cx: Float, cy: Float) {
-        if cr <= 0 || cx <= 0 || cy <= 0 || tw < cr || th < cr || cx + cr > tw || cy + cr > th {
+        guard Self.isValidGeometry(tw: tw, th: th, cr: cr, cx: cx, cy: cy) else {
             return
         }
 
@@ -186,6 +186,14 @@ class IRGLProjectionEquirectangular: IRGLProjection {
 
     static func maxItem(in array: UnsafeMutablePointer<Int>?, size: Int) -> Int? {
         return IRGLProjectionEquirectangularPolicy.maxItem(in: array, size: size)
+    }
+
+    static func isValidGeometry(tw: Float, th: Float, cr: Float, cx: Float, cy: Float) -> Bool {
+        return IRGLProjectionEquirectangularPolicy.isValidGeometry(tw: tw,
+                                                                   th: th,
+                                                                   cr: cr,
+                                                                   cx: cx,
+                                                                   cy: cy)
     }
 
     func update(with parameter: IRMediaParameter) {

@@ -9,6 +9,24 @@ import Foundation
 
 enum IRGLProjectionEquirectangularPolicy {
 
+    static func isValidGeometry(tw: Float, th: Float, cr: Float, cx: Float, cy: Float) -> Bool {
+        guard tw.isFinite,
+              th.isFinite,
+              cr.isFinite,
+              cx.isFinite,
+              cy.isFinite,
+              cr > 0,
+              cx > 0,
+              cy > 0,
+              tw >= cr,
+              th >= cr,
+              cx + cr <= tw,
+              cy + cr <= th else {
+            return false
+        }
+        return true
+    }
+
     static func maxItem(in array: UnsafeMutablePointer<Int>?, size: Int) -> Int? {
         guard let array, size > 0 else { return nil }
 
