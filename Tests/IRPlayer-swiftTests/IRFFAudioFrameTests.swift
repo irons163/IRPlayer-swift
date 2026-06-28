@@ -83,6 +83,18 @@ final class IRFFAudioFrameTests: XCTestCase {
         XCTAssertNil(frame.samples)
     }
 
+    func testSetSamplesLengthRejectsInvalidLengthsAndClearsExistingStorage() {
+        let frame = IRFFAudioFrame()
+        frame.setSamplesLength(MemoryLayout<Float>.size * 2)
+        frame.outputOffset = 4
+
+        frame.setSamplesLength(0)
+
+        XCTAssertEqual(frame.size, 0)
+        XCTAssertEqual(frame.outputOffset, 0)
+        XCTAssertNil(frame.samples)
+    }
+
     func testStaticPolicyWrappersRemainSourceCompatible() {
         XCTAssertEqual(
             IRFFAudioFrame.sampleCapacity(forByteLength: MemoryLayout<Float>.size + 1),

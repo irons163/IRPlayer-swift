@@ -18,6 +18,7 @@ import Foundation
 
     func setSamplesLength(_ samplesLength: Int) {
         guard let sampleCapacity = Self.sampleCapacity(forByteLength: samplesLength) else {
+            releaseSamples()
             size = 0
             outputOffset = 0
             return
@@ -35,9 +36,15 @@ import Foundation
     }
 
     deinit {
+        releaseSamples()
+    }
+
+    private func releaseSamples() {
         if bufferSize > 0, let samples = samples {
             samples.deallocate()
         }
+        samples = nil
+        bufferSize = 0
     }
 
     static func sampleCapacity(forByteLength byteLength: Int) -> Int? {
