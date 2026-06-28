@@ -29,6 +29,16 @@ enum IRYUVToolsPolicy {
         return (Int32(width), Int32(height))
     }
 
+    static func sourcePlaneInputsAreValid(srcData: [UnsafePointer<UInt8>?], srcLinesize: [Int32]) -> Bool {
+        guard !srcData.isEmpty,
+              srcData.count == srcLinesize.count,
+              srcData[0] != nil,
+              srcLinesize[0] > 0 else {
+            return false
+        }
+        return true
+    }
+
     static func channelFilter(src: UnsafePointer<UInt8>,
                               linesize: Int,
                               width: Int,

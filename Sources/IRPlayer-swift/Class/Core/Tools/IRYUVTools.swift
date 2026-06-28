@@ -21,6 +21,10 @@ func IRYUVImageDimensions32(width: Int, height: Int) -> (width: Int32, height: I
     return IRYUVToolsPolicy.imageDimensions32(width: width, height: height)
 }
 
+func IRYUVSourcePlaneInputsAreValid(srcData: [UnsafePointer<UInt8>?], srcLinesize: [Int32]) -> Bool {
+    return IRYUVToolsPolicy.sourcePlaneInputsAreValid(srcData: srcData, srcLinesize: srcLinesize)
+}
+
 func IRYUVChannelFilter(src: UnsafePointer<UInt8>, 
                         linesize: Int,
                         width: Int,
@@ -36,6 +40,7 @@ func IRYUVConvertToImage(srcData: [UnsafePointer<UInt8>?],
                          width: Int,
                          height: Int,
                          pixelFormat: AVPixelFormat) -> IRPLFImage? {
+    guard IRYUVSourcePlaneInputsAreValid(srcData: srcData, srcLinesize: srcLinesize) else { return nil }
     guard let dimensions = IRYUVImageDimensions32(width: width, height: height) else { return nil }
 
     var swsContext: OpaquePointer? = nil

@@ -244,6 +244,12 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
             IRYUVToolsPolicy.imageDimensions32(width: 640, height: 480)?.height
         )
         XCTAssertNil(IRYUVToolsPolicy.imageDimensions32(width: 0, height: 480))
+        XCTAssertEqual(
+            IRYUVSourcePlaneInputsAreValid(srcData: [UnsafePointer<UInt8>(bitPattern: 1)],
+                                           srcLinesize: [3]),
+            IRYUVToolsPolicy.sourcePlaneInputsAreValid(srcData: [UnsafePointer<UInt8>(bitPattern: 1)],
+                                                       srcLinesize: [3])
+        )
     }
 
     func testYUVToolsPolicyChannelFilterCopiesAdjustedRowsAndClearsDestination() {
@@ -342,6 +348,17 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         }
 
         XCTAssertNil(image)
+    }
+
+    func testYUVConvertToImageRejectsInvalidSourcePlaneInputs() {
+        XCTAssertFalse(IRYUVSourcePlaneInputsAreValid(srcData: [], srcLinesize: []))
+        XCTAssertFalse(IRYUVSourcePlaneInputsAreValid(srcData: [nil], srcLinesize: [3]))
+        XCTAssertFalse(IRYUVSourcePlaneInputsAreValid(srcData: [UnsafePointer<UInt8>(bitPattern: 1)], srcLinesize: [0]))
+        XCTAssertFalse(IRYUVSourcePlaneInputsAreValid(srcData: [UnsafePointer<UInt8>(bitPattern: 1)], srcLinesize: [3, 3]))
+
+        XCTAssertNil(IRYUVConvertToImage(srcData: [], srcLinesize: [], width: 2, height: 2, pixelFormat: AV_PIX_FMT_RGB24))
+        XCTAssertNil(IRYUVConvertToImage(srcData: [nil], srcLinesize: [3], width: 2, height: 2, pixelFormat: AV_PIX_FMT_RGB24))
+        XCTAssertNil(IRYUVConvertToImage(srcData: [UnsafePointer<UInt8>(bitPattern: 1)], srcLinesize: [0], width: 2, height: 2, pixelFormat: AV_PIX_FMT_RGB24))
     }
 
     func testYUVConvertToImageBuildsImageFromRGB24Data() throws {
