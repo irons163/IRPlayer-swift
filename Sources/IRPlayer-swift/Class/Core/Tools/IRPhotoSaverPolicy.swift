@@ -8,7 +8,14 @@
 import Foundation
 
 enum IRPhotoSaverPolicy {
+    #if IRPhotoSaverDiagnosticOutputEnable
+    static let isDiagnosticOutputEnabled = true
+    #else
+    static let isDiagnosticOutputEnabled = false
+    #endif
+
     static func writeDiagnostic(for failure: IRPhotoSaver.Failure) {
+        guard isDiagnosticOutputEnabled else { return }
         guard let message = diagnosticMessage(for: failure) else { return }
         print(message)
     }

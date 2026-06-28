@@ -51,6 +51,10 @@ enum IRPhotoSaver {
         IRPhotoSaverPolicy.writeDiagnostic(for: failure)
     }
 
+    static var isDiagnosticOutputEnabled: Bool {
+        IRPhotoSaverPolicy.isDiagnosticOutputEnabled
+    }
+
     static func diagnosticMessage(for failure: Failure) -> String? {
         IRPhotoSaverPolicy.diagnosticMessage(for: failure)
     }
