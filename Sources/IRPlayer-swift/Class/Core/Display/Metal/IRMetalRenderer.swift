@@ -49,6 +49,11 @@ final class IRMetalRenderer {
         var _padding: SIMD2<Float> = .zero
     }
 
+    static func fish2PanoInputsAreValid(params: Fish2PanoParams, texUVTextureCount: Int) -> Bool {
+        return IRMetalRendererFish2PanoPolicy.inputsAreValid(params: params,
+                                                             texUVTextureCount: texUVTextureCount)
+    }
+
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
     var textureCache: CVMetalTextureCache?

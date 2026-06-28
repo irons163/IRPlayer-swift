@@ -55,6 +55,7 @@ final class IRMetalPixelRendererNV12: IRMetalPixelRenderer {
                          encoder: MTLRenderCommandEncoder,
                          params: IRMetalRenderer.Fish2PanoParams,
                          texUVTextures: [MTLTexture]) -> Bool {
+        guard IRMetalRenderer.fish2PanoInputsAreValid(params: params, texUVTextureCount: texUVTextures.count) else { return false }
         guard let cvFrame = frame as? IRFFCVYUVVideoFrame else { return false }
         if let pipeline = renderer.pipelineNV12Fish2Pano, let textures = renderer.makeNV12Textures(from: cvFrame) {
             var fishParams = params
@@ -94,6 +95,7 @@ final class IRMetalPixelRendererNV12: IRMetalPixelRenderer {
     }
 }
 
+
 final class IRMetalPixelRendererI420: IRMetalPixelRenderer {
     func render2D(renderer: IRMetalRenderer,
                   frame: IRFFVideoFrame,
@@ -116,6 +118,7 @@ final class IRMetalPixelRendererI420: IRMetalPixelRenderer {
                          encoder: MTLRenderCommandEncoder,
                          params: IRMetalRenderer.Fish2PanoParams,
                          texUVTextures: [MTLTexture]) -> Bool {
+        guard IRMetalRenderer.fish2PanoInputsAreValid(params: params, texUVTextureCount: texUVTextures.count) else { return false }
         guard let yuvFrame = frame as? IRFFAVYUVVideoFrame else { return false }
         if let pipeline = renderer.pipelineI420Fish2Pano, let textures = renderer.makeI420Textures(from: yuvFrame) {
             var fishParams = params
@@ -161,6 +164,7 @@ final class IRMetalPixelRendererRGB: IRMetalPixelRenderer {
                          encoder: MTLRenderCommandEncoder,
                          params: IRMetalRenderer.Fish2PanoParams,
                          texUVTextures: [MTLTexture]) -> Bool {
+        guard IRMetalRenderer.fish2PanoInputsAreValid(params: params, texUVTextureCount: texUVTextures.count) else { return false }
         guard let rgbFrame = frame as? IRVideoFrameRGB else { return false }
         if let pipeline = renderer.pipelineRGBFish2Pano, let texture = renderer.makeRGBTexture(from: rgbFrame) {
             var fishParams = params
@@ -181,4 +185,3 @@ final class IRMetalPixelRendererRGB: IRMetalPixelRenderer {
         return false
     }
 }
-

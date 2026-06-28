@@ -23,6 +23,7 @@ extension IRMetalRenderer {
                          outputSize: CGSize,
                          zoomScale: Float,
                          translation: SIMD2<Float>) -> Bool {
+        guard Self.fish2PanoInputsAreValid(params: params, texUVTextureCount: texUVTextures.count) else { return false }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }

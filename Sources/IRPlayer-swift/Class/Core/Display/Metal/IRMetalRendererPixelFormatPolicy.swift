@@ -18,3 +18,27 @@ enum IRMetalRendererPixelFormatPolicy {
         return (bytesPerRow: expectedBytesPerRow, totalByteCount: totalByteCount)
     }
 }
+
+enum IRMetalRendererFish2PanoPolicy {
+    static func inputsAreValid(params: IRMetalRenderer.Fish2PanoParams, texUVTextureCount: Int) -> Bool {
+        guard params.fishwidth > 0,
+              params.fishheight > 0,
+              params.panowidth > 0,
+              params.panoheight > 0,
+              params.antialias > 0,
+              params.offsetX.isFinite,
+              texUVTextureCount > 0 else {
+            return false
+        }
+
+        let antialias = Int(params.antialias)
+        let (requiredTextureCount, overflow) = antialias.multipliedReportingOverflow(by: antialias)
+        guard !overflow,
+              requiredTextureCount > 0,
+              requiredTextureCount <= 9 else {
+            return false
+        }
+
+        return texUVTextureCount == requiredTextureCount
+    }
+}

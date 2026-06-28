@@ -170,6 +170,43 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         XCTAssertEqual(output, "")
     }
 
+    func testFish2PanoInputValidationRejectsInvalidParameters() {
+        let validParams = IRMetalRenderer.Fish2PanoParams(fishwidth: 2,
+                                                          fishheight: 2,
+                                                          panowidth: 4,
+                                                          panoheight: 2,
+                                                          antialias: 1,
+                                                          offsetX: 0)
+        XCTAssertTrue(IRMetalRenderer.fish2PanoInputsAreValid(params: validParams, texUVTextureCount: 1))
+
+        var invalidParams = validParams
+        invalidParams.antialias = 0
+        XCTAssertFalse(IRMetalRenderer.fish2PanoInputsAreValid(params: invalidParams, texUVTextureCount: 0))
+
+        invalidParams = validParams
+        invalidParams.fishwidth = 0
+        XCTAssertFalse(IRMetalRenderer.fish2PanoInputsAreValid(params: invalidParams, texUVTextureCount: 1))
+
+        invalidParams = validParams
+        invalidParams.offsetX = .nan
+        XCTAssertFalse(IRMetalRenderer.fish2PanoInputsAreValid(params: invalidParams, texUVTextureCount: 1))
+
+        XCTAssertFalse(IRMetalRenderer.fish2PanoInputsAreValid(params: validParams, texUVTextureCount: 0))
+    }
+
+    func testFish2PanoInputValidationWrapperMatchesPolicy() {
+        let params = IRMetalRenderer.Fish2PanoParams(fishwidth: 2,
+                                                     fishheight: 2,
+                                                     panowidth: 4,
+                                                     panoheight: 2,
+                                                     antialias: 3,
+                                                     offsetX: 0)
+        XCTAssertEqual(
+            IRMetalRenderer.fish2PanoInputsAreValid(params: params, texUVTextureCount: 9),
+            IRMetalRendererFish2PanoPolicy.inputsAreValid(params: params, texUVTextureCount: 9)
+        )
+    }
+
     func testComputeScaleRejectsInvalidSizes() {
         XCTAssertEqual(
             IRMetalRenderer.computeScale(contentMode: .scaleAspectFit, frameSize: CGSize(width: CGFloat.nan, height: 100), drawableSize: CGSize(width: 100, height: 100)),
