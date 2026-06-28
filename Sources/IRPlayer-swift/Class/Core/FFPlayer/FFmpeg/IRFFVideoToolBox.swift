@@ -31,6 +31,7 @@ class IRFFVideoToolBox {
         let memoryBlock: UnsafeMutablePointer<UInt8>
         let blockLength: Int
         let dataLength: Int
+        let customBlockSource: CMBlockBufferCustomBlockSource
     }
 
     struct DecodeFramePayload {
@@ -184,12 +185,13 @@ class IRFFVideoToolBox {
                 var demuxBuffer: UnsafeMutablePointer<UInt8>?
                 let demuxSize = avio_close_dyn_buf(ioContext, &demuxBuffer)
                 guard let convertedPayload = Self.convertedNALBlockPayload(memoryBlock: demuxBuffer, demuxSize: demuxSize, packetSize: packetPayload.size) else { return false }
+                var customBlockSource = convertedPayload.customBlockSource
                 status = CMBlockBufferCreateWithMemoryBlock(
                     allocator: nil,
                     memoryBlock: convertedPayload.memoryBlock,
                     blockLength: convertedPayload.blockLength,
                     blockAllocator: kCFAllocatorNull,
-                    customBlockSource: nil,
+                    customBlockSource: &customBlockSource,
                     offsetToData: 0,
                     dataLength: convertedPayload.dataLength,
                     flags: 0,

@@ -27,10 +27,19 @@ enum IRFFVideoToolBoxPolicy {
               demuxSize > 0,
               packetSize > 0,
               packetSize <= demuxSize else { return nil }
+        let customBlockSource = CMBlockBufferCustomBlockSource(
+            version: kCMBlockBufferCustomBlockSourceVersion,
+            AllocateBlock: nil,
+            FreeBlock: { _, memoryBlock, _ in
+                av_free(memoryBlock)
+            },
+            refCon: nil
+        )
         return IRFFVideoToolBox.ConvertedNALBlockPayload(
             memoryBlock: memoryBlock,
             blockLength: Int(demuxSize),
-            dataLength: Int(packetSize)
+            dataLength: Int(demuxSize),
+            customBlockSource: customBlockSource
         )
     }
 

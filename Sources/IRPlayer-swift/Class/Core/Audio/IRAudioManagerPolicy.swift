@@ -45,4 +45,15 @@ enum IRAudioManagerPolicy {
         guard !overflow, sampleCount > 0 else { return nil }
         return sampleCount
     }
+
+    static func renderSampleCount(numberOfFrames: UInt32,
+                                  numberOfChannels: UInt32,
+                                  maximumSampleCount: Int) -> Int? {
+        guard maximumSampleCount > 0 else { return nil }
+        guard let sampleCount = renderSampleCount(numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels) else {
+            return nil
+        }
+        guard sampleCount <= maximumSampleCount else { return nil }
+        return sampleCount
+    }
 }

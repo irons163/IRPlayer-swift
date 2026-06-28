@@ -154,7 +154,20 @@ final class IRFFVideoToolBoxTests: XCTestCase {
             let payload = IRFFVideoToolBox.convertedNALBlockPayload(memoryBlock: pointer, demuxSize: 5, packetSize: 4)
             XCTAssertEqual(payload?.memoryBlock, pointer)
             XCTAssertEqual(payload?.blockLength, 5)
-            XCTAssertEqual(payload?.dataLength, 4)
+            XCTAssertEqual(payload?.dataLength, 5)
+        }
+    }
+
+    func testConvertedNALBlockPayloadOwnsDemuxBufferRelease() {
+        var bytes = [UInt8](arrayLiteral: 1, 2, 3, 4)
+        bytes.withUnsafeMutableBufferPointer { buffer in
+            let payload = IRFFVideoToolBox.convertedNALBlockPayload(
+                memoryBlock: buffer.baseAddress,
+                demuxSize: 4,
+                packetSize: 4
+            )
+
+            XCTAssertNotNil(payload?.customBlockSource.FreeBlock)
         }
     }
 

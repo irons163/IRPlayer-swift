@@ -116,6 +116,24 @@ final class IRAudioManagerRenderTests: XCTestCase {
         XCTAssertNil(IRAudioManager.renderSampleCount(numberOfFrames: .max, numberOfChannels: .max))
     }
 
+    func testRenderSampleCountRejectsRequestsBeyondBufferCapacity() {
+        XCTAssertNil(
+            IRAudioManager.renderSampleCount(
+                numberOfFrames: 4097,
+                numberOfChannels: 2,
+                maximumSampleCount: 4096 * 2
+            )
+        )
+        XCTAssertEqual(
+            IRAudioManager.renderSampleCount(
+                numberOfFrames: 4096,
+                numberOfChannels: 2,
+                maximumSampleCount: 4096 * 2
+            ),
+            4096 * 2
+        )
+    }
+
     func testRenderSampleCountCalculatesInterleavedSampleTotal() {
         XCTAssertEqual(IRAudioManager.renderSampleCount(numberOfFrames: 10, numberOfChannels: 2), 20)
     }

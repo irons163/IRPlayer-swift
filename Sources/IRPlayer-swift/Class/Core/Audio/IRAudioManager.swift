@@ -464,7 +464,9 @@ class IRAudioManager: NSObject {
             }
 
             let outputChannelCount = numberOfChannels
-            guard let sampleCount = Self.renderSampleCount(numberOfFrames: numberOfFrames, numberOfChannels: outputChannelCount) else {
+            guard let sampleCount = Self.renderSampleCount(numberOfFrames: numberOfFrames,
+                                                           numberOfChannels: outputChannelCount,
+                                                           maximumSampleCount: Self.maxOutputSampleCount) else {
                 return noErr
             }
 
@@ -558,8 +560,19 @@ class IRAudioManager: NSObject {
         return IRAudioManagerPolicy.renderSampleCount(numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels)
     }
 
+    static func renderSampleCount(numberOfFrames: UInt32,
+                                  numberOfChannels: UInt32,
+                                  maximumSampleCount: Int) -> Int? {
+        return IRAudioManagerPolicy.renderSampleCount(
+            numberOfFrames: numberOfFrames,
+            numberOfChannels: numberOfChannels,
+            maximumSampleCount: maximumSampleCount
+        )
+    }
+
     private static var maxFrameSize = 4096
     private static let maxChan = 2
+    private static var maxOutputSampleCount: Int { maxFrameSize * maxChan }
 }
 
 typealias IRAudioManagerInterruptionHandler = (_ handlerTarget: AnyObject, _ audioManager: IRAudioManager, _ type: IRAudioManagerInterruptionType, _ option: IRAudioManagerInterruptionOption) -> Void
