@@ -232,6 +232,19 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         XCTAssertEqual(extensions["FullRangeVideo"] as? Bool, false)
     }
 
+    func testFormatDescriptionExtensionsClampInvalidExtradataSize() throws {
+        let extradata = [UInt8](arrayLiteral: 1)
+
+        let extensions: NSDictionary = try extradata.withUnsafeBufferPointer { buffer in
+            let pointer = try XCTUnwrap(buffer.baseAddress)
+            return IRFFVideoToolBox.makeFormatDescriptionExtensions(extradata: pointer, extradataSize: -1) as NSDictionary
+        }
+
+        let atoms = try XCTUnwrap(extensions["SampleDescriptionExtensionAtoms"] as? NSDictionary)
+        let avcC = try XCTUnwrap(atoms["avcC"] as? Data)
+        XCTAssertEqual(avcC.count, 0)
+    }
+
     func testRequiredFormatDescriptionRejectsMissingDescription() throws {
         XCTAssertNil(IRFFVideoToolBox.requiredFormatDescription(nil))
 

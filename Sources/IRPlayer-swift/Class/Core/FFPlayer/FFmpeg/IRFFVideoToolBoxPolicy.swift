@@ -98,13 +98,14 @@ enum IRFFVideoToolBoxPolicy {
     }
 
     static func makeFormatDescriptionExtensions(extradata: UnsafePointer<UInt8>, extradataSize: Int32) -> CFDictionary {
+        let safeExtradataSize = max(0, CFIndex(extradataSize))
         let pixelAspectRatio: [String: Any] = [
             "HorizontalSpacing": 0,
             "VerticalSpacing": 0
         ]
 
         let atoms: [String: Any] = [
-            "avcC": CFDataCreate(nil, extradata, CFIndex(extradataSize)) as Any
+            "avcC": CFDataCreate(nil, extradata, safeExtradataSize) as Data
         ]
 
         let extensions: [String: Any] = [
