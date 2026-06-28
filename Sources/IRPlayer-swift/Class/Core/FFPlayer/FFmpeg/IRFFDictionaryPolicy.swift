@@ -9,6 +9,11 @@ import Foundation
 import IRFFMpeg
 
 enum IRFFDictionaryPolicy {
+    static func string(fromCString cString: UnsafePointer<CChar>?) -> String? {
+        guard let cString else { return nil }
+        return String(validatingUTF8: cString)
+    }
+
     static func foundationDictionary(from avDictionary: OpaquePointer?) -> [String: String]? {
         guard let avDictionary = avDictionary else { return nil }
 
@@ -16,9 +21,8 @@ enum IRFFDictionaryPolicy {
         var entry: UnsafeMutablePointer<AVDictionaryEntry>? = nil
 
         while let nextEntry = av_dict_get(avDictionary, "", entry, AV_DICT_IGNORE_SUFFIX) {
-            if let key = nextEntry.pointee.key, let value = nextEntry.pointee.value {
-                let keyString = String(cString: key)
-                let valueString = String(cString: value)
+            if let keyString = string(fromCString: nextEntry.pointee.key),
+               let valueString = string(fromCString: nextEntry.pointee.value) {
                 dictionary[keyString] = valueString
             }
             entry = nextEntry
