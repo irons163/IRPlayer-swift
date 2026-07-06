@@ -36,15 +36,10 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     private var metalRenderer: IRMetalRenderer?
     private var metalFisheyeMesh: IRMetalFisheyeMesh?
     private var metalVRMesh: IRMetalFisheyeMesh?
-    private var metalFisheyeController: IRGLTransformController3DFisheye?
-    private var metalFisheyeParameter: IRFisheyeParameter?
     private var metalFisheyeLastSize: CGSize = .zero
-    private var metalFish2PanoParams: IRGLFish2PanoShaderParams?
-    private var metalFish2PanoTexUV: [MTLTexture] = []
-    private var metalFish2PanoLastOutputSize: CGSize = .zero
-    private var metalFish2PanoLastAntialias: Int = 0
     private var metalDistortionLeftMesh: IRMetalDistortionMesh?
     private var metalDistortionRightMesh: IRMetalDistortionMesh?
+    private let renderState = IRGLViewRenderState()
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     private var backingWidth: Int = 0
     private var backingHeight: Int = 0
@@ -161,14 +156,10 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         currentImage = nil
         currentFrame = nil
         metalRenderer = nil
+        renderState.reset()
         metalFisheyeMesh = nil
         metalVRMesh = nil
-        metalFisheyeController = nil
-        metalFisheyeParameter = nil
-        metalFish2PanoParams = nil
-        metalFish2PanoTexUV = []
-        metalFish2PanoLastOutputSize = .zero
-        metalFish2PanoLastAntialias = 0
+        metalFisheyeLastSize = .zero
         metalDistortionLeftMesh = nil
         metalDistortionRightMesh = nil
         commandQueue = nil
@@ -239,7 +230,9 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         guard let viewportSize = IRGLProgram2D.viewportSize(from: viewportRange) else { return }
         viewprotRange = CGRect(x: 0, y: 0, width: viewportSize.width, height: viewportSize.height)
         mode?.program?.setViewportRange(viewprotRange, resetTransform: resetTransform)
-        metalFisheyeController?.resetViewport(width: viewportSize.width, height: viewportSize.height, resetTransform: resetTransform)
+        renderState.resetFisheyeViewport(width: viewportSize.width,
+                                         height: viewportSize.height,
+                                         resetTransform: resetTransform)
         render(nil)
     }
 
@@ -257,7 +250,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                 program.didPinchByfx(fx, fy: fy, dsx: dsx, dsy: dsy)
             }
         } else {
-            metalFisheyeController?.update(fx: fx, fy: fy, sx: dsx, sy: dsy)
+            renderState.updateFallbackFisheye(fx: fx, fy: fy, sx: dsx, sy: dsy)
         }
         render(nil)
     }
@@ -283,7 +276,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                 }
             }
         } else {
-            metalFisheyeController?.scroll(dx: dx, dy: dy)
+            renderState.scrollFallbackFisheye(dx: dx, dy: dy)
         }
         render(nil)
     }
@@ -292,7 +285,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         if let program = mode?.program {
             program.didPanByDegreeX(degreeX, degreeY: degreeY)
         } else {
-            metalFisheyeController?.scroll(degreeX: degreeX, degreeY: degreeY)
+            renderState.scrollFallbackFisheye(degreeX: degreeX, degreeY: degreeY)
         }
         render(nil)
     }
@@ -550,40 +543,12 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     private func setupMetalFish2PanoIfNeeded(renderMode: IRGLRenderMode) {
-        guard let program = renderMode.program as? IRGLProgram2DFisheye2Pano else {
-            metalFish2PanoParams = nil
-            metalFish2PanoTexUV = []
-            metalFish2PanoLastOutputSize = .zero
-            metalFish2PanoLastAntialias = 0
-            return
-        }
-
-        metalFish2PanoParams = program.metalFish2PanoParams
+        renderState.configureFish2Pano(renderMode: renderMode)
     }
 
     private func setupMetalFisheyeIfNeeded(renderMode: IRGLRenderMode) {
-        guard renderMode is IRGLRenderMode3DFisheye else {
-            metalFisheyeController = nil
-            metalFisheyeMesh = nil
-            metalFisheyeParameter = nil
-            return
-        }
-
-        if let programController = renderMode.program?.tramsformController as? IRGLTransformController3DFisheye {
-            metalFisheyeController = programController
-        } else if metalFisheyeController == nil {
-            let width = max(backingWidth, 1)
-            let height = max(backingHeight, 1)
-            metalFisheyeController = IRGLTransformController3DFisheye(viewportWidth: width, viewportHeight: height, tileType: .backward)
-        }
-
-        if let parameter = renderMode.parameter as? IRFisheyeParameter {
-            metalFisheyeParameter = parameter
-        } else {
-            metalFisheyeParameter = IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
-        }
-
-        // Use program's transform controller defaults (including defaultLat/defaultLng)
+        renderState.configureFisheye(renderMode: renderMode,
+                                     viewportSize: CGSize(width: backingWidth, height: backingHeight))
     }
 
     private func applyFisheyeScopeAndScale(controller: IRGLTransformController3DFisheye,
@@ -675,42 +640,24 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                               drawable: CAMetalDrawable,
                                               drawableSize: CGSize) -> Bool? {
         guard mode is IRGLRenderMode2DFisheye2Pano else { return nil }
-        guard let params = metalFish2PanoParams else { return false }
-        let outputWidth = Int(params.outputWidth)
-        let outputHeight = Int(params.outputHeight)
-        let antialias = Int(params.antialias)
-        guard outputWidth > 0, outputHeight > 0, antialias > 0 else { return false }
+        guard let readiness = renderState.prepareFish2PanoTextures(device: device) else { return false }
 
-        let outputSize = CGSize(width: outputWidth, height: outputHeight)
-        if outputSize != metalFish2PanoLastOutputSize || antialias != metalFish2PanoLastAntialias {
-            metalFish2PanoTexUV = []
-            metalFish2PanoLastOutputSize = outputSize
-            metalFish2PanoLastAntialias = antialias
-        }
-
-        if let pixUV = params.consumePixUVIfReady() {
-            defer { params.releaseConsumedPixUV(pixUV) }
-
-            let texCount = min(pixUV.count, antialias * antialias)
-            var newTextures: [MTLTexture] = []
-            newTextures.reserveCapacity(texCount)
-            for i in 0..<texCount {
-                guard let texture = makeTexUVTexture(width: outputWidth,
-                                                     height: outputHeight,
-                                                     data: pixUV[i]) else {
-                    continue
-                }
-                newTextures.append(texture)
-            }
-            if !newTextures.isEmpty {
-                metalFish2PanoTexUV = newTextures
-            }
-        }
-
-        guard metalFish2PanoTexUV.count == antialias * antialias else {
+        let outputSize: CGSize
+        let antialias: Int
+        switch readiness {
+        case .invalid:
+            return false
+        case .waitingForTextures:
             renderer.renderClear(to: drawable)
             return true
+        case let .ready(readyOutputSize, readyAntialias):
+            outputSize = readyOutputSize
+            antialias = readyAntialias
         }
+
+        guard let params = renderState.fish2PanoParams else { return false }
+        let outputWidth = Int(outputSize.width)
+        let outputHeight = Int(outputSize.height)
 
         let viewportRect: CGRect
         if let panoProgram = mode?.program as? IRGLProgram2DFisheye2Pano {
@@ -734,7 +681,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         let zoomScale = effectiveProgram?.getCurrentScale().x ?? 1
         return renderer.renderFish2Pano(frame: frame,
                                         params: renderParams,
-                                        texUVTextures: metalFish2PanoTexUV,
+                                        texUVTextures: renderState.fish2PanoTextures,
                                         to: drawable,
                                         drawableSize: drawableSize,
                                         viewport: viewportRect,
@@ -787,8 +734,8 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
                                             drawable: CAMetalDrawable,
                                             drawableSize: CGSize) -> Bool? {
         guard mode is IRGLRenderMode3DFisheye else { return nil }
-        guard let controller = metalFisheyeController else { return false }
-        guard let parameter = metalFisheyeParameter else { return false }
+        guard let controller = renderState.fisheyeController else { return false }
+        guard let parameter = renderState.fisheyeParameter else { return false }
 
         let textureWidth = parameter.width > 0 ? parameter.width : Float(frame.width)
         let textureHeight = parameter.height > 0 ? parameter.height : Float(frame.height)
