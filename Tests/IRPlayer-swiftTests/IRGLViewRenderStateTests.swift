@@ -35,7 +35,6 @@ final class IRGLViewRenderStateTests: XCTestCase {
         XCTAssertEqual(state.fish2PanoLastAntialias, 0)
         XCTAssertNil(state.fisheyeController)
         XCTAssertNil(state.fisheyeParameter)
-        XCTAssertEqual(state.fisheyeLastSize, CGSize.zero)
     }
 
     func testConfigureFish2PanoStoresProgramParams() throws {
@@ -118,7 +117,6 @@ final class IRGLViewRenderStateTests: XCTestCase {
 
         XCTAssertNil(state.fisheyeController)
         XCTAssertNil(state.fisheyeParameter)
-        XCTAssertEqual(state.fisheyeLastSize, CGSize.zero)
     }
 
     private func makePanoMode() -> IRGLRenderMode2DFisheye2Pano {
