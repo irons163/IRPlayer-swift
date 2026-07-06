@@ -547,6 +547,10 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     private func setupMetalFisheyeIfNeeded(renderMode: IRGLRenderMode) {
+        if !(renderMode is IRGLRenderMode3DFisheye) {
+            metalFisheyeMesh = nil
+            metalFisheyeLastSize = .zero
+        }
         renderState.configureFisheye(renderMode: renderMode,
                                      viewportSize: CGSize(width: backingWidth, height: backingHeight))
     }
