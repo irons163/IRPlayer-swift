@@ -293,6 +293,12 @@ final class IRGLViewRenderState {
     private(set) var distortionLeftMesh: IRMetalDistortionMesh?
     private(set) var distortionRightMesh: IRMetalDistortionMesh?
 
+    enum Fish2PanoTextureReadiness: Equatable {
+        case invalid
+        case waitingForTextures
+        case ready(outputSize: CGSize, antialias: Int)
+    }
+
     func reset() {
         fisheyeMesh = nil
         vrMesh = nil
@@ -311,6 +317,47 @@ final class IRGLViewRenderState {
         }
 
         fish2PanoParams = program.metalFish2PanoParams
+    }
+
+    func prepareFish2PanoTextures(device: MTLDevice?) -> Fish2PanoTextureReadiness? {
+        guard let params = fish2PanoParams else { return nil }
+        let outputWidth = Int(params.outputWidth)
+        let outputHeight = Int(params.outputHeight)
+        let antialias = Int(params.antialias)
+        guard outputWidth > 0, outputHeight > 0, antialias > 0 else { return .invalid }
+
+        let outputSize = CGSize(width: outputWidth, height: outputHeight)
+        if outputSize != fish2PanoLastOutputSize || antialias != fish2PanoLastAntialias {
+            fish2PanoTextures = []
+            fish2PanoLastOutputSize = outputSize
+            fish2PanoLastAntialias = antialias
+        }
+
+        if let device, let pixUV = params.consumePixUVIfReady() {
+            defer { params.releaseConsumedPixUV(pixUV) }
+
+            let texCount = min(pixUV.count, antialias * antialias)
+            var newTextures: [MTLTexture] = []
+            newTextures.reserveCapacity(texCount)
+            for i in 0..<texCount {
+                guard let texture = makeTexUVTexture(device: device,
+                                                     width: outputWidth,
+                                                     height: outputHeight,
+                                                     data: pixUV[i]) else {
+                    continue
+                }
+                newTextures.append(texture)
+            }
+            if !newTextures.isEmpty {
+                fish2PanoTextures = newTextures
+            }
+        }
+
+        guard fish2PanoTextures.count == antialias * antialias else {
+            return .waitingForTextures
+        }
+
+        return .ready(outputSize: outputSize, antialias: antialias)
     }
 
     func configureFisheye(renderMode: IRGLRenderMode, viewportSize: CGSize) {
@@ -366,6 +413,25 @@ final class IRGLViewRenderState {
         fisheyeMesh = nil
         fisheyeParameter = nil
         fisheyeLastSize = .zero
+    }
+
+    private func makeTexUVTexture(device: MTLDevice,
+                                  width: Int,
+                                  height: Int,
+                                  data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {
+        guard let layout = IRGLViewPolicy.texUVTextureLayout(width: width, height: height) else { return nil }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float,
+                                                                  width: width,
+                                                                  height: height,
+                                                                  mipmapped: false)
+        descriptor.usage = .shaderRead
+        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
+        let region = MTLRegionMake2D(0, 0, width, height)
+        texture.replace(region: region,
+                        mipmapLevel: 0,
+                        withBytes: data,
+                        bytesPerRow: layout.bytesPerRow)
+        return texture
     }
 
     static func defaultFisheyeParameter() -> IRFisheyeParameter {
@@ -511,111 +577,8 @@ git commit -m "refactor: route gl view state setup through helper"
 **Files:**
 - Modify: `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderState.swift`
 - Modify: `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift`
-- Modify: `Tests/IRPlayer-swiftTests/IRGLViewRenderStateTests.swift`
 
-- [ ] **Step 1: Add fish2pano cache invalidation tests**
-
-Append these tests to `IRGLViewRenderStateTests`:
-
-```swift
-func testFish2PanoTextureReadinessRejectsInvalidParams() {
-    let state = IRGLViewRenderState()
-
-    XCTAssertNil(state.prepareFish2PanoTextures(device: nil))
-}
-
-func testFish2PanoTextureReadinessRequiresExactTextureCount() throws {
-    let state = IRGLViewRenderState()
-    let mode = makePanoMode()
-    let program = try XCTUnwrap(mode.program as? IRGLProgram2DFisheye2Pano)
-    let params = try XCTUnwrap(program.metalFish2PanoParams)
-    params.outputWidth = 4
-    params.outputHeight = 2
-    params.antialias = 2
-    state.configureFish2Pano(renderMode: mode)
-
-    let readiness = state.prepareFish2PanoTextures(device: nil)
-
-    XCTAssertEqual(readiness, .waitingForTextures)
-    XCTAssertEqual(state.fish2PanoLastOutputSize, CGSize(width: 4, height: 2))
-    XCTAssertEqual(state.fish2PanoLastAntialias, 2)
-    XCTAssertTrue(state.fish2PanoTextures.isEmpty)
-}
-```
-
-- [ ] **Step 2: Add fish2pano readiness API**
-
-Add this nested enum and method to `IRGLViewRenderState`:
-
-```swift
-enum Fish2PanoTextureReadiness: Equatable {
-    case invalid
-    case waitingForTextures
-    case ready(outputSize: CGSize, antialias: Int)
-}
-
-func prepareFish2PanoTextures(device: MTLDevice?) -> Fish2PanoTextureReadiness? {
-    guard let params = fish2PanoParams else { return nil }
-    let outputWidth = Int(params.outputWidth)
-    let outputHeight = Int(params.outputHeight)
-    let antialias = Int(params.antialias)
-    guard outputWidth > 0, outputHeight > 0, antialias > 0 else { return .invalid }
-
-    let outputSize = CGSize(width: outputWidth, height: outputHeight)
-    if outputSize != fish2PanoLastOutputSize || antialias != fish2PanoLastAntialias {
-        fish2PanoTextures = []
-        fish2PanoLastOutputSize = outputSize
-        fish2PanoLastAntialias = antialias
-    }
-
-    if let device, let pixUV = params.consumePixUVIfReady() {
-        defer { params.releaseConsumedPixUV(pixUV) }
-
-        let texCount = min(pixUV.count, antialias * antialias)
-        var newTextures: [MTLTexture] = []
-        newTextures.reserveCapacity(texCount)
-        for i in 0..<texCount {
-            guard let texture = makeTexUVTexture(device: device,
-                                                 width: outputWidth,
-                                                 height: outputHeight,
-                                                 data: pixUV[i]) else {
-                continue
-            }
-            newTextures.append(texture)
-        }
-        if !newTextures.isEmpty {
-            fish2PanoTextures = newTextures
-        }
-    }
-
-    guard fish2PanoTextures.count == antialias * antialias else {
-        return .waitingForTextures
-    }
-
-    return .ready(outputSize: outputSize, antialias: antialias)
-}
-
-private func makeTexUVTexture(device: MTLDevice,
-                              width: Int,
-                              height: Int,
-                              data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {
-    guard let layout = IRGLViewPolicy.texUVTextureLayout(width: width, height: height) else { return nil }
-    let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float,
-                                                              width: width,
-                                                              height: height,
-                                                              mipmapped: false)
-    descriptor.usage = .shaderRead
-    guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-    let region = MTLRegionMake2D(0, 0, width, height)
-    texture.replace(region: region,
-                    mipmapLevel: 0,
-                    withBytes: data,
-                    bytesPerRow: layout.bytesPerRow)
-    return texture
-}
-```
-
-- [ ] **Step 3: Move cache-backed render helper logic to state**
+- [ ] **Step 1: Move cache-backed render helper logic to state**
 
 Move the bodies of these `IRGLView` helpers into `IRGLViewRenderState`, preserving signatures except for explicit dependencies:
 
@@ -660,7 +623,7 @@ func renderVRIfNeeded(frame: IRFFVideoFrame,
 
 Use `IRGLViewPolicy.translationVector(for:)` inside state methods instead of `IRGLView.translationVector(for:)`.
 
-- [ ] **Step 4: Replace `IRGLView` render helper calls with state calls**
+- [ ] **Step 2: Replace `IRGLView` render helper calls with state calls**
 
 In `renderCurrentContent()`, replace:
 
@@ -709,7 +672,7 @@ renderState.renderVRIfNeeded(frame: frame,
                              device: device)
 ```
 
-- [ ] **Step 5: Remove moved helpers from `IRGLView`**
+- [ ] **Step 3: Remove moved helpers from `IRGLView`**
 
 Delete these private methods from `IRGLView` after their logic exists in `IRGLViewRenderState`:
 
@@ -741,7 +704,7 @@ private func renderMetalVRIfNeeded(frame: IRFFVideoFrame,
 
 Keep `static func texUVTextureLayout(width:height:)` in `IRGLView` as a compatibility wrapper for existing tests.
 
-- [ ] **Step 6: Run focused render tests**
+- [ ] **Step 4: Run focused render tests**
 
 Run:
 
@@ -751,10 +714,10 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 5: Commit**
 
 ```sh
-git add Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderState.swift Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift Tests/IRPlayer-swiftTests/IRGLViewRenderStateTests.swift
+git add Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderState.swift Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift
 git commit -m "refactor: move gl view render caches into state"
 ```
 
