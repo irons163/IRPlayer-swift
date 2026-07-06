@@ -499,28 +499,33 @@ git commit -m "feat: add gl view render state helper"
 **Files:**
 - Modify: `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift`
 
-- [ ] **Step 1: Replace state properties with a single render state**
+- [ ] **Step 1: Add render state and remove only setup-owned cached fields**
 
-In `IRGLView`, replace the mode-specific cached fields:
+In `IRGLView`, add:
 
 ```swift
-private var metalFisheyeMesh: IRMetalFisheyeMesh?
-private var metalVRMesh: IRMetalFisheyeMesh?
+private let renderState = IRGLViewRenderState()
+```
+
+Then remove only the cached fields that Task 3 routes completely through `renderState`:
+
+```swift
 private var metalFisheyeController: IRGLTransformController3DFisheye?
 private var metalFisheyeParameter: IRFisheyeParameter?
-private var metalFisheyeLastSize: CGSize = .zero
 private var metalFish2PanoParams: IRGLFish2PanoShaderParams?
 private var metalFish2PanoTexUV: [MTLTexture] = []
 private var metalFish2PanoLastOutputSize: CGSize = .zero
 private var metalFish2PanoLastAntialias: Int = 0
-private var metalDistortionLeftMesh: IRMetalDistortionMesh?
-private var metalDistortionRightMesh: IRMetalDistortionMesh?
 ```
 
-with:
+Keep these cache fields in `IRGLView` until Task 4 moves their render-helper mutation into `IRGLViewRenderState`:
 
 ```swift
-private let renderState = IRGLViewRenderState()
+private var metalFisheyeMesh: IRMetalFisheyeMesh?
+private var metalVRMesh: IRMetalFisheyeMesh?
+private var metalFisheyeLastSize: CGSize = .zero
+private var metalDistortionLeftMesh: IRMetalDistortionMesh?
+private var metalDistortionRightMesh: IRMetalDistortionMesh?
 ```
 
 - [ ] **Step 2: Route reset through render state**
@@ -531,7 +536,7 @@ In `reset()`, replace the mode-specific nil assignments with:
 renderState.reset()
 ```
 
-Keep the existing resets for `currentImage`, `currentFrame`, `metalRenderer`, `commandQueue`, `ciContext`, and `device`.
+Keep the existing resets for `currentImage`, `currentFrame`, `metalRenderer`, `commandQueue`, `ciContext`, `device`, and the render-helper cache fields that remain in `IRGLView` until Task 4.
 
 - [ ] **Step 3: Route viewport and gesture fallback calls through render state**
 
@@ -569,6 +574,8 @@ Replace the body of `setupMetalFisheyeIfNeeded(renderMode:)` with:
 renderState.configureFisheye(renderMode: renderMode,
                              viewportSize: CGSize(width: backingWidth, height: backingHeight))
 ```
+
+To keep Task 3 independently compiling before Task 4, update the existing render helpers to read fish2pano params/textures and fisheye controller/parameter from `renderState` where the old setup-owned fields were removed. Do not move mesh, VR, distortion, or full render helper ownership yet; that belongs to Task 4.
 
 - [ ] **Step 5: Compile and run setup-related focused tests**
 
