@@ -156,6 +156,7 @@
 		B5E9524D2F6902500149265 /* IRGLViewPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9524C2F6902500149265 /* IRGLViewPolicy.swift */; };
 		B5E9524F2F6902600149265 /* IRGLRenderStrategyPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9524E2F6902600149265 /* IRGLRenderStrategyPolicy.swift */; };
 		B5E960012F7107000149265 /* IRGLViewRenderState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E960002F7107000149265 /* IRGLViewRenderState.swift */; };
+		B5E960052F7107020149265 /* IRGLViewRenderCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E960042F7107020149265 /* IRGLViewRenderCoordinator.swift */; };
 		B5E94F2B2D0B21F800149265 /* IRGLProgram2DFisheye2Persp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DB52D0B21F800149265 /* IRGLProgram2DFisheye2Persp.swift */; };
 		B5E94F2C2D0B21F800149265 /* IRGLProgram3DFisheye.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DB62D0B21F800149265 /* IRGLProgram3DFisheye.swift */; };
 		B5E94F2E2D0B21F800149265 /* IRGLProgramDistortionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DAB2D0B21F800149265 /* IRGLProgramDistortionFactory.swift */; };
@@ -381,6 +382,7 @@
 		B5E9524C2F6902500149265 /* IRGLViewPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLViewPolicy.swift; sourceTree = "<group>"; };
 		B5E9524E2F6902600149265 /* IRGLRenderStrategyPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderStrategyPolicy.swift; sourceTree = "<group>"; };
 		B5E960002F7107000149265 /* IRGLViewRenderState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLViewRenderState.swift; sourceTree = "<group>"; };
+		B5E960042F7107020149265 /* IRGLViewRenderCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLViewRenderCoordinator.swift; sourceTree = "<group>"; };
 		B5E94DED2D0B21F800149265 /* IRFFAudioFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioFrame.swift; sourceTree = "<group>"; };
 		B5E953002F6903F00149265 /* IRFFAudioFramePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioFramePolicy.swift; sourceTree = "<group>"; };
 		B5E94DEE2D0B21F800149265 /* IRFFAVYUVVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAVYUVVideoFrame.swift; sourceTree = "<group>"; };
@@ -866,6 +868,7 @@
 				B5E9524C2F6902500149265 /* IRGLViewPolicy.swift */,
 				B5E9524E2F6902600149265 /* IRGLRenderStrategyPolicy.swift */,
 				B5E960002F7107000149265 /* IRGLViewRenderState.swift */,
+				B5E960042F7107020149265 /* IRGLViewRenderCoordinator.swift */,
 				4A9D78762F6436E500CDB43B /* IRGLMath.swift */,
 				4A9D78A42F658FD300CDB43B /* IRGLRenderAdapters.swift */,
 			);
@@ -1421,6 +1424,7 @@
 				B5E9524D2F6902500149265 /* IRGLViewPolicy.swift in Sources */,
 				B5E9524F2F6902600149265 /* IRGLRenderStrategyPolicy.swift in Sources */,
 				B5E960012F7107000149265 /* IRGLViewRenderState.swift in Sources */,
+				B5E960052F7107020149265 /* IRGLViewRenderCoordinator.swift in Sources */,
 				B5E94F392D0B21F800149265 /* IRGLProgramVR.swift in Sources */,
 				B5E94F3B2D0B21F800149265 /* IRPLFImage.swift in Sources */,
 				B5E94F3C2D0B21F800149265 /* IRFFVideoToolBox.swift in Sources */,

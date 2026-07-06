@@ -35,6 +35,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     private var ciContext: CIContext?
     private var metalRenderer: IRMetalRenderer?
     private let renderState = IRGLViewRenderState()
+    private let renderCoordinator = IRGLViewRenderCoordinator()
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     private var backingWidth: Int = 0
     private var backingHeight: Int = 0
@@ -295,109 +296,31 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     private func renderCurrentContent() {
         guard let metalLayer = metalLayer else { return }
-        let drawableSize = metalLayer.drawableSize
-        guard drawableSize.width > 0, drawableSize.height > 0 else { return }
-        let fallbackRenderer: IRGLRenderInternal? = metalRenderer
-        if let frame = currentFrame,
-           let renderer = (mode?.renderer as? IRGLRenderInternal) ?? fallbackRenderer,
-           let drawable = metalLayer.nextDrawable() {
-            mode?.program?.setRenderFrame(frame)
-            if let multiResult = renderState.renderMulti4PIfNeeded(frame: frame,
-                                                                   mode: mode,
-                                                                   renderer: renderer,
-                                                                   drawable: drawable,
-                                                                   drawableSize: drawableSize,
-                                                                   device: device) {
-                if multiResult {
-                    saveSnapShot()
-                    return
+        let result = renderCoordinator.render(
+            context: IRGLViewRenderCoordinator.Context(
+                metalLayer: metalLayer,
+                currentFrame: currentFrame,
+                currentImage: currentImage,
+                mode: mode,
+                fallbackRenderer: metalRenderer,
+                renderContentMode: renderContentMode,
+                device: device,
+                commandQueue: commandQueue,
+                ciContext: ciContext,
+                colorSpace: colorSpace,
+                renderState: renderState,
+                makeImage: { [weak self] frame in
+                    self?.makeImage(from: frame)
+                },
+                fitImage: { [weak self] image, rect in
+                    self?.fitImage(image, in: rect) ?? image
                 }
-            }
-            if let fish2PanoResult = renderState.renderFish2PanoIfNeeded(frame: frame,
-                                                                        mode: mode,
-                                                                        renderer: renderer,
-                                                                        drawable: drawable,
-                                                                        drawableSize: drawableSize,
-                                                                        renderContentMode: renderContentMode,
-                                                                        device: device) {
-                if fish2PanoResult {
-                    saveSnapShot()
-                    return
-                }
-            }
-            if let distortionResult = renderState.renderDistortionIfNeeded(frame: frame,
-                                                                          mode: mode,
-                                                                          renderer: renderer,
-                                                                          drawable: drawable,
-                                                                          drawableSize: drawableSize,
-                                                                          renderContentMode: renderContentMode,
-                                                                          device: device) {
-                if distortionResult {
-                    saveSnapShot()
-                    return
-                }
-            }
-            if let fisheyeResult = renderState.renderFisheyeIfNeeded(frame: frame,
-                                                                    mode: mode,
-                                                                    renderer: renderer,
-                                                                    drawable: drawable,
-                                                                    drawableSize: drawableSize,
-                                                                    device: device) {
-                if fisheyeResult {
-                    saveSnapShot()
-                    return
-                }
-            }
-            if let vrResult = renderState.renderVRIfNeeded(frame: frame,
-                                                          mode: mode,
-                                                          renderer: renderer,
-                                                          drawable: drawable,
-                                                          drawableSize: drawableSize,
-                                                          device: device) {
-                if vrResult {
-                    saveSnapShot()
-                    return
-                }
-            }
-            let zoomScale = Float((mode?.program?.getCurrentScale().x) ?? 1)
-            let translation = Self.translationVector(for: mode?.program as? IRGLProgram2D)
-            if renderer.render(frame: frame,
-                               to: drawable,
-                               contentMode: renderContentMode,
-                               drawableSize: drawableSize,
-                               zoomScale: zoomScale,
-                               translation: translation) {
-                saveSnapShot()
-                return
-            }
-            if frame is IRFFCVYUVVideoFrame || frame is IRFFAVYUVVideoFrame {
-                return
-            }
-        }
-
-        if currentImage == nil, let frame = currentFrame {
-            currentImage = makeImage(from: frame)
-        }
-        guard let currentImage = currentImage else { return }
-        guard let drawable = metalLayer.nextDrawable() else { return }
-        guard let commandQueue = commandQueue,
-              let commandBuffer = commandQueue.makeCommandBuffer(),
-              let ciContext = ciContext else { return }
-
-        let targetRect = CGRect(origin: .zero, size: metalLayer.drawableSize)
-        guard targetRect.width > 0, targetRect.height > 0 else { return }
-        let fittedImage = fitImage(currentImage, in: targetRect)
-
-        ciContext.render(
-            fittedImage,
-            to: drawable.texture,
-            commandBuffer: commandBuffer,
-            bounds: targetRect,
-            colorSpace: colorSpace
+            )
         )
-        commandBuffer.present(drawable)
-        commandBuffer.commit()
-        saveSnapShot()
+        currentImage = result.currentImage
+        if result.didCompleteRender {
+            saveSnapShot()
+        }
     }
 
     private func fitImage(_ image: CIImage, in rect: CGRect) -> CIImage {
