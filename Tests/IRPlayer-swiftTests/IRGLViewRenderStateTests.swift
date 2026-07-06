@@ -111,6 +111,7 @@ final class IRGLViewRenderStateTests: XCTestCase {
         state.configureFisheye(renderMode: makeFisheyeMode(),
                                viewportSize: CGSize(width: 320, height: 180))
         XCTAssertNotNil(state.fisheyeController)
+        XCTAssertNotNil(state.fisheyeParameter)
 
         state.configureFisheye(renderMode: IRGLRenderMode2D(),
                                viewportSize: CGSize(width: 320, height: 180))
