@@ -34,11 +34,6 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     private var commandQueue: MTLCommandQueue?
     private var ciContext: CIContext?
     private var metalRenderer: IRMetalRenderer?
-    private var metalFisheyeMesh: IRMetalFisheyeMesh?
-    private var metalVRMesh: IRMetalFisheyeMesh?
-    private var metalFisheyeLastSize: CGSize = .zero
-    private var metalDistortionLeftMesh: IRMetalDistortionMesh?
-    private var metalDistortionRightMesh: IRMetalDistortionMesh?
     private let renderState = IRGLViewRenderState()
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     private var backingWidth: Int = 0
@@ -157,11 +152,6 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         currentFrame = nil
         metalRenderer = nil
         renderState.reset()
-        metalFisheyeMesh = nil
-        metalVRMesh = nil
-        metalFisheyeLastSize = .zero
-        metalDistortionLeftMesh = nil
-        metalDistortionRightMesh = nil
         commandQueue = nil
         ciContext = nil
         device = nil
@@ -312,31 +302,58 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
            let renderer = (mode?.renderer as? IRGLRenderInternal) ?? fallbackRenderer,
            let drawable = metalLayer.nextDrawable() {
             mode?.program?.setRenderFrame(frame)
-            if let multiResult = renderMetalMulti4PIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
+            if let multiResult = renderState.renderMulti4PIfNeeded(frame: frame,
+                                                                   mode: mode,
+                                                                   renderer: renderer,
+                                                                   drawable: drawable,
+                                                                   drawableSize: drawableSize,
+                                                                   device: device) {
                 if multiResult {
                     saveSnapShot()
                     return
                 }
             }
-            if let fish2PanoResult = renderMetalFish2PanoIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
+            if let fish2PanoResult = renderState.renderFish2PanoIfNeeded(frame: frame,
+                                                                        mode: mode,
+                                                                        renderer: renderer,
+                                                                        drawable: drawable,
+                                                                        drawableSize: drawableSize,
+                                                                        renderContentMode: renderContentMode,
+                                                                        device: device) {
                 if fish2PanoResult {
                     saveSnapShot()
                     return
                 }
             }
-            if let distortionResult = renderMetalDistortionIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
+            if let distortionResult = renderState.renderDistortionIfNeeded(frame: frame,
+                                                                          mode: mode,
+                                                                          renderer: renderer,
+                                                                          drawable: drawable,
+                                                                          drawableSize: drawableSize,
+                                                                          renderContentMode: renderContentMode,
+                                                                          device: device) {
                 if distortionResult {
                     saveSnapShot()
                     return
                 }
             }
-            if let fisheyeResult = renderMetalFisheyeIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
+            if let fisheyeResult = renderState.renderFisheyeIfNeeded(frame: frame,
+                                                                    mode: mode,
+                                                                    renderer: renderer,
+                                                                    drawable: drawable,
+                                                                    drawableSize: drawableSize,
+                                                                    device: device) {
                 if fisheyeResult {
                     saveSnapShot()
                     return
                 }
             }
-            if let vrResult = renderMetalVRIfNeeded(frame: frame, renderer: renderer, drawable: drawable, drawableSize: drawableSize) {
+            if let vrResult = renderState.renderVRIfNeeded(frame: frame,
+                                                          mode: mode,
+                                                          renderer: renderer,
+                                                          drawable: drawable,
+                                                          drawableSize: drawableSize,
+                                                          device: device) {
                 if vrResult {
                     saveSnapShot()
                     return
@@ -547,10 +564,6 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     private func setupMetalFisheyeIfNeeded(renderMode: IRGLRenderMode) {
-        if !(renderMode is IRGLRenderMode3DFisheye) {
-            metalFisheyeMesh = nil
-            metalFisheyeLastSize = .zero
-        }
         renderState.configureFisheye(renderMode: renderMode,
                                      viewportSize: CGSize(width: backingWidth, height: backingHeight))
     }
@@ -571,254 +584,8 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         controller.scopeRange = IRGLProgramFactoryPolicy.defaultFisheyeScope(from: fisheyeScopeRange, panelIndex: nil)
     }
 
-    private func renderMetalMulti4PIfNeeded(frame: IRFFVideoFrame,
-                                            renderer: IRGLRenderInternal,
-                                            drawable: CAMetalDrawable,
-                                            drawableSize: CGSize) -> Bool? {
-        guard let program = mode?.program as? IRGLProgramMulti4P else { return nil }
-        if program.programs.first is IRGLProgram3DFisheye {
-            let parameter = (mode?.parameter as? IRFisheyeParameter) ??
-                IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 0)
-            let textureWidth = parameter.width > 0 ? parameter.width : Float(frame.width)
-            let textureHeight = parameter.height > 0 ? parameter.height : Float(frame.height)
-            let meshSize = CGSize(width: CGFloat(textureWidth), height: CGFloat(textureHeight))
-
-            if metalFisheyeMesh == nil || metalFisheyeLastSize != meshSize {
-                let device = self.device ?? MTLCreateSystemDefaultDevice()
-                if let device = device {
-                    if let projection = program.programs.first?.mapProjection as? IRGLProjectionEquirectangular,
-                       let meshData = projection.exportMesh() {
-                        metalFisheyeMesh = IRMetalFisheyeMesh(device: device,
-                                                              positions: meshData.positions,
-                                                              texcoords: meshData.texcoords,
-                                                              indices: meshData.indices)
-                    } else {
-                        metalFisheyeMesh = IRMetalFisheyeMesh(device: device,
-                                                              textureWidth: textureWidth,
-                                                              textureHeight: textureHeight,
-                                                              centerX: parameter.cx,
-                                                              centerY: parameter.cy,
-                                                              radius: parameter.ry)
-                    }
-                    metalFisheyeLastSize = meshSize
-                }
-            }
-
-            guard let mesh = metalFisheyeMesh else { return false }
-            let texMatrix = IRMatrix4.makeScale(1, -1, 1)
-            let viewports = program.programs.map { $0.viewprotRange }
-            var mvps: [simd_float4x4] = []
-            mvps.reserveCapacity(program.programs.count)
-            for program in program.programs {
-                if let controller = program.tramsformController as? IRGLTransformController3DFisheye {
-                    mvps.append(controller.getModelViewProjectionMatrix().toMetalClipSpace())
-                } else {
-                    mvps.append(IRMatrix4.identity().toMetalClipSpace())
-                }
-            }
-
-            return renderer.renderFisheyeMulti(frame: frame,
-                                               mesh: mesh,
-                                               mvpList: mvps,
-                                               textureMatrix: texMatrix,
-                                               to: drawable,
-                                               drawableSize: drawableSize,
-                                               viewports: viewports)
-        } else {
-            let viewports = program.programs.map { $0.viewprotRange }
-            let contentModes = program.programs.map { $0.contentMode }
-            let zoomScales = program.programs.map { Float($0.getCurrentScale().x) }
-            let translations = program.programs.map { Self.translationVector(for: $0) }
-            return renderer.renderMulti(frame: frame,
-                                        to: drawable,
-                                        drawableSize: drawableSize,
-                                        viewports: viewports,
-                                        contentModes: contentModes,
-                                        zoomScales: zoomScales,
-                                        translations: translations)
-        }
-    }
-
-    private func renderMetalFish2PanoIfNeeded(frame: IRFFVideoFrame,
-                                              renderer: IRGLRenderInternal,
-                                              drawable: CAMetalDrawable,
-                                              drawableSize: CGSize) -> Bool? {
-        guard mode is IRGLRenderMode2DFisheye2Pano else { return nil }
-        guard let readiness = renderState.prepareFish2PanoTextures(device: device) else { return false }
-
-        let outputSize: CGSize
-        let antialias: Int
-        switch readiness {
-        case .invalid:
-            return false
-        case .waitingForTextures:
-            renderer.renderClear(to: drawable)
-            return true
-        case let .ready(readyOutputSize, readyAntialias):
-            outputSize = readyOutputSize
-            antialias = readyAntialias
-        }
-
-        guard let params = renderState.fish2PanoParams else { return false }
-        let outputWidth = Int(outputSize.width)
-        let outputHeight = Int(outputSize.height)
-
-        let viewportRect: CGRect
-        if let panoProgram = mode?.program as? IRGLProgram2DFisheye2Pano {
-            viewportRect = panoProgram.viewprotRange
-        } else {
-            viewportRect = (mode?.program as? IRGLProgram2D)?.calculateViewport() ??
-                CGRect(x: 0, y: 0, width: drawableSize.width, height: drawableSize.height)
-        }
-
-        let renderParams = IRMetalRenderer.Fish2PanoParams(
-            fishwidth: Int32(params.textureWidth),
-            fishheight: Int32(params.textureHeight),
-            panowidth: Int32(outputWidth),
-            panoheight: Int32(outputHeight),
-            antialias: Int32(antialias),
-            offsetX: params.offsetX
-        )
-
-        let effectiveProgram = mode?.program as? IRGLProgram2D
-        let effectiveContentMode = effectiveProgram?.contentMode ?? renderContentMode
-        let zoomScale = effectiveProgram?.getCurrentScale().x ?? 1
-        return renderer.renderFish2Pano(frame: frame,
-                                        params: renderParams,
-                                        texUVTextures: renderState.fish2PanoTextures,
-                                        to: drawable,
-                                        drawableSize: drawableSize,
-                                        viewport: viewportRect,
-                                        contentMode: effectiveContentMode,
-                                        outputSize: outputSize,
-                                        zoomScale: Float(zoomScale),
-                                        translation: Self.translationVector(for: effectiveProgram))
-    }
-
-    private func renderMetalDistortionIfNeeded(frame: IRFFVideoFrame,
-                                               renderer: IRGLRenderInternal,
-                                               drawable: CAMetalDrawable,
-                                               drawableSize: CGSize) -> Bool? {
-        guard mode is IRGLRenderModeDistortion else { return nil }
-        if metalDistortionLeftMesh == nil || metalDistortionRightMesh == nil {
-            guard let device = device ?? MTLCreateSystemDefaultDevice() else { return false }
-            metalDistortionLeftMesh = IRMetalDistortionMesh(device: device, modelType: .left)
-            metalDistortionRightMesh = IRMetalDistortionMesh(device: device, modelType: .right)
-        }
-        guard let leftMesh = metalDistortionLeftMesh, let rightMesh = metalDistortionRightMesh else { return false }
-        let effectiveContentMode = (mode?.program as? IRGLProgram2D)?.contentMode ?? renderContentMode
-        return renderer.renderDistortion(frame: frame,
-                                         leftMesh: leftMesh,
-                                         rightMesh: rightMesh,
-                                         to: drawable,
-                                         drawableSize: drawableSize,
-                                         contentMode: effectiveContentMode)
-    }
-
     static func texUVTextureLayout(width: Int, height: Int) -> (bytesPerRow: Int, totalByteCount: Int)? {
         IRGLViewPolicy.texUVTextureLayout(width: width, height: height)
-    }
-
-    private func makeTexUVTexture(width: Int, height: Int, data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {
-        guard let device = device,
-              let layout = Self.texUVTextureLayout(width: width, height: height) else { return nil }
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float,
-                                                                  width: width,
-                                                                  height: height,
-                                                                  mipmapped: false)
-        descriptor.usage = .shaderRead
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-        let region = MTLRegionMake2D(0, 0, width, height)
-        texture.replace(region: region, mipmapLevel: 0, withBytes: data, bytesPerRow: layout.bytesPerRow)
-        return texture
-    }
-
-    private func renderMetalFisheyeIfNeeded(frame: IRFFVideoFrame,
-                                            renderer: IRGLRenderInternal,
-                                            drawable: CAMetalDrawable,
-                                            drawableSize: CGSize) -> Bool? {
-        guard mode is IRGLRenderMode3DFisheye else { return nil }
-        guard let controller = renderState.fisheyeController else { return false }
-        guard let parameter = renderState.fisheyeParameter else { return false }
-
-        let textureWidth = parameter.width > 0 ? parameter.width : Float(frame.width)
-        let textureHeight = parameter.height > 0 ? parameter.height : Float(frame.height)
-        let meshSize = CGSize(width: CGFloat(textureWidth), height: CGFloat(textureHeight))
-        if metalFisheyeMesh == nil || metalFisheyeLastSize != meshSize {
-            let device = self.device ?? MTLCreateSystemDefaultDevice()
-            if let device = device {
-                if let projection = mode?.program?.mapProjection as? IRGLProjectionEquirectangular,
-                   let meshData = projection.exportMesh() {
-                    metalFisheyeMesh = IRMetalFisheyeMesh(device: device,
-                                                          positions: meshData.positions,
-                                                          texcoords: meshData.texcoords,
-                                                          indices: meshData.indices)
-                } else {
-                    metalFisheyeMesh = IRMetalFisheyeMesh(device: device,
-                                                          textureWidth: textureWidth,
-                                                          textureHeight: textureHeight,
-                                                          centerX: parameter.cx,
-                                                          centerY: parameter.cy,
-                                                          radius: parameter.ry)
-                }
-                metalFisheyeLastSize = meshSize
-            }
-        }
-
-        guard let mesh = metalFisheyeMesh else { return false }
-        let mvp = controller.getModelViewProjectionMatrix()
-        let texMatrix = IRMatrix4.makeScale(1, -1, 1)
-
-        let viewportRect = (mode?.program as? IRGLProgram2D)?.calculateViewport() ??
-            CGRect(x: 0, y: 0, width: drawableSize.width, height: drawableSize.height)
-
-        return renderer.renderFisheye(frame: frame,
-                                      mesh: mesh,
-                                      mvp: mvp.toMetalClipSpace(),
-                                      textureMatrix: texMatrix,
-                                      to: drawable,
-                                      drawableSize: drawableSize,
-                                      viewport: viewportRect)
-    }
-
-    private func renderMetalVRIfNeeded(frame: IRFFVideoFrame,
-                                       renderer: IRGLRenderInternal,
-                                       drawable: CAMetalDrawable,
-                                       drawableSize: CGSize) -> Bool? {
-        guard mode is IRGLRenderModeVR else { return nil }
-        guard let program = mode?.program as? IRGLProgramVR else {
-            return false
-        }
-        guard let controller = program.tramsformController as? IRGLTransformControllerVR else {
-            return false
-        }
-
-        if metalVRMesh == nil {
-            if let projection = program.mapProjection as? IRGLProjectionVR,
-               let meshData = projection.exportMesh(),
-               let device = (self.device ?? MTLCreateSystemDefaultDevice()) {
-                metalVRMesh = IRMetalFisheyeMesh(device: device,
-                                                 positions: meshData.positions,
-                                                 texcoords: meshData.texcoords,
-                                                 indices: meshData.indices)
-            }
-        }
-
-        guard let mesh = metalVRMesh else {
-            return false
-        }
-        let mvp = controller.getModelViewProjectionMatrix()
-        let texMatrix = IRMatrix4.identity()
-        let viewportRect = program.calculateViewport()
-        let mvpAdjusted = mvp.toMetalClipSpace()
-        let rendered = renderer.renderFisheye(frame: frame,
-                                              mesh: mesh,
-                                              mvp: mvpAdjusted,
-                                              textureMatrix: texMatrix,
-                                              to: drawable,
-                                              drawableSize: drawableSize,
-                                              viewport: viewportRect)
-        return rendered
     }
 
     public func send(videoFrame: IRFFVideoFrame) {
