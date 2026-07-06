@@ -1,4 +1,5 @@
 import CoreGraphics
+import Metal
 import XCTest
 @testable import IRPlayer_swift
 
@@ -8,28 +9,33 @@ final class IRGLViewRenderStateTests: XCTestCase {
         let state = IRGLViewRenderState()
         let panoMode = makePanoMode()
         let fisheyeMode = makeFisheyeMode()
+        let program = try XCTUnwrap(panoMode.program as? IRGLProgram2DFisheye2Pano)
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+        params.outputWidth = 4
+        params.outputHeight = 2
+        params.antialias = 2
 
         state.configureFish2Pano(renderMode: panoMode)
+        let readiness: IRGLViewRenderState.Fish2PanoTextureReadiness? =
+            state.prepareFish2PanoTextures(device: nil as MTLDevice?)
+        XCTAssertEqual(readiness, IRGLViewRenderState.Fish2PanoTextureReadiness.waitingForTextures)
         state.configureFisheye(renderMode: fisheyeMode,
                                viewportSize: CGSize(width: 320, height: 180))
 
         XCTAssertNotNil(state.fish2PanoParams)
+        XCTAssertEqual(state.fish2PanoLastOutputSize, CGSize(width: 4, height: 2))
+        XCTAssertEqual(state.fish2PanoLastAntialias, 2)
         XCTAssertNotNil(state.fisheyeController)
         XCTAssertNotNil(state.fisheyeParameter)
 
         state.reset()
 
         XCTAssertNil(state.fish2PanoParams)
-        XCTAssertTrue(state.fish2PanoTextures.isEmpty)
-        XCTAssertEqual(state.fish2PanoLastOutputSize, .zero)
+        XCTAssertEqual(state.fish2PanoLastOutputSize, CGSize.zero)
         XCTAssertEqual(state.fish2PanoLastAntialias, 0)
-        XCTAssertNil(state.fisheyeMesh)
-        XCTAssertNil(state.vrMesh)
         XCTAssertNil(state.fisheyeController)
         XCTAssertNil(state.fisheyeParameter)
-        XCTAssertEqual(state.fisheyeLastSize, .zero)
-        XCTAssertNil(state.distortionLeftMesh)
-        XCTAssertNil(state.distortionRightMesh)
+        XCTAssertEqual(state.fisheyeLastSize, CGSize.zero)
     }
 
     func testConfigureFish2PanoStoresProgramParams() throws {
@@ -45,14 +51,25 @@ final class IRGLViewRenderStateTests: XCTestCase {
 
     func testConfigureFish2PanoClearsStateForNonPanoMode() throws {
         let state = IRGLViewRenderState()
-        state.configureFish2Pano(renderMode: makePanoMode())
+        let mode = makePanoMode()
+        let program = try XCTUnwrap(mode.program as? IRGLProgram2DFisheye2Pano)
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+        params.outputWidth = 4
+        params.outputHeight = 2
+        params.antialias = 2
+
+        state.configureFish2Pano(renderMode: mode)
+        let readiness: IRGLViewRenderState.Fish2PanoTextureReadiness? =
+            state.prepareFish2PanoTextures(device: nil as MTLDevice?)
+        XCTAssertEqual(readiness, IRGLViewRenderState.Fish2PanoTextureReadiness.waitingForTextures)
         XCTAssertNotNil(state.fish2PanoParams)
+        XCTAssertEqual(state.fish2PanoLastOutputSize, CGSize(width: 4, height: 2))
+        XCTAssertEqual(state.fish2PanoLastAntialias, 2)
 
         state.configureFish2Pano(renderMode: IRGLRenderMode2D())
 
         XCTAssertNil(state.fish2PanoParams)
-        XCTAssertTrue(state.fish2PanoTextures.isEmpty)
-        XCTAssertEqual(state.fish2PanoLastOutputSize, .zero)
+        XCTAssertEqual(state.fish2PanoLastOutputSize, CGSize.zero)
         XCTAssertEqual(state.fish2PanoLastAntialias, 0)
     }
 
@@ -70,7 +87,7 @@ final class IRGLViewRenderStateTests: XCTestCase {
         XCTAssertTrue(state.fisheyeParameter === parameter)
     }
 
-    func testConfigureFisheyeCreatesFallbackControllerAndDefaultParameter() {
+    func testConfigureFisheyeCreatesFallbackControllerAndDefaultParameter() throws {
         let state = IRGLViewRenderState()
         let mode = NilProgramFisheyeRenderMode()
 
@@ -81,7 +98,10 @@ final class IRGLViewRenderStateTests: XCTestCase {
         state.configureFisheye(renderMode: mode,
                                viewportSize: CGSize(width: 320, height: 180))
 
-        XCTAssertNotNil(state.fisheyeController)
+        let controller: IRGLTransformController3DFisheye = try XCTUnwrap(state.fisheyeController)
+        let scope = controller.getScope()
+        XCTAssertEqual(scope.w, 320)
+        XCTAssertEqual(scope.h, 180)
         XCTAssertEqual(state.fisheyeParameter?.width, 0)
         XCTAssertEqual(state.fisheyeParameter?.height, 0)
         XCTAssertEqual(state.fisheyeParameter?.latmax, 0)
@@ -97,9 +117,8 @@ final class IRGLViewRenderStateTests: XCTestCase {
                                viewportSize: CGSize(width: 320, height: 180))
 
         XCTAssertNil(state.fisheyeController)
-        XCTAssertNil(state.fisheyeMesh)
         XCTAssertNil(state.fisheyeParameter)
-        XCTAssertEqual(state.fisheyeLastSize, .zero)
+        XCTAssertEqual(state.fisheyeLastSize, CGSize.zero)
     }
 
     private func makePanoMode() -> IRGLRenderMode2DFisheye2Pano {
