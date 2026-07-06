@@ -72,6 +72,66 @@ final class IRGLViewRenderStateTests: XCTestCase {
         XCTAssertEqual(state.fish2PanoLastAntialias, 0)
     }
 
+    func testConfigureFish2PanoClearsCachedStateWhenParamsObjectChanges() throws {
+        let state = IRGLViewRenderState()
+        let firstMode = makePanoMode()
+        let firstProgram = try XCTUnwrap(firstMode.program as? IRGLProgram2DFisheye2Pano)
+        let firstParams = try XCTUnwrap(firstProgram.metalFish2PanoParams)
+        firstParams.outputWidth = 4
+        firstParams.outputHeight = 2
+        firstParams.antialias = 2
+
+        state.configureFish2Pano(renderMode: firstMode)
+        let readiness = state.prepareFish2PanoTextures(device: nil as MTLDevice?)
+        XCTAssertEqual(readiness, IRGLViewRenderState.Fish2PanoTextureReadiness.waitingForTextures)
+        XCTAssertEqual(state.fish2PanoLastOutputSize, CGSize(width: 4, height: 2))
+        XCTAssertEqual(state.fish2PanoLastAntialias, 2)
+
+        let secondMode = makePanoMode()
+        let secondProgram = try XCTUnwrap(secondMode.program as? IRGLProgram2DFisheye2Pano)
+        let secondParams = try XCTUnwrap(secondProgram.metalFish2PanoParams)
+        secondParams.outputWidth = 4
+        secondParams.outputHeight = 2
+        secondParams.antialias = 2
+        XCTAssertFalse(firstParams === secondParams)
+
+        state.configureFish2Pano(renderMode: secondMode)
+
+        XCTAssertTrue(state.fish2PanoParams === secondParams)
+        XCTAssertEqual(state.fish2PanoLastOutputSize, CGSize.zero)
+        XCTAssertEqual(state.fish2PanoLastAntialias, 0)
+        XCTAssertTrue(state.fish2PanoTextures.isEmpty)
+    }
+
+    func testPrepareFish2PanoTexturesRejectsMismatchedPixUVCountWithoutReplacingCache() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        let state = IRGLViewRenderState()
+        let params = StubFish2PanoShaderParams(pointerCapacity: 2 * 2 * 2)
+        params.outputWidth = 2
+        params.outputHeight = 2
+        params.antialias = 2
+        let mode = InjectedPanoRenderMode(program: StubFish2PanoProgram(params: params))
+
+        state.configureFish2Pano(renderMode: mode)
+        params.queuePixUV(count: 4)
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .ready(outputSize: CGSize(width: 2, height: 2), antialias: 2)
+        )
+        let installedTextures = state.fish2PanoTextures
+        XCTAssertEqual(installedTextures.count, 4)
+
+        params.queuePixUV(count: 1)
+        XCTAssertEqual(state.prepareFish2PanoTextures(device: device), .waitingForTextures)
+
+        XCTAssertEqual(state.fish2PanoTextures.count, installedTextures.count)
+        XCTAssertTrue(zip(state.fish2PanoTextures, installedTextures).allSatisfy {
+            ($0 as AnyObject) === ($1 as AnyObject)
+        })
+    }
+
     func testConfigureFisheyeUsesProgramControllerAndParameter() throws {
         let state = IRGLViewRenderState()
         let mode = makeFisheyeMode()
@@ -104,6 +164,27 @@ final class IRGLViewRenderStateTests: XCTestCase {
         XCTAssertEqual(state.fisheyeParameter?.width, 0)
         XCTAssertEqual(state.fisheyeParameter?.height, 0)
         XCTAssertEqual(state.fisheyeParameter?.latmax, 0)
+    }
+
+    func testConfigureFisheyeFallbackAfterProgramControllerUsesCurrentViewport() throws {
+        let state = IRGLViewRenderState()
+        let programMode = makeFisheyeMode()
+        state.configureFisheye(renderMode: programMode,
+                               viewportSize: CGSize(width: 320, height: 180))
+        let programController = try XCTUnwrap(state.fisheyeController)
+
+        let fallbackMode = NilProgramFisheyeRenderMode()
+        fallbackMode.buildIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
+                                      viewprotRange: CGRect(x: 0, y: 0, width: 90, height: 45),
+                                      parameter: nil)
+        state.configureFisheye(renderMode: fallbackMode,
+                               viewportSize: CGSize(width: 90, height: 45))
+
+        let fallbackController = try XCTUnwrap(state.fisheyeController)
+        let scope = fallbackController.getScope()
+        XCTAssertFalse(fallbackController === programController)
+        XCTAssertEqual(scope.w, 90)
+        XCTAssertEqual(scope.h, 45)
     }
 
     func testConfigureFisheyeClearsStateForNonFisheyeMode() {
@@ -157,5 +238,64 @@ private final class NilProgramFactory: IRGLProgram2DFactory {
                                     viewportRange: CGRect,
                                     parameter: IRMediaParameter?) -> IRGLProgram2D? {
         nil
+    }
+}
+
+private final class InjectedPanoRenderMode: IRGLRenderMode2DFisheye2Pano {
+    init(program: IRGLProgram2DFisheye2Pano) {
+        super.init()
+        self.program = program
+    }
+}
+
+private final class StubFish2PanoProgram: IRGLProgram2DFisheye2Pano {
+    private let params: IRGLFish2PanoShaderParams
+
+    override var metalFish2PanoParams: IRGLFish2PanoShaderParams? {
+        params
+    }
+
+    init(params: IRGLFish2PanoShaderParams) {
+        self.params = params
+        super.init(pixelFormat: .RGB_IRPixelFormat, viewportRange: .zero, parameter: nil)
+    }
+}
+
+private final class StubFish2PanoShaderParams: IRGLFish2PanoShaderParams {
+    private let pointerCapacity: Int
+    private var queuedPixUV: [[UnsafeMutablePointer<GLfloat>]] = []
+
+    init(pointerCapacity: Int) {
+        self.pointerCapacity = pointerCapacity
+        super.init()
+    }
+
+    deinit {
+        queuedPixUV.forEach(releasePointers)
+    }
+
+    func queuePixUV(count: Int) {
+        let pointers = (0..<count).map { index -> UnsafeMutablePointer<GLfloat> in
+            let pointer = UnsafeMutablePointer<GLfloat>.allocate(capacity: pointerCapacity)
+            pointer.initialize(repeating: GLfloat(index + 1), count: pointerCapacity)
+            return pointer
+        }
+        queuedPixUV.append(pointers)
+    }
+
+    override func consumePixUVIfReady() -> [UnsafeMutablePointer<GLfloat>]? {
+        guard !queuedPixUV.isEmpty else { return nil }
+        return queuedPixUV.removeFirst()
+    }
+
+    override func releaseConsumedPixUV(_ consumed: [UnsafeMutablePointer<GLfloat>]) {
+        releasePointers(consumed)
+    }
+
+    private func releasePointers(_ pointers: [UnsafeMutablePointer<GLfloat>]) {
+        for pointer in pointers {
+            pointer.deinitialize(count: pointerCapacity)
+            pointer.deallocate()
+        }
     }
 }

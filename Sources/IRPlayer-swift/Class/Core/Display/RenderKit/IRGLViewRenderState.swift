@@ -39,12 +39,16 @@ final class IRGLViewRenderState {
     }
 
     func configureFish2Pano(renderMode: IRGLRenderMode) {
-        guard let program = renderMode.program as? IRGLProgram2DFisheye2Pano else {
+        guard let program = renderMode.program as? IRGLProgram2DFisheye2Pano,
+              let params = program.metalFish2PanoParams else {
             resetFish2Pano()
             return
         }
 
-        fish2PanoParams = program.metalFish2PanoParams
+        if fish2PanoParams !== params {
+            resetFish2Pano()
+        }
+        fish2PanoParams = params
     }
 
     func prepareFish2PanoTextures(device: MTLDevice?) -> Fish2PanoTextureReadiness? {
@@ -61,27 +65,28 @@ final class IRGLViewRenderState {
             fish2PanoLastAntialias = antialias
         }
 
+        let expectedTextureCount = antialias * antialias
         if let device, let pixUV = params.consumePixUVIfReady() {
             defer { params.releaseConsumedPixUV(pixUV) }
 
-            let texCount = min(pixUV.count, antialias * antialias)
+            guard pixUV.count == expectedTextureCount else {
+                return .waitingForTextures
+            }
             var newTextures: [MTLTexture] = []
-            newTextures.reserveCapacity(texCount)
-            for i in 0..<texCount {
+            newTextures.reserveCapacity(expectedTextureCount)
+            for i in 0..<expectedTextureCount {
                 guard let texture = makeTexUVTexture(device: device,
                                                      width: outputWidth,
                                                      height: outputHeight,
                                                      data: pixUV[i]) else {
-                    continue
+                    return .waitingForTextures
                 }
                 newTextures.append(texture)
             }
-            if !newTextures.isEmpty {
-                fish2PanoTextures = newTextures
-            }
+            fish2PanoTextures = newTextures
         }
 
-        guard fish2PanoTextures.count == antialias * antialias else {
+        guard fish2PanoTextures.count == expectedTextureCount else {
             return .waitingForTextures
         }
 
@@ -96,7 +101,7 @@ final class IRGLViewRenderState {
 
         if let programController = renderMode.program?.tramsformController as? IRGLTransformController3DFisheye {
             fisheyeController = programController
-        } else if fisheyeController == nil {
+        } else {
             let width = max(Int(viewportSize.width), 1)
             let height = max(Int(viewportSize.height), 1)
             fisheyeController = IRGLTransformController3DFisheye(viewportWidth: width,
