@@ -152,6 +152,32 @@ final class IRFFDecoderOperationTests: XCTestCase {
             IRFFDecoderOperationPolicy.shouldNotifyError(closed: false, hasError: true)
         )
         XCTAssertEqual(
+            IRFFDecoder.readLoopExitAction(closed: true, hasError: false),
+            IRFFDecoderReadLoopState.exitAction(closed: true, hasError: false)
+        )
+        XCTAssertEqual(
+            IRFFDecoder.readLoopSeekCompletionAction(seeking: true, progress: 3),
+            IRFFDecoderReadLoopState.seekCompletionAction(seeking: true, progress: 3)
+        )
+        XCTAssertEqual(
+            IRFFDecoder.displayLoopIdleAction(
+                seeking: false,
+                buffering: false,
+                paused: true,
+                hasCurrentFrame: true
+            ),
+            IRFFDecoderDisplayLoopState.idleAction(
+                seeking: false,
+                buffering: false,
+                paused: true,
+                hasCurrentFrame: true
+            )
+        )
+        XCTAssertEqual(
+            IRFFDecoder.displayLoopFinishAction(endOfFile: true, videoDecoderEmpty: true),
+            IRFFDecoderDisplayLoopState.finishAction(endOfFile: true, videoDecoderEmpty: true)
+        )
+        XCTAssertEqual(
             IRFFDecoder.addDependency(nil, to: nil),
             IRFFDecoderOperationPolicy.addDependency(nil, to: nil)
         )
