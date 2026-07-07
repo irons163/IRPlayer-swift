@@ -98,7 +98,7 @@ Expected green output for passing test runs includes `** TEST SUCCEEDED **`.
 - Create: `Sources/IRPlayer-swift/Class/Core/FFPlayer/FFmpeg/IRFFDecoderReadLoopState.swift`
 - Modify: `IRPlayer-swift.xcodeproj/project.pbxproj`
 
-- [ ] **Step 1: Write the failing read-loop state tests**
+- [x] **Step 1: Write the failing read-loop state tests**
 
 Create `Tests/IRPlayer-swiftTests/IRFFDecoderReadLoopStateTests.swift`:
 
@@ -250,7 +250,7 @@ final class IRFFDecoderReadLoopStateTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: Add the test file to the Xcode test target**
+- [x] **Step 2: Add the test file to the Xcode test target**
 
 Modify `IRPlayer-swift.xcodeproj/project.pbxproj`:
 
@@ -261,7 +261,7 @@ B5E961022F7108010149265 /* IRFFDecoderReadLoopStateTests.swift */,
 B5E961032F7108010149265 /* IRFFDecoderReadLoopStateTests.swift in Sources */,
 ```
 
-- [ ] **Step 3: Run the focused read-loop tests and confirm RED**
+- [x] **Step 3: Run the focused read-loop tests and confirm RED**
 
 Run:
 
@@ -272,7 +272,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: FAIL to compile with `cannot find 'IRFFDecoderReadLoopState' in scope`.
 
-- [ ] **Step 4: Implement the read-loop state helper**
+- [x] **Step 4: Implement the read-loop state helper**
 
 Create `Sources/IRPlayer-swift/Class/Core/FFPlayer/FFmpeg/IRFFDecoderReadLoopState.swift`:
 
@@ -368,7 +368,7 @@ enum IRFFDecoderReadLoopState {
 }
 ```
 
-- [ ] **Step 5: Add the source file to the Xcode framework target**
+- [x] **Step 5: Add the source file to the Xcode framework target**
 
 Modify `IRPlayer-swift.xcodeproj/project.pbxproj`:
 
@@ -379,7 +379,7 @@ B5E961002F7108000149265 /* IRFFDecoderReadLoopState.swift */,
 B5E961012F7108000149265 /* IRFFDecoderReadLoopState.swift in Sources */,
 ```
 
-- [ ] **Step 6: Run focused read-loop tests and confirm GREEN**
+- [x] **Step 6: Run focused read-loop tests and confirm GREEN**
 
 Run:
 
@@ -389,7 +389,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -407,7 +407,7 @@ git commit -m "feat: add ff decoder read loop state"
 - Create: `Sources/IRPlayer-swift/Class/Core/FFPlayer/FFmpeg/IRFFDecoderDisplayLoopState.swift`
 - Modify: `IRPlayer-swift.xcodeproj/project.pbxproj`
 
-- [ ] **Step 1: Write the failing display-loop state tests**
+- [x] **Step 1: Write the failing display-loop state tests**
 
 Create `Tests/IRPlayer-swiftTests/IRFFDecoderDisplayLoopStateTests.swift`:
 
@@ -546,7 +546,7 @@ final class IRFFDecoderDisplayLoopStateTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: Add the test file to the Xcode test target**
+- [x] **Step 2: Add the test file to the Xcode test target**
 
 Modify `IRPlayer-swift.xcodeproj/project.pbxproj`:
 
@@ -557,7 +557,7 @@ B5E961062F7108030149265 /* IRFFDecoderDisplayLoopStateTests.swift */,
 B5E961072F7108030149265 /* IRFFDecoderDisplayLoopStateTests.swift in Sources */,
 ```
 
-- [ ] **Step 3: Run the focused display-loop tests and confirm RED**
+- [x] **Step 3: Run the focused display-loop tests and confirm RED**
 
 Run:
 
@@ -567,7 +567,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: FAIL to compile with `cannot find 'IRFFDecoderDisplayLoopState' in scope`.
 
-- [ ] **Step 4: Implement the display-loop state helper**
+- [x] **Step 4: Implement the display-loop state helper**
 
 Create `Sources/IRPlayer-swift/Class/Core/FFPlayer/FFmpeg/IRFFDecoderDisplayLoopState.swift`:
 
@@ -657,7 +657,7 @@ enum IRFFDecoderDisplayLoopState {
 }
 ```
 
-- [ ] **Step 5: Add the source file to the Xcode framework target**
+- [x] **Step 5: Add the source file to the Xcode framework target**
 
 Modify `IRPlayer-swift.xcodeproj/project.pbxproj`:
 
@@ -668,7 +668,7 @@ B5E961042F7108020149265 /* IRFFDecoderDisplayLoopState.swift */,
 B5E961052F7108020149265 /* IRFFDecoderDisplayLoopState.swift in Sources */,
 ```
 
-- [ ] **Step 6: Run focused display-loop tests and confirm GREEN**
+- [x] **Step 6: Run focused display-loop tests and confirm GREEN**
 
 Run:
 
@@ -678,7 +678,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -695,7 +695,7 @@ git commit -m "feat: add ff decoder display loop state"
 - Modify: `Sources/IRPlayer-swift/Class/Core/FFPlayer/FFmpeg/IRFFDecoder.swift`
 - Modify: `Tests/IRPlayer-swiftTests/IRFFDecoderOperationTests.swift`
 
-- [ ] **Step 1: Add source-compatible wrapper assertions**
+- [x] **Step 1: Add source-compatible wrapper assertions**
 
 In `Tests/IRPlayer-swiftTests/IRFFDecoderOperationTests.swift`, append these
 assertions to `testStaticPolicyWrappersRemainSourceCompatible()`:
@@ -729,7 +729,7 @@ assertions to `testStaticPolicyWrappersRemainSourceCompatible()`:
         )
 ```
 
-- [ ] **Step 2: Run operation tests and confirm RED**
+- [x] **Step 2: Run operation tests and confirm RED**
 
 Run:
 
@@ -739,7 +739,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: FAIL to compile with missing static methods on `IRFFDecoder`.
 
-- [ ] **Step 3: Add static wrapper methods to `IRFFDecoder`**
+- [x] **Step 3: Add static wrapper methods to `IRFFDecoder`**
 
 In `Sources/IRPlayer-swift/Class/Core/FFPlayer/FFmpeg/IRFFDecoder.swift`, after
 `static func shouldNotifyError(closed:hasError:)`, add:
@@ -846,7 +846,7 @@ In `Sources/IRPlayer-swift/Class/Core/FFPlayer/FFmpeg/IRFFDecoder.swift`, after
     }
 ```
 
-- [ ] **Step 4: Route `readPacketThread()` through read-loop actions**
+- [x] **Step 4: Route `readPacketThread()` through read-loop actions**
 
 In `readPacketThread()`, replace the top exit check:
 
@@ -990,7 +990,7 @@ to:
                 break
 ```
 
-- [ ] **Step 5: Route `displayThread()` through display-loop actions**
+- [x] **Step 5: Route `displayThread()` through display-loop actions**
 
 In `displayThread()`, replace:
 
@@ -1111,7 +1111,7 @@ with:
                     }
 ```
 
-- [ ] **Step 6: Run routed focused tests and confirm GREEN**
+- [x] **Step 6: Run routed focused tests and confirm GREEN**
 
 Run:
 
@@ -1124,7 +1124,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -1140,7 +1140,7 @@ git commit -m "refactor: route ff decoder loops through state helpers"
 **Files:**
 - Modify only files from Tasks 1-3 if verification exposes issues inside this slice.
 
-- [ ] **Step 1: Confirm boundary and changed files**
+- [x] **Step 1: Confirm boundary and changed files**
 
 Run:
 
@@ -1162,7 +1162,7 @@ docs/superpowers/plans/2026-07-07-ff-decoder-orchestration-refactor.md
 docs/superpowers/specs/2026-07-07-ff-decoder-orchestration-refactor-design.md
 ```
 
-- [ ] **Step 2: Run whitespace check**
+- [x] **Step 2: Run whitespace check**
 
 Run:
 
@@ -1172,7 +1172,7 @@ git diff --check
 
 Expected: exits `0` with no output.
 
-- [ ] **Step 3: Run focused FFmpeg decoder suite**
+- [x] **Step 3: Run focused FFmpeg decoder suite**
 
 Run:
 
@@ -1190,7 +1190,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 4: Run full iOS simulator suite**
+- [x] **Step 4: Run full iOS simulator suite**
 
 Run:
 
@@ -1200,7 +1200,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 5: Commit verification fixes when verification created changes**
+- [x] **Step 5: Commit verification fixes when verification created changes**
 
 If Tasks 4.1-4.4 require edits, run:
 
@@ -1212,7 +1212,7 @@ git commit -m "fix: stabilize ff decoder orchestration refactor"
 
 Expected: no commit is created if verification required no edits.
 
-- [ ] **Step 6: Report final status**
+- [x] **Step 6: Report final status**
 
 Report:
 
