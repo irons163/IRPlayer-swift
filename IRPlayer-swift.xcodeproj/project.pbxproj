@@ -144,6 +144,7 @@
 		B5E952232F6901000149265 /* IRFFDecoderDisplayPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952222F6901000149265 /* IRFFDecoderDisplayPolicy.swift */; };
 		B5E9521B2F6900C00149265 /* IRFFDecoderOperationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9521A2F6900C00149265 /* IRFFDecoderOperationPolicy.swift */; };
 		B5E952212F6900F00149265 /* IRFFDecoderPacketPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952202F6900F00149265 /* IRFFDecoderPacketPolicy.swift */; };
+		B5E961012F7108000149265 /* IRFFDecoderReadLoopState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E961002F7108000149265 /* IRFFDecoderReadLoopState.swift */; };
 		B5E952252F6901100149265 /* IRFFDecoderSeekPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952242F6901100149265 /* IRFFDecoderSeekPolicy.swift */; };
 		B5E94F252D0B21F800149265 /* IRFFVideoDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E012D0B21F800149265 /* IRFFVideoDecoder.swift */; };
 		B5E94F272D0B21F800149265 /* IRGLSupportPixelFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DE72D0B21F800149265 /* IRGLSupportPixelFormat.swift */; };
@@ -220,6 +221,7 @@
 		B5E952192F6900B00149265 /* IRFFDecoderOperationPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952182F6900B00149265 /* IRFFDecoderOperationPolicyTests.swift */; };
 		B5E952132F6900800149265 /* IRFFDecoderSeekPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952122F6900800149265 /* IRFFDecoderSeekPolicyTests.swift */; };
 		B5E952152F6900900149265 /* IRFFDecoderPacketPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952142F6900900149265 /* IRFFDecoderPacketPolicyTests.swift */; };
+		B5E961032F7108010149265 /* IRFFDecoderReadLoopStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E961022F7108010149265 /* IRFFDecoderReadLoopStateTests.swift */; };
 		B5E950212F68A01100149265 /* IRFFAudioDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950202F68A01100149265 /* IRFFAudioDecoderTests.swift */; };
 		B5E952012F6900600149265 /* IRFFAudioFrameTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952002F6900600149265 /* IRFFAudioFrameTests.swift */; };
 		B5E950232F68A01200149265 /* IRFFToolsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950222F68A01200149265 /* IRFFToolsTests.swift */; };
@@ -408,6 +410,7 @@
 		B5E952222F6901000149265 /* IRFFDecoderDisplayPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderDisplayPolicy.swift; sourceTree = "<group>"; };
 		B5E9521A2F6900C00149265 /* IRFFDecoderOperationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderOperationPolicy.swift; sourceTree = "<group>"; };
 		B5E952202F6900F00149265 /* IRFFDecoderPacketPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderPacketPolicy.swift; sourceTree = "<group>"; };
+		B5E961002F7108000149265 /* IRFFDecoderReadLoopState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderReadLoopState.swift; sourceTree = "<group>"; };
 		B5E952242F6901100149265 /* IRFFDecoderSeekPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderSeekPolicy.swift; sourceTree = "<group>"; };
 		B5E94DF92D0B21F800149265 /* IRFFFormatContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFormatContext.swift; sourceTree = "<group>"; };
 		B5E952322F6901800149265 /* IRFFFormatContextPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFormatContextPolicy.swift; sourceTree = "<group>"; };
@@ -483,6 +486,7 @@
 		B5E952182F6900B00149265 /* IRFFDecoderOperationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderOperationPolicyTests.swift; sourceTree = "<group>"; };
 		B5E952122F6900800149265 /* IRFFDecoderSeekPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderSeekPolicyTests.swift; sourceTree = "<group>"; };
 		B5E952142F6900900149265 /* IRFFDecoderPacketPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderPacketPolicyTests.swift; sourceTree = "<group>"; };
+		B5E961022F7108010149265 /* IRFFDecoderReadLoopStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderReadLoopStateTests.swift; sourceTree = "<group>"; };
 		B5E950202F68A01100149265 /* IRFFAudioDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioDecoderTests.swift; sourceTree = "<group>"; };
 		B5E952002F6900600149265 /* IRFFAudioFrameTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioFrameTests.swift; sourceTree = "<group>"; };
 		B5E950222F68A01200149265 /* IRFFToolsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFToolsTests.swift; sourceTree = "<group>"; };
@@ -920,6 +924,7 @@
 				B5E952222F6901000149265 /* IRFFDecoderDisplayPolicy.swift */,
 				B5E9521A2F6900C00149265 /* IRFFDecoderOperationPolicy.swift */,
 				B5E952202F6900F00149265 /* IRFFDecoderPacketPolicy.swift */,
+				B5E961002F7108000149265 /* IRFFDecoderReadLoopState.swift */,
 				B5E952242F6901100149265 /* IRFFDecoderSeekPolicy.swift */,
 				B5E94DF92D0B21F800149265 /* IRFFFormatContext.swift */,
 				B5E952322F6901800149265 /* IRFFFormatContextPolicy.swift */,
@@ -1058,6 +1063,7 @@
 				B5E9501E2F68A01000149265 /* IRFFDecoderOperationTests.swift */,
 				B5E952182F6900B00149265 /* IRFFDecoderOperationPolicyTests.swift */,
 				B5E952142F6900900149265 /* IRFFDecoderPacketPolicyTests.swift */,
+				B5E961022F7108010149265 /* IRFFDecoderReadLoopStateTests.swift */,
 				B5E952122F6900800149265 /* IRFFDecoderSeekPolicyTests.swift */,
 				B5E950122F68A00A00149265 /* IRFFFormatContextTests.swift */,
 				B5E950142F68A00B00149265 /* IRFFPlayerTests.swift */,
@@ -1389,6 +1395,7 @@
 				B5E952232F6901000149265 /* IRFFDecoderDisplayPolicy.swift in Sources */,
 				B5E9521B2F6900C00149265 /* IRFFDecoderOperationPolicy.swift in Sources */,
 				B5E952212F6900F00149265 /* IRFFDecoderPacketPolicy.swift in Sources */,
+				B5E961012F7108000149265 /* IRFFDecoderReadLoopState.swift in Sources */,
 				B5E952252F6901100149265 /* IRFFDecoderSeekPolicy.swift in Sources */,
 				B5E94F252D0B21F800149265 /* IRFFVideoDecoder.swift in Sources */,
 				B5E94F272D0B21F800149265 /* IRGLSupportPixelFormat.swift in Sources */,
@@ -1451,6 +1458,7 @@
 				B5E9501F2F68A01000149265 /* IRFFDecoderOperationTests.swift in Sources */,
 				B5E952192F6900B00149265 /* IRFFDecoderOperationPolicyTests.swift in Sources */,
 				B5E952152F6900900149265 /* IRFFDecoderPacketPolicyTests.swift in Sources */,
+				B5E961032F7108010149265 /* IRFFDecoderReadLoopStateTests.swift in Sources */,
 				B5E952132F6900800149265 /* IRFFDecoderSeekPolicyTests.swift in Sources */,
 				B5E950132F68A00A00149265 /* IRFFFormatContextTests.swift in Sources */,
 				B5E950152F68A00B00149265 /* IRFFPlayerTests.swift in Sources */,
