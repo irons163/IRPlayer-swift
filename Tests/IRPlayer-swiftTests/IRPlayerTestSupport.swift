@@ -29,32 +29,12 @@ final class ShaderParamsDelegateSpy: IRGLShaderParamsDelegate {
     }
 }
 
-func mirroredFFPlayer(from player: IRPlayerImp) -> IRFFPlayer? {
-    let childValue = Mirror(reflecting: player)
-        .children
-        .first { $0.label == "_ffPlayer" }?
-        .value
-    guard let childValue = childValue else { return nil }
-
-    let optionalMirror = Mirror(reflecting: childValue)
-    if optionalMirror.displayStyle == .optional {
-        return optionalMirror.children.first?.value as? IRFFPlayer
-    }
-    return childValue as? IRFFPlayer
+func loadedFFPlayer(from player: IRPlayerImp) -> IRFFPlayer? {
+    player.existingPlaybackBackend(for: .ffmpeg) as? IRFFPlayer
 }
 
-func mirroredAVPlayer(from player: IRPlayerImp) -> IRAVPlayer? {
-    let childValue = Mirror(reflecting: player)
-        .children
-        .first { $0.label == "_avPlayer" }?
-        .value
-    guard let childValue = childValue else { return nil }
-
-    let optionalMirror = Mirror(reflecting: childValue)
-    if optionalMirror.displayStyle == .optional {
-        return optionalMirror.children.first?.value as? IRAVPlayer
-    }
-    return childValue as? IRAVPlayer
+func loadedAVPlayer(from player: IRPlayerImp) -> IRAVPlayer? {
+    player.existingPlaybackBackend(for: .avFoundation) as? IRAVPlayer
 }
 
 func captureStandardOutput(_ body: () -> Void) -> String {

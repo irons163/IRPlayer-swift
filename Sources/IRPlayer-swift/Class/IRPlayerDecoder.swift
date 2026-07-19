@@ -65,7 +65,7 @@ public class IRPlayerDecoder: NSObject {
     var rtmpFormat: IRDecoderType = .ffmpeg
     var rtspFormat: IRDecoderType = .ffmpeg
 
-    class func defaultDecoder() -> IRPlayerDecoder {
+    public class func defaultDecoder() -> IRPlayerDecoder {
         let decoder = IRPlayerDecoder()
         decoder.unkonwnFormat = .ffmpeg
         decoder.mpeg4Format = .avPlayer
@@ -76,7 +76,7 @@ public class IRPlayerDecoder: NSObject {
         return decoder
     }
 
-    class func AVPlayerDecoder() -> IRPlayerDecoder {
+    public class func AVPlayerDecoder() -> IRPlayerDecoder {
         let decoder = IRPlayerDecoder()
         decoder.unkonwnFormat = .avPlayer
         decoder.mpeg4Format = .avPlayer

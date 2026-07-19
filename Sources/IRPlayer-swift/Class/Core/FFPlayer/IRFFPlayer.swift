@@ -31,30 +31,28 @@ class IRFFPlayer: NSObject {
         case missingDisplayView
     }
 
-    private let stateLock = NSLock()
-    weak var abstractPlayer: IRPlayerImp?
+    private let stateStore = IRPlayerStateStore()
+    weak var abstractPlayer: (any IRPlaybackBackendHost)?
     var decoder: IRFFDecoder?
     var audioManager: IRAudioManager?
     private(set) var seeking: Bool = false
 
-    var state: IRPlayerState = .none {
-        didSet {
-            self.stateLock.lock()
-            defer { stateLock.unlock() }
-
-            if oldValue != state {
-                if state != .failed {
-                    abstractPlayer?.error = nil
-                }
-                if state == .playing {
-                    audioManager?.play(withDelegate: self)
-                } else {
-                    audioManager?.pause()
-                }
-
-                // Assuming IRPlayerNotification has been adapted to Swift
-                IRPlayerNotification.postPlayer(abstractPlayer, statePrevious: oldValue, current: state)
+    var state: IRPlayerState {
+        get { stateStore.value }
+        set {
+            guard let transition = stateStore.transition(to: newValue) else { return }
+            if transition.current != .failed {
+                abstractPlayer?.error = nil
             }
+            if transition.current == .playing {
+                audioManager?.play(withDelegate: self)
+            } else {
+                audioManager?.pause()
+            }
+            abstractPlayer?.playbackBackendDidChangeState(
+                previous: transition.previous,
+                current: transition.current
+            )
         }
     }
 
@@ -72,11 +70,9 @@ class IRFFPlayer: NSObject {
             )
             guard decision.shouldPost else { return }
             lastPostProgressTime = decision.nextLastPostTime
-            IRPlayerNotification.postPlayer(
-                abstractPlayer,
-                progressPercent: IRPlaybackTimePolicy.percent(current: decision.current, total: decision.total),
-                current: decision.current as NSNumber,
-                total: decision.total as NSNumber
+            abstractPlayer?.playbackBackendDidUpdateProgress(
+                current: decision.current,
+                total: decision.total
             )
         }
     }
@@ -90,11 +86,9 @@ class IRFFPlayer: NSObject {
                 return
             }
             guard playableTime != oldValue else { return }
-            IRPlayerNotification.postPlayer(
-                abstractPlayer,
-                playablePercent: IRPlaybackTimePolicy.percent(current: playableTime, total: duration),
-                current: playableTime as NSNumber,
-                total: duration as NSNumber
+            abstractPlayer?.playbackBackendDidUpdatePlayableTime(
+                current: playableTime,
+                total: duration
             )
         }
     }
@@ -108,7 +102,7 @@ class IRFFPlayer: NSObject {
 
     var playing = false
 
-    init(abstractPlayer: IRPlayerImp) {
+    init(abstractPlayer: any IRPlaybackBackendHost) {
         self.abstractPlayer = abstractPlayer
         self.audioManager = abstractPlayer.manager
         _ = audioManager?.registerAudioSession()
@@ -119,7 +113,7 @@ class IRFFPlayer: NSObject {
         audioManager?.unregisterAudioSession()
     }
 
-    static func player(with abstractPlayer: IRPlayerImp) -> IRFFPlayer {
+    static func player(with abstractPlayer: any IRPlaybackBackendHost) -> IRFFPlayer {
         return IRFFPlayer(abstractPlayer: abstractPlayer)
     }
 
@@ -191,8 +185,8 @@ class IRFFPlayer: NSObject {
         decoder?.seek(to: time)
     }
 
-    func seek(to time: TimeInterval, completeHandler: ((Bool) -> Void)? = nil) {
-        decoder?.seek(to: time, completeHandler: completeHandler)
+    func seek(to time: TimeInterval, completionHandler: ((Bool) -> Void)? = nil) {
+        decoder?.seek(to: time, completeHandler: completionHandler)
     }
 }
 
@@ -274,7 +268,7 @@ extension IRFFPlayer: IRFFDecoderDelegate {
         obj.error = error
         self.abstractPlayer?.error = obj
         self.state = .failed
-        IRPlayerNotification.postPlayer(self.abstractPlayer, error: obj)
+        self.abstractPlayer?.playbackBackendDidFail(obj)
     }
 }
 

@@ -41,108 +41,109 @@
 - Add package: https://github.com/irons163/IRPlayer-swift
 
 ## Usage
-The following two ways could let you get started quickly without any build errors.
-1. Run the `SPMDemo` which inside this project. OR
-2. Run this simplest implement to valid `IRPlayer-swift`.
+
+`IRPlayer` is the preferred Swift API in 2.0. A media load is described by one
+`IRMediaSource`, and player-wide behavior is described by
+`IRPlayerConfiguration`.
+
 ```swift
 import UIKit
 import IRPlayerSwift
 
-class ViewController: UIViewController {
-
-    var player = IRPlayerImp.player()
+final class ViewController: UIViewController {
+    private let player = IRPlayer(configuration: IRPlayerConfiguration(
+        autoplay: true,
+        playableBufferInterval: 2,
+        volume: 1
+    ))
+    private var playerObservation: IRPlayerObservation?
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        if let view = player.view {
-            self.view.addSubview(view)
+        if let playerView = player.view {
+            view.addSubview(playerView)
+            playerView.frame = view.bounds
         }
-        player.replaceVideoWithURL(contentURL: NSURL(string: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"))
-        player.play()
+
+        playerObservation = player.observeEvents { event in
+            switch event {
+            case .stateChanged(_, let current):
+                print("state:", current)
+            case .progress(let time):
+                print("progress:", time.current, "/", time.total)
+            case .playable(let time):
+                print("playable:", time.current)
+            case .failure(let error):
+                print("playback failed:", error.error)
+            }
+        }
+
+        player.load(IRMediaSource(
+            url: URL(string: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4")
+        ))
     }
 }
 ```
 
-### Basic
-#### Regiser actions
-```swift
+The returned `IRPlayerObservation` owns the subscription. Retain it for as long
+as events are needed; call `cancel()` to stop observing. Events are delivered on
+the main thread.
 
-lazy var player: IRPlayerImp = {
-    return IRPlayerImp.player()
-}()
-    
-self.player.registerPlayerNotification(target: self,
-                                       stateAction: #selector(stateAction(_:)),
-                                       progressAction: #selector(progressAction(_:)),
-                                       playableAction: #selector(playableAction(_:)),
-                                       errorAction: #selector(errorAction(_:)))
-self.player.viewTapAction = { (player, view) in
-    print("player display view did click!")
-}
-if let playerView = self.player.view {
-    self.mainView.insertSubview(playerView, at: 0)
-}
+### Backend selection
 
-```
-
-#### Set mode and video source
+Automatic selection uses AVFoundation for common MP4/HLS media and FFmpeg for
+formats such as RTSP/RTMP/FLV. A load can override that decision without
+mutating global decoder settings:
 
 ```swift
-switch self.demoType {
-case .avPlayerNormal:
-    self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL)
-case .avPlayerVR:
-    self.player.replaceVideoWithURL(contentURL: PlayerViewController.vrVideo as NSURL)
-case .avPlayerVRBox:
-    self.player.displayMode = .box
-    self.player.replaceVideoWithURL(contentURL: PlayerViewController.vrVideo as NSURL)
-case .ffmpegNormal:
-    self.player.decoder.mpeg4Format = .ffmpeg
-    self.player.decoder.ffmpegHardwareDecoderEnable = false
-    self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL)
-case .ffmpegNormalHardware:
-    self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
-    self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL)
-case .ffmpegFisheyeHardware:
-    self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
-    self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL)
-case .ffmpegPanoramaHardware:
-    self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
-    self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL)
-case .ffmpegMultiModesHardwareModesSelection:
-    self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
-    modes = self.createFisheyeModes(with: nil)
-    let sharedRender = IRGLRenderNV12()
-    for mode in modes ?? [] {
-        mode.renderer = sharedRender;
-    }
-    self.player.renderModes = modes
-    self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL)
-    self.modesButton.isHidden = false
-}
-
+player.load(IRMediaSource(
+    url: streamURL,
+    headers: ["Authorization": "Bearer token"],
+    videoType: .vr,
+    backendPreference: .ffmpeg
+))
 ```
 
-#### Set custom video frames source
+### Presentation modes
 
-- Send video frames directly.
+```swift
+player.displayMode = .box
+player.load(IRMediaSource(url: vrURL, videoType: .vr))
+
+player.load(IRMediaSource(
+    url: fisheyeURL,
+    videoType: .fisheye,
+    backendPreference: .ffmpeg
+))
+```
+
+For caller-defined render modes, assign `renderModes` and load the source with
+`videoType: .custom`.
+
+### Custom video input
+
+A custom FFmpeg input is part of the media source. The URL is still required as
+the session identity and format source.
 
 ```swift
 let input = IRFFVideoInput()
-self.player.replaceVideoWithInput(input, videoType: .normal)
+player.load(IRMediaSource(
+    url: sourceURL,
+    videoType: .normal,
+    videoInput: input,
+    backendPreference: .ffmpeg
+))
 
-......
-
-var yuvFrame = IRFFAVYUVVideoFrame()
-/*
-setup the yuvFrame.
-*/
+let yuvFrame = IRFFAVYUVVideoFrame()
+// Configure the frame planes, dimensions, position, and duration.
 input.send(videoFrame: yuvFrame)
 ```
 
-- Send video frames by your own decode implement.
-- See how it works in [IRIPCamera-swift](https://github.com/irons163/IRIPCamera-swift).
+For custom packet decoding, subclass `IRFFVideoInput` and override
+`videoDecoder(_:decodeFrame:)`. See
+[IRIPCamera-swift](https://github.com/irons163/IRIPCamera-swift) for a complete
+integration.
 
 ```swift
 class MyIRFFVideoInput: IRFFVideoInput {
@@ -163,13 +164,17 @@ class MyIRFFVideoInput: IRFFVideoInput {
 }
 ```
 
+### Migrating from 1.x
+
+`IRPlayerImp`, `replaceVideoWithURL`, and selector-based notifications remain
+available during the 2.x migration window. New code should use `IRPlayer`,
+`load(_:)`, and `observeEvents(_:)`. See
+[`docs/releases/2.0-migration.md`](docs/releases/2.0-migration.md) for mappings.
+
 ### Advanced settings
 ```swift
-
-NSArray *modes = [self createFisheyeModesWithParameter:nil];
-self.player.renderModes = modes;
-[self.player replaceVideoWithURL:fisheyeVideo videoType:IRVideoTypeCustom];
-
+player.renderModes = createFisheyeModes(with: nil)
+player.load(IRMediaSource(url: fisheyeURL, videoType: .custom))
 
 func createFisheyeModes(with parameter: IRMediaParameter?) -> [IRGLRenderMode] {
     let normal = IRGLRenderMode2D()

@@ -81,12 +81,12 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertNil(IRFFAudioDecoder.inputChannelCapacity(from: nil))
 
         var codecContext = AVCodecContext()
-        codecContext.channels = 0
+        codecContext.ch_layout = AVChannelLayout()
 
         withUnsafeMutablePointer(to: &codecContext) { contextPointer in
             XCTAssertNil(IRFFAudioDecoder.inputChannelCapacity(from: contextPointer))
 
-            contextPointer.pointee.channels = 2
+            contextPointer.pointee.ch_layout.nb_channels = 2
             XCTAssertEqual(IRFFAudioDecoder.inputChannelCapacity(from: contextPointer), 2)
         }
     }
@@ -147,7 +147,7 @@ final class IRFFAudioDecoderTests: XCTestCase {
 
         var codecContext = AVCodecContext()
         codecContext.sample_rate = 48_000
-        codecContext.channels = 2
+        codecContext.ch_layout.nb_channels = 2
         codecContext.sample_fmt = AV_SAMPLE_FMT_NONE
         withUnsafeMutablePointer(to: &codecContext) { contextPointer in
             XCTAssertNil(IRFFAudioDecoder.swrInputInfo(from: contextPointer))
@@ -157,7 +157,7 @@ final class IRFFAudioDecoderTests: XCTestCase {
             XCTAssertNil(IRFFAudioDecoder.swrInputInfo(from: contextPointer))
 
             contextPointer.pointee.sample_rate = 48_000
-            contextPointer.pointee.channels = 0
+            contextPointer.pointee.ch_layout = AVChannelLayout()
             XCTAssertNil(IRFFAudioDecoder.swrInputInfo(from: contextPointer))
         }
     }
@@ -165,7 +165,7 @@ final class IRFFAudioDecoderTests: XCTestCase {
     func testSWRInputInfoConvertsValidCodecContext() throws {
         var codecContext = AVCodecContext()
         codecContext.sample_rate = 48_000
-        codecContext.channels = 2
+        codecContext.ch_layout.nb_channels = 2
         codecContext.sample_fmt = AV_SAMPLE_FMT_S16
 
         let info = try withUnsafeMutablePointer(to: &codecContext) { contextPointer in

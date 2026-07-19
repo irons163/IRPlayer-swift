@@ -886,7 +886,7 @@ final class IRAVPlayerTests: XCTestCase {
 
         player.replaceVideoWithURL(contentURL: url as NSURL, videoType: .normal)
 
-        let avPlayer = try XCTUnwrap(mirroredAVPlayer(from: player))
+        let avPlayer = try XCTUnwrap(loadedAVPlayer(from: player))
         let item = try XCTUnwrap(avPlayer.avPlayerItem)
         waitUntilReadyToPlay(item)
         avPlayer.observeValue(forKeyPath: "status", of: item, change: nil, context: nil)
@@ -938,7 +938,7 @@ final class IRAVPlayerTests: XCTestCase {
 
         player.replaceVideoWithURL(contentURL: url as NSURL, videoType: .vr)
 
-        let avPlayer = try XCTUnwrap(mirroredAVPlayer(from: player))
+        let avPlayer = try XCTUnwrap(loadedAVPlayer(from: player))
         let item = try XCTUnwrap(avPlayer.avPlayerItem)
         let asset = try XCTUnwrap(avPlayer.avAsset)
         waitUntilReadyToPlay(item)

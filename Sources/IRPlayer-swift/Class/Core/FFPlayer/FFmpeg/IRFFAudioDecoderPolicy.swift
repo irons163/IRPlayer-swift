@@ -49,7 +49,7 @@ enum IRFFAudioDecoderPolicy {
         guard let codecContext else { return nil }
 
         let samplingRate = codecContext.pointee.sample_rate
-        let channelCount = codecContext.pointee.channels
+        let channelCount = codecContext.pointee.ch_layout.nb_channels
         let sampleFormat = codecContext.pointee.sample_fmt
         guard samplingRate > 0,
               channelCount > 0,
@@ -112,7 +112,7 @@ enum IRFFAudioDecoderPolicy {
     }
 
     static func inputChannelCapacity(from codecContext: UnsafeMutablePointer<AVCodecContext>?) -> Int? {
-        guard let channels = codecContext?.pointee.channels, channels > 0 else { return nil }
+        guard let channels = codecContext?.pointee.ch_layout.nb_channels, channels > 0 else { return nil }
         return Int(channels)
     }
 

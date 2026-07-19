@@ -1,6 +1,6 @@
 # Render Pipeline Refactor Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Extract `IRGLView` render orchestration and mode-specific Metal cache state into internal RenderKit collaborators while preserving all post-2.0 render behavior.
 
@@ -78,7 +78,7 @@ FOCUSED_DESTINATION_ID="$(xcrun simctl list devices available | awk -F'[()]' '/i
 - Create: `Tests/IRPlayer-swiftTests/IRGLViewRenderStateTests.swift`
 - Modify: `IRPlayer-swift.xcodeproj/project.pbxproj`
 
-- [ ] **Step 1: Create the failing test file**
+- [x] **Step 1: Create the failing test file**
 
 Add `Tests/IRPlayer-swiftTests/IRGLViewRenderStateTests.swift`:
 
@@ -245,7 +245,7 @@ private final class NilProgramFactory: IRGLProgram2DFactory {
 }
 ```
 
-- [ ] **Step 2: Add the test file to the Xcode test target**
+- [x] **Step 2: Add the test file to the Xcode test target**
 
 Modify `IRPlayer-swift.xcodeproj/project.pbxproj`:
 
@@ -256,7 +256,7 @@ B5E960022F7107010149265 /* IRGLViewRenderStateTests.swift */,
 B5E960032F7107010149265 /* IRGLViewRenderStateTests.swift in Sources */,
 ```
 
-- [ ] **Step 3: Run focused tests and confirm RED**
+- [x] **Step 3: Run focused tests and confirm RED**
 
 Run:
 
@@ -267,7 +267,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: FAIL to compile with `cannot find 'IRGLViewRenderState' in scope`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```sh
 git add Tests/IRPlayer-swiftTests/IRGLViewRenderStateTests.swift IRPlayer-swift.xcodeproj/project.pbxproj
@@ -282,7 +282,7 @@ git commit -m "test: cover gl view render state setup"
 - Create: `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderState.swift`
 - Modify: `IRPlayer-swift.xcodeproj/project.pbxproj`
 
-- [ ] **Step 1: Create `IRGLViewRenderState.swift`**
+- [x] **Step 1: Create `IRGLViewRenderState.swift`**
 
 Add `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderState.swift`:
 
@@ -464,7 +464,7 @@ final class IRGLViewRenderState {
 }
 ```
 
-- [ ] **Step 2: Add the source file to the Xcode framework target**
+- [x] **Step 2: Add the source file to the Xcode framework target**
 
 Modify `IRPlayer-swift.xcodeproj/project.pbxproj`:
 
@@ -475,7 +475,7 @@ B5E960002F7107000149265 /* IRGLViewRenderState.swift */,
 B5E960012F7107000149265 /* IRGLViewRenderState.swift in Sources */,
 ```
 
-- [ ] **Step 3: Run focused state tests and confirm GREEN**
+- [x] **Step 3: Run focused state tests and confirm GREEN**
 
 Run:
 
@@ -485,7 +485,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```sh
 git add Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderState.swift IRPlayer-swift.xcodeproj/project.pbxproj
@@ -499,7 +499,7 @@ git commit -m "feat: add gl view render state helper"
 **Files:**
 - Modify: `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift`
 
-- [ ] **Step 1: Add render state and remove only setup-owned cached fields**
+- [x] **Step 1: Add render state and remove only setup-owned cached fields**
 
 In `IRGLView`, add:
 
@@ -528,7 +528,7 @@ private var metalDistortionLeftMesh: IRMetalDistortionMesh?
 private var metalDistortionRightMesh: IRMetalDistortionMesh?
 ```
 
-- [ ] **Step 2: Route reset through render state**
+- [x] **Step 2: Route reset through render state**
 
 In `reset()`, replace the mode-specific nil assignments with:
 
@@ -538,7 +538,7 @@ renderState.reset()
 
 Keep the existing resets for `currentImage`, `currentFrame`, `metalRenderer`, `commandQueue`, `ciContext`, `device`, and the render-helper cache fields that remain in `IRGLView` until Task 4.
 
-- [ ] **Step 3: Route viewport and gesture fallback calls through render state**
+- [x] **Step 3: Route viewport and gesture fallback calls through render state**
 
 Replace fallback controller calls:
 
@@ -560,7 +560,7 @@ renderState.scrollFallbackFisheye(dx: dx, dy: dy)
 renderState.scrollFallbackFisheye(degreeX: degreeX, degreeY: degreeY)
 ```
 
-- [ ] **Step 4: Route mode setup through render state**
+- [x] **Step 4: Route mode setup through render state**
 
 Replace the body of `setupMetalFish2PanoIfNeeded(renderMode:)` with:
 
@@ -577,7 +577,7 @@ renderState.configureFisheye(renderMode: renderMode,
 
 To keep Task 3 independently compiling before Task 4, update the existing render helpers to read fish2pano params/textures and fisheye controller/parameter from `renderState` where the old setup-owned fields were removed. Do not move mesh, VR, distortion, or full render helper ownership yet; that belongs to Task 4.
 
-- [ ] **Step 5: Compile and run setup-related focused tests**
+- [x] **Step 5: Compile and run setup-related focused tests**
 
 Run:
 
@@ -587,7 +587,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```sh
 git add Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift
@@ -602,7 +602,7 @@ git commit -m "refactor: route gl view state setup through helper"
 - Modify: `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderState.swift`
 - Modify: `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift`
 
-- [ ] **Step 1: Move cache-backed render helper logic to state**
+- [x] **Step 1: Move cache-backed render helper logic to state**
 
 Move the bodies of these `IRGLView` helpers into `IRGLViewRenderState`, preserving signatures except for explicit dependencies:
 
@@ -647,7 +647,7 @@ func renderVRIfNeeded(frame: IRFFVideoFrame,
 
 Use `IRGLViewPolicy.translationVector(for:)` inside state methods instead of `IRGLView.translationVector(for:)`.
 
-- [ ] **Step 2: Replace `IRGLView` render helper calls with state calls**
+- [x] **Step 2: Replace `IRGLView` render helper calls with state calls**
 
 In `renderCurrentContent()`, replace:
 
@@ -696,7 +696,7 @@ renderState.renderVRIfNeeded(frame: frame,
                              device: device)
 ```
 
-- [ ] **Step 3: Remove moved helpers from `IRGLView`**
+- [x] **Step 3: Remove moved helpers from `IRGLView`**
 
 Delete these private methods from `IRGLView` after their logic exists in `IRGLViewRenderState`:
 
@@ -728,7 +728,7 @@ private func renderMetalVRIfNeeded(frame: IRFFVideoFrame,
 
 Keep `static func texUVTextureLayout(width:height:)` in `IRGLView` as a compatibility wrapper for existing tests.
 
-- [ ] **Step 4: Run focused render tests**
+- [x] **Step 4: Run focused render tests**
 
 Run:
 
@@ -738,7 +738,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```sh
 git add Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderState.swift Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift
@@ -754,7 +754,7 @@ git commit -m "refactor: move gl view render caches into state"
 - Modify: `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift`
 - Modify: `IRPlayer-swift.xcodeproj/project.pbxproj`
 
-- [ ] **Step 1: Create coordinator file**
+- [x] **Step 1: Create coordinator file**
 
 Add `Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderCoordinator.swift`:
 
@@ -902,7 +902,7 @@ final class IRGLViewRenderCoordinator {
 }
 ```
 
-- [ ] **Step 2: Add coordinator to Xcode framework target**
+- [x] **Step 2: Add coordinator to Xcode framework target**
 
 Modify `IRPlayer-swift.xcodeproj/project.pbxproj`:
 
@@ -913,7 +913,7 @@ B5E960042F7107020149265 /* IRGLViewRenderCoordinator.swift */,
 B5E960052F7107020149265 /* IRGLViewRenderCoordinator.swift in Sources */,
 ```
 
-- [ ] **Step 3: Add coordinator property to `IRGLView`**
+- [x] **Step 3: Add coordinator property to `IRGLView`**
 
 Add near `renderState`:
 
@@ -921,7 +921,7 @@ Add near `renderState`:
 private let renderCoordinator = IRGLViewRenderCoordinator()
 ```
 
-- [ ] **Step 4: Replace `renderCurrentContent()` body with coordinator call**
+- [x] **Step 4: Replace `renderCurrentContent()` body with coordinator call**
 
 Use this body:
 
@@ -956,7 +956,7 @@ private func renderCurrentContent() {
 }
 ```
 
-- [ ] **Step 5: Run focused dispatch tests**
+- [x] **Step 5: Run focused dispatch tests**
 
 Run:
 
@@ -966,7 +966,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```sh
 git add Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLViewRenderCoordinator.swift Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift IRPlayer-swift.xcodeproj/project.pbxproj
@@ -980,7 +980,7 @@ git commit -m "refactor: extract gl view render coordinator"
 **Files:**
 - Modify only files already touched by Tasks 1-5 if verification exposes issues inside this slice.
 
-- [ ] **Step 1: Confirm no forbidden subsystem changes**
+- [x] **Step 1: Confirm no forbidden subsystem changes**
 
 Run:
 
@@ -1001,7 +1001,7 @@ Tests/IRPlayer-swiftTests/IRGLViewSnapshotTests.swift
 IRPlayer-swift.xcodeproj/project.pbxproj
 ```
 
-- [ ] **Step 2: Run whitespace check**
+- [x] **Step 2: Run whitespace check**
 
 Run:
 
@@ -1011,7 +1011,7 @@ git diff --check
 
 Expected: no output and exit code `0`.
 
-- [ ] **Step 3: Run focused render suite**
+- [x] **Step 3: Run focused render suite**
 
 Run:
 
@@ -1021,7 +1021,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 4: Run full iOS simulator suite**
+- [x] **Step 4: Run full iOS simulator suite**
 
 Run:
 
@@ -1031,7 +1031,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 Expected: PASS with `** TEST SUCCEEDED **`.
 
-- [ ] **Step 5: Commit verification fixes when verification created changes**
+- [x] **Step 5: Commit verification fixes when verification created changes**
 
 If Step 2, Step 3, or Step 4 required changes inside the allowed paths, commit them:
 
@@ -1040,7 +1040,7 @@ git add Sources/IRPlayer-swift/Class/Core/Display/RenderKit/IRGLView.swift Sourc
 git commit -m "fix: stabilize render pipeline refactor"
 ```
 
-- [ ] **Step 6: Report final status**
+- [x] **Step 6: Report final status**
 
 Include:
 

@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import OSLog
 
 // video type
 @objc public enum IRVideoType: Int, Hashable, Equatable, Sendable, RawRepresentable {
@@ -53,7 +52,7 @@ enum IRPlayerBackgroundMode: Int, Hashable, Equatable, Sendable, RawRepresentabl
 enum IRPlayerVolume {
     static func normalizedFloat(from volume: CGFloat?) -> Float {
         guard let volume = volume, volume.isFinite else { return 0 }
-        return Float(volume)
+        return Float(IRPlayerConfiguration.normalizedVolume(volume))
     }
 }
 
@@ -64,6 +63,7 @@ public class IRPlayerImp: NSObject {
     public var decoder: IRPlayerDecoder
     public private(set) var contentURL: NSURL?
     public private(set) var contentHeaders: [String: String]?
+    @nonobjc public private(set) var mediaSource: IRMediaSource?
     private(set) var videoInput: IRFFVideoInput?
     public private(set) var videoType: IRVideoType {
         didSet {
@@ -73,7 +73,12 @@ public class IRPlayerImp: NSObject {
     public var error: IRError?
 
     // preview
-    public var displayMode: IRDisplayMode
+    public var displayMode: IRDisplayMode {
+        didSet {
+            guard displayMode != oldValue else { return }
+            setVideoType(videoType: videoType)
+        }
+    }
     public var view: IRPLFView? {
         return self.displayView
     } // graphics view
@@ -96,132 +101,59 @@ public class IRPlayerImp: NSObject {
     public var viewTapAction: ((_ player: IRPlayerImp, _ view: IRPLFView) -> Void)?
 
     // control
-    var backgroundMode: IRPlayerBackgroundMode
-    var state: IRPlayerState {
-        switch self.decoderType {
-        case .avPlayer:
-            return self.avPlayer.state
-        case .ffmpeg:
-            return self.ffPlayer.state
-        case .error:
-            return .none
-        case .none:
-            return .none
-        }
+    var backgroundMode: IRPlayerBackgroundMode {
+        didSet { lifecycleController.mode = backgroundMode }
     }
-    var presentationSize: CGSize {
-        switch self.decoderType {
-        case .avPlayer:
-            return self.avPlayer.presentationSize
-        case .ffmpeg:
-            return self.ffPlayer.presentationSize
-        case .error:
-            return .zero
-        case .none:
-            return .zero
-        }
+    public var state: IRPlayerState {
+        backendCoordinator.snapshot.state
     }
-    var bitrate: TimeInterval {
-        switch self.decoderType {
-        case .avPlayer:
-            return self.avPlayer.bitrate
-        case .ffmpeg:
-            return self.ffPlayer.bitrate
-        case .error:
-            return 0
-        case .none:
-            return 0
-        }
+    public var presentationSize: CGSize {
+        backendCoordinator.snapshot.presentationSize
     }
-    var progress: TimeInterval {
-        switch self.decoderType {
-        case .avPlayer:
-            return self.avPlayer.progress
-        case .ffmpeg:
-            return self.ffPlayer.progress
-        case .error:
-            return 0
-        case .none:
-            return 0
-        }
+    public var bitrate: TimeInterval {
+        backendCoordinator.snapshot.bitrate
+    }
+    public var progress: TimeInterval {
+        backendCoordinator.snapshot.progress
     }
     public var duration: TimeInterval {
-        switch self.decoderType {
-        case .avPlayer:
-            return self.avPlayer.duration
-        case .ffmpeg:
-            return self.ffPlayer.duration
-        case .error:
-            return 0
-        case .none:
-            return 0
-        }
+        backendCoordinator.snapshot.duration
     }
-    var playableTime: TimeInterval {
-        switch self.decoderType {
-        case .avPlayer:
-            return self.avPlayer.playableTime
-        case .ffmpeg:
-            return self.ffPlayer.playableTime
-        case .error:
-            return 0
-        case .none:
-            return 0
-        }
+    public var playableTime: TimeInterval {
+        backendCoordinator.snapshot.playableTime
     }
     public var playableBufferInterval: TimeInterval = 2.0 {
         didSet {
-            if self._ffPlayer != nil {
-                self.ffPlayer.reloadPlayableBufferInterval()
-            }
+            playableBufferInterval = IRPlayerConfiguration.normalizedBufferInterval(
+                playableBufferInterval
+            )
+            backendCoordinator?.reloadPlayableBufferInterval()
         }
     }
     var seeking: Bool {
-        switch self.decoderType {
-        case .avPlayer:
-            return self.avPlayer.seeking
-        case .ffmpeg:
-            return self.ffPlayer.seeking
-        case .error:
-            return false
-        case .none:
-            return false
-        }
+        backendCoordinator.snapshot.isSeeking
     }
+    public var isSeeking: Bool { seeking }
+    public var activeBackend: IRDecoderType? { backendCoordinator.activeKind?.decoderType }
     public var volume: CGFloat = 1 {
         didSet {
-            if self._avPlayer != nil {
-                self.avPlayer.reloadVolume()
-            }
-            if self._ffPlayer != nil {
-                self.ffPlayer.reloadVolume()
-            }
+            volume = IRPlayerConfiguration.normalizedVolume(volume)
+            backendCoordinator?.reloadVolume()
         }
     }
 
     var displayView: IRGLView?
-    private var decoderType: IRDecoderType?
-    private var _avPlayer: IRAVPlayer?
-    private var avPlayer: IRAVPlayer {
-        let player = Self.makeAVPlayerIfNeeded(self._avPlayer, abstractPlayer: self)
-        self._avPlayer = player
-        return player
-    }
-    private var _ffPlayer: IRFFPlayer?
-    private var ffPlayer: IRFFPlayer {
-        let player = Self.makeFFPlayerIfNeeded(self._ffPlayer, abstractPlayer: self)
-        self._ffPlayer = player
-        return player
-    }
+    private var backendCoordinator: IRPlaybackBackendCoordinator!
     private var gestureControl: IRGLGestureController?
     private var sensor: IRSensor?
     private var scrollController: IRSmoothScrollController?
 
-    private var needAutoPlay: Bool?
-    private var lastForegroundTimeInterval: TimeInterval?
+    private var autoplayOnLoad = false
+    private let eventEmitter = IRPlayerEventEmitter()
+    private let lifecycleController = IRPlayerLifecycleController()
     var manager: IRAudioManager?
 
-    override init() {
+    public override init() {
         self.decoder = IRPlayerDecoder.defaultDecoder()
         self.contentURL = nil
         self.videoType = .normal
@@ -233,6 +165,15 @@ public class IRPlayerImp: NSObject {
         self.isLiveStream = false
         self.volume = 1
         super.init()
+        self.backendCoordinator = IRPlaybackBackendCoordinator { [weak self] kind in
+            guard let self else { return nil }
+            switch kind {
+            case .avFoundation:
+                return Self.makeAVPlayerIfNeeded(nil, abstractPlayer: self)
+            case .ffmpeg:
+                return Self.makeFFPlayerIfNeeded(nil, abstractPlayer: self)
+            }
+        }
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         self.setupNotification()
 #endif
@@ -243,11 +184,17 @@ public class IRPlayerImp: NSObject {
         return IRPlayerImp()
     }
 
-    static func makeAVPlayerIfNeeded(_ player: IRAVPlayer?, abstractPlayer: IRPlayerImp) -> IRAVPlayer {
+    static func makeAVPlayerIfNeeded(
+        _ player: IRAVPlayer?,
+        abstractPlayer: any IRPlaybackBackendHost
+    ) -> IRAVPlayer {
         return player ?? IRAVPlayer(abstractPlayer: abstractPlayer)
     }
 
-    static func makeFFPlayerIfNeeded(_ player: IRFFPlayer?, abstractPlayer: IRPlayerImp) -> IRFFPlayer {
+    static func makeFFPlayerIfNeeded(
+        _ player: IRFFPlayer?,
+        abstractPlayer: any IRPlaybackBackendHost
+    ) -> IRFFPlayer {
         return player ?? IRFFPlayer(abstractPlayer: abstractPlayer)
     }
 
@@ -272,6 +219,7 @@ public class IRPlayerImp: NSObject {
         gestureControl?.smoothScroll = scrollController
         gestureControl?.delegate = self
         self.displayView = displayView
+        setVideoType(videoType: videoType)
     }
 
     public func setupPlayerView(_ playerView: IRPLFView) {
@@ -293,7 +241,7 @@ public class IRPlayerImp: NSObject {
     }
 
     func createGLView() -> IRGLView {
-        return IRGLView()
+        return IRGLView(frame: .zero, player: self)
     }
 
     func snapshot() -> IRPLFImage? {
@@ -305,43 +253,28 @@ public class IRPlayerImp: NSObject {
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         UIApplication.shared.isIdleTimerDisabled = true
 #endif
-        switch IRPlayerLifecyclePolicy.commandTarget(for: self.decoderType) {
-        case .avPlayer:
-            self.avPlayer.play()
-        case .ffmpeg:
-            self.ffPlayer.play()
-        case .none:
-            break
-        }
+        backendCoordinator.play()
     }
 
     public func pause() {
 #if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
         UIApplication.shared.isIdleTimerDisabled = false
 #endif
-        switch IRPlayerLifecyclePolicy.commandTarget(for: self.decoderType) {
-        case .avPlayer:
-            self.avPlayer.pause()
-        case .ffmpeg:
-            self.ffPlayer.pause()
-        case .none:
-            break
-        }
+        backendCoordinator.pause()
     }
 
     public func seekToTime(time: TimeInterval, completeHandler: ((Bool) -> Void)? = nil) {
-        switch self.decoderType {
-        case .avPlayer:
-            self.avPlayer.seek(to: time, completionHandler: completeHandler)
-        case .ffmpeg:
-            self.ffPlayer.seek(to: time, completeHandler: completeHandler)
-        default:
-            break
-        }
+        backendCoordinator.seek(to: time, completionHandler: completeHandler)
     }
 
     func seekToTime(time: TimeInterval) {
 //        self.seekToTime(time: time)
+    }
+
+    func existingPlaybackBackend(
+        for kind: IRPlaybackBackendKind
+    ) -> (any IRPlaybackBackend)? {
+        backendCoordinator.existingBackend(for: kind)
     }
 
     public func updateGraphicsViewFrame(frame: CGRect) {
@@ -349,44 +282,36 @@ public class IRPlayerImp: NSObject {
     }
 
     private func setVideoType(videoType: IRVideoType) {
-        switch videoType {
-        case .normal:
-            self.displayView?.setRenderModes(IRGLRenderModeFactory.createNormalModes(with: nil))
-            self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
-        case .vr:
-            guard let displayView = self.displayView else { return }
-            if self.displayMode == .normal {
-                let mode = IRGLRenderModeFactory.createVRMode(with: nil)
-                mode.defaultScale = 1.5
-                mode.aspect = 16.0 / 9.0
-                self.displayView?.setRenderModes([mode])
-            } else if self.displayMode == .box {
-                let mode = IRGLRenderModeFactory.createDistortionMode(with: nil)
-                mode.defaultScale = 1.5
-                mode.aspect = 16.0 / 9.0
-                self.displayView?.setRenderModes([mode])
-                self.gestureControl?.removeGesture(to: displayView)
-                self.sensor = IRSensor()
-                self.sensor?.targetView = displayView
-                self.sensor?.smoothScroll = self.gestureControl?.smoothScroll
-                _ = self.sensor?.resetUnit()
-            }
-            self.viewGravityMode = .resizeAspect
-            self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
-        case .fisheye:
-            let mode = IRGLRenderModeFactory.createFisheyeMode(with: IRFisheyeParameter(width: 0, height: 0, up: false, rx: 0, ry: 0, cx: 0, cy: 0, latmax: 80))
-            mode.defaultScale = 1.5
-            mode.aspect = 16.0 / 9.0
-            self.displayView?.setRenderModes([mode])
-            self.viewGravityMode = .resizeAspect
-            self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
-        case .pano:
-            let mode = IRGLRenderModeFactory.createPanoramaMode(with: nil)
-            self.displayView?.setRenderModes([mode])
-            self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
-        case .custom:
-            self.gestureControl?.currentMode = self.displayView?.getCurrentRenderMode()
+        guard let displayView else { return }
+        let configuration = IRPlayerRenderConfiguration.make(
+            videoType: videoType,
+            displayMode: displayMode
+        )
+
+        if let modes = configuration.modes {
+            displayView.setRenderModes(modes)
         }
+        if let gravityMode = configuration.gravityMode {
+            viewGravityMode = gravityMode
+        }
+
+        switch configuration.interaction {
+        case .gestures:
+            sensor?.stopMotionDetection()
+            sensor = nil
+            gestureControl?.removeGesture(to: displayView)
+            gestureControl?.addGesture(to: displayView)
+        case .motion:
+            gestureControl?.removeGesture(to: displayView)
+            sensor?.stopMotionDetection()
+            let sensor = IRSensor()
+            sensor.targetView = displayView
+            sensor.smoothScroll = gestureControl?.smoothScroll
+            self.sensor = sensor
+            _ = sensor.resetUnit()
+        }
+
+        gestureControl?.currentMode = displayView.getCurrentRenderMode()
     }
 
     public func setRequestHeaderFields(_ fields: [String: String]?) {
@@ -396,56 +321,129 @@ public class IRPlayerImp: NSObject {
 
 public extension IRPlayerImp {
 
+    @nonobjc convenience init(configuration: IRPlayerConfiguration) {
+        self.init()
+        apply(configuration)
+    }
+
+    @nonobjc var configuration: IRPlayerConfiguration {
+        get {
+            IRPlayerConfiguration(
+                decoder: decoder,
+                autoplay: autoplayOnLoad,
+                isLiveStream: isLiveStream,
+                playableBufferInterval: playableBufferInterval,
+                volume: volume,
+                gravityMode: viewGravityMode,
+                displayMode: displayMode,
+                backgroundPolicy: backgroundMode.publicPolicy
+            )
+        }
+        set {
+            apply(newValue)
+        }
+    }
+
+    @nonobjc func apply(_ configuration: IRPlayerConfiguration) {
+        decoder = configuration.decoder
+        autoplayOnLoad = configuration.autoplay
+        isLiveStream = configuration.isLiveStream
+        playableBufferInterval = configuration.playableBufferInterval
+        volume = configuration.volume
+        displayMode = configuration.displayMode
+        viewGravityMode = configuration.gravityMode
+        backgroundMode = configuration.backgroundPolicy.lifecycleMode
+    }
+
+    @nonobjc func observeEvents(
+        _ handler: @escaping (IRPlayerEvent) -> Void
+    ) -> IRPlayerObservation {
+        eventEmitter.observe(handler)
+    }
+
+    internal func emit(_ event: IRPlayerEvent) {
+        eventEmitter.emit(event)
+    }
+
+    @nonobjc func load(_ source: IRMediaSource, autoplay: Bool? = nil) {
+        error = nil
+        mediaSource = source
+        contentURL = source.url as NSURL?
+        contentHeaders = source.headers.isEmpty ? nil : source.headers
+        videoInput = source.videoInput
+        videoInput?.videoOutput = displayView
+        let requestedDecoderType = source.decoderType(using: decoder)
+        videoType = source.videoType
+
+        guard let backendKind = requestedDecoderType.playbackBackendKind else {
+            backendCoordinator.replace(with: nil)
+            videoInput?.videoOutput = nil
+
+            let loadError = IRError()
+            loadError.error = NSError(
+                domain: "IRPlayer.Load",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "A media source URL is required."]
+            )
+            IRPlayerNotification.postPlayer(self, error: loadError)
+            return
+        }
+
+        let backend = backendCoordinator.replace(with: backendKind)
+        if videoInput?.outputType == .decoder {
+            videoInput?.videoOutput = backend?.decoderVideoOutput
+        }
+
+        if autoplay ?? autoplayOnLoad {
+            play()
+        }
+    }
+
+    func stop() {
+        backendCoordinator.reset()
+        videoInput?.videoOutput = nil
+        videoInput = nil
+        mediaSource = nil
+        contentURL = nil
+        contentHeaders = nil
+        lifecycleController.reset()
+        error = nil
+        displayView?.cleanEmptyBuffer()
+#if IRPLATFORM_TARGET_OS_IPHONE_OR_TV
+        UIApplication.shared.isIdleTimerDisabled = false
+#endif
+    }
+
     func replaceEmpty() {
-        self.replaceVideoWithURL(contentURL: nil)
+        stop()
     }
 
     func replaceVideoWithURL(contentURL: NSURL?,
                              videoType: IRVideoType = .normal,
                              videoInput: IRFFVideoInput? = nil) {
-        self.error = nil
-        self.contentURL = contentURL
-        self.videoInput = videoInput
-        if let videoInput = self.videoInput {
-            videoInput.videoOutput = self.displayView
+        guard let contentURL else {
+            self.videoType = videoType
+            stop()
+            return
         }
-        self.decoderType = self.decoder.decoderTypeForContentURL(contentURL: self.contentURL)
-        self.videoType = videoType
-
-        let replacementPlan = IRPlayerLifecyclePolicy.replacementPlan(
-            for: self.decoderType,
-            hasAVPlayer: self._avPlayer != nil,
-            hasFFPlayer: self._ffPlayer != nil
+        load(
+            IRMediaSource(
+                url: contentURL as URL,
+                headers: contentHeaders ?? [:],
+                videoType: videoType,
+                videoInput: videoInput
+            ),
+            autoplay: false
         )
-
-        if replacementPlan.stopAVPlayer { self.avPlayer.stop() }
-        if replacementPlan.stopFFPlayer { self.ffPlayer.stop() }
-
-        switch replacementPlan.replaceTarget {
-        case .avPlayer:
-            self.avPlayer.replaceVideo()
-        case .ffmpeg:
-            self.ffPlayer.replaceVideo()
-            if self.videoInput?.outputType == .decoder {
-                self.videoInput?.videoOutput = self.ffPlayer.decoder
-            }
-        case .none:
-            break
-        }
     }
 }
 
 extension IRPlayerImp {
 
     func cleanPlayer() {
-        if _avPlayer != nil {
-            self.avPlayer.stop()
-            self._avPlayer = nil
-        }
-        if _ffPlayer != nil {
-            self.ffPlayer.stop()
-            self._ffPlayer = nil
-        }
+        backendCoordinator.reset()
+        sensor?.stopMotionDetection()
+        sensor = nil
         if self.gestureControl != nil {
             if let view = self.displayView {
                 self.gestureControl?.removeGesture(to: view)
@@ -462,7 +460,7 @@ extension IRPlayerImp {
         UIApplication.shared.isIdleTimerDisabled = false
     #endif
 
-        self.needAutoPlay = false
+        self.lifecycleController.reset()
         self.error = nil
     }
 
@@ -483,41 +481,44 @@ extension IRPlayerImp {
         self.manager = IRAudioManager()
         self.manager?.setHandlerTarget(self, interruption: { [weak self] (handlerTarget, audioManager, type, option) in
             guard let self = self else { return }
-            let timeSinceForeground = NSDate().timeIntervalSince1970 - (self.lastForegroundTimeInterval ?? 0)
-            switch IRPlayerLifecyclePolicy.audioInterruptionAction(type: type, state: self.state, timeSinceForeground: timeSinceForeground) {
+            switch self.lifecycleController.audioInterruption(
+                type: type,
+                state: self.state,
+                now: Date().timeIntervalSince1970
+            ) {
             case .pause:
                 self.pause()
-            case .none:
+            case .none, .play:
                 break
             }
         }, routeChange: { [weak self] (handlerTarget, audioManager, reason) in
             guard let self = self else { return }
-            switch IRPlayerLifecyclePolicy.audioRouteChangeAction(reason: reason, state: self.state) {
+            switch self.lifecycleController.audioRouteChanged(reason: reason, state: self.state) {
             case .pause:
                 self.pause()
-            case .none:
+            case .none, .play:
                 break
             }
         })
     }
 
     func applicationDidEnterBackground(_ notification: NSNotification) {
-        switch IRPlayerLifecyclePolicy.backgroundAction(mode: self.backgroundMode, state: self.state) {
-        case .pauseAndRememberAutoPlay:
-            self.needAutoPlay = true
+        switch lifecycleController.didEnterBackground(state: state) {
+        case .pause:
             self.pause()
-        case .none:
+        case .none, .play:
             break
         }
     }
 
     func applicationWillEnterForeground(_ notification: NSNotification) {
-        switch IRPlayerLifecyclePolicy.foregroundAction(mode: self.backgroundMode, state: self.state, needAutoPlay: self.needAutoPlay) {
-        case .playAndClearAutoPlay:
-            self.needAutoPlay = false
+        switch lifecycleController.willEnterForeground(
+            state: state,
+            now: Date().timeIntervalSince1970
+        ) {
+        case .play:
             self.play()
-            self.lastForegroundTimeInterval = Date().timeIntervalSince1970
-        case .none:
+        case .none, .pause:
             break
         }
     }
@@ -583,87 +584,5 @@ extension IRPlayerImp: IRGLViewDelegate {
     }
 
     public func glViewDidScroll(toBounds glView: IRGLView?) {
-    }
-}
-
-// ******************************* MARK: - Logger Delegate
-
-/// Severity levels that mirror OSLog's level hierarchy.
-@objc public enum IRPlayerLogLevel: Int, Equatable, Hashable, Sendable {
-    case debug
-    case info
-    case warning
-    case error
-}
-
-/// Implement this protocol to intercept IRPlayer log messages and forward them
-/// to your own logging system. When a delegate is set it receives **all** log
-/// messages instead of (not in addition to) the built-in OSLog output.
-public protocol IRPlayerLoggerDelegate: AnyObject {
-    func irPlayer(didLog message: String, level: IRPlayerLogLevel, category: String)
-}
-
-// ******************************* MARK: - Constants
-
-public extension IRPlayerImp { enum Logger {} }
-public extension IRPlayerImp.Logger {
-    static var subsystem = Bundle.main.bundleIdentifier ?? "IRPlayerImp"
-
-    /// Set this delegate to receive all IRPlayer log messages in your own
-    /// logging system. Setting it to `nil` (the default) restores OSLog output.
-    nonisolated(unsafe) static weak var delegate: (any IRPlayerLoggerDelegate)?
-
-    static var libraryLogger = IRPlayerLogger(subsystem: subsystem, category: "library")
-}
-
-// ******************************* MARK: - IRPlayerLogger
-
-/// A thin logger wrapper that forwards messages to `IRPlayerImp.Logger.delegate`
-/// when one is set, and falls back to OSLog otherwise.
-/// It intentionally mirrors the `debug / info / warning / error` API of
-/// `OSLog.Logger` so all existing call sites remain unchanged.
-public struct IRPlayerLogger {
-    private let osLogger: Logger  // OSLog.Logger, available via `import OSLog`
-    private let category: String
-
-    public init(subsystem: String, category: String) {
-        self.osLogger = Logger(subsystem: subsystem, category: category)
-        self.category = category
-    }
-
-    public func debug(_ message: @autoclosure () -> String) {
-        let msg = message()
-        if let delegate = IRPlayerImp.Logger.delegate {
-            delegate.irPlayer(didLog: msg, level: .debug, category: category)
-        } else {
-            osLogger.debug("\(msg)")
-        }
-    }
-
-    public func info(_ message: @autoclosure () -> String) {
-        let msg = message()
-        if let delegate = IRPlayerImp.Logger.delegate {
-            delegate.irPlayer(didLog: msg, level: .info, category: category)
-        } else {
-            osLogger.info("\(msg)")
-        }
-    }
-
-    public func warning(_ message: @autoclosure () -> String) {
-        let msg = message()
-        if let delegate = IRPlayerImp.Logger.delegate {
-            delegate.irPlayer(didLog: msg, level: .warning, category: category)
-        } else {
-            osLogger.warning("\(msg)")
-        }
-    }
-
-    public func error(_ message: @autoclosure () -> String) {
-        let msg = message()
-        if let delegate = IRPlayerImp.Logger.delegate {
-            delegate.irPlayer(didLog: msg, level: .error, category: category)
-        } else {
-            osLogger.error("\(msg)")
-        }
     }
 }

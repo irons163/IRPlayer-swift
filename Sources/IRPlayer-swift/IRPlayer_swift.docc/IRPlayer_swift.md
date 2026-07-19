@@ -1,13 +1,22 @@
 # ``IRPlayer_swift``
 
-<!--@START_MENU_TOKEN@-->Summary<!--@END_MENU_TOKEN@-->
+Build AVFoundation and FFmpeg playback experiences with typed sources,
+configuration, events, and Metal-backed immersive rendering.
 
 ## Overview
 
-<!--@START_MENU_TOKEN@-->Text<!--@END_MENU_TOKEN@-->
+Create an ``IRPlayer`` with ``IRPlayerConfiguration``, attach its view, observe
+``IRPlayerEvent`` values, and load an ``IRMediaSource``. The player selects and
+coordinates AVFoundation or FFmpeg without exposing backend objects to callers.
 
 ## Topics
 
-### <!--@START_MENU_TOKEN@-->Group<!--@END_MENU_TOKEN@-->
+### Playback
 
-- <!--@START_MENU_TOKEN@-->``Symbol``<!--@END_MENU_TOKEN@-->
+- ``IRPlayer``
+- ``IRPlayerConfiguration``
+- ``IRMediaSource``
+- ``IRPlaybackBackendPreference``
+- ``IRPlayerEvent``
+- ``IRPlayerObservation``
+- ``IRPlayerTimeSnapshot``

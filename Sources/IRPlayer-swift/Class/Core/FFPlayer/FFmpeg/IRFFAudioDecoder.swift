@@ -51,9 +51,28 @@ class IRFFAudioDecoder {
     private func setupSwsContext() {
         reloadAudioOutputInfo()
         guard let outputInfo = Self.swrOutputInfo(samplingRate: samplingRate, channelCount: channelCount),
-              let inputInfo = Self.swrInputInfo(from: codecContext) else { return }
+              let inputInfo = Self.swrInputInfo(from: codecContext),
+              let codecContext else { return }
 
-        audioSwrContext = swr_alloc_set_opts(nil, av_get_default_channel_layout(outputInfo.channelCount), AV_SAMPLE_FMT_S16, outputInfo.samplingRate, av_get_default_channel_layout(inputInfo.channelCount), inputInfo.sampleFormat, inputInfo.samplingRate, 0, nil)
+        var outputLayout = AVChannelLayout()
+        av_channel_layout_default(&outputLayout, outputInfo.channelCount)
+        defer { av_channel_layout_uninit(&outputLayout) }
+
+        var inputLayout = codecContext.pointee.ch_layout
+        var context: OpaquePointer?
+        let allocationResult = swr_alloc_set_opts2(
+            &context,
+            &outputLayout,
+            AV_SAMPLE_FMT_S16,
+            outputInfo.samplingRate,
+            &inputLayout,
+            inputInfo.sampleFormat,
+            inputInfo.samplingRate,
+            0,
+            nil
+        )
+        guard allocationResult >= 0, let context else { return }
+        audioSwrContext = context
 
         let result = swr_init(audioSwrContext)
         let error: Error? = IRFFCheckError(result)
@@ -209,7 +228,7 @@ class IRFFAudioDecoder {
                   let ratio = Self.resampleRatio(outputSamplingRate: samplingRate,
                                                  inputSamplingRate: codecContext?.pointee.sample_rate ?? 0,
                                                  outputChannelCount: channelCount,
-                                                 inputChannelCount: codecContext?.pointee.channels ?? 0),
+                                                 inputChannelCount: codecContext?.pointee.ch_layout.nb_channels ?? 0),
                   let frameCapacity = Self.resampleFrameCapacity(inputFrameCount: tempFrame.pointee.nb_samples, ratio: ratio) else {
                 return nil
             }

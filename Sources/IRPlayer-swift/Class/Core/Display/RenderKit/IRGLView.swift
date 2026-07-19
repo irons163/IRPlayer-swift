@@ -19,11 +19,14 @@ enum IRDisplayRendererType: UInt {
     case FFmpegPixelBufferVR
 }
 
+protocol IRGLViewHost: AnyObject {
+    var viewGravityMode: IRGravityMode { get }
+}
 
 
 public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
-    var abstractPlayer: IRPlayerImp?
+    weak var abstractPlayer: (any IRGLViewHost)?
     private var metalLayer: CAMetalLayer? {
         // layerClass is overridden to always return CAMetalLayer.self, so the layer
         // pointer is stable after init. Reading it from any thread is safe; we no
@@ -82,7 +85,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         initGL(with: irPixelFormat)
     }
 
-    init(frame: CGRect, player: IRPlayerImp) {
+    init(frame: CGRect, player: any IRGLViewHost) {
         self.abstractPlayer = player
         super.init(frame: frame)
         initDefaultValue()
@@ -585,6 +588,8 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         cleanEmptyBuffer()
     }
 }
+
+extension IRPlayerImp: IRGLViewHost {}
 
 private class IRGLRenderStrategyBase: IRGLRenderInternal {
     private let renderer: IRMetalRenderer

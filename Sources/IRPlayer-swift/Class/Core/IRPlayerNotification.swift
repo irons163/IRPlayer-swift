@@ -15,24 +15,28 @@ public class IRPlayerNotification: NSObject {
         guard let player = player, let error = error else { return }
         let userInfo = IRPlayerNotificationPayload.error(error)
         player.error = error
+        player.emit(.failure(error))
         postNotification(name: IRPlayerErrorNotificationName, object: player, userInfo: userInfo)
     }
 
     public static func postPlayer(_ player: IRPlayerImp?, statePrevious previous: IRPlayerState, current: IRPlayerState) {
         guard let player = player else { return }
         let userInfo = IRPlayerNotificationPayload.state(previous: previous, current: current)
+        player.emit(.stateChanged(previous: previous, current: current))
         postNotification(name: IRPlayerStateChangeNotificationName, object: player, userInfo: userInfo)
     }
 
     public static func postPlayer(_ player: IRPlayerImp?, progressPercent percent: NSNumber?, current: NSNumber?, total: NSNumber?) {
         guard let player = player else { return }
         let userInfo = IRPlayerNotificationPayload.progress(percent: percent, current: current, total: total)
+        player.emit(.progress(timeSnapshot(percent: percent, current: current, total: total)))
         postNotification(name: IRPlayerProgressChangeNotificationName, object: player, userInfo: userInfo)
     }
 
     public static func postPlayer(_ player: IRPlayerImp?, playablePercent percent: NSNumber?, current: NSNumber?, total: NSNumber?) {
         guard let player = player else { return }
         let userInfo = IRPlayerNotificationPayload.playable(percent: percent, current: current, total: total)
+        player.emit(.playable(timeSnapshot(percent: percent, current: current, total: total)))
         postNotification(name: IRPlayerPlayableChangeNotificationName, object: player, userInfo: userInfo)
     }
 
@@ -40,5 +44,17 @@ public class IRPlayerNotification: NSObject {
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: Notification.Name(name), object: object, userInfo: userInfo)
         }
+    }
+
+    private static func timeSnapshot(
+        percent: NSNumber?,
+        current: NSNumber?,
+        total: NSNumber?
+    ) -> IRPlayerTimeSnapshot {
+        IRPlayerTimeSnapshot(
+            current: current?.doubleValue ?? 0,
+            total: total?.doubleValue ?? 0,
+            fraction: percent?.doubleValue ?? 0
+        )
     }
 }

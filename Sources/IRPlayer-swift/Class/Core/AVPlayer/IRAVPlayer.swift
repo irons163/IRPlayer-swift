@@ -45,9 +45,10 @@ class IRAVPlayer: NSObject {
         case ignore
     }
 
-    weak var abstractPlayer: IRPlayerImp?
+    weak var abstractPlayer: (any IRPlaybackBackendHost)?
 
     var seeking = false
+    private let stateStore = IRPlayerStateStore()
 
     var playBackTimeObserver: Any?
     var avPlayer: AVPlayer?
@@ -73,15 +74,18 @@ class IRAVPlayer: NSObject {
     var videoTracks: [IRPlayerTrack] = []
     var audioTracks: [IRPlayerTrack] = []
 
-    var state: IRPlayerState = .none {
-        didSet {
-            if state != oldValue,
-               let abstractPlayer = abstractPlayer {
-                if state != .failed {
-                    abstractPlayer.error = nil
-                }
-                IRPlayerNotification.postPlayer(abstractPlayer, statePrevious: oldValue, current: state)
+    var state: IRPlayerState {
+        get { stateStore.value }
+        set {
+            guard let transition = stateStore.transition(to: newValue),
+                  let abstractPlayer else { return }
+            if transition.current != .failed {
+                abstractPlayer.error = nil
             }
+            abstractPlayer.playbackBackendDidChangeState(
+                previous: transition.previous,
+                current: transition.current
+            )
         }
     }
 
@@ -90,12 +94,12 @@ class IRAVPlayer: NSObject {
             if playableTime != oldValue,
                let abstractPlayer = abstractPlayer {
                 let duration = self.duration
-                IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: IRPlayerNotificationPayload.timePercent(current: playableTime, total: duration), current: playableTime as NSNumber, total: duration as NSNumber)
+                abstractPlayer.playbackBackendDidUpdatePlayableTime(current: playableTime, total: duration)
             }
         }
     }
 
-    init(abstractPlayer: IRPlayerImp) {
+    init(abstractPlayer: any IRPlaybackBackendHost) {
         self.abstractPlayer = abstractPlayer
         super.init()
 //        self.abstractPlayer.displayView?.avplayer = self
@@ -434,7 +438,7 @@ extension IRAVPlayer {
         }
         abstractPlayer.error = errorInfo
         state = .failed
-        IRPlayerNotification.postPlayer(abstractPlayer, error: errorInfo)
+        abstractPlayer.playbackBackendDidFail(errorInfo)
     }
 }
 
@@ -539,7 +543,7 @@ extension IRAVPlayer {
                 guard let abstractPlayer = strongSelf.abstractPlayer else { return }
                 let current = Self.finiteSeconds(from: time)
                 let duration = strongSelf.duration
-                IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: IRPlayerNotificationPayload.timePercent(current: current, total: duration), current: current as NSNumber, total: duration as NSNumber)
+                abstractPlayer.playbackBackendDidUpdateProgress(current: current, total: duration)
             }
         }
         reloadVolume()
@@ -630,8 +634,8 @@ extension IRAVPlayer {
 
     func replaceEmpty() {
         if let abstractPlayer = abstractPlayer {
-            IRPlayerNotification.postPlayer(abstractPlayer, playablePercent: 0, current: 0, total: 0)
-            IRPlayerNotification.postPlayer(abstractPlayer, progressPercent: 0, current: 0, total: 0)
+            abstractPlayer.playbackBackendDidUpdatePlayableTime(current: 0, total: 0)
+            abstractPlayer.playbackBackendDidUpdateProgress(current: 0, total: 0)
         }
         avAsset?.cancelLoading()
         avAsset = nil

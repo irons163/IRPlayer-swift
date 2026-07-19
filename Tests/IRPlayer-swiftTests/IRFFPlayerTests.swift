@@ -36,7 +36,7 @@ final class IRFFPlayerTests: XCTestCase {
         player.manager = nil
         player.replaceVideoWithURL(contentURL: NSURL(fileURLWithPath: "/tmp/missing.flv"))
 
-        let ffPlayer = try XCTUnwrap(mirroredFFPlayer(from: player))
+        let ffPlayer = try XCTUnwrap(loadedFFPlayer(from: player))
         addTeardownBlock {
             ffPlayer.stop()
         }

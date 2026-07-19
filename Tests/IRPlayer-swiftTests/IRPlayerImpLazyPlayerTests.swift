@@ -12,6 +12,8 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
         XCTAssertEqual(IRPlayerVolume.normalizedFloat(from: nil), 0)
         XCTAssertEqual(IRPlayerVolume.normalizedFloat(from: .nan), 0)
         XCTAssertEqual(IRPlayerVolume.normalizedFloat(from: .infinity), 0)
+        XCTAssertEqual(IRPlayerVolume.normalizedFloat(from: -1), 0)
+        XCTAssertEqual(IRPlayerVolume.normalizedFloat(from: 2), 1)
     }
 
     func testLazyPlayerFactoriesReturnExistingPlayersOrCreateNewOnes() {
@@ -206,6 +208,19 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
         XCTAssertTrue(currentMode is IRGLRenderModeDistortion)
         XCTAssertEqual(player.viewGravityMode, .resizeAspect)
         player.glViewWillBeginZooming(nil)
+        withExtendedLifetime(player) {}
+    }
+
+    func testChangingDisplayModeReconfiguresCurrentVRPresentation() throws {
+        let player = IRPlayerImp.player()
+        player.manager = nil
+        player.replaceVideoWithURL(contentURL: nil, videoType: .vr)
+        XCTAssertTrue(try XCTUnwrap(player.renderModes?.first) is IRGLRenderModeVR)
+
+        player.displayMode = .box
+
+        XCTAssertTrue(try XCTUnwrap(player.renderModes?.first) is IRGLRenderModeDistortion)
+        XCTAssertTrue(player.displayView?.abstractPlayer === player)
         withExtendedLifetime(player) {}
     }
 
