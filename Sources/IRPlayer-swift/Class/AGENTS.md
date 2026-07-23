@@ -4,13 +4,15 @@ This directory contains all the main Swift source code for the IRPlayer framewor
 
 ## Top-Level Files
 
-| File                          | Purpose                                                    |
-|-------------------------------|------------------------------------------------------------|
-| `IRPlayerImp.swift`           | Main player implementation — public API entry point        |
-| `IRPlayerAction.swift`        | Player action/event definitions                            |
-| `IRPlayerDecoder.swift`       | Decoder configuration (AVPlayer vs FFmpeg, hardware flags) |
-| `IRPlayerTrack.swift`         | Audio/video track model                                    |
-| `IRPlayerLifecyclePolicy.swift` | Player lifecycle management policy                       |
+| File                              | Purpose                                                    |
+|-----------------------------------|------------------------------------------------------------|
+| `IRPlayerImp.swift`               | Public player facade and runtime-owner composition         |
+| `IRPlayerImp+Compatibility.swift` | Internal legacy collaborator adapters                      |
+| `IRPlayerImp+Environment.swift`   | Legacy notification API compatibility                     |
+| `IRPlayerImp+Presentation.swift`  | Public presentation forwarding API                         |
+| `IRPlayerAction.swift`            | Player action/event definitions                            |
+| `IRPlayerDecoder.swift`           | Decoder configuration (AVPlayer vs FFmpeg, hardware flags) |
+| `IRPlayerTrack.swift`             | Audio/video track model                                    |
 
 ## Subdirectories
 
@@ -19,7 +21,10 @@ This directory contains all the main Swift source code for the IRPlayer framewor
 
 ## Agent Notes
 
-- `IRPlayerImp` is the central public class. Most changes to player behavior go through it.
+- `IRPlayerImp` is the public facade. Runtime behavior belongs in the focused
+  owners under `Core/Playback/` and `Core/Display/`; keep the facade limited to
+  API translation and composition.
 - `IRPlayerDecoder` configures whether AVPlayer or FFmpeg is used and hardware decoding options.
 - When modifying public API in these files, ensure backward compatibility or document breakage.
-- Lifecycle policy was added recently — see `docs/superpowers/specs/` for design intent.
+- Lifecycle decisions live in `IRPlayerLifecycleController`, owned and
+  synchronized by `IRPlayerEnvironmentSession`.

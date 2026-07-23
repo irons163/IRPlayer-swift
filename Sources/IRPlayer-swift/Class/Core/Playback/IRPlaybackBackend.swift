@@ -141,31 +141,3 @@ extension IRDecoderType {
         }
     }
 }
-
-extension IRPlayerImp: IRPlaybackBackendHost {
-    func playbackBackendDidChangeState(previous: IRPlayerState, current: IRPlayerState) {
-        IRPlayerNotification.postPlayer(self, statePrevious: previous, current: current)
-    }
-
-    func playbackBackendDidUpdateProgress(current: TimeInterval, total: TimeInterval) {
-        IRPlayerNotification.postPlayer(
-            self,
-            progressPercent: IRPlaybackTimePolicy.percent(current: current, total: total),
-            current: current as NSNumber,
-            total: total as NSNumber
-        )
-    }
-
-    func playbackBackendDidUpdatePlayableTime(current: TimeInterval, total: TimeInterval) {
-        IRPlayerNotification.postPlayer(
-            self,
-            playablePercent: IRPlaybackTimePolicy.percent(current: current, total: total),
-            current: current as NSNumber,
-            total: total as NSNumber
-        )
-    }
-
-    func playbackBackendDidFail(_ error: IRError) {
-        IRPlayerNotification.postPlayer(self, error: error)
-    }
-}

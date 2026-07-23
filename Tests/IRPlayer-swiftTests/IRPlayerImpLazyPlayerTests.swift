@@ -123,6 +123,9 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
     func testControlWrappersAreCallableWithoutDecoderTarget() {
         let player = IRPlayerImp.player()
         player.manager = nil
+        let seekFinished = expectation(
+            description: "inactive seek reports failure"
+        )
         defer {
             player.pause()
         }
@@ -130,13 +133,15 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
         player.volume = 0.25
         player.setRequestHeaderFields(["Authorization": "token"])
         player.play()
-        player.seekToTime(time: 12.5) { _ in
-            XCTFail("Seek completion should not run without a decoder target")
+        player.seekToTime(time: 12.5) { finished in
+            XCTAssertFalse(finished)
+            seekFinished.fulfill()
         }
+        wait(for: [seekFinished], timeout: 1)
         player.seekToTime(time: 12.5)
         player.pause()
 
-        XCTAssertNil(player.snapshot())
+        XCTAssertEqual(player.snapshot()?.size, .zero)
         XCTAssertEqual(player.contentHeaders, ["Authorization": "token"])
         XCTAssertEqual(player.volume, 0.25)
         withExtendedLifetime(player) {}
@@ -220,7 +225,7 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
         player.displayMode = .box
 
         XCTAssertTrue(try XCTUnwrap(player.renderModes?.first) is IRGLRenderModeDistortion)
-        XCTAssertTrue(player.displayView?.abstractPlayer === player)
+        XCTAssertNotNil(player.displayView?.abstractPlayer)
         withExtendedLifetime(player) {}
     }
 

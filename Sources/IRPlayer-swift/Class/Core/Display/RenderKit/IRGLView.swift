@@ -655,8 +655,6 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 }
 
-extension IRPlayerImp: IRGLViewHost {}
-
 private class IRGLRenderStrategyBase: IRGLRenderInternal {
     private let renderer: IRMetalRenderer
 

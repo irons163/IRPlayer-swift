@@ -16,28 +16,25 @@ final class IRPlayerLifecycleController {
     }
 
     func didEnterBackground(state: IRPlayerState) -> Command {
-        switch IRPlayerLifecyclePolicy.backgroundAction(mode: mode, state: state) {
-        case .pauseAndRememberAutoPlay:
+        guard mode == .autoPlayAndPause else { return .none }
+        switch state {
+        case .playing, .buffering:
             needsForegroundResume = true
             return .pause
-        case .none:
+        default:
             return .none
         }
     }
 
     func willEnterForeground(state: IRPlayerState, now: TimeInterval) -> Command {
-        switch IRPlayerLifecyclePolicy.foregroundAction(
-            mode: mode,
-            state: state,
-            needAutoPlay: needsForegroundResume
-        ) {
-        case .playAndClearAutoPlay:
-            needsForegroundResume = false
-            lastForegroundTime = now
-            return .play
-        case .none:
+        guard mode == .autoPlayAndPause,
+              state == .suspend,
+              needsForegroundResume else {
             return .none
         }
+        needsForegroundResume = false
+        lastForegroundTime = now
+        return .play
     }
 
     func audioInterruption(
@@ -46,32 +43,33 @@ final class IRPlayerLifecycleController {
         now: TimeInterval
     ) -> Command {
         let elapsed = now - (lastForegroundTime ?? 0)
-        switch IRPlayerLifecyclePolicy.audioInterruptionAction(
-            type: type,
-            state: state,
-            timeSinceForeground: elapsed
-        ) {
-        case .pause:
-            return .pause
-        case .none:
+        guard type == .begin, elapsed > 1.5 else {
             return .none
         }
+        return commandForActivePlayback(state)
     }
 
     func audioRouteChanged(
         reason: IRAudioManagerRouteChangeReason,
         state: IRPlayerState
     ) -> Command {
-        switch IRPlayerLifecyclePolicy.audioRouteChangeAction(reason: reason, state: state) {
-        case .pause:
-            return .pause
-        case .none:
-            return .none
-        }
+        guard reason == .oldDeviceUnavailable else { return .none }
+        return commandForActivePlayback(state)
     }
 
     func reset() {
         needsForegroundResume = false
         lastForegroundTime = nil
+    }
+
+    private func commandForActivePlayback(
+        _ state: IRPlayerState
+    ) -> Command {
+        switch state {
+        case .playing, .buffering:
+            return .pause
+        default:
+            return .none
+        }
     }
 }

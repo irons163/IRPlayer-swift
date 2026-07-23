@@ -44,6 +44,16 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.snapshot, .empty)
     }
 
+    func testInactiveSeekCompletesWithFailure() {
+        let coordinator = IRPlaybackBackendCoordinator { _ in nil }
+        var result: Bool?
+
+        coordinator.seek(to: 12) { result = $0 }
+
+        XCTAssertEqual(result, false)
+        XCTAssertEqual(coordinator.diagnostics.commandCount, 0)
+    }
+
     func testMismatchedFactoryResultIsRejected() {
         let coordinator = IRPlaybackBackendCoordinator { _ in
             PlaybackBackendSpy(kind: .avFoundation)
@@ -75,7 +85,27 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.activeKind, .ffmpeg)
     }
 
-    func testInvalidReplacementStopsAllBackendsAndClearsSnapshot() {
+    func testReplacementTransactionStopsThenPreparesThenReplaces() {
+        let avBackend = PlaybackBackendSpy(kind: .avFoundation)
+        let ffBackend = PlaybackBackendSpy(kind: .ffmpeg)
+        let coordinator = makeCoordinator(
+            avBackend: avBackend,
+            ffBackend: ffBackend
+        )
+        var events: [String] = []
+        avBackend.onStop = { events.append("stop") }
+        ffBackend.onReplace = { events.append("replace") }
+        coordinator.replace(with: .avFoundation)
+        events.removeAll()
+
+        coordinator.replace(with: .ffmpeg) {
+            events.append("prepare")
+        }
+
+        XCTAssertEqual(events, ["stop", "prepare", "replace"])
+    }
+
+    func testEmptyReplacementStopsActiveBackendAndClearsSnapshot() {
         let avBackend = PlaybackBackendSpy(kind: .avFoundation)
         let ffBackend = PlaybackBackendSpy(kind: .ffmpeg)
         let coordinator = makeCoordinator(avBackend: avBackend, ffBackend: ffBackend)
@@ -86,8 +116,13 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
 
         XCTAssertNil(coordinator.activeKind)
         XCTAssertEqual(coordinator.snapshot, .empty)
-        XCTAssertEqual(avBackend.stopCallCount, 2)
+        XCTAssertEqual(avBackend.stopCallCount, 1)
         XCTAssertEqual(ffBackend.stopCallCount, 1)
+
+        coordinator.reset()
+
+        XCTAssertEqual(avBackend.stopCallCount, 2)
+        XCTAssertEqual(ffBackend.stopCallCount, 2)
     }
 
     func testSnapshotReadsOnlyActiveBackend() {
@@ -131,6 +166,54 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
         XCTAssertEqual(ffBackend.reloadVolumeCallCount, 1)
         XCTAssertEqual(avBackend.reloadBufferCallCount, 1)
         XCTAssertEqual(ffBackend.reloadBufferCallCount, 1)
+    }
+
+    func testDiagnosticsCountOneGenerationPerTransaction() {
+        let backend = PlaybackBackendSpy(kind: .avFoundation)
+        let coordinator = IRPlaybackBackendCoordinator { _ in backend }
+
+        coordinator.replace(with: .avFoundation)
+        coordinator.play()
+        coordinator.pause()
+        coordinator.seek(to: 1)
+        coordinator.replace(with: nil)
+        coordinator.reset()
+
+        let diagnostics = coordinator.diagnostics
+        XCTAssertEqual(diagnostics.replacementGeneration, 3)
+        XCTAssertEqual(diagnostics.replaceCount, 2)
+        XCTAssertEqual(diagnostics.resetCount, 1)
+        XCTAssertEqual(diagnostics.commandCount, 3)
+        XCTAssertEqual(diagnostics.backendCount, 0)
+    }
+
+    func testConcurrentReplacementAndCommandsRemainSerialized() {
+        let avBackend = LockedCoordinatorBackend(kind: .avFoundation)
+        let ffBackend = LockedCoordinatorBackend(kind: .ffmpeg)
+        let coordinator = IRPlaybackBackendCoordinator { kind in
+            kind == .avFoundation ? avBackend : ffBackend
+        }
+
+        DispatchQueue.concurrentPerform(iterations: 500) { index in
+            switch index % 4 {
+            case 0:
+                coordinator.replace(with: .avFoundation)
+            case 1:
+                coordinator.replace(with: .ffmpeg)
+            case 2:
+                coordinator.play()
+            default:
+                coordinator.pause()
+            }
+        }
+        coordinator.reset()
+
+        XCTAssertNil(coordinator.activeKind)
+        XCTAssertEqual(coordinator.diagnostics.backendCount, 0)
+        XCTAssertGreaterThan(
+            avBackend.stopCount + ffBackend.stopCount,
+            0
+        )
     }
 
     func testResetStopsAndReleasesEveryBackend() {
@@ -183,6 +266,7 @@ private final class PlaybackBackendSpy: IRPlaybackBackend {
     private(set) var reloadBufferCallCount = 0
     private(set) var seekTimes: [TimeInterval] = []
     var onReplace: (() -> Void)?
+    var onStop: (() -> Void)?
 
     init(kind: IRPlaybackBackendKind) {
         self.kind = kind
@@ -190,7 +274,10 @@ private final class PlaybackBackendSpy: IRPlaybackBackend {
 
     func play() { playCallCount += 1 }
     func pause() { pauseCallCount += 1 }
-    func stop() { stopCallCount += 1 }
+    func stop() {
+        stopCallCount += 1
+        onStop?()
+    }
 
     func seek(to time: TimeInterval, completionHandler: ((Bool) -> Void)?) {
         seekTimes.append(time)
@@ -204,4 +291,52 @@ private final class PlaybackBackendSpy: IRPlaybackBackend {
 
     func reloadVolume() { reloadVolumeCallCount += 1 }
     func reloadPlayableBufferInterval() { reloadBufferCallCount += 1 }
+}
+
+private final class LockedCoordinatorBackend:
+    IRPlaybackBackend,
+    @unchecked Sendable
+{
+    let kind: IRPlaybackBackendKind
+    private let lock = NSLock()
+    private var storedStopCount = 0
+
+    init(kind: IRPlaybackBackendKind) {
+        self.kind = kind
+    }
+
+    var state: IRPlayerState { .none }
+    var presentationSize: CGSize { .zero }
+    var bitrate: TimeInterval { 0 }
+    var progress: TimeInterval { 0 }
+    var duration: TimeInterval { 0 }
+    var playableTime: TimeInterval { 0 }
+    var seeking: Bool { false }
+    var decoderVideoOutput: IRFFDecoderVideoOutput? { nil }
+
+    var stopCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedStopCount
+    }
+
+    func play() {}
+    func pause() {}
+
+    func stop() {
+        lock.lock()
+        storedStopCount += 1
+        lock.unlock()
+    }
+
+    func seek(
+        to time: TimeInterval,
+        completionHandler: ((Bool) -> Void)?
+    ) {
+        completionHandler?(true)
+    }
+
+    func replaceVideo() {}
+    func reloadVolume() {}
+    func reloadPlayableBufferInterval() {}
 }

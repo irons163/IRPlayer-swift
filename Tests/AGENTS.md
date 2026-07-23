@@ -10,9 +10,15 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 
 ### Player Tests
 - `IRPlayerImpLazyPlayerTests.swift` — Player initialization and lazy setup
+- `IRPlayerFacadeRuntimeTests.swift` — Facade owner integration and transactions
+- `IRPlayerFacadeStateTests.swift` — Settings and media-session state ownership
+- `IRPlayerEnvironmentSessionTests.swift` — App/audio lifecycle ownership
+- `IRPlayerPresentationSessionTests.swift` — Display and interaction ownership
+- `IRPlaybackBackendEventRouterTests.swift` — Active-backend event admission
 - `IRPlayerDecoderTests.swift` — Decoder configuration tests
 - `IRPlayerNotificationTests.swift` — Notification dispatch tests
-- `IRPlayerLifecyclePolicyTests.swift` — Lifecycle policy behavior
+- `IRPlayerLifecycleDecisionTests.swift` — Lifecycle decision boundaries
+- `IRPlayerLifecycleControllerTests.swift` — Stateful lifecycle transitions
 - `IRAVPlayerTests.swift` — AVPlayer backend tests
 - `IRFFPlayerTests.swift` — FFmpeg player backend tests
 - `IRModelPayloadTests.swift` — Model/payload serialization
