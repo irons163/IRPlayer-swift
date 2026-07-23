@@ -34,44 +34,6 @@ final class IRFFDecoderReadLoopStateTests: XCTestCase {
         )
     }
 
-    func testAudioTrackSelectionActionClearsSelectionAndCarriesSeekTarget() {
-        XCTAssertNil(
-            IRFFDecoderReadLoopState.audioTrackSelectionAction(
-                selectionPending: false,
-                decoderWasReset: true,
-                hasAudioDecoder: true,
-                playbackFinished: false,
-                audioTimeClock: 12
-            )
-        )
-        XCTAssertEqual(
-            IRFFDecoderReadLoopState.audioTrackSelectionAction(
-                selectionPending: true,
-                decoderWasReset: true,
-                hasAudioDecoder: true,
-                playbackFinished: false,
-                audioTimeClock: 12
-            ),
-            IRFFDecoderReadLoopState.AudioTrackSelectionAction(
-                shouldClearSelection: true,
-                seekTarget: 12
-            )
-        )
-        XCTAssertEqual(
-            IRFFDecoderReadLoopState.audioTrackSelectionAction(
-                selectionPending: true,
-                decoderWasReset: false,
-                hasAudioDecoder: true,
-                playbackFinished: false,
-                audioTimeClock: 12
-            ),
-            IRFFDecoderReadLoopState.AudioTrackSelectionAction(
-                shouldClearSelection: true,
-                seekTarget: nil
-            )
-        )
-    }
-
     func testBackpressureActionWrapsPacketPolicySleep() {
         XCTAssertNil(
             IRFFDecoderReadLoopState.backpressureAction(

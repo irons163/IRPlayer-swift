@@ -17,11 +17,6 @@ enum IRFFDecoderReadLoopState {
         case routePacket(IRFFDecoder.PacketRoute)
     }
 
-    struct AudioTrackSelectionAction: Equatable {
-        let shouldClearSelection: Bool
-        let seekTarget: TimeInterval?
-    }
-
     static func exitAction(closed: Bool, hasError: Bool) -> Action? {
         return closed || hasError ? .quit : nil
     }
@@ -34,22 +29,6 @@ enum IRFFDecoderReadLoopState {
             return nil
         }
         return .completeSeek(transition)
-    }
-
-    static func audioTrackSelectionAction(selectionPending: Bool,
-                                          decoderWasReset: Bool,
-                                          hasAudioDecoder: Bool,
-                                          playbackFinished: Bool,
-                                          audioTimeClock: TimeInterval) -> AudioTrackSelectionAction? {
-        guard selectionPending else { return nil }
-        let seekTarget = IRFFDecoderSeekPolicy.audioTrackSelectionSeekTarget(
-            selectionPending: selectionPending,
-            decoderWasReset: decoderWasReset,
-            hasAudioDecoder: hasAudioDecoder,
-            playbackFinished: playbackFinished,
-            audioTimeClock: audioTimeClock
-        )
-        return AudioTrackSelectionAction(shouldClearSelection: true, seekTarget: seekTarget)
     }
 
     static func backpressureAction(audioSize: Int,

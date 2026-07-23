@@ -63,6 +63,20 @@ final class IRFFDecoderRuntimeStateTests: XCTestCase {
         XCTAssertFalse(state.beginClose())
     }
 
+    func testPreparedTransitionCannotPublishAfterClose() {
+        let state = IRFFDecoderRuntimeState()
+
+        XCTAssertTrue(state.markPreparedIfOpen())
+        XCTAssertTrue(state.snapshot.prepareToDecode)
+        XCTAssertTrue(state.beginClose())
+        XCTAssertFalse(state.markPreparedIfOpen())
+
+        let closedBeforePrepare = IRFFDecoderRuntimeState()
+        XCTAssertTrue(closedBeforePrepare.beginClose())
+        XCTAssertFalse(closedBeforePrepare.markPreparedIfOpen())
+        XCTAssertFalse(closedBeforePrepare.snapshot.prepareToDecode)
+    }
+
     func testSeekReplacementAndConsumptionAreDeterministic() {
         let state = IRFFDecoderRuntimeState()
         var firstResults: [Bool] = []

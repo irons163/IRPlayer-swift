@@ -42,17 +42,4 @@ enum IRFFDecoderSeekPolicy {
         )
     }
 
-    static func audioTrackSelectionSeekTarget(selectionPending: Bool,
-                                              decoderWasReset: Bool,
-                                              hasAudioDecoder: Bool,
-                                              playbackFinished: Bool,
-                                              audioTimeClock: TimeInterval) -> TimeInterval? {
-        guard selectionPending,
-              decoderWasReset,
-              hasAudioDecoder,
-              !playbackFinished else {
-            return nil
-        }
-        return audioTimeClock
-    }
 }

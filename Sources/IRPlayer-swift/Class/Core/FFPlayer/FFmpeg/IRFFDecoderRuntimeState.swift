@@ -210,6 +210,14 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         }
     }
 
+    func markPreparedIfOpen() -> Bool {
+        withLock {
+            guard !storage.closed else { return false }
+            storage.prepareToDecode = true
+            return true
+        }
+    }
+
     func beginSeek(
         to target: TimeInterval,
         completion: ((Bool) -> Void)?

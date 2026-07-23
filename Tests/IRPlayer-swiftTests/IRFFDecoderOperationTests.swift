@@ -8,10 +8,6 @@ final class IRFFDecoderOperationTests: XCTestCase {
 
     func testStaticPolicyWrappersRemainSourceCompatible() {
         XCTAssertEqual(
-            IRFFDecoder.needsScheduling(nil),
-            IRFFDecoderOperationPolicy.needsScheduling(nil)
-        )
-        XCTAssertEqual(
             IRFFDecoder.audioPacketError(fromPacketResult: -1)?.code,
             IRFFDecoderAudioPolicy.audioPacketError(fromPacketResult: -1)?.code
         )
@@ -106,22 +102,6 @@ final class IRFFDecoderOperationTests: XCTestCase {
             IRFFDecoderSeekPolicy.seekCompletionTransition(seeking: true, progress: 3)
         )
         XCTAssertEqual(
-            IRFFDecoder.audioTrackSelectionSeekTarget(
-                selectionPending: true,
-                decoderWasReset: true,
-                hasAudioDecoder: true,
-                playbackFinished: false,
-                audioTimeClock: 12
-            ),
-            IRFFDecoderSeekPolicy.audioTrackSelectionSeekTarget(
-                selectionPending: true,
-                decoderWasReset: true,
-                hasAudioDecoder: true,
-                playbackFinished: false,
-                audioTimeClock: 12
-            )
-        )
-        XCTAssertEqual(
             IRFFDecoder.readPacketEOFTransition(readFrameResult: -1),
             IRFFDecoderPacketPolicy.readPacketEOFTransition(readFrameResult: -1)
         )
@@ -148,10 +128,6 @@ final class IRFFDecoderOperationTests: XCTestCase {
             IRFFDecoderDisplayPolicy.shouldFinishDisplay(endOfFile: true, videoDecoderEmpty: true)
         )
         XCTAssertEqual(
-            IRFFDecoder.shouldNotifyError(closed: false, hasError: true),
-            IRFFDecoderOperationPolicy.shouldNotifyError(closed: false, hasError: true)
-        )
-        XCTAssertEqual(
             IRFFDecoder.readLoopExitAction(closed: true, hasError: false),
             IRFFDecoderReadLoopState.exitAction(closed: true, hasError: false)
         )
@@ -176,14 +152,6 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertEqual(
             IRFFDecoder.displayLoopFinishAction(endOfFile: true, videoDecoderEmpty: true),
             IRFFDecoderDisplayLoopState.finishAction(endOfFile: true, videoDecoderEmpty: true)
-        )
-        XCTAssertEqual(
-            IRFFDecoder.addDependency(nil, to: nil),
-            IRFFDecoderOperationPolicy.addDependency(nil, to: nil)
-        )
-        XCTAssertEqual(
-            IRFFDecoder.enqueue(nil, on: nil),
-            IRFFDecoderOperationPolicy.enqueue(nil, on: nil)
         )
     }
 
@@ -233,6 +201,43 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertEqual(decoder.duration, 0)
         XCTAssertEqual(decoder.bitrate, 0)
         XCTAssertFalse(decoder.seekEnable)
+    }
+
+    func testDuplicateOpenSchedulesOneSessionAndReportsOneFailure() {
+        let delegate = DecoderDelegateSpy()
+        let openFailed = expectation(description: "missing input failed")
+        delegate.onError = { openFailed.fulfill() }
+        let decoder = makeDecoder()
+        decoder.delegate = delegate
+        addTeardownBlock {
+            decoder.closeFile()
+        }
+
+        decoder.open()
+        decoder.open()
+
+        wait(for: [openFailed], timeout: 5)
+        XCTAssertEqual(delegate.willOpenCount, 1)
+        XCTAssertEqual(delegate.preparedCount, 0)
+        XCTAssertEqual(delegate.errors.count, 1)
+        XCTAssertNotNil(decoder.error)
+    }
+
+    func testOpenAfterCloseIsRejectedWithoutPublishingResources() {
+        let delegate = DecoderDelegateSpy()
+        let decoder = makeDecoder()
+        decoder.delegate = delegate
+
+        decoder.closeFile()
+        decoder.open()
+        Thread.sleep(forTimeInterval: 0.05)
+
+        XCTAssertTrue(decoder.closed)
+        XCTAssertEqual(delegate.willOpenCount, 0)
+        XCTAssertFalse(decoder.prepareToDecode)
+        XCTAssertFalse(decoder.videoEnable)
+        XCTAssertFalse(decoder.audioEnable)
+        XCTAssertNil(decoder.fetchAudioFrame())
     }
 
     func testOpenGeneratedVideoFilePreparesAndReadsToEndOfFile() throws {
@@ -596,8 +601,10 @@ private final class SeekableFFDecoder: IRFFDecoder {
 }
 
 private final class DecoderDelegateSpy: IRFFDecoderDelegate {
+    var onError: (() -> Void)?
     var onPrepared: (() -> Void)?
     var onEndOfFile: (() -> Void)?
+    private(set) var willOpenCount = 0
     private(set) var preparedCount = 0
     private(set) var endOfFileCount = 0
     private(set) var playbackFinishedCount = 0
@@ -606,7 +613,9 @@ private final class DecoderDelegateSpy: IRFFDecoderDelegate {
     private(set) var bufferedDurations: [TimeInterval] = []
     private(set) var progressValues: [TimeInterval] = []
 
-    func decoderWillOpenInputStream(_ decoder: IRFFDecoder) {}
+    func decoderWillOpenInputStream(_ decoder: IRFFDecoder) {
+        willOpenCount += 1
+    }
 
     func decoderDidPrepareToDecodeFrames(_ decoder: IRFFDecoder) {
         preparedCount += 1
@@ -624,6 +633,7 @@ private final class DecoderDelegateSpy: IRFFDecoderDelegate {
 
     func decoder(_ decoder: IRFFDecoder, didError error: Error) {
         errors.append(error as NSError)
+        onError?()
     }
 
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBuffering buffering: Bool) {
