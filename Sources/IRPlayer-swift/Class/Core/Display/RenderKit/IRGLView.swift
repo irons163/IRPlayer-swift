@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import AVFoundation
 import Metal
 import QuartzCore
 import CoreImage
@@ -33,6 +34,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         // longer call syncOnMain here to avoid lock inversion with queue.sync callers.
         layer as? CAMetalLayer
     }
+    private var avPlayerLayer: AVPlayerLayer?
     private var device: MTLDevice?
     private var commandQueue: MTLCommandQueue?
     private var ciContext: CIContext?
@@ -146,6 +148,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func close() {
+        setAVPlayer(nil)
         queue.sync {
             reset()
         }
@@ -167,6 +170,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
+        layoutAVPlayerLayer()
         updateViewPort(1.0)
     }
 
@@ -485,6 +489,64 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         // Implementation for clean empty buffer
     }
 
+    var attachedAVPlayer: AVPlayer? {
+        syncOnMain { avPlayerLayer?.player }
+    }
+
+    func setAVPlayer(_ player: AVPlayer?) {
+        syncOnMain {
+            guard let player else {
+                avPlayerLayer?.player = nil
+                avPlayerLayer?.removeFromSuperlayer()
+                avPlayerLayer = nil
+                return
+            }
+
+            let playerLayer: AVPlayerLayer
+            if let avPlayerLayer {
+                playerLayer = avPlayerLayer
+            } else {
+                playerLayer = AVPlayerLayer()
+                avPlayerLayer = playerLayer
+            }
+
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            playerLayer.player = player
+            playerLayer.frame = bounds
+            playerLayer.videoGravity = avPlayerLayerGravity
+            if playerLayer.superlayer !== layer {
+                playerLayer.removeFromSuperlayer()
+                layer.addSublayer(playerLayer)
+            }
+            CATransaction.commit()
+        }
+    }
+
+    private func layoutAVPlayerLayer() {
+        guard let avPlayerLayer else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        avPlayerLayer.frame = bounds
+        CATransaction.commit()
+    }
+
+    private func updateAVPlayerLayerGravity() {
+        guard let avPlayerLayer else { return }
+        avPlayerLayer.videoGravity = avPlayerLayerGravity
+    }
+
+    private var avPlayerLayerGravity: AVLayerVideoGravity {
+        switch abstractPlayer?.viewGravityMode {
+        case .resize:
+            return .resize
+        case .resizeAspectFill:
+            return .resizeAspectFill
+        case .resizeAspect, nil:
+            return .resizeAspect
+        }
+    }
+
     private func setupMetalFish2PanoIfNeeded(renderMode: IRGLRenderMode) {
         renderState.configureFish2Pano(renderMode: renderMode)
     }
@@ -524,7 +586,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         case .empty:
             break
         case .AVPlayerLayer:
-            break
+            layoutAVPlayerLayer()
         case .AVPlayerPixelBufferVR:
             break
         case .FFmpegPixelBuffer, .FFmpegPixelBufferVR:
@@ -535,6 +597,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     func reloadGravityMode() {
         changeGLRenderContentMode()
+        updateAVPlayerLayerGravity()
     }
 
     func updateDisplayViewLayout(_ frame: CGRect) {
@@ -585,6 +648,9 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func cleanViewCleanAVPlayerLayer(_ cleanAVPlayerLayer: Bool, cleanAVPlayerView: Bool, cleanFFPlayerView: Bool) {
+        if cleanAVPlayerLayer {
+            setAVPlayer(nil)
+        }
         cleanEmptyBuffer()
     }
 }
