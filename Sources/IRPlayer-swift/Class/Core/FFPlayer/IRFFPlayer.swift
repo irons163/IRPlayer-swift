@@ -9,11 +9,7 @@ import UIKit // For CGSize
 import AVFoundation // For NSTimeInterval
 
 class IRFFPlayer: NSObject {
-    struct AudioCopyPlan: Equatable, Hashable, Sendable {
-        let bytesToCopy: Int
-        let framesToCopy: Int
-        let hasRemainingFrameBytes: Bool
-    }
+    typealias AudioCopyPlan = IRFFAudioRenderer.CopyPlan
 
     struct PlayTransition: Equatable {
         let nextState: IRPlayerState
@@ -32,8 +28,13 @@ class IRFFPlayer: NSObject {
     }
 
     private let stateStore = IRPlayerStateStore()
+    let audioRenderer = IRFFAudioRenderer()
     weak var abstractPlayer: (any IRPlaybackBackendHost)?
-    var decoder: IRFFDecoder?
+    var decoder: IRFFDecoder? {
+        didSet {
+            audioRenderer.attachSource(decoder)
+        }
+    }
     var audioManager: IRAudioManager?
     private(set) var seeking: Bool = false
 
@@ -45,9 +46,13 @@ class IRFFPlayer: NSObject {
                 abstractPlayer?.error = nil
             }
             if transition.current == .playing {
-                audioManager?.play(withDelegate: self)
+                audioRenderer.setEnabled(true)
+                if audioManager?.play(withDelegate: audioRenderer) == false {
+                    audioRenderer.setEnabled(false)
+                }
             } else {
                 audioManager?.pause()
+                audioRenderer.setEnabled(false)
             }
             abstractPlayer?.playbackBackendDidChangeState(
                 previous: transition.previous,
@@ -98,9 +103,16 @@ class IRFFPlayer: NSObject {
     var lastPostProgressTime: TimeInterval = 0.0
     var lastPostPlayableTime: TimeInterval = 0.0
 
-    var currentAudioFrame: IRFFAudioFrame?
+    var currentAudioFrame: IRFFAudioFrame? {
+        get { audioRenderer.currentFrame }
+        set { audioRenderer.replaceCurrentFrame(newValue) }
+    }
 
-    var playing = false
+    var playing = false {
+        didSet {
+            audioRenderer.setEnabled(playing)
+        }
+    }
 
     init(abstractPlayer: any IRPlaybackBackendHost) {
         self.abstractPlayer = abstractPlayer
@@ -142,14 +154,14 @@ class IRFFPlayer: NSObject {
     }
 
     static func audioSilenceByteCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
-        return IRFFPlayerPlaybackPolicy.audioSilenceByteCount(
+        return IRFFAudioRenderer.silenceByteCount(
             numberOfFrames: numberOfFrames,
             numberOfChannels: numberOfChannels
         )
     }
 
     static func audioCopyPlan(frameSize: Int, outputOffset: Int, remainingFrames: UInt32, numberOfChannels: UInt32) -> AudioCopyPlan? {
-        return IRFFPlayerPlaybackPolicy.audioCopyPlan(
+        return IRFFAudioRenderer.copyPlan(
             frameSize: frameSize,
             outputOffset: outputOffset,
             remainingFrames: remainingFrames,
@@ -194,8 +206,9 @@ class IRFFPlayer: NSObject {
 extension IRFFPlayer {
 
     private func clean() {
+        audioManager?.pause()
+        audioRenderer.reset()
         cleanDecoder()
-        cleanFrame()
         cleanPlayer()
     }
 
@@ -208,11 +221,6 @@ extension IRFFPlayer {
         lastPostProgressTime = 0
         lastPostPlayableTime = 0
         abstractPlayer?.displayView?.cleanEmptyBuffer()
-    }
-
-    private func cleanFrame() {
-        currentAudioFrame?.stopPlaying()
-        currentAudioFrame = nil
     }
 
     private func cleanDecoder() {
@@ -366,73 +374,4 @@ extension IRFFPlayer: IRFFDecoderAudioOutput {
     var numberOfChannels: UInt32 {
         return self.audioManager?.numberOfChannels ?? 0
     }
-}
-
-extension IRFFPlayer: IRAudioManagerDelegate {
-
-    func audioManager(_ audioManager: IRAudioManager, outputData: UnsafeMutablePointer<Float>, numberOfFrames: UInt32, numberOfChannels: UInt32) {
-        guard self.playing else {
-            if let byteCount = Self.audioSilenceByteCount(numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels) {
-                memset(outputData, 0, byteCount)
-            }
-            return
-        }
-
-//        autoreleasepool {
-            var remainingFrames = numberOfFrames
-            var currentOutputData = outputData
-
-            while remainingFrames > 0 {
-                if self.currentAudioFrame == nil {
-                    self.currentAudioFrame = self.decoder?.fetchAudioFrame()
-                    self.currentAudioFrame?.startPlaying()
-                }
-
-                guard let currentAudioFrame = self.currentAudioFrame else {
-                    if let byteCount = Self.audioSilenceByteCount(numberOfFrames: remainingFrames, numberOfChannels: numberOfChannels) {
-                        memset(currentOutputData, 0, byteCount)
-                    }
-                    return
-                }
-
-                guard let samples = currentAudioFrame.samples else {
-                    currentAudioFrame.stopPlaying()
-                    self.currentAudioFrame = nil
-                    if let byteCount = Self.audioSilenceByteCount(numberOfFrames: remainingFrames, numberOfChannels: numberOfChannels) {
-                        memset(currentOutputData, 0, byteCount)
-                    }
-                    return
-                }
-
-                guard let copyPlan = Self.audioCopyPlan(
-                    frameSize: currentAudioFrame.size,
-                    outputOffset: currentAudioFrame.outputOffset,
-                    remainingFrames: remainingFrames,
-                    numberOfChannels: numberOfChannels
-                ) else {
-                    currentAudioFrame.stopPlaying()
-                    self.currentAudioFrame = nil
-                    if let byteCount = Self.audioSilenceByteCount(numberOfFrames: remainingFrames, numberOfChannels: numberOfChannels) {
-                        memset(currentOutputData, 0, byteCount)
-                    }
-                    return
-                }
-
-                let bytes = UnsafeRawPointer(samples).advanced(by: Int(currentAudioFrame.outputOffset)).assumingMemoryBound(to: UInt8.self)
-                let bytesToCopy = copyPlan.bytesToCopy
-                let framesToCopy = copyPlan.framesToCopy
-                memcpy(currentOutputData, bytes, bytesToCopy)
-                remainingFrames -= UInt32(framesToCopy)
-                currentOutputData = currentOutputData.advanced(by: framesToCopy * Int(numberOfChannels))
-
-                if copyPlan.hasRemainingFrameBytes {
-                    currentAudioFrame.outputOffset += bytesToCopy
-                } else {
-                    currentAudioFrame.stopPlaying()
-                    self.currentAudioFrame = nil
-                }
-            }
-//        }
-    }
-
 }

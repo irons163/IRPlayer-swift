@@ -1,299 +1,400 @@
-//
-//  IRAudioManagerRenderTests.swift
-//  IRPlayer-swiftTests
-//
-//  Created by Codex on 2026/6/2.
-//
-
 import AVFoundation
 import XCTest
 @testable import IRPlayer_swift
 
 final class IRAudioManagerRenderTests: XCTestCase {
-
-    func testUnregisteredManagerUsesFallbackStateAndIgnoresPlaybackControls() {
-        let manager = IRAudioManager()
-        let delegate = RecordingAudioManagerDelegate()
-
-        manager.volume = 0.25
-        manager.play(withDelegate: delegate)
-        manager.pause()
-
-        XCTAssertEqual(manager.volume, 1.0)
-        XCTAssertFalse(manager.playing)
-        XCTAssertTrue(manager.delegate === delegate)
-        XCTAssertGreaterThanOrEqual(manager.samplingRate, 0)
-        XCTAssertGreaterThanOrEqual(manager.numberOfChannels, 0)
-    }
-
-    func testRegisterAudioSessionDoesNotPrintDebugDiagnostics() {
-        let manager = IRAudioManager()
-        var setupCallCount = 0
-
-        let output = captureStandardOutput {
-            let registered = manager.registerAudioSession {
-                setupCallCount += 1
-                return true
-            }
-
-            XCTAssertTrue(registered)
-            XCTAssertTrue(manager.registerAudioSession {
-                XCTFail("Audio session setup should not be repeated once registered")
-                return false
-            })
-        }
-
-        XCTAssertEqual(setupCallCount, 1)
-        XCTAssertFalse(output.contains("IRAudioManager did error"))
-        XCTAssertFalse(output.contains("IRAudioManager did warning"))
-    }
-
-    func testRegisterAudioSessionRetriesAfterFailedSetup() {
-        let manager = IRAudioManager()
-        var setupCallCount = 0
-
-        XCTAssertFalse(manager.registerAudioSession {
-            setupCallCount += 1
-            return false
-        })
-        XCTAssertTrue(manager.registerAudioSession {
-            setupCallCount += 1
-            return true
-        })
-        XCTAssertTrue(manager.registerAudioSession {
-            XCTFail("Audio session setup should not be repeated after a retry succeeds")
-            return false
-        })
-        XCTAssertEqual(setupCallCount, 2)
-    }
-
-    func testDefaultRegisterAudioSessionInitializesOrFailsCleanly() throws {
-        let manager = IRAudioManager()
-
-        let registered = manager.registerAudioSession()
-        defer {
-            manager.pause()
-            manager.unregisterAudioSession()
-        }
-
-        XCTAssertFalse(manager.playing)
-        XCTAssertGreaterThanOrEqual(manager.samplingRate, 0)
-        XCTAssertGreaterThanOrEqual(manager.numberOfChannels, 0)
-        if registered {
-            manager.volume = 0.5
-            XCTAssertGreaterThanOrEqual(manager.volume, 0)
-            let delegate = FillingAudioManagerDelegate()
-            manager.play(withDelegate: delegate)
-            XCTAssertTrue(manager.delegate === delegate)
-
-            if manager.playing, manager.numberOfChannels > 0 {
-                let channelCount = Int(manager.numberOfChannels)
-                var samples = [Float](repeating: -1, count: channelCount * 2)
-                let previousRenderCallCount = delegate.renderCallCount
-
-                try samples.withUnsafeMutableBufferPointer { buffer in
-                    let baseAddress = try XCTUnwrap(buffer.baseAddress)
-                    let audioBuffer = AudioBuffer(
-                        mNumberChannels: UInt32(channelCount),
-                        mDataByteSize: UInt32(buffer.count * MemoryLayout<Float>.stride),
-                        mData: UnsafeMutableRawPointer(baseAddress)
-                    )
-                    var bufferList = AudioBufferList(mNumberBuffers: 1, mBuffers: audioBuffer)
-                    let status = withUnsafeMutablePointer(to: &bufferList) { pointer in
-                        manager.renderFrames(2, ioData: pointer)
-                    }
-
-                    XCTAssertEqual(status, noErr)
-                }
-
-                XCTAssertGreaterThan(delegate.renderCallCount, previousRenderCallCount)
-                manager.pause()
-                XCTAssertFalse(manager.playing)
-            }
-        } else {
-            XCTAssertEqual(manager.volume, 1.0)
-        }
-    }
-
-    func testRequiredAudioGraphRejectsMissingGraph() {
-        let result = IRAudioManager.requiredAudioGraph(nil, domain: "missing graph")
-
-        switch result {
-        case .success:
-            XCTFail("Missing graph should not be accepted")
-        case .failure(let error):
-            XCTAssertEqual(error.domain, "missing graph")
-            XCTAssertEqual(error.code, -1)
-        }
-    }
-
-    func testRequiredAudioGraphAcceptsExistingGraph() throws {
-        var graph: AUGraph?
-        XCTAssertEqual(NewAUGraph(&graph), noErr)
-        defer {
-            if let graph {
-                DisposeAUGraph(graph)
-            }
-        }
-
-        let unwrappedGraph = try XCTUnwrap(graph)
-        let result = IRAudioManager.requiredAudioGraph(unwrappedGraph, domain: "existing graph")
-
-        switch result {
-        case .success(let acceptedGraph):
-            XCTAssertEqual(acceptedGraph, unwrappedGraph)
-        case .failure:
-            XCTFail("Existing graph should be accepted")
-        }
-    }
-
-    func testRequiredAudioUnitRejectsMissingUnit() {
-        let result = IRAudioManager.requiredAudioUnit(nil, domain: "missing audio unit")
-
-        switch result {
-        case .success:
-            XCTFail("Missing audio unit should not be accepted")
-        case .failure(let error):
-            XCTAssertEqual(error.domain, "missing audio unit")
-            XCTAssertEqual(error.code, -1)
-        }
-    }
-
-    func testRequiredAudioUnitAcceptsExistingUnit() throws {
-        let audioUnit = try XCTUnwrap(AudioUnit(bitPattern: 1))
-        let result = IRAudioManager.requiredAudioUnit(audioUnit, domain: "existing audio unit")
-
-        switch result {
-        case .success(let acceptedUnit):
-            XCTAssertEqual(acceptedUnit, audioUnit)
-        case .failure:
-            XCTFail("Existing audio unit should be accepted")
-        }
-    }
-
-    func testRenderFramesIgnoresMissingAudioBufferList() {
-        let manager = IRAudioManager()
-
-        XCTAssertEqual(manager.renderFrames(16, ioData: nil), noErr)
-    }
-
-    func testRenderFramesClearsOutputBuffersWhenIdle() throws {
-        let manager = IRAudioManager()
+    func testUnpreparedRenderClearsDestinationAndReturnsSilence() throws {
+        let manager = makeTestAudioManager()
         var samples: [Float] = [1, -0.5, 0.25, 2]
 
-        try samples.withUnsafeMutableBufferPointer { buffer in
-            let baseAddress = try XCTUnwrap(buffer.baseAddress)
-            let audioBuffer = AudioBuffer(
-                mNumberChannels: 2,
-                mDataByteSize: UInt32(buffer.count * MemoryLayout<Float>.stride),
-                mData: UnsafeMutableRawPointer(baseAddress)
+        withInterleavedAudioBufferList(
+            values: &samples,
+            channels: 2
+        ) { bufferList in
+            XCTAssertEqual(
+                manager.renderFrames(2, ioData: bufferList),
+                noErr
             )
-            var bufferList = AudioBufferList(mNumberBuffers: 1, mBuffers: audioBuffer)
-
-            let status = withUnsafeMutablePointer(to: &bufferList) { pointer in
-                manager.renderFrames(2, ioData: pointer)
-            }
-
-            XCTAssertEqual(status, noErr)
         }
 
         XCTAssertEqual(samples, [0, 0, 0, 0])
     }
 
-    func testRenderSampleCountRejectsInvalidOrOverflowingInputs() {
-        XCTAssertNil(IRAudioManager.renderSampleCount(numberOfFrames: 0, numberOfChannels: 2))
-        XCTAssertNil(IRAudioManager.renderSampleCount(numberOfFrames: 10, numberOfChannels: 0))
-        XCTAssertNil(IRAudioManager.renderSampleCount(numberOfFrames: .max, numberOfChannels: .max))
+    func testFloat32InterleavedRenderCopiesDelegateSamples() throws {
+        let manager = makeTestAudioManager()
+        let delegate = TestAudioManagerDelegate()
+        delegate.render = { output, frames, channels in
+            let count = Int(frames * channels)
+            for index in 0..<count {
+                output[index] = Float(index + 1)
+            }
+        }
+        XCTAssertTrue(manager.play(withDelegate: delegate))
+        defer { manager.pause() }
+        var samples = [Float](repeating: -1, count: 4)
+
+        withInterleavedAudioBufferList(
+            values: &samples,
+            channels: 2
+        ) { bufferList in
+            XCTAssertEqual(
+                manager.renderFrames(2, ioData: bufferList),
+                noErr
+            )
+        }
+
+        XCTAssertEqual(samples, [1, 2, 3, 4])
+        XCTAssertEqual(delegate.renderCount, 1)
     }
 
-    func testRenderSampleCountRejectsRequestsBeyondBufferCapacity() {
-        XCTAssertNil(
-            IRAudioManager.renderSampleCount(
-                numberOfFrames: 1,
-                numberOfChannels: 1,
-                maximumSampleCount: 0
-            )
+    func testScratchBufferIsSilencedBeforePartialDelegateFill() throws {
+        let manager = makeTestAudioManager()
+        let delegate = TestAudioManagerDelegate()
+        delegate.render = { output, _, _ in
+            output[0] = 0.5
+        }
+        XCTAssertTrue(manager.play(withDelegate: delegate))
+        defer { manager.pause() }
+        var samples = [Float](repeating: -1, count: 4)
+
+        withInterleavedAudioBufferList(
+            values: &samples,
+            channels: 2
+        ) { bufferList in
+            _ = manager.renderFrames(2, ioData: bufferList)
+        }
+
+        XCTAssertEqual(samples, [0.5, 0, 0, 0])
+    }
+
+    func testFloat32NonInterleavedRenderMaintainsGlobalChannelMapping()
+        throws
+    {
+        let format = makeTestPCMFormat(
+            flags: kAudioFormatFlagIsFloat |
+                kAudioFormatFlagIsPacked |
+                kAudioFormatFlagIsNonInterleaved
         )
+        let manager = makeTestAudioManager(
+            driver: TestAudioGraphDriver(format: format)
+        )
+        let delegate = TestAudioManagerDelegate()
+        delegate.render = { output, _, _ in
+            output[0] = 1
+            output[1] = 10
+            output[2] = 2
+            output[3] = 20
+        }
+        XCTAssertTrue(manager.play(withDelegate: delegate))
+        defer { manager.pause() }
+        var left = [Float](repeating: -1, count: 2)
+        var right = [Float](repeating: -1, count: 2)
+
+        try left.withUnsafeMutableBufferPointer { leftBuffer in
+            try right.withUnsafeMutableBufferPointer { rightBuffer in
+                let leftAddress = try XCTUnwrap(leftBuffer.baseAddress)
+                let rightAddress = try XCTUnwrap(rightBuffer.baseAddress)
+                withAudioBufferList(
+                    buffers: [
+                        AudioBuffer(
+                            mNumberChannels: 1,
+                            mDataByteSize: UInt32(
+                                leftBuffer.count *
+                                    MemoryLayout<Float>.stride
+                            ),
+                            mData: leftAddress
+                        ),
+                        AudioBuffer(
+                            mNumberChannels: 1,
+                            mDataByteSize: UInt32(
+                                rightBuffer.count *
+                                    MemoryLayout<Float>.stride
+                            ),
+                            mData: rightAddress
+                        )
+                    ]
+                ) { bufferList in
+                    _ = manager.renderFrames(2, ioData: bufferList)
+                }
+            }
+        }
+
+        XCTAssertEqual(left, [1, 2])
+        XCTAssertEqual(right, [10, 20])
+    }
+
+    func testUndersizedDestinationIsSilencedOnlyWithinDeclaredCapacity()
+        throws
+    {
+        let manager = makeTestAudioManager()
+        let delegate = TestAudioManagerDelegate()
+        delegate.render = { output, _, _ in
+            output[0] = 1
+            output[1] = 2
+            output[2] = 3
+            output[3] = 4
+        }
+        XCTAssertTrue(manager.play(withDelegate: delegate))
+        defer { manager.pause() }
+        var samples: [Float] = [9, 8, 7, 6]
+
+        try samples.withUnsafeMutableBufferPointer { buffer in
+            let address = try XCTUnwrap(buffer.baseAddress)
+            withAudioBufferList(
+                buffers: [
+                    AudioBuffer(
+                        mNumberChannels: 2,
+                        mDataByteSize: UInt32(MemoryLayout<Float>.stride),
+                        mData: address
+                    )
+                ]
+            ) { bufferList in
+                _ = manager.renderFrames(2, ioData: bufferList)
+            }
+        }
+
+        XCTAssertEqual(samples, [0, 8, 7, 6])
+    }
+
+    func testInt16RenderClampsBeforeConversion() throws {
+        let format = makeTestPCMFormat(
+            bitsPerChannel: 16,
+            flags: kAudioFormatFlagIsSignedInteger |
+                kAudioFormatFlagIsPacked
+        )
+        let driver = TestAudioGraphDriver(format: format)
+        let manager = makeTestAudioManager(driver: driver)
+        let delegate = TestAudioManagerDelegate()
+        delegate.render = { output, _, _ in
+            output[0] = -2
+            output[1] = -0.5
+            output[2] = 0.5
+            output[3] = 2
+        }
+        XCTAssertTrue(manager.play(withDelegate: delegate))
+        defer { manager.pause() }
+        var samples = [Int16](repeating: 0, count: 4)
+
+        withInterleavedAudioBufferList(
+            values: &samples,
+            channels: 2
+        ) { bufferList in
+            _ = manager.renderFrames(2, ioData: bufferList)
+        }
+
+        XCTAssertEqual(samples[0], -Int16.max)
+        XCTAssertLessThanOrEqual(abs(Int(samples[1]) + 16_384), 1)
+        XCTAssertLessThanOrEqual(abs(Int(samples[2]) - 16_384), 1)
+        XCTAssertEqual(samples[3], Int16.max)
+    }
+
+    func testOversizedRenderRequestReturnsDeclaredDestinationSilence()
+        throws
+    {
+        let manager = makeTestAudioManager()
+        let delegate = TestAudioManagerDelegate()
+        XCTAssertTrue(manager.play(withDelegate: delegate))
+        defer { manager.pause() }
+        var samples: [Float] = [4, 3, 2, 1]
+
+        withInterleavedAudioBufferList(
+            values: &samples,
+            channels: 2
+        ) { bufferList in
+            _ = manager.renderFrames(
+                IRAudioRenderContext.defaultMaximumFrames + 1,
+                ioData: bufferList
+            )
+        }
+
+        XCTAssertEqual(samples, [0, 0, 0, 0])
+        XCTAssertEqual(delegate.renderCount, 0)
+    }
+
+    func testContendedRenderCallbackReturnsSilenceWithoutWaiting()
+        throws
+    {
+        let manager = makeTestAudioManager()
+        let delegate = TestAudioManagerDelegate()
+        let entered = DispatchSemaphore(value: 0)
+        let resume = DispatchSemaphore(value: 0)
+        delegate.render = { output, frames, channels in
+            entered.signal()
+            _ = resume.wait(timeout: .now() + 2)
+            let count = Int(frames * channels)
+            for index in 0..<count {
+                output[index] = 1
+            }
+        }
+        XCTAssertTrue(manager.play(withDelegate: delegate))
+        defer { manager.pause() }
+
+        let firstFinished = expectation(description: "first render")
+        DispatchQueue.global().async {
+            var first = [Float](repeating: -1, count: 4)
+            first.withUnsafeMutableBufferPointer { buffer in
+                guard let address = buffer.baseAddress else { return }
+                var list = AudioBufferList(
+                    mNumberBuffers: 1,
+                    mBuffers: AudioBuffer(
+                        mNumberChannels: 2,
+                        mDataByteSize: UInt32(
+                            buffer.count * MemoryLayout<Float>.stride
+                        ),
+                        mData: address
+                    )
+                )
+                _ = withUnsafeMutablePointer(to: &list) {
+                    manager.renderFrames(2, ioData: $0)
+                }
+            }
+            firstFinished.fulfill()
+        }
+        XCTAssertEqual(entered.wait(timeout: .now() + 1), .success)
+
+        var second = [Float](repeating: 7, count: 4)
+        withInterleavedAudioBufferList(
+            values: &second,
+            channels: 2
+        ) { bufferList in
+            _ = manager.renderFrames(2, ioData: bufferList)
+        }
+        XCTAssertEqual(second, [0, 0, 0, 0])
+
+        resume.signal()
+        wait(for: [firstFinished], timeout: 2)
+    }
+
+    func testPauseWaitsForAdmittedRenderBeforeReturning() {
+        let manager = makeTestAudioManager()
+        let delegate = TestAudioManagerDelegate()
+        let entered = DispatchSemaphore(value: 0)
+        let resume = DispatchSemaphore(value: 0)
+        delegate.render = { _, _, _ in
+            entered.signal()
+            _ = resume.wait(timeout: .now() + 2)
+        }
+        XCTAssertTrue(manager.play(withDelegate: delegate))
+
+        let renderFinished = expectation(description: "render")
+        DispatchQueue.global().async {
+            var samples = [Float](repeating: 0, count: 4)
+            samples.withUnsafeMutableBufferPointer { buffer in
+                guard let address = buffer.baseAddress else { return }
+                var list = AudioBufferList(
+                    mNumberBuffers: 1,
+                    mBuffers: AudioBuffer(
+                        mNumberChannels: 2,
+                        mDataByteSize: UInt32(
+                            buffer.count * MemoryLayout<Float>.stride
+                        ),
+                        mData: address
+                    )
+                )
+                _ = withUnsafeMutablePointer(to: &list) {
+                    manager.renderFrames(2, ioData: $0)
+                }
+            }
+            renderFinished.fulfill()
+        }
+        XCTAssertEqual(entered.wait(timeout: .now() + 1), .success)
+
+        let pauseReturned = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            manager.pause()
+            pauseReturned.signal()
+        }
+        XCTAssertEqual(
+            pauseReturned.wait(timeout: .now() + 0.05),
+            .timedOut
+        )
+
+        resume.signal()
+        wait(for: [renderFinished], timeout: 2)
+        XCTAssertEqual(
+            pauseReturned.wait(timeout: .now() + 1),
+            .success
+        )
+        XCTAssertFalse(manager.playing)
+    }
+
+    func testRenderSampleCountRejectsInvalidOverflowAndCapacity() {
         XCTAssertNil(
             IRAudioManager.renderSampleCount(
                 numberOfFrames: 0,
-                numberOfChannels: 1,
-                maximumSampleCount: 1
+                numberOfChannels: 2
             )
         )
         XCTAssertNil(
             IRAudioManager.renderSampleCount(
-                numberOfFrames: 4097,
+                numberOfFrames: .max,
+                numberOfChannels: .max
+            )
+        )
+        XCTAssertNil(
+            IRAudioManager.renderSampleCount(
+                numberOfFrames: 4_097,
                 numberOfChannels: 2,
-                maximumSampleCount: 4096 * 2
+                maximumSampleCount: 4_096 * 2
             )
         )
         XCTAssertEqual(
             IRAudioManager.renderSampleCount(
-                numberOfFrames: 4096,
-                numberOfChannels: 2,
-                maximumSampleCount: 4096 * 2
+                numberOfFrames: 10,
+                numberOfChannels: 2
             ),
-            4096 * 2
+            20
         )
     }
 
-    func testRenderSampleCountCalculatesInterleavedSampleTotal() {
-        XCTAssertEqual(IRAudioManager.renderSampleCount(numberOfFrames: 10, numberOfChannels: 2), 20)
+    func testRealGraphPrepareAndResetEitherSucceedsOrFailsCleanly() {
+        let manager = IRAudioManager()
+
+        let prepared = manager.registerAudioSession()
+        if prepared {
+            XCTAssertEqual(manager.diagnostics.phase, .ready)
+            XCTAssertGreaterThan(manager.samplingRate, 0)
+            XCTAssertGreaterThan(manager.numberOfChannels, 0)
+        } else {
+            XCTAssertEqual(manager.diagnostics.phase, .idle)
+            XCTAssertNotNil(manager.diagnostics.lastBuildFailure)
+        }
+
+        manager.unregisterAudioSession()
+        XCTAssertEqual(manager.diagnostics.phase, .idle)
+        XCTAssertFalse(manager.playing)
     }
 
-    func testRenderSampleCountWrapperMatchesPolicy() {
-        XCTAssertEqual(
-            IRAudioManager.renderSampleCount(numberOfFrames: 10, numberOfChannels: 2),
-            IRAudioManagerPolicy.renderSampleCount(numberOfFrames: 10, numberOfChannels: 2)
+    private func withInterleavedAudioBufferList<Element>(
+        values: inout [Element],
+        channels: UInt32,
+        body: (UnsafeMutablePointer<AudioBufferList>) throws -> Void
+    ) rethrows {
+        try values.withUnsafeMutableBufferPointer { buffer in
+            guard let address = buffer.baseAddress else { return }
+            let audioBuffer = AudioBuffer(
+                mNumberChannels: channels,
+                mDataByteSize: UInt32(
+                    buffer.count * MemoryLayout<Element>.stride
+                ),
+                mData: address
+            )
+            try withAudioBufferList(buffers: [audioBuffer], body: body)
+        }
+    }
+
+    private func withAudioBufferList(
+        buffers: [AudioBuffer],
+        body: (UnsafeMutablePointer<AudioBufferList>) throws -> Void
+    ) rethrows {
+        let list = AudioBufferList.allocate(
+            maximumBuffers: buffers.count
         )
-        XCTAssertNil(IRAudioManagerPolicy.renderSampleCount(numberOfFrames: 0, numberOfChannels: 2))
-    }
-
-    func testRequiredAudioResourceWrappersMatchPolicyFailures() {
-        switch (IRAudioManager.requiredAudioGraph(nil, domain: "missing graph"),
-                IRAudioManagerPolicy.requiredAudioGraph(nil, domain: "missing graph")) {
-        case (.failure(let wrapperError), .failure(let policyError)):
-            XCTAssertEqual(wrapperError.domain, policyError.domain)
-            XCTAssertEqual(wrapperError.code, policyError.code)
-        default:
-            XCTFail("Missing graph should fail for wrapper and policy")
+        defer { free(list.unsafeMutablePointer) }
+        list.count = buffers.count
+        for (index, buffer) in buffers.enumerated() {
+            list[index] = buffer
         }
-
-        switch (IRAudioManager.requiredAudioUnit(nil, domain: "missing audio unit"),
-                IRAudioManagerPolicy.requiredAudioUnit(nil, domain: "missing audio unit")) {
-        case (.failure(let wrapperError), .failure(let policyError)):
-            XCTAssertEqual(wrapperError.domain, policyError.domain)
-            XCTAssertEqual(wrapperError.code, policyError.code)
-        default:
-            XCTFail("Missing audio unit should fail for wrapper and policy")
-        }
-    }
-}
-
-private final class RecordingAudioManagerDelegate: IRAudioManagerDelegate {
-    private(set) var renderCallCount = 0
-
-    func audioManager(_ audioManager: IRAudioManager,
-                      outputData: UnsafeMutablePointer<Float>,
-                      numberOfFrames: UInt32,
-                      numberOfChannels: UInt32) {
-        renderCallCount += 1
-    }
-}
-
-private final class FillingAudioManagerDelegate: IRAudioManagerDelegate {
-    private(set) var renderCallCount = 0
-
-    func audioManager(_ audioManager: IRAudioManager,
-                      outputData: UnsafeMutablePointer<Float>,
-                      numberOfFrames: UInt32,
-                      numberOfChannels: UInt32) {
-        renderCallCount += 1
-        let sampleCount = Int(numberOfFrames) * Int(numberOfChannels)
-        guard sampleCount > 0 else { return }
-        for index in 0..<sampleCount {
-            outputData[index] = Float((index % Int(numberOfChannels)) + 1) / 8.0
-        }
+        try body(list.unsafeMutablePointer)
     }
 }

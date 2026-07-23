@@ -185,6 +185,10 @@ class IRFFAudioDecoder {
         return frameQueue.getFrameSync() as? IRFFAudioFrame
     }
 
+    func getFrameAsync() -> IRFFAudioFrame? {
+        return frameQueue.getFrameAsync() as? IRFFAudioFrame
+    }
+
     func putPacket(_ packet: AVPacket) -> Int {
         var packet = packet
         if !Self.shouldDecodePacket(hasData: packet.data != nil) { return 0 }

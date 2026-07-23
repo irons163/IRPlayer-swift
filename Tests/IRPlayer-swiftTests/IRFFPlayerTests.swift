@@ -166,10 +166,12 @@ final class IRFFPlayerTests: XCTestCase {
         var output = [Float](repeating: 7, count: 4)
 
         output.withUnsafeMutableBufferPointer { buffer in
-            ffPlayer.audioManager(IRAudioManager(),
-                                  outputData: buffer.baseAddress!,
-                                  numberOfFrames: 2,
-                                  numberOfChannels: 2)
+            ffPlayer.audioRenderer.audioManager(
+                makeTestAudioManager(),
+                outputData: buffer.baseAddress!,
+                numberOfFrames: 2,
+                numberOfChannels: 2
+            )
         }
 
         XCTAssertEqual(output, [0, 0, 0, 0])
@@ -181,10 +183,12 @@ final class IRFFPlayerTests: XCTestCase {
         var output = [Float](repeating: -3, count: 4)
 
         output.withUnsafeMutableBufferPointer { buffer in
-            ffPlayer.audioManager(IRAudioManager(),
-                                  outputData: buffer.baseAddress!,
-                                  numberOfFrames: 2,
-                                  numberOfChannels: 2)
+            ffPlayer.audioRenderer.audioManager(
+                makeTestAudioManager(),
+                outputData: buffer.baseAddress!,
+                numberOfFrames: 2,
+                numberOfChannels: 2
+            )
         }
 
         XCTAssertEqual(output, [0, 0, 0, 0])
@@ -198,10 +202,12 @@ final class IRFFPlayerTests: XCTestCase {
         var output = [Float](repeating: 4, count: 4)
 
         output.withUnsafeMutableBufferPointer { buffer in
-            ffPlayer.audioManager(IRAudioManager(),
-                                  outputData: buffer.baseAddress!,
-                                  numberOfFrames: 2,
-                                  numberOfChannels: 2)
+            ffPlayer.audioRenderer.audioManager(
+                makeTestAudioManager(),
+                outputData: buffer.baseAddress!,
+                numberOfFrames: 2,
+                numberOfChannels: 2
+            )
         }
 
         XCTAssertNil(ffPlayer.currentAudioFrame)
@@ -218,10 +224,12 @@ final class IRFFPlayerTests: XCTestCase {
         var output = [Float](repeating: 4, count: 4)
 
         output.withUnsafeMutableBufferPointer { buffer in
-            ffPlayer.audioManager(IRAudioManager(),
-                                  outputData: buffer.baseAddress!,
-                                  numberOfFrames: 2,
-                                  numberOfChannels: 2)
+            ffPlayer.audioRenderer.audioManager(
+                makeTestAudioManager(),
+                outputData: buffer.baseAddress!,
+                numberOfFrames: 2,
+                numberOfChannels: 2
+            )
         }
 
         XCTAssertNil(ffPlayer.currentAudioFrame)
@@ -239,10 +247,12 @@ final class IRFFPlayerTests: XCTestCase {
         var output = [Float](repeating: 0, count: 2)
 
         output.withUnsafeMutableBufferPointer { buffer in
-            ffPlayer.audioManager(IRAudioManager(),
-                                  outputData: buffer.baseAddress!,
-                                  numberOfFrames: 1,
-                                  numberOfChannels: 2)
+            ffPlayer.audioRenderer.audioManager(
+                makeTestAudioManager(),
+                outputData: buffer.baseAddress!,
+                numberOfFrames: 1,
+                numberOfChannels: 2
+            )
         }
 
         XCTAssertEqual(decoder.fetchCount, 1)
@@ -259,10 +269,12 @@ final class IRFFPlayerTests: XCTestCase {
         var output = [Float](repeating: 0, count: 2)
 
         output.withUnsafeMutableBufferPointer { buffer in
-            ffPlayer.audioManager(IRAudioManager(),
-                                  outputData: buffer.baseAddress!,
-                                  numberOfFrames: 1,
-                                  numberOfChannels: 2)
+            ffPlayer.audioRenderer.audioManager(
+                makeTestAudioManager(),
+                outputData: buffer.baseAddress!,
+                numberOfFrames: 1,
+                numberOfChannels: 2
+            )
         }
 
         XCTAssertEqual(output, [1, 2])
@@ -279,10 +291,12 @@ final class IRFFPlayerTests: XCTestCase {
         var output = [Float](repeating: 0, count: 4)
 
         output.withUnsafeMutableBufferPointer { buffer in
-            ffPlayer.audioManager(IRAudioManager(),
-                                  outputData: buffer.baseAddress!,
-                                  numberOfFrames: 2,
-                                  numberOfChannels: 2)
+            ffPlayer.audioRenderer.audioManager(
+                makeTestAudioManager(),
+                outputData: buffer.baseAddress!,
+                numberOfFrames: 2,
+                numberOfChannels: 2
+            )
         }
 
         XCTAssertEqual(output, [3, 4, 0, 0])
@@ -295,6 +309,36 @@ final class IRFFPlayerTests: XCTestCase {
 
         XCTAssertEqual(ffPlayer.samplingRate, 0)
         XCTAssertEqual(ffPlayer.numberOfChannels, 0)
+    }
+
+    func testFFPlayerUsesDedicatedRendererAndStopsItBeforeDecoderClose() {
+        let driver = TestAudioGraphDriver()
+        let manager = makeTestAudioManager(driver: driver)
+        let abstractPlayer = IRPlayerImp.player()
+        abstractPlayer.manager = manager
+        let ffPlayer = IRFFPlayer.player(with: abstractPlayer)
+        var closeObservations: [String] = []
+        let decoder = CloseObservingFFDecoder {
+            closeObservations.append("decoder")
+            XCTAssertFalse(manager.playing)
+            XCTAssertFalse(ffPlayer.audioRenderer.diagnostics.enabled)
+            XCTAssertFalse(ffPlayer.audioRenderer.diagnostics.hasSource)
+            XCTAssertEqual(driver.stopCount, 1)
+        }
+        ffPlayer.decoder = decoder
+        ffPlayer.playing = true
+        ffPlayer.state = .playing
+
+        XCTAssertTrue(manager.delegate === ffPlayer.audioRenderer)
+        XCTAssertTrue(manager.playing)
+
+        ffPlayer.stop()
+
+        XCTAssertEqual(closeObservations, ["decoder"])
+        XCTAssertFalse(manager.playing)
+        XCTAssertNil(manager.delegate)
+        XCTAssertNil(ffPlayer.decoder)
+        withExtendedLifetime(abstractPlayer) {}
     }
 
     func testPlaybackCommandsUpdateStateWithoutDecoder() {
@@ -423,21 +467,12 @@ final class IRFFPlayerTests: XCTestCase {
             )
         )
         XCTAssertEqual(
-            IRFFPlayer.audioSilenceByteCount(numberOfFrames: 10, numberOfChannels: 2),
-            IRFFPlayerPlaybackPolicy.audioSilenceByteCount(numberOfFrames: 10, numberOfChannels: 2)
-        )
-
-        XCTAssertEqual(
-            IRFFPlayer.audioCopyPlan(
-                frameSize: 128,
-                outputOffset: 0,
-                remainingFrames: 10,
+            IRFFPlayer.audioSilenceByteCount(
+                numberOfFrames: 10,
                 numberOfChannels: 2
             ),
-            IRFFPlayerPlaybackPolicy.audioCopyPlan(
-                frameSize: 128,
-                outputOffset: 0,
-                remainingFrames: 10,
+            IRFFAudioRenderer.silenceByteCount(
+                numberOfFrames: 10,
                 numberOfChannels: 2
             )
         )
@@ -584,5 +619,26 @@ private final class AudioFrameFFDecoder: IRFFDecoder {
     override func fetchAudioFrame() -> IRFFAudioFrame? {
         fetchCount += 1
         return frame
+    }
+}
+
+private final class CloseObservingFFDecoder: IRFFDecoder {
+    private let onClose: () -> Void
+    private var didClose = false
+
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+        super.init(
+            contentURL: URL(fileURLWithPath: "/tmp/close-order.mp4"),
+            videoFormat: .mpeg4,
+            videoOutput: nil,
+            audioOutput: nil
+        )
+    }
+
+    override func closeFile() {
+        guard !didClose else { return }
+        didClose = true
+        onClose()
     }
 }

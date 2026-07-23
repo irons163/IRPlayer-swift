@@ -1,13 +1,5 @@
-//
-//  IRAudioManager.swift
-//  IRPlayer-swift
-//
-//  Created by irons on 2024/7/26.
-//
-
-import Foundation
 import AVFoundation
-import Accelerate
+import Foundation
 
 enum IRAudioManagerInterruptionType: UInt {
     case begin
@@ -24,576 +16,378 @@ enum IRAudioManagerRouteChangeReason: UInt {
 }
 
 protocol IRAudioManagerDelegate: AnyObject {
-    func audioManager(_ audioManager: IRAudioManager, outputData: UnsafeMutablePointer<Float>, numberOfFrames: UInt32, numberOfChannels: UInt32)
+    func audioManager(
+        _ audioManager: IRAudioManager,
+        outputData: UnsafeMutablePointer<Float>,
+        numberOfFrames: UInt32,
+        numberOfChannels: UInt32
+    )
 }
 
-class IRAudioManager: NSObject {
+typealias IRAudioManagerInterruptionHandler = (
+    _ handlerTarget: AnyObject,
+    _ audioManager: IRAudioManager,
+    _ type: IRAudioManagerInterruptionType,
+    _ option: IRAudioManagerInterruptionOption
+) -> Void
 
-//    static let shared = IRAudioManager()
+typealias IRAudioManagerRouteChangeHandler = (
+    _ handlerTarget: AnyObject,
+    _ audioManager: IRAudioManager,
+    _ reason: IRAudioManagerRouteChangeReason
+) -> Void
 
-    private var _outData: UnsafeMutablePointer<Float>?
-    private var outputContext: IRAudioOutputContext?
+struct IRAudioHardwareInfo {
+    let sampleRate: () -> Float64
+    let channelCount: () -> UInt32
 
-    private weak var handlerTarget: AnyObject?
-    private var interruptionHandler: IRAudioManagerInterruptionHandler?
-    private var routeChangeHandler: IRAudioManagerRouteChangeHandler?
-
-    private var registered = false
-
-    #if os(macOS)
-    private var audioSession = IRMacAudioSession.shared
-    #else
-    private var audioSession = AVAudioSession.sharedInstance()
-    #endif
-
-    private var error: NSError?
-    private var warning: NSError?
-
-    private var _playing = false
-    weak var delegate: IRAudioManagerDelegate?
-
-    var volume: Float {
-        get {
-            guard registered,
-                  let audioUnit = outputContext?.mixerNodeContext.audioUnit else { return 1.0 }
-            var volume: AudioUnitParameterValue = 1.0
-            let param: AudioUnitParameterID = kMultiChannelMixerParam_Volume
-            let result = AudioUnitGetParameter(audioUnit,
-                                               param,
-                                               kAudioUnitScope_Input,
-                                               0,
-                                               &volume)
-            warning = checkError(result, domain: "graph get mixer volume error")
-            if warning != nil {
-                delegateWarningCallback()
+    static var system: IRAudioHardwareInfo {
+        #if os(macOS)
+        return IRAudioHardwareInfo(
+            sampleRate: { 0 },
+            channelCount: { 0 }
+        )
+        #else
+        let session = AVAudioSession.sharedInstance()
+        return IRAudioHardwareInfo(
+            sampleRate: {
+                let value = session.sampleRate
+                return value.isFinite && value > 0 ? value : 0
+            },
+            channelCount: {
+                let value = session.outputNumberOfChannels
+                guard value > 0, value <= Int(UInt32.max) else { return 0 }
+                return UInt32(value)
             }
-            return volume
-        }
-        set {
-            guard registered,
-                  let audioUnit = outputContext?.mixerNodeContext.audioUnit else { return }
-            let param: AudioUnitParameterID = kMultiChannelMixerParam_Volume
-            let result = AudioUnitSetParameter(audioUnit,
-                                               param,
-                                               kAudioUnitScope_Input,
-                                               0,
-                                               newValue,
-                                               0)
-            warning = checkError(result, domain: "graph set mixer volume error")
-            if warning != nil {
-                delegateWarningCallback()
-            }
-        }
-    }
-
-    var playing: Bool {
-        return _playing
-    }
-
-    var samplingRate: Float64 {
-        let number = outputContext?.commonFormat.mSampleRate ?? 0
-        return number > 0 ? number : Float64(audioSession.sampleRate)
-    }
-
-    var numberOfChannels: UInt32 {
-        let number = outputContext?.commonFormat.mChannelsPerFrame ?? 0
-        return number > 0 ? number : UInt32(audioSession.outputNumberOfChannels)
-    }
-
-    override init() {
-        super.init()
-        _outData = UnsafeMutablePointer<Float>.allocate(capacity: IRAudioManager.maxFrameSize * IRAudioManager.maxChan)
-
-        #if !os(macOS)
-        NotificationCenter.default.addObserver(self, selector: #selector(audioSessionInterruptionHandler(_:)), name: AVAudioSession.interruptionNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(audioSessionRouteChangeHandler(_:)), name: AVAudioSession.routeChangeNotification, object: nil)
+        )
         #endif
+    }
+}
+
+final class IRAudioEventRouter: @unchecked Sendable {
+    private final class Binding {
+        weak var target: AnyObject?
+        let interruption: IRAudioManagerInterruptionHandler
+        let routeChange: IRAudioManagerRouteChangeHandler
+
+        init(
+            target: AnyObject,
+            interruption: @escaping IRAudioManagerInterruptionHandler,
+            routeChange: @escaping IRAudioManagerRouteChangeHandler
+        ) {
+            self.target = target
+            self.interruption = interruption
+            self.routeChange = routeChange
+        }
+    }
+
+    private let lock = NSLock()
+    private var binding: Binding?
+
+    func setTarget(
+        _ target: AnyObject,
+        interruption: @escaping IRAudioManagerInterruptionHandler,
+        routeChange: @escaping IRAudioManagerRouteChangeHandler
+    ) {
+        lock.lock()
+        binding = Binding(
+            target: target,
+            interruption: interruption,
+            routeChange: routeChange
+        )
+        lock.unlock()
+    }
+
+    func removeTarget(_ target: AnyObject) {
+        lock.lock()
+        if binding?.target === target || binding?.target == nil {
+            binding = nil
+        }
+        lock.unlock()
+    }
+
+    func removeAll() {
+        lock.lock()
+        binding = nil
+        lock.unlock()
+    }
+
+    func deliver(
+        _ event: (
+            type: IRAudioManagerInterruptionType,
+            option: IRAudioManagerInterruptionOption
+        ),
+        manager: IRAudioManager
+    ) {
+        lock.lock()
+        let delivery = binding.flatMap { binding -> (
+            AnyObject,
+            IRAudioManagerInterruptionHandler
+        )? in
+            guard let target = binding.target else {
+                self.binding = nil
+                return nil
+            }
+            return (target, binding.interruption)
+        }
+        lock.unlock()
+        if let (target, handler) = delivery {
+            handler(target, manager, event.type, event.option)
+        }
+    }
+
+    func deliver(
+        _ reason: IRAudioManagerRouteChangeReason,
+        manager: IRAudioManager
+    ) {
+        lock.lock()
+        let delivery = binding.flatMap { binding -> (
+            AnyObject,
+            IRAudioManagerRouteChangeHandler
+        )? in
+            guard let target = binding.target else {
+                self.binding = nil
+                return nil
+            }
+            return (target, binding.routeChange)
+        }
+        lock.unlock()
+        if let (target, handler) = delivery {
+            handler(target, manager, reason)
+        }
+    }
+}
+
+final class IRAudioManager: NSObject {
+    let graphSession: IRAudioGraphSession
+
+    private let notificationCenter: NotificationCenter
+    private let hardwareInfo: IRAudioHardwareInfo
+    private let eventRouter = IRAudioEventRouter()
+    private var observerTokens: [NSObjectProtocol] = []
+
+    override convenience init() {
+        self.init(
+            graphSession: IRAudioGraphSession(),
+            hardwareInfo: .system,
+            notificationCenter: .default
+        )
+    }
+
+    init(
+        graphSession: IRAudioGraphSession,
+        hardwareInfo: IRAudioHardwareInfo,
+        notificationCenter: NotificationCenter
+    ) {
+        self.graphSession = graphSession
+        self.hardwareInfo = hardwareInfo
+        self.notificationCenter = notificationCenter
+        super.init()
+        installObservers()
     }
 
     deinit {
-        unregisterAudioSession()
-        _outData?.deallocate()
-        NotificationCenter.default.removeObserver(self)
+        observerTokens.forEach(notificationCenter.removeObserver)
+        eventRouter.removeAll()
+        graphSession.close()
     }
 
-    func setHandlerTarget(_ handlerTarget: AnyObject, interruption: @escaping IRAudioManagerInterruptionHandler, routeChange: @escaping IRAudioManagerRouteChangeHandler) {
-        self.handlerTarget = handlerTarget
-        self.interruptionHandler = interruption
-        self.routeChangeHandler = routeChange
+    var diagnostics: IRAudioGraphSession.Diagnostics {
+        graphSession.diagnostics
+    }
+
+    var volume: Float {
+        get { graphSession.volume() }
+        set { graphSession.setVolume(newValue) }
+    }
+
+    var playing: Bool {
+        graphSession.isRunning
+    }
+
+    var delegate: IRAudioManagerDelegate? {
+        graphSession.renderContext.currentDelegate
+    }
+
+    var samplingRate: Float64 {
+        let graphRate = graphSession.samplingRate
+        if graphRate.isFinite, graphRate > 0 {
+            return graphRate
+        }
+        return hardwareInfo.sampleRate()
+    }
+
+    var numberOfChannels: UInt32 {
+        let graphChannels = graphSession.numberOfChannels
+        return graphChannels > 0 ? graphChannels : hardwareInfo.channelCount()
+    }
+
+    func setHandlerTarget(
+        _ handlerTarget: AnyObject,
+        interruption: @escaping IRAudioManagerInterruptionHandler,
+        routeChange: @escaping IRAudioManagerRouteChangeHandler
+    ) {
+        eventRouter.setTarget(
+            handlerTarget,
+            interruption: interruption,
+            routeChange: routeChange
+        )
     }
 
     func removeHandlerTarget(_ handlerTarget: AnyObject) {
-        if self.handlerTarget === handlerTarget || self.handlerTarget == nil {
-            self.handlerTarget = nil
-            self.interruptionHandler = nil
-            self.routeChangeHandler = nil
-        }
+        eventRouter.removeTarget(handlerTarget)
     }
 
-    @objc private func audioSessionInterruptionHandler(_ notification: Notification) {
-        guard let handlerTarget = handlerTarget, let interruptionHandler = interruptionHandler else { return }
-        guard let event = Self.interruptionEvent(
-            typeValue: notification.userInfo?[AVAudioSessionInterruptionTypeKey],
-            optionValue: notification.userInfo?[AVAudioSessionInterruptionOptionKey]
-        ) else { return }
-        interruptionHandler(handlerTarget, self, event.type, event.option)
-    }
-
-    @objc private func audioSessionRouteChangeHandler(_ notification: Notification) {
-        guard let handlerTarget = handlerTarget, let routeChangeHandler = routeChangeHandler else { return }
-        guard let reason = Self.routeChangeReason(from: notification.userInfo?[AVAudioSessionRouteChangeReasonKey]) else { return }
-        routeChangeHandler(handlerTarget, self, reason)
-    }
-
-    static func unsignedInteger(from value: Any?) -> UInt? {
-        return IRAudioManagerPolicy.unsignedInteger(from: value)
-    }
-
-    static func interruptionEvent(typeValue: Any?,
-                                  optionValue: Any?) -> (type: IRAudioManagerInterruptionType,
-                                                         option: IRAudioManagerInterruptionOption)? {
-        return IRAudioManagerPolicy.interruptionEvent(typeValue: typeValue, optionValue: optionValue)
-    }
-
-    static func routeChangeReason(from value: Any?) -> IRAudioManagerRouteChangeReason? {
-        return IRAudioManagerPolicy.routeChangeReason(from: value)
-    }
-
+    @discardableResult
     func registerAudioSession() -> Bool {
-        return registerAudioSession(setupAudioUnit)
-    }
-
-    func registerAudioSession(_ setupAudioUnit: () -> Bool) -> Bool {
-        if !registered {
-            if setupAudioUnit() {
-                registered = true
-            }
-        }
-        return registered
+        graphSession.prepare(
+            preferredSampleRate: hardwareInfo.sampleRate()
+        )
     }
 
     func unregisterAudioSession() {
-        if registered, let graph = outputContext?.graph {
-            var result = AUGraphUninitialize(graph)
-            warning = checkError(result, domain: "graph uninitialize error")
-            if warning != nil {
-                delegateWarningCallback()
-            }
-            result = AUGraphClose(graph)
-            warning = checkError(result, domain: "graph close error")
-            if warning != nil {
-                delegateWarningCallback()
-            }
-            result = DisposeAUGraph(graph)
-            warning = checkError(result, domain: "graph dispose error")
-            if warning != nil {
-                delegateWarningCallback()
-            }
-            outputContext = nil
-            registered = false
-        }
+        graphSession.reset()
     }
 
-    private func setupAudioUnit() -> Bool {
-        var result: OSStatus
-        var outputContext = IRAudioOutputContext()
-        defer {
-            self.outputContext = outputContext
-        }
-
-        result = NewAUGraph(&outputContext.graph)
-        error = checkError(result, domain: "create graph error")
-        guard error == nil else {
-            delegateErrorCallback()
-            return false
-        }
-        let graph: AUGraph
-        switch Self.requiredAudioGraph(outputContext.graph, domain: "create graph error") {
-        case .success(let audioGraph):
-            graph = audioGraph
-        case .failure(let missingGraphError):
-            error = missingGraphError
-            delegateErrorCallback()
-            return false
-        }
-
-        var converterDescription = AudioComponentDescription(componentType: kAudioUnitType_FormatConverter,
-                                                             componentSubType: kAudioUnitSubType_AUConverter,
-                                                             componentManufacturer: kAudioUnitManufacturer_Apple,
-                                                             componentFlags: 0,
-                                                             componentFlagsMask: 0)
-        result = AUGraphAddNode(graph, &converterDescription, &outputContext.converterNodeContext.node)
-        error = checkError(result, domain: "graph add converter node error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        var mixerDescription = AudioComponentDescription(componentType: kAudioUnitType_Mixer,
-                                                         componentSubType: kAudioUnitSubType_MultiChannelMixer,
-                                                         componentManufacturer: kAudioUnitManufacturer_Apple,
-                                                         componentFlags: 0,
-                                                         componentFlagsMask: 0)
-        result = AUGraphAddNode(graph, &mixerDescription, &outputContext.mixerNodeContext.node)
-        error = checkError(result, domain: "graph add mixer node error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        var outputDescription = AudioComponentDescription(componentType: kAudioUnitType_Output,
-                                                          componentSubType: kAudioUnitSubType_RemoteIO,
-                                                          componentManufacturer: kAudioUnitManufacturer_Apple,
-                                                          componentFlags: 0,
-                                                          componentFlagsMask: 0)
-        result = AUGraphAddNode(graph, &outputDescription, &outputContext.outputNodeContext.node)
-        error = checkError(result, domain: "graph add output node error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AUGraphOpen(graph)
-        error = checkError(result, domain: "open graph error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AUGraphConnectNodeInput(graph,
-                                         outputContext.converterNodeContext.node,
-                                         0,
-                                         outputContext.mixerNodeContext.node,
-                                         0)
-        error = checkError(result, domain: "graph connect converter and mixer error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AUGraphConnectNodeInput(graph,
-                                         outputContext.mixerNodeContext.node,
-                                         0,
-                                         outputContext.outputNodeContext.node,
-                                         0)
-        error = checkError(result, domain: "graph connect mixer and output error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AUGraphNodeInfo(graph,
-                                 outputContext.converterNodeContext.node,
-                                 &converterDescription,
-                                 &outputContext.converterNodeContext.audioUnit)
-        error = checkError(result, domain: "graph get converter audio unit error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AUGraphNodeInfo(graph,
-                                 outputContext.mixerNodeContext.node,
-                                 &mixerDescription,
-                                 &outputContext.mixerNodeContext.audioUnit)
-        error = checkError(result, domain: "graph get mixer audio unit error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AUGraphNodeInfo(graph,
-                                 outputContext.outputNodeContext.node,
-                                 &outputDescription,
-                                 &outputContext.outputNodeContext.audioUnit)
-        error = checkError(result, domain: "graph get output audio unit error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        let converterAudioUnit: AudioUnit
-        switch Self.requiredAudioUnit(outputContext.converterNodeContext.audioUnit, domain: "graph get converter audio unit error") {
-        case .success(let audioUnit):
-            converterAudioUnit = audioUnit
-        case .failure(let missingAudioUnitError):
-            error = missingAudioUnitError
-            delegateErrorCallback()
-            return false
-        }
-
-        let mixerAudioUnit: AudioUnit
-        switch Self.requiredAudioUnit(outputContext.mixerNodeContext.audioUnit, domain: "graph get mixer audio unit error") {
-        case .success(let audioUnit):
-            mixerAudioUnit = audioUnit
-        case .failure(let missingAudioUnitError):
-            error = missingAudioUnitError
-            delegateErrorCallback()
-            return false
-        }
-
-        let outputAudioUnit: AudioUnit
-        switch Self.requiredAudioUnit(outputContext.outputNodeContext.audioUnit, domain: "graph get output audio unit error") {
-        case .success(let audioUnit):
-            outputAudioUnit = audioUnit
-        case .failure(let missingAudioUnitError):
-            error = missingAudioUnitError
-            delegateErrorCallback()
-            return false
-        }
-
-        var converterCallback = AURenderCallbackStruct(inputProc: renderCallback,
-                                                       inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()))
-        result = AUGraphSetNodeInputCallback(graph,
-                                             outputContext.converterNodeContext.node,
-                                             0,
-                                             &converterCallback)
-        error = checkError(result, domain: "graph add converter input callback error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        var audioStreamBasicDescriptionSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
-        result = AudioUnitGetProperty(outputAudioUnit,
-                                      kAudioUnitProperty_StreamFormat,
-                                      kAudioUnitScope_Input, 0,
-                                      &outputContext.commonFormat,
-                                      &audioStreamBasicDescriptionSize)
-        warning = checkError(result, domain: "get hardware output stream format error")
-        if warning != nil {
-            delegateWarningCallback()
-        } else {
-            if audioSession.sampleRate != outputContext.commonFormat.mSampleRate {
-                outputContext.commonFormat.mSampleRate = audioSession.sampleRate
-                result = AudioUnitSetProperty(outputAudioUnit,
-                                              kAudioUnitProperty_StreamFormat,
-                                              kAudioUnitScope_Input,
-                                              0,
-                                              &outputContext.commonFormat,
-                                              audioStreamBasicDescriptionSize)
-                warning = checkError(result, domain: "set hardware output stream format error")
-                if warning != nil {
-                    delegateWarningCallback()
-                }
-            }
-        }
-
-        result = AudioUnitSetProperty(converterAudioUnit,
-                                      kAudioUnitProperty_StreamFormat,
-                                      kAudioUnitScope_Input,
-                                      0,
-                                      &outputContext.commonFormat,
-                                      audioStreamBasicDescriptionSize)
-        error = checkError(result, domain: "graph set converter input format error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AudioUnitSetProperty(converterAudioUnit,
-                                      kAudioUnitProperty_StreamFormat,
-                                      kAudioUnitScope_Output,
-                                      0,
-                                      &outputContext.commonFormat,
-                                      audioStreamBasicDescriptionSize)
-        error = checkError(result, domain: "graph set converter output format error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AudioUnitSetProperty(mixerAudioUnit,
-                                      kAudioUnitProperty_StreamFormat,
-                                      kAudioUnitScope_Input,
-                                      0,
-                                      &outputContext.commonFormat,
-                                      audioStreamBasicDescriptionSize)
-        error = checkError(result, domain: "graph set mixer input format error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AudioUnitSetProperty(mixerAudioUnit,
-                                      kAudioUnitProperty_StreamFormat,
-                                      kAudioUnitScope_Output,
-                                      0,
-                                      &outputContext.commonFormat,
-                                      audioStreamBasicDescriptionSize)
-        error = checkError(result, domain: "graph set mixer output format error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        result = AudioUnitSetProperty(mixerAudioUnit,
-                                      kAudioUnitProperty_MaximumFramesPerSlice,
-                                      kAudioUnitScope_Global,
-                                      0,
-                                      &IRAudioManager.maxFrameSize,
-                                      UInt32(MemoryLayout.size(ofValue: IRAudioManager.maxFrameSize)))
-        warning = checkError(result, domain: "graph set mixer max frames per slice size error")
-        if warning != nil {
-            delegateWarningCallback()
-        }
-
-        result = AUGraphInitialize(graph)
-        error = checkError(result, domain: "graph initialize error")
-        if error != nil {
-            delegateErrorCallback()
-            return false
-        }
-
-        return true
-    }
-
-    func renderFrames(_ numberOfFrames: UInt32, ioData: UnsafeMutablePointer<AudioBufferList>?) -> OSStatus {
-        guard let ioData = ioData else {
-            return noErr
-        }
-
-        let ioBuffers = UnsafeMutableAudioBufferListPointer(ioData)
-
-        for buffer in ioBuffers {
-            guard let mData = buffer.mData else { continue }
-            memset(mData, 0, Int(buffer.mDataByteSize))
-        }
-
-        if playing, let delegate = delegate {
-            guard let outData = _outData, let outputContext = outputContext else {
-                return noErr
-            }
-
-            let outputChannelCount = numberOfChannels
-            guard let sampleCount = Self.renderSampleCount(numberOfFrames: numberOfFrames,
-                                                           numberOfChannels: outputChannelCount,
-                                                           maximumSampleCount: Self.maxOutputSampleCount) else {
-                return noErr
-            }
-
-            delegate.audioManager(self, outputData: outData, numberOfFrames: numberOfFrames, numberOfChannels: outputChannelCount)
-
-            let numBytesPerSample = outputContext.commonFormat.mBitsPerChannel / 8
-            if numBytesPerSample == 4 {
-                var zero: Float = 0.0
-                for buffer in ioBuffers {
-                    guard let mData = buffer.mData else { continue }
-                    let numChannels = buffer.mNumberChannels
-                    for j in 0..<Int(numChannels) {
-                        vDSP_vsadd(outData + j,
-                                   vDSP_Stride(outputChannelCount),
-                                   &zero,
-                                   mData.assumingMemoryBound(to: Float.self),
-                                   vDSP_Stride(numChannels),
-                                   vDSP_Length(numberOfFrames))
-                    }
-                }
-            } else if numBytesPerSample == 2 {
-                var scale: Float = Float(INT16_MAX)
-                vDSP_vsmul(outData, 1, &scale, outData, 1, vDSP_Length(sampleCount))
-
-                for buffer in ioBuffers {
-                    guard let mData = buffer.mData else { continue }
-                    let numChannels = buffer.mNumberChannels
-                    for j in 0..<Int(numChannels) {
-                        vDSP_vfix16(outData + j,
-                                    vDSP_Stride(outputChannelCount),
-                                    mData.assumingMemoryBound(to: Int16.self) + j,
-                                    vDSP_Stride(numChannels),
-                                    vDSP_Length(numberOfFrames))
-                    }
-                }
-            }
-        }
-
-        return noErr
-    }
-
-    func play(withDelegate delegate: IRAudioManagerDelegate) {
-        self.delegate = delegate
-        play()
-    }
-
-    private func play() {
-        guard !_playing,
-              let graph = outputContext?.graph else { return }
-        if registerAudioSession() {
-            let result = AUGraphStart(graph)
-            error = checkError(result, domain: "graph start error")
-            if error != nil {
-                delegateErrorCallback()
-            } else {
-                _playing = true
-            }
-        }
+    @discardableResult
+    func play(withDelegate delegate: IRAudioManagerDelegate) -> Bool {
+        graphSession.start(
+            owner: self,
+            delegate: delegate,
+            preferredSampleRate: hardwareInfo.sampleRate()
+        )
     }
 
     func pause() {
-        guard _playing,
-              let graph = outputContext?.graph else { return }
-        let result = AUGraphStop(graph)
-        error = checkError(result, domain: "graph stop error")
-        if error != nil {
-            delegateErrorCallback()
+        graphSession.pause()
+    }
+
+    func renderFrames(
+        _ numberOfFrames: UInt32,
+        ioData: UnsafeMutablePointer<AudioBufferList>?
+    ) -> OSStatus {
+        graphSession.renderFrames(numberOfFrames, ioData: ioData)
+    }
+
+    static func unsignedInteger(from value: Any?) -> UInt? {
+        if let value = value as? NSNumber {
+            guard IRPayloadNumber.isInteger(value),
+                  value.int64Value >= 0 else {
+                return nil
+            }
+            return UInt(value.uint64Value)
         }
-        _playing = false
+        if let value = value as? UInt {
+            return value
+        }
+        if let value = value as? Int, value >= 0 {
+            return UInt(value)
+        }
+        return nil
     }
 
-    private func delegateErrorCallback() {
+    static func interruptionEvent(
+        typeValue: Any?,
+        optionValue: Any?
+    ) -> (
+        type: IRAudioManagerInterruptionType,
+        option: IRAudioManagerInterruptionOption
+    )? {
+        guard let rawType = unsignedInteger(from: typeValue),
+              let avType = AVAudioSession.InterruptionType(
+                rawValue: rawType
+              ) else {
+            return nil
+        }
+
+        let type: IRAudioManagerInterruptionType =
+            avType == .ended ? .ended : .begin
+        let option: IRAudioManagerInterruptionOption
+        if let rawOption = unsignedInteger(from: optionValue),
+           rawOption ==
+            AVAudioSession.InterruptionOptions.shouldResume.rawValue {
+            option = .shouldResume
+        } else {
+            option = .none
+        }
+        return (type, option)
     }
 
-    private func delegateWarningCallback() {
+    static func routeChangeReason(
+        from value: Any?
+    ) -> IRAudioManagerRouteChangeReason? {
+        guard let rawReason = unsignedInteger(from: value),
+              let reason = AVAudioSession.RouteChangeReason(
+                rawValue: rawReason
+              ),
+              reason == .oldDeviceUnavailable else {
+            return nil
+        }
+        return .oldDeviceUnavailable
     }
 
-    private func checkError(_ result: OSStatus, domain: String) -> NSError? {
-        return result == noErr ? nil : NSError(domain: domain, code: Int(result), userInfo: nil)
+    static func renderSampleCount(
+        numberOfFrames: UInt32,
+        numberOfChannels: UInt32
+    ) -> Int? {
+        IRAudioRenderContext.sampleCount(
+            numberOfFrames: numberOfFrames,
+            numberOfChannels: numberOfChannels
+        )
     }
 
-    static func requiredAudioGraph(_ graph: AUGraph?, domain: String) -> Result<AUGraph, NSError> {
-        return IRAudioManagerPolicy.requiredAudioGraph(graph, domain: domain)
-    }
-
-    static func requiredAudioUnit(_ audioUnit: AudioUnit?, domain: String) -> Result<AudioUnit, NSError> {
-        return IRAudioManagerPolicy.requiredAudioUnit(audioUnit, domain: domain)
-    }
-
-    static func renderSampleCount(numberOfFrames: UInt32, numberOfChannels: UInt32) -> Int? {
-        return IRAudioManagerPolicy.renderSampleCount(numberOfFrames: numberOfFrames, numberOfChannels: numberOfChannels)
-    }
-
-    static func renderSampleCount(numberOfFrames: UInt32,
-                                  numberOfChannels: UInt32,
-                                  maximumSampleCount: Int) -> Int? {
-        return IRAudioManagerPolicy.renderSampleCount(
+    static func renderSampleCount(
+        numberOfFrames: UInt32,
+        numberOfChannels: UInt32,
+        maximumSampleCount: Int
+    ) -> Int? {
+        IRAudioRenderContext.sampleCount(
             numberOfFrames: numberOfFrames,
             numberOfChannels: numberOfChannels,
             maximumSampleCount: maximumSampleCount
         )
     }
 
-    private static var maxFrameSize = 4096
-    private static let maxChan = 2
-    private static var maxOutputSampleCount: Int { maxFrameSize * maxChan }
-}
+    private func installObservers() {
+        #if !os(macOS)
+        observerTokens = [
+            notificationCenter.addObserver(
+                forName: AVAudioSession.interruptionNotification,
+                object: nil,
+                queue: nil
+            ) { [weak self] notification in
+                self?.handleInterruption(notification)
+            },
+            notificationCenter.addObserver(
+                forName: AVAudioSession.routeChangeNotification,
+                object: nil,
+                queue: nil
+            ) { [weak self] notification in
+                self?.handleRouteChange(notification)
+            }
+        ]
+        #endif
+    }
 
-typealias IRAudioManagerInterruptionHandler = (_ handlerTarget: AnyObject, _ audioManager: IRAudioManager, _ type: IRAudioManagerInterruptionType, _ option: IRAudioManagerInterruptionOption) -> Void
-typealias IRAudioManagerRouteChangeHandler = (_ handlerTarget: AnyObject, _ audioManager: IRAudioManager, _ reason: IRAudioManagerRouteChangeReason) -> Void
+    private func handleInterruption(_ notification: Notification) {
+        guard let event = Self.interruptionEvent(
+            typeValue:
+                notification.userInfo?[AVAudioSessionInterruptionTypeKey],
+            optionValue:
+                notification.userInfo?[AVAudioSessionInterruptionOptionKey]
+        ) else {
+            return
+        }
+        eventRouter.deliver(event, manager: self)
+    }
 
-private struct IRAudioNodeContext {
-    var node: AUNode = 0
-    var audioUnit: AudioUnit?
-}
-
-private struct IRAudioOutputContext {
-    var graph: AUGraph? = nil
-    var converterNodeContext = IRAudioNodeContext()
-    var mixerNodeContext = IRAudioNodeContext()
-    var outputNodeContext = IRAudioNodeContext()
-    var commonFormat = AudioStreamBasicDescription()
-}
-
-private func renderCallback(inRefCon: UnsafeMutableRawPointer, ioActionFlags: UnsafeMutablePointer<AudioUnitRenderActionFlags>, inTimeStamp: UnsafePointer<AudioTimeStamp>, inOutputBusNumber: UInt32, inNumberFrames: UInt32, ioData: UnsafeMutablePointer<AudioBufferList>?) -> OSStatus {
-    let audioManager = Unmanaged<IRAudioManager>.fromOpaque(inRefCon).takeUnretainedValue()
-    return audioManager.renderFrames(inNumberFrames, ioData: ioData)
+    private func handleRouteChange(_ notification: Notification) {
+        guard let reason = Self.routeChangeReason(
+            from:
+                notification.userInfo?[AVAudioSessionRouteChangeReasonKey]
+        ) else {
+            return
+        }
+        eventRouter.deliver(reason, manager: self)
+    }
 }

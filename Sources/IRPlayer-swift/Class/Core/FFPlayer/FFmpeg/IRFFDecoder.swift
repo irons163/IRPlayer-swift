@@ -823,11 +823,9 @@ protocol IRFFDecoderDelegate: AnyObject {
             ) {
                 return nil
             }
-            if resources.audioDecoder?.isEmpty() ?? true {
+            guard let audioFrame = resources.audioDecoder?.getFrameAsync()
+            else {
                 updateBufferedDurationByAudio()
-                return nil
-            }
-            guard let audioFrame = resources.audioDecoder?.getFrameSync() else {
                 return nil
             }
             currentAudioFrame = audioFrame

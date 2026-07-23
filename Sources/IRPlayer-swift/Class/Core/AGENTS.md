@@ -7,7 +7,7 @@ This directory contains all internal subsystems of the IRPlayer framework.
 | Directory      | Purpose                                                                 |
 |----------------|-------------------------------------------------------------------------|
 | `AVPlayer/`    | Native AVPlayer wrapper (`IRAVPlayer.swift`)                            |
-| `Audio/`       | Audio output manager (`IRAudioManager.swift`)                           |
+| `Audio/`       | Core Audio graph session, driver, render context, and manager facade    |
 | `Config/`      | Rendering configuration models (`IRFisheyeParameter`, `IRMediaParameter`) |
 | `Controller/`  | Input controllers — gestures, scroll, bounce, device shift (ePTZ)      |
 | `Display/`     | Rendering stack — Metal renderer and RenderKit (programs, modes, transforms) |

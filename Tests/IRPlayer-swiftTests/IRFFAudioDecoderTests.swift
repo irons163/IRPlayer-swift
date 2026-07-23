@@ -288,6 +288,7 @@ final class IRFFAudioDecoderTests: XCTestCase {
             decoder.destroy()
 
             XCTAssertNil(decoder.getFrameSync())
+            XCTAssertNil(decoder.getFrameAsync())
         }
 
         XCTAssertGreaterThanOrEqual(delegate.samplingRateRequestCount, 1)
@@ -327,7 +328,7 @@ final class IRFFAudioDecoderTests: XCTestCase {
 
             XCTAssertEqual(decoder.putPacket(packet), 0)
             if !decoder.isEmpty() {
-                decodedFrame = decoder.getFrameSync()
+                decodedFrame = decoder.getFrameAsync()
             }
         }
 
