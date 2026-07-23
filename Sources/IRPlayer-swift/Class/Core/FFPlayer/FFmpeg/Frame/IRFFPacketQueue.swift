@@ -9,14 +9,28 @@ import Foundation
 import IRFFMpeg
 
 class IRFFPacketQueue: NSObject {
-    private(set) var size: Int = 0
-    @objc dynamic private(set) var duration: TimeInterval = 0
-    private(set) var timebase: TimeInterval
-    private var condition = NSCondition()
+    private let timebase: TimeInterval
+    private let condition = NSCondition()
     private var packets = [IRFFPacketQueueEntry]()
+    private var storedSize: Int = 0
+    private var storedDuration: TimeInterval = 0
     private var destroyToken = false
 
+    var size: Int {
+        condition.lock()
+        defer { condition.unlock() }
+        return storedSize
+    }
+
+    @objc dynamic var duration: TimeInterval {
+        condition.lock()
+        defer { condition.unlock() }
+        return storedDuration
+    }
+
     var count: Int {
+        condition.lock()
+        defer { condition.unlock() }
         return packets.count
     }
 
@@ -37,8 +51,8 @@ class IRFFPacketQueue: NSObject {
         }
         let packetDuration = Self.accountedDuration(for: packet, fallbackDuration: duration, timebase: timebase)
         packets.append(IRFFPacketQueueEntry(packet: packet, duration: packetDuration))
-        size += Self.accountedSize(for: packet)
-        self.duration += packetDuration
+        storedSize += Self.accountedSize(for: packet)
+        storedDuration += packetDuration
         condition.signal()
         condition.unlock()
     }
@@ -56,13 +70,13 @@ class IRFFPacketQueue: NSObject {
         }
         let entry = packets.removeFirst()
         packet = entry.packet
-        size -= Self.accountedSize(for: packet)
-        if size < 0 || count <= 0 {
-            size = 0
+        storedSize -= Self.accountedSize(for: packet)
+        if storedSize < 0 || packets.isEmpty {
+            storedSize = 0
         }
-        duration -= entry.duration
-        if duration < 0 || count <= 0 {
-            duration = 0
+        storedDuration -= entry.duration
+        if storedDuration < 0 || packets.isEmpty {
+            storedDuration = 0
         }
         condition.unlock()
         return packet
@@ -87,8 +101,8 @@ class IRFFPacketQueue: NSObject {
             av_packet_unref(&packets[i].packet)
         }
         packets.removeAll()
-        size = 0
-        duration = 0
+        storedSize = 0
+        storedDuration = 0
     }
 
     static func accountedDuration(for packet: AVPacket,

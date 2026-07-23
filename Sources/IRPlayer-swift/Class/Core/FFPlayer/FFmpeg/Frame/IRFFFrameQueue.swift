@@ -9,13 +9,30 @@ import Foundation
 
 class IRFFFrameQueue: NSObject {
     static let maxVideoDuration: TimeInterval = 1.0
-    private(set) var size: Int = 0
-    var count: Int { frames.count }
-    @objc dynamic private(set) var duration: TimeInterval = 0
 
     private var frames: [IRFFFrame] = []
-    private var condition = NSCondition()
+    private let condition = NSCondition()
+    private var storedSize: Int = 0
+    private var storedDuration: TimeInterval = 0
     private var destroyToken = false
+
+    var size: Int {
+        condition.lock()
+        defer { condition.unlock() }
+        return storedSize
+    }
+
+    var count: Int {
+        condition.lock()
+        defer { condition.unlock() }
+        return frames.count
+    }
+
+    @objc dynamic var duration: TimeInterval {
+        condition.lock()
+        defer { condition.unlock() }
+        return storedDuration
+    }
 
     static func frameQueue() -> IRFFFrameQueue {
         return IRFFFrameQueue()
@@ -49,8 +66,8 @@ class IRFFFrameQueue: NSObject {
             return
         }
         frames.append(frame)
-        duration += Self.accountedDuration(for: frame)
-        size += Self.accountedSize(for: frame)
+        storedDuration += Self.accountedDuration(for: frame)
+        storedSize += Self.accountedSize(for: frame)
         condition.signal()
         condition.unlock()
     }
@@ -75,8 +92,8 @@ class IRFFFrameQueue: NSObject {
         if !added {
             frames.insert(frame, at: 0)
         }
-        duration += Self.accountedDuration(for: frame)
-        size += Self.accountedSize(for: frame)
+        storedDuration += Self.accountedDuration(for: frame)
+        storedSize += Self.accountedSize(for: frame)
         condition.signal()
         condition.unlock()
     }
@@ -95,13 +112,13 @@ class IRFFFrameQueue: NSObject {
             }
             if !frames.isEmpty {
                 let frame = frames.removeFirst()
-                duration -= Self.accountedDuration(for: frame)
-                if duration < 0 || count <= 0 {
-                    duration = 0
+                storedDuration -= Self.accountedDuration(for: frame)
+                if storedDuration < 0 || frames.isEmpty {
+                    storedDuration = 0
                 }
-                size -= Self.accountedSize(for: frame)
-                if size <= 0 || count <= 0 {
-                    size = 0
+                storedSize -= Self.accountedSize(for: frame)
+                if storedSize <= 0 || frames.isEmpty {
+                    storedSize = 0
                 }
                 condition.unlock()
                 return frame
@@ -118,13 +135,13 @@ class IRFFFrameQueue: NSObject {
             return nil
         }
         let frame = frames.removeFirst()
-        duration -= Self.accountedDuration(for: frame)
-        if duration < 0 || count <= 0 {
-            duration = 0
+        storedDuration -= Self.accountedDuration(for: frame)
+        if storedDuration < 0 || frames.isEmpty {
+            storedDuration = 0
         }
-        size -= Self.accountedSize(for: frame)
-        if size <= 0 || count <= 0 {
-            size = 0
+        storedSize -= Self.accountedSize(for: frame)
+        if storedSize <= 0 || frames.isEmpty {
+            storedSize = 0
         }
         condition.unlock()
         return frame
@@ -146,7 +163,7 @@ class IRFFFrameQueue: NSObject {
 
     private func flushLocked() {
         frames.removeAll()
-        duration = 0
-        size = 0
+        storedDuration = 0
+        storedSize = 0
     }
 }

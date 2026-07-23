@@ -350,6 +350,54 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertTrue(delegate.errors.isEmpty)
     }
 
+    func testRuntimeConfigurationSupportsConcurrentReadsAndWrites() {
+        var codecContext = AVCodecContext()
+
+        withUnsafeMutablePointer(to: &codecContext) { codecContextPointer in
+            let decoder = IRFFVideoDecoder(
+                codecContext: codecContextPointer,
+                timebase: 0.25,
+                fps: 30,
+                delegate: nil
+            )
+            let workers = DispatchGroup()
+            let workQueue = DispatchQueue(
+                label: "IRFFVideoDecoderTests.runtime",
+                attributes: .concurrent
+            )
+
+            for worker in 0..<4 {
+                workers.enter()
+                workQueue.async {
+                    for iteration in 0..<1_000 {
+                        decoder.paused = (iteration + worker).isMultiple(of: 2)
+                        decoder.endOfFile = (iteration + worker).isMultiple(of: 3)
+                        decoder.videoToolBoxEnable = (iteration + worker).isMultiple(of: 5)
+                        decoder.maxDecodeDuration = TimeInterval(iteration + 1) / 1_000
+                        _ = decoder.paused
+                        _ = decoder.endOfFile
+                        _ = decoder.videoToolBoxEnable
+                        _ = decoder.maxDecodeDuration
+                        _ = decoder.decoding
+                        _ = decoder.error
+                    }
+                    workers.leave()
+                }
+            }
+
+            XCTAssertEqual(workers.wait(timeout: .now() + 5), .success)
+            decoder.paused = false
+            decoder.endOfFile = true
+            decoder.videoToolBoxEnable = false
+            decoder.maxDecodeDuration = 1
+
+            XCTAssertFalse(decoder.paused)
+            XCTAssertTrue(decoder.endOfFile)
+            XCTAssertFalse(decoder.videoToolBoxEnable)
+            XCTAssertEqual(decoder.maxDecodeDuration, 1)
+        }
+    }
+
     func testReleaseDoesNotPrintDebugOutput() {
         var codecContext = AVCodecContext()
 

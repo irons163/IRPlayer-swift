@@ -30,6 +30,16 @@ public protocol IRFFVideoDecoderDataSource: AnyObject {
 }
 
 class IRFFVideoDecoder {
+    private struct RuntimeSnapshot {
+        let canceled: Bool
+        let error: NSError?
+        let decoding: Bool
+        let paused: Bool
+        let endOfFile: Bool
+        let videoToolBoxEnable: Bool
+        let maxDecodeDuration: TimeInterval
+    }
+
     private var codecContext: UnsafeMutablePointer<AVCodecContext>
     private var tempFrame: UnsafeMutablePointer<AVFrame>?
     private var packetQueue: IRFFPacketQueue
@@ -38,20 +48,84 @@ class IRFFVideoDecoder {
     private lazy var videoToolBox: IRFFVideoToolBox = {
         return IRFFVideoToolBox(codecContext: codecContext)
     }()
-    private var canceled = false
-    private(set) var error: NSError?
-    private(set) var decoding = false
+    private let runtimeLock = NSLock()
+    private var runtimeCanceled = false
+    private var runtimeError: NSError?
+    private var runtimeDecoding = false
+    private var runtimePaused = false
+    private var runtimeEndOfFile = false
+    private var runtimeVideoToolBoxEnable = true
+    private var runtimeMaxDecodeDuration: TimeInterval = 2.0
 
     weak var delegate: IRFFVideoDecoderDelegate?
     weak var source: IRFFVideoDecoderDataSource?
-    var videoToolBoxEnable = true
-    var maxDecodeDuration: TimeInterval = 2.0
-    var timebase: TimeInterval
-    var fps: TimeInterval
-    var paused = false
-    var endOfFile = false
+    let timebase: TimeInterval
+    let fps: TimeInterval
 
-    static var flushPacket: AVPacket = makeFlushPacket()
+    private var canceled: Bool {
+        get { runtimeSnapshot().canceled }
+        set {
+            runtimeLock.lock()
+            runtimeCanceled = newValue
+            runtimeLock.unlock()
+        }
+    }
+
+    private(set) var error: NSError? {
+        get { runtimeSnapshot().error }
+        set {
+            runtimeLock.lock()
+            runtimeError = newValue
+            runtimeLock.unlock()
+        }
+    }
+
+    private(set) var decoding: Bool {
+        get { runtimeSnapshot().decoding }
+        set {
+            runtimeLock.lock()
+            runtimeDecoding = newValue
+            runtimeLock.unlock()
+        }
+    }
+
+    var paused: Bool {
+        get { runtimeSnapshot().paused }
+        set {
+            runtimeLock.lock()
+            runtimePaused = newValue
+            runtimeLock.unlock()
+        }
+    }
+
+    var endOfFile: Bool {
+        get { runtimeSnapshot().endOfFile }
+        set {
+            runtimeLock.lock()
+            runtimeEndOfFile = newValue
+            runtimeLock.unlock()
+        }
+    }
+
+    var videoToolBoxEnable: Bool {
+        get { runtimeSnapshot().videoToolBoxEnable }
+        set {
+            runtimeLock.lock()
+            runtimeVideoToolBoxEnable = newValue
+            runtimeLock.unlock()
+        }
+    }
+
+    var maxDecodeDuration: TimeInterval {
+        get { runtimeSnapshot().maxDecodeDuration }
+        set {
+            runtimeLock.lock()
+            runtimeMaxDecodeDuration = newValue
+            runtimeLock.unlock()
+        }
+    }
+
+    static let flushPacket: AVPacket = makeFlushPacket()
 
     static func makeFlushPacket() -> AVPacket {
         var packet = AVPacket()
@@ -193,28 +267,34 @@ class IRFFVideoDecoder {
     func decodeFrameThread() {
         decoding = true
         while true {
-            if canceled || error != nil {
+            let runtime = runtimeSnapshot()
+            if runtime.canceled || runtime.error != nil {
                 IRFFRuntimeDebugOutput.write("decode video thread quit")
                 break
             }
-            if let sleepTime = Self.decodeIdleSleepInterval(paused: paused) {
+            if let sleepTime = Self.decodeIdleSleepInterval(paused: runtime.paused) {
                 Thread.sleep(forTimeInterval: sleepTime)
                 continue
             }
-            if Self.shouldFinishDecode(endOfFile: endOfFile, packetEmpty: packetEmpty()) {
+            if Self.shouldFinishDecode(endOfFile: runtime.endOfFile, packetEmpty: packetEmpty()) {
                 IRFFRuntimeDebugOutput.write("decode video finished")
                 break
             }
             if let interval = Self.decodeBackpressureSleepInterval(frameDuration: frameDuration(),
-                                                                   maxDecodeDuration: maxDecodeDuration,
-                                                                   paused: paused) {
+                                                                   maxDecodeDuration: runtime.maxDecodeDuration,
+                                                                   paused: runtime.paused) {
                 IRFFRuntimeDebugOutput.write("decode video thread sleep : \(interval)")
                 Thread.sleep(forTimeInterval: interval)
                 continue
             }
 
             var packet = packetQueue.getPacket()
-            if endOfFile {
+            let packetRuntime = runtimeSnapshot()
+            if packetRuntime.canceled || packetRuntime.error != nil {
+                av_packet_unref(&packet)
+                break
+            }
+            if packetRuntime.endOfFile {
                 delegate?.videoDecoderNeedUpdateBufferedDuration(self)
             }
             if packet.data == IRFFVideoDecoder.flushPacket.data {
@@ -235,7 +315,14 @@ class IRFFVideoDecoder {
     }
 
     private func decodeFrame(packet: AVPacket) -> IRFFVideoFrame? {
-        let info = IRFFVideoDecoderInfo(codecContext: codecContext, videoToolBoxEnable: videoToolBoxEnable, maxDecodeDuration: maxDecodeDuration, timebase: timebase, fps: fps)
+        let runtime = runtimeSnapshot()
+        let info = IRFFVideoDecoderInfo(
+            codecContext: codecContext,
+            videoToolBoxEnable: runtime.videoToolBoxEnable,
+            maxDecodeDuration: runtime.maxDecodeDuration,
+            timebase: timebase,
+            fps: fps
+        )
         if self.source?.shouldHandle(info, decodeFrame: packet) == true {
             if let videoFrame = self.source?.videoDecoder(info, decodeFrame: packet) {
                 return videoFrame
@@ -243,7 +330,7 @@ class IRFFVideoDecoder {
             return nil
         }
 
-        if videoToolBoxEnable && codecContext.pointee.codec_id == AV_CODEC_ID_H264 {
+        if runtime.videoToolBoxEnable && codecContext.pointee.codec_id == AV_CODEC_ID_H264 {
             if videoToolBox.trySetupVTSession() {
                 if videoToolBox.sendPacket(packet) {
                      return videoFrameFromVideoToolBox(packet: packet)
@@ -321,6 +408,20 @@ class IRFFVideoDecoder {
         if let error = error {
             delegate?.videoDecoder(self, didError: error)
         }
+    }
+
+    private func runtimeSnapshot() -> RuntimeSnapshot {
+        runtimeLock.lock()
+        defer { runtimeLock.unlock() }
+        return RuntimeSnapshot(
+            canceled: runtimeCanceled,
+            error: runtimeError,
+            decoding: runtimeDecoding,
+            paused: runtimePaused,
+            endOfFile: runtimeEndOfFile,
+            videoToolBoxEnable: runtimeVideoToolBoxEnable,
+            maxDecodeDuration: runtimeMaxDecodeDuration
+        )
     }
 
     deinit {

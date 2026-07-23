@@ -264,6 +264,46 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 0)
     }
 
+    func testConcurrentMutationAndAccountingReadsRemainRaceFree() {
+        let queue = IRFFFrameQueue.frameQueue()
+        let workers = DispatchGroup()
+        let workQueue = DispatchQueue(label: "IRFFFrameQueueTests.concurrent", attributes: .concurrent)
+
+        for worker in 0..<4 {
+            workers.enter()
+            workQueue.async {
+                for iteration in 0..<500 {
+                    let frame = IRFFFrame()
+                    frame.position = TimeInterval(iteration)
+                    frame.duration = 0.001
+                    frame.size = worker + 1
+                    queue.putFrame(frame)
+                    _ = queue.count
+                    _ = queue.size
+                    _ = queue.duration
+                }
+                workers.leave()
+            }
+        }
+
+        workers.enter()
+        workQueue.async {
+            for _ in 0..<500 {
+                queue.flush()
+                _ = queue.count
+                _ = queue.size
+                _ = queue.duration
+            }
+            workers.leave()
+        }
+
+        XCTAssertEqual(workers.wait(timeout: .now() + 5), .success)
+        queue.flush()
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.size, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+    }
+
     private func makeFrame(position: TimeInterval, duration: TimeInterval, size: Int) -> IRFFFrame {
         let frame = IRFFFrame()
         frame.position = position

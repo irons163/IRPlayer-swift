@@ -146,6 +146,45 @@ final class IRFFPacketQueueTests: XCTestCase {
         XCTAssertEqual(queue.size, 0)
     }
 
+    func testConcurrentMutationAndAccountingReadsRemainRaceFree() {
+        let queue = IRFFPacketQueue.packetQueue(withTimebase: 0.001)
+        let workers = DispatchGroup()
+        let workQueue = DispatchQueue(label: "IRFFPacketQueueTests.concurrent", attributes: .concurrent)
+
+        for worker in 0..<4 {
+            workers.enter()
+            workQueue.async {
+                for iteration in 0..<500 {
+                    var packet = AVPacket()
+                    packet.size = Int32(worker + 1)
+                    packet.duration = Int64(iteration + 1)
+                    queue.putPacket(packet, duration: 0.001)
+                    _ = queue.count
+                    _ = queue.size
+                    _ = queue.duration
+                }
+                workers.leave()
+            }
+        }
+
+        workers.enter()
+        workQueue.async {
+            for _ in 0..<500 {
+                queue.flush()
+                _ = queue.count
+                _ = queue.size
+                _ = queue.duration
+            }
+            workers.leave()
+        }
+
+        XCTAssertEqual(workers.wait(timeout: .now() + 5), .success)
+        queue.flush()
+        XCTAssertEqual(queue.count, 0)
+        XCTAssertEqual(queue.size, 0)
+        XCTAssertEqual(queue.duration, 0, accuracy: 0.0001)
+    }
+
     func testAccountedDurationUsesPacketDurationOnlyWithValidTimebase() {
         let packet = makePacket(size: 10, duration: 250)
 
