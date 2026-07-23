@@ -195,7 +195,9 @@ final class IRGLViewRenderState {
             let contentModes = program.programs.map { $0.contentMode }
             let zoomScales = program.programs.map { Float($0.getCurrentScale().x) }
             let translations = program.programs.map {
-                IRGLViewPolicy.translationVector(for: $0.tramsformController?.getScope())
+                IRGLFrameSubmissionSession.translationVector(
+                    for: $0.tramsformController?.getScope()
+                )
             }
             return renderer.renderMulti(frame: frame,
                                         to: drawable,
@@ -263,9 +265,13 @@ final class IRGLViewRenderState {
                                         contentMode: effectiveContentMode,
                                         outputSize: outputSize,
                                         zoomScale: Float(zoomScale),
-                                        translation: IRGLViewPolicy.translationVector(
-                                            for: effectiveProgram?.tramsformController?.getScope()
-                                        ))
+                                        translation:
+                                            IRGLFrameSubmissionSession
+                                            .translationVector(
+                                                for: effectiveProgram?
+                                                    .tramsformController?
+                                                    .getScope()
+                                            ))
     }
 
     func renderDistortionIfNeeded(frame: IRFFVideoFrame,
@@ -401,7 +407,12 @@ final class IRGLViewRenderState {
                                   width: Int,
                                   height: Int,
                                   data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {
-        guard let layout = IRGLViewPolicy.texUVTextureLayout(width: width, height: height) else { return nil }
+        guard let layout = Self.texUVTextureLayout(
+            width: width,
+            height: height
+        ) else {
+            return nil
+        }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float,
                                                                   width: width,
                                                                   height: height,
@@ -425,5 +436,20 @@ final class IRGLViewRenderState {
                            cx: 0,
                            cy: 0,
                            latmax: 0)
+    }
+
+    static func texUVTextureLayout(
+        width: Int,
+        height: Int
+    ) -> (bytesPerRow: Int, totalByteCount: Int)? {
+        guard width > 0, height > 0 else { return nil }
+        let bytesPerTexel = MemoryLayout<Float>.size * 2
+        let (bytesPerRow, rowOverflow) =
+            width.multipliedReportingOverflow(by: bytesPerTexel)
+        guard !rowOverflow, bytesPerRow > 0 else { return nil }
+        let (totalByteCount, totalOverflow) =
+            bytesPerRow.multipliedReportingOverflow(by: height)
+        guard !totalOverflow, totalByteCount > 0 else { return nil }
+        return (bytesPerRow, totalByteCount)
     }
 }

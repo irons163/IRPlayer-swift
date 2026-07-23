@@ -288,29 +288,45 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertNil(params.consumePixUVIfReady())
     }
 
-    func testPanoShaderParamsSetPixelFactorsRejectsInvalidCoordinates() {
+    func testPanoShaderParamsOwnsConsumedMapsAcrossRegeneration() throws {
         let params = IRGLFish2PanoShaderParams()
-        params.outputWidth = 2
-        params.outputHeight = 2
 
-        params.setPixelFactors(0, 0, 0, -1, 0, 0, 0, 0, 1)
+        params.updateTextureWidth(32, height: 24)
+        let firstMap = try waitForPixUV(from: params)
+        params.updateTextureWidth(40, height: 30)
+        let secondMap = try waitForPixUV(from: params)
 
+        XCTAssertNotEqual(firstMap[0], secondMap[0])
+        params.releaseConsumedPixUV(firstMap)
+        params.releaseConsumedPixUV(secondMap)
         XCTAssertNil(params.consumePixUVIfReady())
     }
 
-    func testPanoShaderParamsSetPixelFactorsHandlesTransformAndOutOfRangeU() {
+    func testPanoShaderParamsGeneratedCoordinatesAreValidOrSentinelValues() throws {
         let params = IRGLFish2PanoShaderParams()
-        params.textureWidth = 10
-        params.textureHeight = 10
-        params.fishcenterx = 20
-        params.fishcentery = 5
-        params.fishradiush = 1
-        params.outputWidth = 2
-        params.outputHeight = 2
+        params.updateTextureWidth(32, height: 24)
+        let pixelMap = try waitForPixUV(from: params)
+        defer { params.releaseConsumedPixUV(pixelMap) }
+        let capacity = try XCTUnwrap(
+            IRGLFish2PanoShaderParams.pixelMapCapacity(
+                outputWidth: params.outputWidth,
+                outputHeight: params.outputHeight
+            )
+        )
 
-        params.setPixelFactors(0, 0, 0, 0, 0, 0.25, 0.5, 0, 1)
-
-        XCTAssertNil(params.consumePixUVIfReady())
+        for offset in stride(from: 0, to: capacity, by: 2) {
+            let u = pixelMap[0][offset]
+            let v = pixelMap[0][offset + 1]
+            if u == -1 || v == -1 {
+                XCTAssertEqual(u, -1)
+                XCTAssertEqual(v, -1)
+            } else {
+                XCTAssertGreaterThanOrEqual(u, 0)
+                XCTAssertLessThan(u, GLfloat(params.textureWidth))
+                XCTAssertGreaterThanOrEqual(v, 0)
+                XCTAssertLessThan(v, GLfloat(params.textureHeight))
+            }
+        }
     }
 
     func testPanoShaderParamsUpdateOutputIgnoresInvalidTextureSize() {

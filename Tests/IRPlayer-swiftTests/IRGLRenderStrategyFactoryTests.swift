@@ -41,23 +41,6 @@ final class IRGLRenderStrategyFactoryTests: XCTestCase {
         XCTAssertEqual(IRGLRenderStrategyFactory.strategyKind(for: IRGLRenderMode()), .twoD)
     }
 
-    func testStrategyKindWrapperMatchesPolicy() {
-        let renderModes: [IRGLRenderMode] = [
-            IRGLRenderModeDistortion(),
-            IRGLRenderMode2DFisheye2Pano(),
-            IRGLRenderModeVR(),
-            IRGLRenderModeMulti4P(),
-            IRGLRenderMode3DFisheye(),
-            IRGLRenderMode2D(),
-            IRGLRenderMode()
-        ]
-
-        for renderMode in renderModes {
-            XCTAssertEqual(IRGLRenderStrategyFactory.strategyKind(for: renderMode),
-                           IRGLRenderStrategyPolicy.strategyKind(for: renderMode))
-        }
-    }
-
     func testMakeCreatesIndependentStrategiesForEveryRenderModeKind() throws {
         let renderer = try makeRendererAndDrawable().renderer
         let renderModes: [IRGLRenderMode] = [

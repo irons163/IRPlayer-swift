@@ -459,14 +459,18 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(size?.height, 180)
     }
 
-    func testDrawablePixelSizeWrapperMatchesPolicy() {
+    func testDrawablePixelSizeWrapperMatchesSurfaceOwner() {
         let input = CGSize(width: 320.9, height: 180.2)
 
         XCTAssertEqual(IRGLView.drawablePixelSize(from: input)?.width,
-                       IRGLViewPolicy.drawablePixelSize(from: input)?.width)
+                       IRGLMetalSurfaceSession.pixelSize(from: input)?.width)
         XCTAssertEqual(IRGLView.drawablePixelSize(from: input)?.height,
-                       IRGLViewPolicy.drawablePixelSize(from: input)?.height)
-        XCTAssertNil(IRGLViewPolicy.drawablePixelSize(from: CGSize(width: CGFloat.nan, height: 1)))
+                       IRGLMetalSurfaceSession.pixelSize(from: input)?.height)
+        XCTAssertNil(
+            IRGLMetalSurfaceSession.pixelSize(
+                from: CGSize(width: CGFloat.nan, height: 1)
+            )
+        )
     }
 
     func testTexUVTextureLayoutRejectsInvalidOrOverflowingInputs() {
@@ -483,34 +487,77 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(layout?.totalByteCount, 48)
     }
 
-    func testTexUVTextureLayoutWrapperMatchesPolicy() {
+    func testTexUVTextureLayoutWrapperMatchesRenderStateOwner() {
         let wrapper = IRGLView.texUVTextureLayout(width: 3, height: 2)
-        let policy = IRGLViewPolicy.texUVTextureLayout(width: 3, height: 2)
+        let owner = IRGLViewRenderState.texUVTextureLayout(
+            width: 3,
+            height: 2
+        )
 
-        XCTAssertEqual(wrapper?.bytesPerRow, policy?.bytesPerRow)
-        XCTAssertEqual(wrapper?.totalByteCount, policy?.totalByteCount)
-        XCTAssertNil(IRGLViewPolicy.texUVTextureLayout(width: Int.max, height: 2))
+        XCTAssertEqual(wrapper?.bytesPerRow, owner?.bytesPerRow)
+        XCTAssertEqual(wrapper?.totalByteCount, owner?.totalByteCount)
+        XCTAssertNil(
+            IRGLViewRenderState.texUVTextureLayout(
+                width: Int.max,
+                height: 2
+            )
+        )
     }
 
     func testTranslationVectorRejectsInvalidScopeValues() {
-        XCTAssertEqual(IRGLViewPolicy.translationVector(for: nil), SIMD2<Float>(repeating: 0))
         XCTAssertEqual(
-            IRGLViewPolicy.translationVector(for: IRGLScope2D(scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0, panDegree: 0, w: 0, h: 100)),
+            IRGLFrameSubmissionSession.translationVector(for: nil),
             SIMD2<Float>(repeating: 0)
         )
         XCTAssertEqual(
-            IRGLViewPolicy.translationVector(for: IRGLScope2D(scaleX: .nan, scaleY: 1, offsetX: 0, offsetY: 0, panDegree: 0, w: 100, h: 100)),
+            IRGLFrameSubmissionSession.translationVector(
+                for: IRGLScope2D(
+                    scaleX: 1,
+                    scaleY: 1,
+                    offsetX: 0,
+                    offsetY: 0,
+                    panDegree: 0,
+                    w: 0,
+                    h: 100
+                )
+            ),
             SIMD2<Float>(repeating: 0)
         )
         XCTAssertEqual(
-            IRGLViewPolicy.translationVector(for: IRGLScope2D(scaleX: 1, scaleY: 1, offsetX: .infinity, offsetY: 0, panDegree: 0, w: 100, h: 100)),
+            IRGLFrameSubmissionSession.translationVector(
+                for: IRGLScope2D(
+                    scaleX: .nan,
+                    scaleY: 1,
+                    offsetX: 0,
+                    offsetY: 0,
+                    panDegree: 0,
+                    w: 100,
+                    h: 100
+                )
+            ),
+            SIMD2<Float>(repeating: 0)
+        )
+        XCTAssertEqual(
+            IRGLFrameSubmissionSession.translationVector(
+                for: IRGLScope2D(
+                    scaleX: 1,
+                    scaleY: 1,
+                    offsetX: .infinity,
+                    offsetY: 0,
+                    panDegree: 0,
+                    w: 100,
+                    h: 100
+                )
+            ),
             SIMD2<Float>(repeating: 0)
         )
     }
 
     func testTranslationVectorCalculatesOverflowingAxesFromOffsets() {
         let scope = IRGLScope2D(scaleX: 2, scaleY: 1.5, offsetX: 25, offsetY: 10, panDegree: 0, w: 200, h: 100)
-        let vector = IRGLViewPolicy.translationVector(for: scope)
+        let vector = IRGLFrameSubmissionSession.translationVector(
+            for: scope
+        )
 
         XCTAssertEqual(vector.x, -0.5, accuracy: 0.0001)
         XCTAssertEqual(vector.y, 0.2, accuracy: 0.0001)
@@ -518,13 +565,20 @@ final class IRGLViewSnapshotTests: XCTestCase {
 
     func testTranslationVectorZerosAxesThatFitInsideViewport() {
         let scope = IRGLScope2D(scaleX: 0.75, scaleY: 1.25, offsetX: 80, offsetY: 20, panDegree: 0, w: 200, h: 100)
-        let vector = IRGLViewPolicy.translationVector(for: scope)
+        let vector = IRGLFrameSubmissionSession.translationVector(
+            for: scope
+        )
 
         XCTAssertEqual(vector.x, 0, accuracy: 0.0001)
         XCTAssertEqual(vector.y, -0.25, accuracy: 0.0001)
 
         let fittedScope = IRGLScope2D(scaleX: 0.75, scaleY: 0.5, offsetX: 80, offsetY: 20, panDegree: 0, w: 200, h: 100)
-        XCTAssertEqual(IRGLViewPolicy.translationVector(for: fittedScope), SIMD2<Float>(repeating: 0))
+        XCTAssertEqual(
+            IRGLFrameSubmissionSession.translationVector(
+                for: fittedScope
+            ),
+            SIMD2<Float>(repeating: 0)
+        )
     }
 
     func testFittedImageTransformCalculatesAspectFitScaleAndCentering() throws {
@@ -540,7 +594,7 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(transform.translationY, 25, accuracy: 0.0001)
     }
 
-    func testFittedImageTransformWrapperMatchesPolicy() throws {
+    func testFittedImageTransformWrapperMatchesFrameOwner() throws {
         let imageExtent = CGRect(x: 10, y: 5, width: 400, height: 200)
         let targetRect = CGRect(x: 0, y: 0, width: 100, height: 100)
 
@@ -549,16 +603,26 @@ final class IRGLViewSnapshotTests: XCTestCase {
                                           targetRect: targetRect,
                                           contentMode: .scaleAspectFit)
         )
-        let policy = try XCTUnwrap(
-            IRGLViewPolicy.fittedImageTransform(imageExtent: imageExtent,
-                                                targetRect: targetRect,
-                                                contentMode: .scaleAspectFit)
+        let owner = try XCTUnwrap(
+            IRGLFrameSubmissionSession.fittedImageTransform(
+                imageExtent: imageExtent,
+                targetRect: targetRect,
+                contentMode: .scaleAspectFit
+            )
         )
 
-        XCTAssertEqual(wrapper.scaleX, policy.scaleX, accuracy: 0.0001)
-        XCTAssertEqual(wrapper.scaleY, policy.scaleY, accuracy: 0.0001)
-        XCTAssertEqual(wrapper.translationX, policy.translationX, accuracy: 0.0001)
-        XCTAssertEqual(wrapper.translationY, policy.translationY, accuracy: 0.0001)
+        XCTAssertEqual(wrapper.scaleX, owner.scaleX, accuracy: 0.0001)
+        XCTAssertEqual(wrapper.scaleY, owner.scaleY, accuracy: 0.0001)
+        XCTAssertEqual(
+            wrapper.translationX,
+            owner.translationX,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            wrapper.translationY,
+            owner.translationY,
+            accuracy: 0.0001
+        )
     }
 
     func testFittedImageTransformCalculatesAspectFillScaleAndCentering() throws {

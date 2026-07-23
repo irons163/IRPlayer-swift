@@ -93,7 +93,11 @@ final class IRGLViewRenderCoordinator {
             }
 
             let zoomScale = Float((context.mode?.program?.getCurrentScale().x) ?? 1)
-            let translation = IRGLViewPolicy.translationVector(for: (context.mode?.program as? IRGLProgram2D)?.tramsformController?.getScope())
+            let translation =
+                IRGLFrameSubmissionSession.translationVector(
+                    for: (context.mode?.program as? IRGLProgram2D)?
+                        .tramsformController?.getScope()
+                )
             if renderer.render(frame: frame,
                                to: drawable,
                                contentMode: context.renderContentMode,
