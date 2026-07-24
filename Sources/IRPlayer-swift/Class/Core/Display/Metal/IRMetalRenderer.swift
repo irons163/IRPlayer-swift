@@ -28,7 +28,7 @@ final class IRMetalRenderer {
         let texCoord: SIMD2<Float>
     }
 
-    enum QuadTextureRange {
+    enum QuadTextureRange: CaseIterable, Equatable {
         case full
         case left
         case right
@@ -56,240 +56,127 @@ final class IRMetalRenderer {
 
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
-    var textureCache: CVMetalTextureCache?
-    var pipelineNV12: MTLRenderPipelineState?
-    var pipelineI420: MTLRenderPipelineState?
-    var pipelineRGB: MTLRenderPipelineState?
-    var pipelineNV12Mesh: MTLRenderPipelineState?
-    var pipelineI420Mesh: MTLRenderPipelineState?
-    var pipelineRGBMesh: MTLRenderPipelineState?
-    var pipelineNV12Fish2Pano: MTLRenderPipelineState?
-    var pipelineI420Fish2Pano: MTLRenderPipelineState?
-    var pipelineRGBFish2Pano: MTLRenderPipelineState?
-    var pipelineDistortion: MTLRenderPipelineState?
-    var vertexBuffer: MTLBuffer?
-    var vertexBufferLeft: MTLBuffer?
-    var vertexBufferRight: MTLBuffer?
-    var distortionOffscreenTexture: MTLTexture?
-    var distortionOffscreenSize: CGSize = .zero
-    private let vertexDescriptor: MTLVertexDescriptor = {
-        let descriptor = MTLVertexDescriptor()
-        descriptor.attributes[0].format = .float2
-        descriptor.attributes[0].offset = 0
-        descriptor.attributes[0].bufferIndex = 0
-        descriptor.attributes[1].format = .float2
-        descriptor.attributes[1].offset = MemoryLayout<SIMD2<Float>>.stride
-        descriptor.attributes[1].bufferIndex = 0
-        descriptor.layouts[0].stride = MemoryLayout<SIMD2<Float>>.stride * 2
-        descriptor.layouts[0].stepFunction = .perVertex
-        return descriptor
-    }()
-
-    private let vertexDescriptorDistortion: MTLVertexDescriptor = {
-        let descriptor = MTLVertexDescriptor()
-        descriptor.attributes[0].format = .float2
-        descriptor.attributes[0].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.position) ?? 0
-        descriptor.attributes[0].bufferIndex = 0
-        descriptor.attributes[1].format = .float
-        descriptor.attributes[1].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.vignette) ?? 0
-        descriptor.attributes[1].bufferIndex = 0
-        descriptor.attributes[2].format = .float2
-        descriptor.attributes[2].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.redTexCoord) ?? 0
-        descriptor.attributes[2].bufferIndex = 0
-        descriptor.attributes[3].format = .float2
-        descriptor.attributes[3].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.greenTexCoord) ?? 0
-        descriptor.attributes[3].bufferIndex = 0
-        descriptor.attributes[4].format = .float2
-        descriptor.attributes[4].offset = MemoryLayout<IRMetalDistortionVertex>.offset(of: \.blueTexCoord) ?? 0
-        descriptor.attributes[4].bufferIndex = 0
-        descriptor.layouts[0].stride = MemoryLayout<IRMetalDistortionVertex>.stride
-        descriptor.layouts[0].stepFunction = .perVertex
-        return descriptor
-    }()
-
-    private let vertexDescriptor3D: MTLVertexDescriptor = {
-        let descriptor = MTLVertexDescriptor()
-        descriptor.attributes[0].format = .float3
-        descriptor.attributes[0].offset = 0
-        descriptor.attributes[0].bufferIndex = 0
-        descriptor.attributes[1].format = .float2
-        descriptor.attributes[1].offset = MemoryLayout<SIMD3<Float>>.stride
-        descriptor.attributes[1].bufferIndex = 0
-        descriptor.layouts[0].stride = MemoryLayout<IRMetalFisheyeMesh.Vertex>.stride
-        descriptor.layouts[0].stepFunction = .perVertex
-        return descriptor
-    }()
+    let resources: IRMetalRendererResources
+    let distortionTargets: IRMetalDistortionTargetSession
 
     let pixelRendererNV12 = IRMetalPixelRendererNV12()
     let pixelRendererI420 = IRMetalPixelRendererI420()
     let pixelRendererRGB = IRMetalPixelRendererRGB()
 
     init?(device: MTLDevice) {
-        self.device = device
-        guard let queue = device.makeCommandQueue() else {
+        guard let commandQueue = device.makeCommandQueue() else {
             return nil
         }
-        self.commandQueue = queue
-        if CVMetalTextureCacheCreate(kCFAllocatorDefault, nil, device, nil, &textureCache) != kCVReturnSuccess {
-            textureCache = nil
-        }
-        buildPipelines()
-        buildVertexBuffer()
-    }
-
-    private func buildPipelines() {
-        let library: MTLLibrary?
-        #if SWIFT_PACKAGE
-        library = (try? device.makeDefaultLibrary(bundle: .module)) ?? (try? device.makeDefaultLibrary())
-        #else
-        library = (try? device.makeDefaultLibrary(bundle: Bundle(for: IRMetalRenderer.self))) ?? device.makeDefaultLibrary()
-        #endif
-        guard let library = library else {
-            return
-        }
-
-        let vertexFunction = library.makeFunction(name: "irVertex")
-        let vertexFunction3D = library.makeFunction(name: "irVertex3D")
-        let fragmentNV12 = library.makeFunction(name: "irFragmentNV12")
-        let fragmentI420 = library.makeFunction(name: "irFragmentI420")
-        let fragmentRGB = library.makeFunction(name: "irFragmentRGB")
-        let fragmentFish2PanoNV12 = library.makeFunction(name: "irFragmentFish2PanoNV12")
-        let fragmentFish2PanoI420 = library.makeFunction(name: "irFragmentFish2PanoI420")
-        let fragmentFish2PanoRGB = library.makeFunction(name: "irFragmentFish2PanoRGB")
-        let vertexDistortion = library.makeFunction(name: "irDistortionVertex")
-        let fragmentDistortion = library.makeFunction(name: "irFragmentDistortion")
-
-        if let vertexFunction = vertexFunction, let fragmentNV12 = fragmentNV12 {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexFunction
-            descriptor.fragmentFunction = fragmentNV12
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptor
-            do {
-                pipelineNV12 = try device.makeRenderPipelineState(descriptor: descriptor)
-            } catch {
-                IRMetalRuntimeDebugOutput.write("Metal Pipeline Error: \(error)")
-            }
-        }
-
-        if let vertexFunction = vertexFunction, let fragmentI420 = fragmentI420 {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexFunction
-            descriptor.fragmentFunction = fragmentI420
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptor
-            pipelineI420 = try? device.makeRenderPipelineState(descriptor: descriptor)
-            if pipelineI420 == nil {
-                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create I420 pipeline")
-            }
-        }
-
-        if let vertexFunction = vertexFunction, let fragmentRGB = fragmentRGB {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexFunction
-            descriptor.fragmentFunction = fragmentRGB
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptor
-            pipelineRGB = try? device.makeRenderPipelineState(descriptor: descriptor)
-            if pipelineRGB == nil {
-                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create RGB pipeline")
-            }
-        }
-
-        if let vertexFunction3D = vertexFunction3D, let fragmentNV12 = fragmentNV12 {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexFunction3D
-            descriptor.fragmentFunction = fragmentNV12
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptor3D
-            pipelineNV12Mesh = try? device.makeRenderPipelineState(descriptor: descriptor)
-            if pipelineNV12Mesh == nil {
-                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create NV12 mesh pipeline")
-            }
-        }
-
-        if let vertexFunction3D = vertexFunction3D, let fragmentI420 = fragmentI420 {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexFunction3D
-            descriptor.fragmentFunction = fragmentI420
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptor3D
-            pipelineI420Mesh = try? device.makeRenderPipelineState(descriptor: descriptor)
-            if pipelineI420Mesh == nil {
-                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create I420 mesh pipeline")
-            }
-        }
-
-        if let vertexFunction3D = vertexFunction3D, let fragmentRGB = fragmentRGB {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexFunction3D
-            descriptor.fragmentFunction = fragmentRGB
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptor3D
-            pipelineRGBMesh = try? device.makeRenderPipelineState(descriptor: descriptor)
-            if pipelineRGBMesh == nil {
-                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create RGB mesh pipeline")
-            }
-        }
-
-        if let vertexFunction = vertexFunction, let fragmentFish2PanoNV12 = fragmentFish2PanoNV12 {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexFunction
-            descriptor.fragmentFunction = fragmentFish2PanoNV12
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptor
-            pipelineNV12Fish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
-            if pipelineNV12Fish2Pano == nil {
-                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create NV12 fish2pano pipeline")
-            }
-        }
-
-        if let vertexFunction = vertexFunction, let fragmentFish2PanoI420 = fragmentFish2PanoI420 {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexFunction
-            descriptor.fragmentFunction = fragmentFish2PanoI420
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptor
-            pipelineI420Fish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
-            if pipelineI420Fish2Pano == nil {
-                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create I420 fish2pano pipeline")
-            }
-        }
-
-        if let vertexFunction = vertexFunction, let fragmentFish2PanoRGB = fragmentFish2PanoRGB {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexFunction
-            descriptor.fragmentFunction = fragmentFish2PanoRGB
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptor
-            pipelineRGBFish2Pano = try? device.makeRenderPipelineState(descriptor: descriptor)
-            if pipelineRGBFish2Pano == nil {
-                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create RGB fish2pano pipeline")
-            }
-        }
-
-        if let vertexDistortion = vertexDistortion, let fragmentDistortion = fragmentDistortion {
-            let descriptor = MTLRenderPipelineDescriptor()
-            descriptor.vertexFunction = vertexDistortion
-            descriptor.fragmentFunction = fragmentDistortion
-            descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-            descriptor.vertexDescriptor = vertexDescriptorDistortion
-            pipelineDistortion = try? device.makeRenderPipelineState(descriptor: descriptor)
-            if pipelineDistortion == nil {
-                IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create distortion pipeline")
-            }
+        switch IRMetalRendererResources.make(device: device) {
+        case let .success(resources):
+            self.device = device
+            self.commandQueue = commandQueue
+            self.resources = resources
+            self.distortionTargets =
+                IRMetalDistortionTargetSession(device: device)
+        case .failure:
+            return nil
         }
     }
 
-    func buildVertexBuffer() {
-        let vertices = Self.quadVertices(textureRange: .full)
-        vertexBuffer = device.makeBuffer(bytes: vertices, length: MemoryLayout<QuadVertex>.stride * vertices.count, options: .storageModeShared)
+    private init(
+        device: MTLDevice,
+        commandQueue: MTLCommandQueue,
+        resources: IRMetalRendererResources
+    ) {
+        self.device = device
+        self.commandQueue = commandQueue
+        self.resources = resources
+        distortionTargets = IRMetalDistortionTargetSession(
+            device: device
+        )
+    }
 
-        let leftVertices = Self.quadVertices(textureRange: .left)
-        vertexBufferLeft = device.makeBuffer(bytes: leftVertices, length: MemoryLayout<QuadVertex>.stride * leftVertices.count, options: .storageModeShared)
+    static func make(
+        device: MTLDevice,
+        commandQueue: MTLCommandQueue,
+        dependencies: IRMetalRendererResourceDependencies = .system
+    ) -> Result<IRMetalRenderer, IRMetalRendererBuildFailure> {
+        switch IRMetalRendererResources.make(
+            device: device,
+            dependencies: dependencies
+        ) {
+        case let .success(resources):
+            return .success(
+                IRMetalRenderer(
+                    device: device,
+                    commandQueue: commandQueue,
+                    resources: resources
+                )
+            )
+        case let .failure(failure):
+            return .failure(failure)
+        }
+    }
 
-        let rightVertices = Self.quadVertices(textureRange: .right)
-        vertexBufferRight = device.makeBuffer(bytes: rightVertices, length: MemoryLayout<QuadVertex>.stride * rightVertices.count, options: .storageModeShared)
+    var textureCache: CVMetalTextureCache {
+        resources.textureCache
+    }
+
+    var pipelineNV12: MTLRenderPipelineState {
+        resources.pipelines.nv12
+    }
+
+    var pipelineI420: MTLRenderPipelineState {
+        resources.pipelines.i420
+    }
+
+    var pipelineRGB: MTLRenderPipelineState {
+        resources.pipelines.rgb
+    }
+
+    var pipelineNV12Mesh: MTLRenderPipelineState {
+        resources.pipelines.nv12Mesh
+    }
+
+    var pipelineI420Mesh: MTLRenderPipelineState {
+        resources.pipelines.i420Mesh
+    }
+
+    var pipelineRGBMesh: MTLRenderPipelineState {
+        resources.pipelines.rgbMesh
+    }
+
+    var pipelineNV12Fish2Pano: MTLRenderPipelineState {
+        resources.pipelines.nv12Fish2Pano
+    }
+
+    var pipelineI420Fish2Pano: MTLRenderPipelineState {
+        resources.pipelines.i420Fish2Pano
+    }
+
+    var pipelineRGBFish2Pano: MTLRenderPipelineState {
+        resources.pipelines.rgbFish2Pano
+    }
+
+    var pipelineDistortion: MTLRenderPipelineState {
+        resources.pipelines.distortion
+    }
+
+    var vertexBuffer: MTLBuffer {
+        resources.quadBuffers.full
+    }
+
+    var vertexBufferLeft: MTLBuffer {
+        resources.quadBuffers.left
+    }
+
+    var vertexBufferRight: MTLBuffer {
+        resources.quadBuffers.right
+    }
+
+    var distortionTargetDiagnostics:
+        IRMetalDistortionTargetDiagnostics {
+        distortionTargets.diagnostics
+    }
+
+    var distortionTargetSnapshot: MTLTexture? {
+        distortionTargets.targetSnapshot
     }
 
     func currentRenderPassDescriptor(drawable: CAMetalDrawable) -> MTLRenderPassDescriptor? {

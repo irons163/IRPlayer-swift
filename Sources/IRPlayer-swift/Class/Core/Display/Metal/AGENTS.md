@@ -7,8 +7,10 @@ Low-level Metal GPU rendering implementation.
 | File                                        | Purpose                                       |
 |---------------------------------------------|-----------------------------------------------|
 | `IRMetalCommandResources.swift`             | Per-command resource cache and GPU-completion lifetime |
+| `IRMetalDistortionTargetSession.swift`      | Synchronized coherent distortion render-target generations |
 | `IRMetalFrameTextureGeneration.swift`       | Immutable NV12/BGRA/I420/RGB texture generations |
 | `IRMetalRenderer.swift`                     | Core Metal renderer — device, command queue, pipeline setup |
+| `IRMetalRendererResources.swift`            | Complete immutable cache, pipeline, and quad-buffer bootstrap |
 | `IRMetalRenderer+Render2D.swift`            | 2D flat rendering extension                   |
 | `IRMetalRenderer+RenderDistortion.swift`    | Barrel/pincushion distortion rendering        |
 | `IRMetalRenderer+RenderFish2Pano.swift`     | Fisheye-to-panorama projection rendering      |
@@ -24,6 +26,15 @@ Low-level Metal GPU rendering implementation.
 
 - `IRMetalShaders.metal` is compiled as a Metal shader resource — it's a `.process()` SPM resource.
 - Renderer extensions map 1:1 to rendering modes — each mode has its own render path.
+- Publish an `IRMetalRenderer` only from one complete
+  `IRMetalRendererResources` generation. Texture caches, pipelines, and quad
+  buffers are non-optional after bootstrap; test failures through injected
+  resource dependencies instead of mutating a live renderer.
+- A prepared surface passes its command queue into the renderer. Do not create
+  a second queue inside that surface generation.
+- Keep distortion target texture and dimensions coherent inside
+  `IRMetalDistortionTargetSession`; failed replacements preserve the previous
+  complete target and close is terminal.
 - Mesh files generate vertex/index buffers for non-planar projections.
 - Verify drawable size assumptions and texture layout when editing.
 - Pixel format handling must support NV12 (hardware decode), YUV420P (software decode), and RGB.

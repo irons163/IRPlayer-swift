@@ -62,7 +62,9 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRGLProjectionVRTests.swift` — Immutable shared VR mesh and concurrency
 - `IRGLProjectionEquirectangularTests.swift` — Mesh validation, geometry generations, snapshots, and concurrency
 - `IRMetalCommandResourcesTests.swift` — GPU-completion resource lifetime and command caching
+- `IRMetalDistortionTargetSessionTests.swift` — Distortion target generation, failure, close, and concurrency ownership
 - `IRMetalFrameTextureGenerationTests.swift` — Complete Core Video and managed texture generations
+- `IRMetalRendererResourcesTests.swift` — Complete renderer bootstrap and typed resource failures
 - `IRGLRenderModeBuildTests.swift` — Render mode construction
 - `IRGLRenderModeFactoryTests.swift` — Render mode factory
 - `IRGLRenderStrategyFactoryTests.swift` — Render strategy factory

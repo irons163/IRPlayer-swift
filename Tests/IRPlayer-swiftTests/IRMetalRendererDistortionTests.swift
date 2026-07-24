@@ -89,20 +89,6 @@ final class IRMetalRendererDistortionTests: XCTestCase {
         XCTAssertEqual(size?.height, 50)
     }
 
-    func testDistortionTextureSizeWrapperMatchesPolicy() {
-        let size = CGSize(width: 101.9, height: 50.2)
-
-        XCTAssertEqual(
-            IRMetalRenderer.distortionTextureSize(from: size)?.width,
-            IRMetalRendererDistortionPolicy.distortionTextureSize(from: size)?.width
-        )
-        XCTAssertEqual(
-            IRMetalRenderer.distortionTextureSize(from: size)?.height,
-            IRMetalRendererDistortionPolicy.distortionTextureSize(from: size)?.height
-        )
-        XCTAssertNil(IRMetalRendererDistortionPolicy.distortionTextureSize(from: CGSize(width: 0, height: 10)))
-    }
-
     func testDistortionScissorRectsSplitDrawableWidth() throws {
         let rects = try XCTUnwrap(IRMetalRenderer.distortionScissorRects(drawableSize: CGSize(width: 101, height: 50)))
 
@@ -114,26 +100,8 @@ final class IRMetalRendererDistortionTests: XCTestCase {
         XCTAssertEqual(rects.right.height, 50)
     }
 
-    func testDistortionScissorRectsWrapperMatchesPolicy() throws {
-        let drawableSize = CGSize(width: 101, height: 50)
-        let wrapper = try XCTUnwrap(IRMetalRenderer.distortionScissorRects(drawableSize: drawableSize))
-        let policy = try XCTUnwrap(IRMetalRendererDistortionPolicy.distortionScissorRects(drawableSize: drawableSize))
-
-        XCTAssertEqual(wrapper.left.x, policy.left.x)
-        XCTAssertEqual(wrapper.left.width, policy.left.width)
-        XCTAssertEqual(wrapper.left.height, policy.left.height)
-        XCTAssertEqual(wrapper.right.x, policy.right.x)
-        XCTAssertEqual(wrapper.right.width, policy.right.width)
-        XCTAssertEqual(wrapper.right.height, policy.right.height)
-        XCTAssertNil(IRMetalRendererDistortionPolicy.distortionScissorRects(drawableSize: CGSize(width: -1, height: 50)))
-    }
-
     func testRenderDistortionDrawsValidRGBFrame() throws {
         let renderer = try makeRenderer()
-        guard renderer.pipelineRGB != nil,
-              renderer.pipelineDistortion != nil else {
-            throw XCTSkip("Metal RGB distortion pipelines unavailable")
-        }
         let drawable = try makeOffscreenDrawable(renderer: renderer)
         let leftMesh = try XCTUnwrap(IRMetalDistortionMesh(device: renderer.device, modelType: .left))
         let rightMesh = try XCTUnwrap(IRMetalDistortionMesh(device: renderer.device, modelType: .right))
@@ -144,19 +112,16 @@ final class IRMetalRendererDistortionTests: XCTestCase {
                                                 to: drawable,
                                                 drawableSize: CGSize(width: 4, height: 4),
                                                 contentMode: .scaleAspectFit))
-        XCTAssertEqual(renderer.distortionOffscreenTexture?.width, 4)
-        XCTAssertEqual(renderer.distortionOffscreenTexture?.height, 4)
+        XCTAssertEqual(renderer.distortionTargetSnapshot?.width, 4)
+        XCTAssertEqual(renderer.distortionTargetSnapshot?.height, 4)
+        XCTAssertEqual(
+            renderer.distortionTargetDiagnostics.creationCount,
+            1
+        )
     }
 
     func testRenderDistortionDrawsCoreVideoFrames() throws {
         let renderer = try makeRenderer()
-        guard renderer.pipelineNV12 != nil,
-              renderer.pipelineRGB != nil,
-              renderer.pipelineDistortion != nil else {
-            throw XCTSkip(
-                "Metal Core Video distortion pipelines unavailable"
-            )
-        }
         let drawable = try makeOffscreenDrawable(
             renderer: renderer
         )
@@ -208,16 +173,12 @@ final class IRMetalRendererDistortionTests: XCTestCase {
                                                  to: drawable,
                                                  drawableSize: CGSize(width: 4, height: 4),
                                                  contentMode: .scaleAspectFit))
-        XCTAssertEqual(renderer.distortionOffscreenTexture?.width, 4)
-        XCTAssertEqual(renderer.distortionOffscreenTexture?.height, 4)
+        XCTAssertEqual(renderer.distortionTargetSnapshot?.width, 4)
+        XCTAssertEqual(renderer.distortionTargetSnapshot?.height, 4)
     }
 
     func testRenderDistortionReusesOffscreenTextureForSameDrawableSize() throws {
         let renderer = try makeRenderer()
-        guard renderer.pipelineRGB != nil,
-              renderer.pipelineDistortion != nil else {
-            throw XCTSkip("Metal RGB distortion pipelines unavailable")
-        }
         let drawable = try makeOffscreenDrawable(renderer: renderer)
         let leftMesh = try XCTUnwrap(IRMetalDistortionMesh(device: renderer.device, modelType: .left))
         let rightMesh = try XCTUnwrap(IRMetalDistortionMesh(device: renderer.device, modelType: .right))
@@ -229,7 +190,9 @@ final class IRMetalRendererDistortionTests: XCTestCase {
                                                 to: drawable,
                                                 drawableSize: CGSize(width: 4, height: 4),
                                                 contentMode: .scaleAspectFit))
-        let firstTexture = try XCTUnwrap(renderer.distortionOffscreenTexture)
+        let firstTexture = try XCTUnwrap(
+            renderer.distortionTargetSnapshot
+        )
 
         XCTAssertTrue(renderer.renderDistortion(frame: frame,
                                                 leftMesh: leftMesh,
@@ -237,9 +200,15 @@ final class IRMetalRendererDistortionTests: XCTestCase {
                                                 to: drawable,
                                                 drawableSize: CGSize(width: 4, height: 4),
                                                 contentMode: .scaleAspectFit))
-        let secondTexture = try XCTUnwrap(renderer.distortionOffscreenTexture)
+        let secondTexture = try XCTUnwrap(
+            renderer.distortionTargetSnapshot
+        )
 
         XCTAssertTrue(firstTexture === secondTexture)
+        XCTAssertEqual(
+            renderer.distortionTargetDiagnostics.reuseCount,
+            1
+        )
     }
 }
 

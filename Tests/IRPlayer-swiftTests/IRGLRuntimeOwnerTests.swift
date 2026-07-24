@@ -176,7 +176,10 @@ final class IRGLMetalSurfaceSessionTests: XCTestCase {
                 makeDevice: { nil },
                 makeCommandQueue: { _ in nil },
                 makeCIContext: { _ in nil },
-                makeRenderer: { _ in nil }
+                makeRenderer: {
+                    _,
+                    _ in .failure(.missingShaderLibrary)
+                }
             )
         )
 
@@ -200,7 +203,10 @@ final class IRGLMetalSurfaceSessionTests: XCTestCase {
                 makeDevice: { device },
                 makeCommandQueue: { _ in nil },
                 makeCIContext: { _ in nil },
-                makeRenderer: { _ in nil }
+                makeRenderer: {
+                    _,
+                    _ in .failure(.missingShaderLibrary)
+                }
             )
         )
 
@@ -210,6 +216,110 @@ final class IRGLMetalSurfaceSessionTests: XCTestCase {
             .unavailable(.missingCommandQueue)
         )
         XCTAssertFalse(session.diagnostics.hasCompleteResources)
+    }
+
+    func testPrepareReportsExactRendererFailureWithoutPublication()
+        throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        let layer = CAMetalLayer()
+        let session = IRGLMetalSurfaceSession(
+            executor: IRGLRenderExecutor(),
+            dependencies: IRGLMetalSurfaceDependencies(
+                makeDevice: { device },
+                makeCommandQueue: { $0.makeCommandQueue() },
+                makeCIContext: { CIContext(mtlDevice: $0) },
+                makeRenderer: { _, _ in
+                    .failure(
+                        .missingShaderFunction("irVertex3D")
+                    )
+                }
+            )
+        )
+
+        XCTAssertFalse(session.prepare(makeInput(layer: layer)))
+        XCTAssertEqual(
+            session.diagnostics.phase,
+            .unavailable(
+                .renderer(
+                    .missingShaderFunction("irVertex3D")
+                )
+            )
+        )
+        XCTAssertNil(session.resourceSnapshot)
+        XCTAssertNil(layer.device)
+    }
+
+    func testPrepareReportsMissingCIContextBeforeRenderer() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        var rendererCallCount = 0
+        let session = IRGLMetalSurfaceSession(
+            executor: IRGLRenderExecutor(),
+            dependencies: IRGLMetalSurfaceDependencies(
+                makeDevice: { device },
+                makeCommandQueue: { $0.makeCommandQueue() },
+                makeCIContext: { _ in nil },
+                makeRenderer: { _, _ in
+                    rendererCallCount += 1
+                    return .failure(.missingShaderLibrary)
+                }
+            )
+        )
+
+        XCTAssertFalse(session.prepare(makeInput()))
+        XCTAssertEqual(
+            session.diagnostics.phase,
+            .unavailable(.missingCIContext)
+        )
+        XCTAssertEqual(rendererCallCount, 0)
+        XCTAssertNil(session.resourceSnapshot)
+    }
+
+    func testRendererFailureCanRetryWithCompleteSharedQueue()
+        throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        var rendererAttemptCount = 0
+        let layer = CAMetalLayer()
+        let session = IRGLMetalSurfaceSession(
+            executor: IRGLRenderExecutor(),
+            dependencies: IRGLMetalSurfaceDependencies(
+                makeDevice: { device },
+                makeCommandQueue: { $0.makeCommandQueue() },
+                makeCIContext: { CIContext(mtlDevice: $0) },
+                makeRenderer: { device, commandQueue in
+                    rendererAttemptCount += 1
+                    guard rendererAttemptCount > 1 else {
+                        return .failure(.missingShaderLibrary)
+                    }
+                    return IRMetalRenderer.make(
+                        device: device,
+                        commandQueue: commandQueue
+                    )
+                }
+            )
+        )
+
+        XCTAssertFalse(session.prepare(makeInput(layer: layer)))
+        XCTAssertEqual(
+            session.diagnostics.phase,
+            .unavailable(
+                .renderer(.missingShaderLibrary)
+            )
+        )
+
+        XCTAssertTrue(session.prepare(makeInput(layer: layer)))
+        let resources = try XCTUnwrap(session.resourceSnapshot)
+        XCTAssertEqual(rendererAttemptCount, 2)
+        XCTAssertEqual(session.diagnostics.generation, 1)
+        XCTAssertTrue(
+            resources.commandQueue ===
+                resources.renderer.commandQueue
+        )
     }
 
     func testPrepareResizeResetAndCloseOwnCompleteGeneration() throws {
@@ -228,6 +338,15 @@ final class IRGLMetalSurfaceSessionTests: XCTestCase {
         XCTAssertEqual(session.diagnostics.pixelHeight, 100)
         XCTAssertTrue(session.diagnostics.hasCompleteResources)
         XCTAssertNotNil(layer.device)
+        let resources = try XCTUnwrap(session.resourceSnapshot)
+        XCTAssertTrue(
+            resources.commandQueue ===
+                resources.renderer.commandQueue
+        )
+        XCTAssertEqual(
+            resources.renderer.resources.diagnostics.pipelineCount,
+            10
+        )
 
         XCTAssertTrue(
             session.resize(
@@ -769,7 +888,10 @@ final class IRGLRenderSessionTests: XCTestCase {
             makeDevice: { nil },
             makeCommandQueue: { _ in nil },
             makeCIContext: { _ in nil },
-            makeRenderer: { _ in nil }
+            makeRenderer: {
+                _,
+                _ in .failure(.missingShaderLibrary)
+            }
         )
     }
 
@@ -1012,7 +1134,10 @@ final class IRGLViewRuntimeOwnerTests: XCTestCase {
                 makeDevice: { nil },
                 makeCommandQueue: { _ in nil },
                 makeCIContext: { _ in nil },
-                makeRenderer: { _ in nil }
+                makeRenderer: {
+                    _,
+                    _ in .failure(.missingShaderLibrary)
+                }
             ),
             frameRenderOperation: { input in
                 .init(
@@ -1055,7 +1180,10 @@ final class IRGLViewRuntimeOwnerTests: XCTestCase {
                 makeDevice: { nil },
                 makeCommandQueue: { _ in nil },
                 makeCIContext: { _ in nil },
-                makeRenderer: { _ in nil }
+                makeRenderer: {
+                    _,
+                    _ in .failure(.missingShaderLibrary)
+                }
             ),
             frameRenderOperation: { input in
                 .init(

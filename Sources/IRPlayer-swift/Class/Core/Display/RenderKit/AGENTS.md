@@ -50,6 +50,9 @@ High-level rendering abstraction layer that sits above the Metal renderer.
 - Capture UIKit state before entering the render domain. Render-domain work
   must never synchronously request main-thread state.
 - Keep surface generations complete-or-unavailable and make close terminal.
+- A ready Metal surface owns one command queue shared by its Core Image path
+  and `IRMetalRenderer`; propagate typed renderer bootstrap failures without
+  publishing partial surface resources.
 - Mode selection drives which program, projection, and transform are used.
 - Each render mode has a corresponding factory in `Program/Factory/`.
 - Shader params in `Params/` are consumed by programs to set uniforms.

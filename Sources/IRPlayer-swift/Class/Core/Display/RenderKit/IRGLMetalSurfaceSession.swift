@@ -7,7 +7,7 @@ enum IRGLMetalSurfaceFailure: Equatable {
     case missingDevice
     case missingCommandQueue
     case missingCIContext
-    case missingRenderer
+    case renderer(IRMetalRendererBuildFailure)
 }
 
 enum IRGLMetalSurfacePhase: Equatable {
@@ -21,14 +21,23 @@ struct IRGLMetalSurfaceDependencies {
     let makeDevice: () -> MTLDevice?
     let makeCommandQueue: (MTLDevice) -> MTLCommandQueue?
     let makeCIContext: (MTLDevice) -> CIContext?
-    let makeRenderer: (MTLDevice) -> IRMetalRenderer?
+    let makeRenderer:
+        (MTLDevice, MTLCommandQueue)
+        -> Result<IRMetalRenderer, IRMetalRendererBuildFailure>
 
     static var system: IRGLMetalSurfaceDependencies {
         IRGLMetalSurfaceDependencies(
             makeDevice: { MTLCreateSystemDefaultDevice() },
             makeCommandQueue: { $0.makeCommandQueue() },
             makeCIContext: { CIContext(mtlDevice: $0) },
-            makeRenderer: { IRMetalRenderer(device: $0) }
+            makeRenderer: {
+                device,
+                commandQueue in
+                IRMetalRenderer.make(
+                    device: device,
+                    commandQueue: commandQueue
+                )
+            }
         )
     }
 }
@@ -136,8 +145,15 @@ final class IRGLMetalSurfaceSession: @unchecked Sendable {
                 phase = .unavailable(.missingCIContext)
                 return false
             }
-            guard let renderer = dependencies.makeRenderer(device) else {
-                phase = .unavailable(.missingRenderer)
+            let renderer: IRMetalRenderer
+            switch dependencies.makeRenderer(
+                device,
+                commandQueue
+            ) {
+            case let .success(readyRenderer):
+                renderer = readyRenderer
+            case let .failure(failure):
+                phase = .unavailable(.renderer(failure))
                 return false
             }
 

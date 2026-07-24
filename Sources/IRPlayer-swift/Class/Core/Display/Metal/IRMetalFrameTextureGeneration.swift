@@ -125,10 +125,6 @@ extension IRMetalRenderer {
     func makeNV12TextureGeneration(
         from frame: IRFFCVYUVVideoFrame
     ) -> IRMetalFrameTextureGeneration? {
-        guard let textureCache else {
-            return nil
-        }
-
         let pixelBuffer = frame.pixelBuffer
         let format = CVPixelBufferGetPixelFormatType(
             pixelBuffer
@@ -217,10 +213,6 @@ extension IRMetalRenderer {
     func makeBGRATextureGeneration(
         from frame: IRFFCVYUVVideoFrame
     ) -> IRMetalFrameTextureGeneration? {
-        guard let textureCache else {
-            return nil
-        }
-
         let pixelBuffer = frame.pixelBuffer
         guard CVPixelBufferGetPixelFormatType(pixelBuffer)
                 == kCVPixelFormatType_32BGRA else {

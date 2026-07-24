@@ -39,11 +39,14 @@ extension IRMetalRenderer {
             var translationVector = SIMD2<Float>(repeating: 0)
             offscreenEncoder.setVertexBytes(&scaleVector, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
             offscreenEncoder.setVertexBytes(&translationVector, length: MemoryLayout<SIMD2<Float>>.size, index: 2)
-            if let buffer = isLeft ? vertexBufferLeft : vertexBufferRight {
-                offscreenEncoder.setVertexBuffer(buffer, offset: 0, index: 0)
-            } else {
-                offscreenEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-            }
+            let eyeBuffer = isLeft
+                ? vertexBufferLeft
+                : vertexBufferRight
+            offscreenEncoder.setVertexBuffer(
+                eyeBuffer,
+                offset: 0,
+                index: 0
+            )
             offscreenEncoder.setViewport(MTLViewport(originX: originX,
                                                      originY: 0,
                                                      width: Double(halfWidth),
@@ -69,8 +72,6 @@ extension IRMetalRenderer {
         guard leftRendered || rightRendered else { return false }
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
-        guard let pipelineDistortion = pipelineDistortion else { return false }
-
         encoder.setRenderPipelineState(pipelineDistortion)
         encoder.setFragmentTexture(offscreen, index: 0)
         encoder.setViewport(MTLViewport(originX: 0,
@@ -108,25 +109,17 @@ extension IRMetalRenderer {
     }
 
     private func makeDistortionOffscreenTexture(size: CGSize) -> MTLTexture? {
-        guard let textureSize = Self.distortionTextureSize(from: size) else { return nil }
-        if let texture = distortionOffscreenTexture,
-           distortionOffscreenSize == size {
-            return texture
-        }
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: textureSize.width, height: textureSize.height, mipmapped: false)
-        descriptor.usage = [.renderTarget, .shaderRead]
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-        distortionOffscreenTexture = texture
-        distortionOffscreenSize = size
-        return texture
+        distortionTargets.target(for: size)
     }
 
     static func distortionTextureSize(from size: CGSize) -> (width: Int, height: Int)? {
-        IRMetalRendererDistortionPolicy.distortionTextureSize(from: size)
+        IRMetalDistortionTargetSession.textureSize(from: size)
     }
 
     static func distortionScissorRects(drawableSize: CGSize) -> (left: MTLScissorRect, right: MTLScissorRect)? {
-        IRMetalRendererDistortionPolicy.distortionScissorRects(drawableSize: drawableSize)
+        IRMetalDistortionTargetSession.scissorRects(
+            drawableSize: drawableSize
+        )
     }
 
 }

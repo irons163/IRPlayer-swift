@@ -18,7 +18,6 @@ extension IRMetalRenderer {
         encoder: MTLRenderCommandEncoder,
         resources: IRMetalCommandResources
     ) -> Bool {
-        guard let pipeline = pipelineNV12 else { return false }
         let pixelFormat = CVPixelBufferGetPixelFormatType(
             cvFrame.pixelBuffer
         )
@@ -34,7 +33,7 @@ extension IRMetalRenderer {
             return false
         }
 
-        encoder.setRenderPipelineState(pipeline)
+        encoder.setRenderPipelineState(pipelineNV12)
         encoder.setFragmentTexture(yTexture, index: 0)
         encoder.setFragmentTexture(uvTexture, index: 1)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
@@ -46,7 +45,6 @@ extension IRMetalRenderer {
         encoder: MTLRenderCommandEncoder,
         resources: IRMetalCommandResources
     ) -> Bool {
-        guard let pipeline = pipelineRGB else { return false }
         guard let generation = frameTextureGeneration(
             for: cvFrame,
             resources: resources
@@ -54,7 +52,7 @@ extension IRMetalRenderer {
         case let .bgra(texture) = generation.textures else {
             return false
         }
-        encoder.setRenderPipelineState(pipeline)
+        encoder.setRenderPipelineState(pipelineRGB)
         encoder.setFragmentTexture(texture, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         return true
@@ -65,7 +63,6 @@ extension IRMetalRenderer {
         encoder: MTLRenderCommandEncoder,
         resources: IRMetalCommandResources
     ) -> Bool {
-        guard let pipeline = pipelineI420 else { return false }
         guard let generation = frameTextureGeneration(
             for: yuvFrame,
             resources: resources
@@ -74,7 +71,7 @@ extension IRMetalRenderer {
             return false
         }
 
-        encoder.setRenderPipelineState(pipeline)
+        encoder.setRenderPipelineState(pipelineI420)
         encoder.setFragmentTexture(y, index: 0)
         encoder.setFragmentTexture(u, index: 1)
         encoder.setFragmentTexture(v, index: 2)
@@ -87,7 +84,6 @@ extension IRMetalRenderer {
         encoder: MTLRenderCommandEncoder,
         resources: IRMetalCommandResources
     ) -> Bool {
-        guard let pipeline = pipelineRGB else { return false }
         guard let generation = frameTextureGeneration(
             for: rgbFrame,
             resources: resources
@@ -96,7 +92,7 @@ extension IRMetalRenderer {
             return false
         }
 
-        encoder.setRenderPipelineState(pipeline)
+        encoder.setRenderPipelineState(pipelineRGB)
         encoder.setFragmentTexture(texture, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         return true
