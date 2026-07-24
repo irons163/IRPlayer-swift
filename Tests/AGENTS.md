@@ -20,6 +20,8 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRPlayerLifecycleDecisionTests.swift` — Lifecycle decision boundaries
 - `IRPlayerLifecycleControllerTests.swift` — Stateful lifecycle transitions
 - `IRAVPlayerTests.swift` — AVPlayer backend tests
+- `IRAVPlayerPresentationLoopTests.swift` — VR display-link generation and
+  lifecycle ownership
 - `IRFFPlayerTests.swift` — FFmpeg player backend tests
 - `IRModelPayloadTests.swift` — Model/payload serialization
 
@@ -71,7 +73,7 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRGLTransformController3DFisheyeTests.swift` — 3D fisheye transform
 - `IRGLTransformControllerVRTests.swift` — VR transform
 - `IRGLGestureControllerTests.swift` — Gesture input
-- `IRSmoothScrollDisplayLinkDriverTests.swift` — Display-link lifecycle owner
+- `IRDisplayLinkDriverTests.swift` — Shared display-link lifecycle owner
 - `IRSmoothScrollSessionTests.swift` — Locked animation state and calculations
 - `IRSmoothScrollControllerTests.swift` — UI facade, failure, and stale ticks
 - `IRePTZShiftControllerTests.swift` — Electronic PTZ

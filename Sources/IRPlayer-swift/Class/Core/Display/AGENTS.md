@@ -19,9 +19,16 @@ IRGLView (RenderKit)
                  └── IRMetalShaders.metal (GPU shader code)
 ```
 
+`IRDisplayLinkDriver.swift` is the reusable native display-link resource
+boundary used by smooth scrolling and AVPlayer VR presentation. Feature
+domains own activation and generation semantics; the shared driver owns only
+UIKit scheduling and lifecycle.
+
 ## Agent Notes
 
 - `Metal/` handles low-level GPU rendering. `RenderKit/` handles the logical rendering pipeline.
 - All rendering goes through Metal (compile flag `IR_USE_METAL`). There is no OpenGL path.
 - Frame timing and threading are critical — do not block the main thread in render paths.
+- Keep concrete `CADisplayLink` ownership inside `IRSystemDisplayLinkDriver`;
+  consumers should depend on `IRDisplayLinkDriving` and their own state owner.
 - When modifying rendering, test all affected modes: 2D, VR, fisheye, fish2pano, distortion, multi4P.

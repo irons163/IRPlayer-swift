@@ -1,5 +1,5 @@
 //
-//  IRSmoothScrollDisplayLinkDriver.swift
+//  IRDisplayLinkDriver.swift
 //  IRPlayer-swift
 //
 //  Created by Codex on 2026/7/24.
@@ -8,20 +8,20 @@
 import Foundation
 import UIKit
 
-enum IRSmoothScrollDisplayLinkPhase: Equatable {
+enum IRDisplayLinkPhase: Equatable, Sendable {
     case uninstalled
     case idle
     case active
     case closed
 }
 
-struct IRSmoothScrollDisplayLinkSnapshot: Equatable {
-    let phase: IRSmoothScrollDisplayLinkPhase
+struct IRDisplayLinkSnapshot: Equatable, Sendable {
+    let phase: IRDisplayLinkPhase
     let scheduledMode: String?
 }
 
-protocol IRSmoothScrollDisplayLinkDriving: AnyObject {
-    var snapshot: IRSmoothScrollDisplayLinkSnapshot { get }
+protocol IRDisplayLinkDriving: AnyObject {
+    var snapshot: IRDisplayLinkSnapshot { get }
 
     @discardableResult
     func install(
@@ -35,12 +35,12 @@ protocol IRSmoothScrollDisplayLinkDriving: AnyObject {
     func close() -> Bool
 }
 
-private final class IRSmoothScrollDisplayLinkProxy:
+private final class IRDisplayLinkProxy:
     NSObject
 {
-    weak var driver: IRSystemSmoothScrollDisplayLinkDriver?
+    weak var driver: IRSystemDisplayLinkDriver?
 
-    init(driver: IRSystemSmoothScrollDisplayLinkDriver) {
+    init(driver: IRSystemDisplayLinkDriver) {
         self.driver = driver
     }
 
@@ -49,22 +49,22 @@ private final class IRSmoothScrollDisplayLinkProxy:
     }
 }
 
-final class IRSystemSmoothScrollDisplayLinkDriver:
-    IRSmoothScrollDisplayLinkDriving,
+final class IRSystemDisplayLinkDriver:
+    IRDisplayLinkDriving,
     @unchecked Sendable
 {
     private let lock = NSLock()
     private var phase:
-        IRSmoothScrollDisplayLinkPhase = .uninstalled
+        IRDisplayLinkPhase = .uninstalled
     private var scheduledMode: String?
     private var displayLink: CADisplayLink?
-    private var proxy: IRSmoothScrollDisplayLinkProxy?
+    private var proxy: IRDisplayLinkProxy?
     private var handler: ((TimeInterval) -> Void)?
 
-    var snapshot: IRSmoothScrollDisplayLinkSnapshot {
+    var snapshot: IRDisplayLinkSnapshot {
         lock.lock()
         defer { lock.unlock() }
-        return IRSmoothScrollDisplayLinkSnapshot(
+        return IRDisplayLinkSnapshot(
             phase: phase,
             scheduledMode: scheduledMode
         )
@@ -83,14 +83,14 @@ final class IRSystemSmoothScrollDisplayLinkDriver:
             lock.unlock()
             return false
         }
-        let proxy = IRSmoothScrollDisplayLinkProxy(
+        let proxy = IRDisplayLinkProxy(
             driver: self
         )
         let displayLink = CADisplayLink(
             target: proxy,
             selector:
                 #selector(
-                    IRSmoothScrollDisplayLinkProxy.tick(_:)
+                    IRDisplayLinkProxy.tick(_:)
                 )
         )
         displayLink.isPaused = true

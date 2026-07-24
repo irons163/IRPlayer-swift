@@ -11,7 +11,6 @@ Input and interaction controllers for the rendering viewport.
 | `GestureController/`     | `IRGLGestureController.swift`     | GL-level gesture handling for render views |
 |                          | `IRGestureController.swift`       | Base gesture controller                    |
 | `ScrollController/`      | `IRSmoothScrollController.swift`  | Main-thread smooth-scroll facade            |
-|                          | `IRSmoothScrollDisplayLinkDriver.swift` | Paused/active display-link owner       |
 |                          | `IRSmoothScrollSession.swift`     | Locked animation state and calculations     |
 
 ## Purpose
@@ -25,8 +24,9 @@ These controllers interpret user input (touch gestures, device motion) and trans
   configured device-shift degrees.
 - `IRBounceController` enforces viewport boundaries with spring-like behavior.
 - Keep UIKit controller delivery on the main thread.
-- A smooth-scroll display link must remain paused while its session is idle and
-  must be closed during presentation teardown.
+- Smooth scrolling uses the shared `Display/IRDisplayLinkDriver.swift`; it must
+  remain paused while the animation session is idle and close during
+  presentation teardown.
 - Velocity, easing, pending degree composition, timing, and one-shot bounds
   admission belong to `IRSmoothScrollSession`; do not reintroduce a forwarding
   policy or independently mutable controller fields.
@@ -34,6 +34,6 @@ These controllers interpret user input (touch gestures, device motion) and trans
   work. Presentation motion restarts only after pan deceleration completion;
   sensor degree smoothing must not emit that gesture completion.
 - Tests: `IRGLGestureControllerTests.swift`,
-  `IRSmoothScrollDisplayLinkDriverTests.swift`,
+  `IRDisplayLinkDriverTests.swift`,
   `IRSmoothScrollSessionTests.swift`, `IRSmoothScrollControllerTests.swift`,
   and `IRePTZShiftControllerTests.swift`.

@@ -64,6 +64,15 @@ extension IRAVPlayer {
     }
 
     func pixelBufferAtCurrentTime() -> CVPixelBuffer? {
+        guard let token = session.currentToken else {
+            return nil
+        }
+        return pixelBufferAtCurrentTime(for: token)
+    }
+
+    func pixelBufferAtCurrentTime(
+        for token: IRAVPlayerSession.Token
+    ) -> CVPixelBuffer? {
         guard !seeking else { return nil }
         let result = session.withResources(
             default:
@@ -73,7 +82,8 @@ extension IRAVPlayer {
                         Optional<IRAVPlayerSession.Token>.none
                 )
         ) { resources in
-            guard let output = resources.output,
+            guard resources.token == token,
+                  let output = resources.output,
                   output.hasNewPixelBuffer(
                     forItemTime: resources.item.currentTime()
                   ) else {
@@ -90,9 +100,6 @@ extension IRAVPlayer {
 
         if let rebuildToken = result.rebuildToken {
             session.rebuildVideoOutput(for: rebuildToken)
-        }
-        if result.pixelBuffer != nil {
-            hasPixelBuffer = true
         }
         return result.pixelBuffer
     }
@@ -116,25 +123,24 @@ extension IRAVPlayer {
     }
 }
 
-// MARK: - Display link
+// MARK: - Presentation loop
 
 extension IRAVPlayer {
-    func setupDisplayLink() {
-        let proxy = IRAVPlayerDisplayLinkProxy(player: self)
-        displayLinkProxy = proxy
-        let displayLink = CADisplayLink(
-            target: proxy,
-            selector: #selector(
-                IRAVPlayerDisplayLinkProxy.displayLinkCallback(_:)
-            )
-        )
-        displayLink.add(to: .main, forMode: .common)
-        displayLink.isPaused = true
-        self.displayLink = displayLink
-    }
-
-    @objc func displayLinkCallback(_ sender: CADisplayLink) {
-        guard let pixelBuffer = pixelBufferAtCurrentTime() else { return }
+    func handlePresentationTick(
+        _ tick: IRAVPlayerPresentationLoop.Tick
+    ) {
+        guard abstractPlayer?.videoType == .vr,
+              presentationLoop.isCurrent(tick),
+              session.isCurrent(tick.sessionToken),
+              let pixelBuffer =
+                pixelBufferAtCurrentTime(
+                    for: tick.sessionToken
+                ),
+              presentationLoop.isCurrent(tick),
+              session.isCurrent(tick.sessionToken)
+        else {
+            return
+        }
         let videoFrame = IRFFCVYUVVideoFrame(pixelBuffer: pixelBuffer)
         videoFrame.position = -1
         videoFrame.duration = -1

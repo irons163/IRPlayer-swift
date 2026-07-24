@@ -427,14 +427,14 @@ private final class SmoothScrollControllerFixture {
 }
 
 private final class SmoothScrollDisplayLinkProbe:
-    IRSmoothScrollDisplayLinkDriving,
+    IRDisplayLinkDriving,
     @unchecked Sendable
 {
     private let lock = NSLock()
     private let installsSuccessfully: Bool
     private let activatesSuccessfully: Bool
     private var storedSnapshot =
-        IRSmoothScrollDisplayLinkSnapshot(
+        IRDisplayLinkSnapshot(
             phase: .uninstalled,
             scheduledMode: nil
         )
@@ -455,7 +455,7 @@ private final class SmoothScrollDisplayLinkProbe:
     }
 
     var snapshot:
-        IRSmoothScrollDisplayLinkSnapshot
+        IRDisplayLinkSnapshot
     {
         lock.lock()
         defer { lock.unlock() }
@@ -475,7 +475,7 @@ private final class SmoothScrollDisplayLinkProbe:
         }
         self.handler = handler
         storedSnapshot =
-            IRSmoothScrollDisplayLinkSnapshot(
+            IRDisplayLinkSnapshot(
                 phase: .idle,
                 scheduledMode:
                     RunLoop.Mode.common.rawValue
@@ -494,7 +494,7 @@ private final class SmoothScrollDisplayLinkProbe:
         }
         activeRequests.append(isActive)
         storedSnapshot =
-            IRSmoothScrollDisplayLinkSnapshot(
+            IRDisplayLinkSnapshot(
                 phase: isActive ? .active : .idle,
                 scheduledMode:
                     RunLoop.Mode.common.rawValue
@@ -511,7 +511,7 @@ private final class SmoothScrollDisplayLinkProbe:
         }
         closeCount += 1
         storedSnapshot =
-            IRSmoothScrollDisplayLinkSnapshot(
+            IRDisplayLinkSnapshot(
                 phase: .closed,
                 scheduledMode: nil
             )

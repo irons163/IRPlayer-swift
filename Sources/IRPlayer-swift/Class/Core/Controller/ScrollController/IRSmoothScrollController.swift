@@ -33,14 +33,14 @@ extension IRBounceController: IRSmoothScrollBounceDriving {
 
 struct IRSmoothScrollDependencies {
     let displayLink:
-        any IRSmoothScrollDisplayLinkDriving
+        any IRDisplayLinkDriving
     let bounce: any IRSmoothScrollBounceDriving
     let screenScale: () -> CGFloat
 
     static func system() -> IRSmoothScrollDependencies {
         IRSmoothScrollDependencies(
             displayLink:
-                IRSystemSmoothScrollDisplayLinkDriver(),
+                IRSystemDisplayLinkDriver(),
             bounce: IRBounceController(),
             screenScale: { UIScreen.main.scale }
         )
@@ -51,7 +51,7 @@ struct IRSmoothScrollDiagnostics: Equatable {
     let isClosed: Bool
     let isDisplayLinkInstalled: Bool
     let displayLink:
-        IRSmoothScrollDisplayLinkSnapshot
+        IRDisplayLinkSnapshot
     let animation: IRSmoothScrollSnapshot
     let hasTargetView: Bool
     let hasCurrentMode: Bool

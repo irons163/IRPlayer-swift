@@ -8,22 +8,6 @@
 import AVFoundation
 import UIKit
 
-final class IRAVPlayerDisplayLinkProxy {
-    weak var player: IRAVPlayer?
-
-    init(player: IRAVPlayer) {
-        self.player = player
-    }
-
-    @objc func displayLinkCallback(_ sender: CADisplayLink) {
-        guard let player else {
-            sender.invalidate()
-            return
-        }
-        player.displayLinkCallback(sender)
-    }
-}
-
 private final class IRAVPlayerSeekRequest: @unchecked Sendable {
     let token: IRAVPlayerSession.Token
     let item: AVPlayerItem
@@ -75,16 +59,14 @@ class IRAVPlayer: NSObject {
 
     private let stateStore = IRPlayerStateStore()
     let session: IRAVPlayerSession
+    let presentationLoop:
+        IRAVPlayerPresentationLoop
     private let seekLock = NSLock()
     private var pendingSeekRequest: IRAVPlayerSeekRequest?
 
     var readyToPlayTime: TimeInterval = 0
     var needPlay = false
     var autoNeedPlay = false
-    var hasPixelBuffer = false
-
-    var displayLink: CADisplayLink?
-    var displayLinkProxy: IRAVPlayerDisplayLinkProxy?
 
     var videoEnable = false
     var audioEnable = false
@@ -147,17 +129,23 @@ class IRAVPlayer: NSObject {
 
     init(
         abstractPlayer: any IRPlaybackBackendHost,
-        session: IRAVPlayerSession = IRAVPlayerSession()
+        session: IRAVPlayerSession = IRAVPlayerSession(),
+        presentationLoop:
+            IRAVPlayerPresentationLoop = .system()
     ) {
         self.abstractPlayer = abstractPlayer
         self.session = session
+        self.presentationLoop = presentationLoop
         super.init()
         abstractPlayer.displayView?.irPixelFormat = .NV12_IRPixelFormat
-        setupDisplayLink()
+        presentationLoop.install {
+            [weak self] tick in
+            self?.handlePresentationTick(tick)
+        }
     }
 
     deinit {
-        displayLink?.invalidate()
+        presentationLoop.close()
         cancelPendingSeek()
         abstractPlayer?.displayView?.setAVPlayer(nil)
         session.close()

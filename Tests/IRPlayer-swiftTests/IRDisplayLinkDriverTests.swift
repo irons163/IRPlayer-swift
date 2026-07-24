@@ -2,16 +2,16 @@ import UIKit
 import XCTest
 @testable import IRPlayer_swift
 
-final class IRSmoothScrollDisplayLinkDriverTests:
+final class IRDisplayLinkDriverTests:
     XCTestCase
 {
     func testDriverStartsUninstalled() {
         let driver =
-            IRSystemSmoothScrollDisplayLinkDriver()
+            IRSystemDisplayLinkDriver()
 
         XCTAssertEqual(
             driver.snapshot,
-            IRSmoothScrollDisplayLinkSnapshot(
+            IRDisplayLinkSnapshot(
                 phase: .uninstalled,
                 scheduledMode: nil
             )
@@ -20,7 +20,7 @@ final class IRSmoothScrollDisplayLinkDriverTests:
 
     func testInstallSchedulesPausedCommonModeLink() {
         let driver =
-            IRSystemSmoothScrollDisplayLinkDriver()
+            IRSystemDisplayLinkDriver()
         defer { driver.close() }
 
         XCTAssertTrue(driver.install { _ in })
@@ -33,7 +33,7 @@ final class IRSmoothScrollDisplayLinkDriverTests:
 
     func testDuplicateInstallIsRejected() {
         let driver =
-            IRSystemSmoothScrollDisplayLinkDriver()
+            IRSystemDisplayLinkDriver()
         defer { driver.close() }
 
         XCTAssertTrue(driver.install { _ in })
@@ -43,7 +43,7 @@ final class IRSmoothScrollDisplayLinkDriverTests:
 
     func testActiveAndPausedPhasesControlDelivery() {
         let driver =
-            IRSystemSmoothScrollDisplayLinkDriver()
+            IRSystemDisplayLinkDriver()
         var timestamps: [TimeInterval] = []
         defer { driver.close() }
         XCTAssertTrue(
@@ -64,7 +64,7 @@ final class IRSmoothScrollDisplayLinkDriverTests:
 
     func testCloseIsTerminalAndRepeatable() {
         let driver =
-            IRSystemSmoothScrollDisplayLinkDriver()
+            IRSystemDisplayLinkDriver()
         XCTAssertTrue(driver.install { _ in })
 
         XCTAssertTrue(driver.close())
@@ -77,11 +77,11 @@ final class IRSmoothScrollDisplayLinkDriverTests:
 
     func testInstallRejectsBackgroundThread() {
         let driver =
-            IRSystemSmoothScrollDisplayLinkDriver()
+            IRSystemDisplayLinkDriver()
         let completed = expectation(
             description: "background install"
         )
-        let result = LockedSmoothScrollBool()
+        let result = LockedDisplayLinkBool()
 
         DispatchQueue.global().async {
             result.value = driver.install { _ in }
@@ -96,14 +96,62 @@ final class IRSmoothScrollDisplayLinkDriverTests:
         )
     }
 
+    func testActivationRejectsBackgroundThread() {
+        let driver =
+            IRSystemDisplayLinkDriver()
+        defer { driver.close() }
+        XCTAssertTrue(driver.install { _ in })
+        let completed = expectation(
+            description: "background activation"
+        )
+        let result = LockedDisplayLinkBool()
+
+        DispatchQueue.global().async {
+            result.value = driver.setActive(true)
+            completed.fulfill()
+        }
+        wait(for: [completed], timeout: 2)
+
+        XCTAssertFalse(result.value)
+        XCTAssertEqual(driver.snapshot.phase, .idle)
+    }
+
+    func testActiveDriverClosesFromBackgroundThread() {
+        let driver =
+            IRSystemDisplayLinkDriver()
+        var delivered = false
+        XCTAssertTrue(
+            driver.install { _ in
+                delivered = true
+            }
+        )
+        XCTAssertTrue(driver.setActive(true))
+        let completed = expectation(
+            description: "background close"
+        )
+        let result = LockedDisplayLinkBool()
+
+        DispatchQueue.global().async {
+            result.value = driver.close()
+            completed.fulfill()
+        }
+        wait(for: [completed], timeout: 2)
+        driver.emit(timestamp: 1)
+
+        XCTAssertTrue(result.value)
+        XCTAssertFalse(delivered)
+        XCTAssertEqual(driver.snapshot.phase, .closed)
+        XCTAssertNil(driver.snapshot.scheduledMode)
+    }
+
     func testInstalledLinkDoesNotRetainDriver() {
         weak var weakDriver:
-            IRSystemSmoothScrollDisplayLinkDriver?
+            IRSystemDisplayLinkDriver?
 
         autoreleasepool {
             var driver:
-                IRSystemSmoothScrollDisplayLinkDriver? =
-                    IRSystemSmoothScrollDisplayLinkDriver()
+                IRSystemDisplayLinkDriver? =
+                    IRSystemDisplayLinkDriver()
             XCTAssertTrue(driver?.install { _ in } == true)
             weakDriver = driver
             driver = nil
@@ -113,7 +161,7 @@ final class IRSmoothScrollDisplayLinkDriverTests:
     }
 }
 
-private final class LockedSmoothScrollBool:
+private final class LockedDisplayLinkBool:
     @unchecked Sendable
 {
     private let lock = NSLock()

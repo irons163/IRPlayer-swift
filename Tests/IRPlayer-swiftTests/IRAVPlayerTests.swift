@@ -448,7 +448,7 @@ final class IRAVPlayerTests: XCTestCase {
 
         XCTAssertNil(retainedPlayer?.abstractPlayer)
         retainedPlayer?.reloadVolume()
-        retainedPlayer?.displayLink?.invalidate()
+        retainedPlayer?.presentationLoop.close()
     }
 
     func testReloadPlayableTimeClearsWhenItemIsMissingOrNotReady() {
@@ -785,6 +785,38 @@ final class IRAVPlayerTests: XCTestCase {
         withExtendedLifetime(abstractPlayer) {}
     }
 
+    func testAVAssetPrepareFailureDeactivatesPresentationLoop() throws {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
+        let token = try XCTUnwrap(
+            activate(
+                avPlayer,
+                url: missingMediaURL(
+                    named: "failed-vr-presentation.mp4"
+                )
+            )
+        )
+        XCTAssertNotNil(
+            avPlayer.presentationLoop.activate(
+                sessionToken: token
+            )
+        )
+
+        avPlayer.avAssetPrepareFailed(
+            error: NSError(
+                domain: "IRAVPlayerTests.assetLoad",
+                code: 8
+            )
+        )
+
+        XCTAssertEqual(
+            avPlayer.presentationLoop.diagnostics.phase,
+            .idle
+        )
+        XCTAssertEqual(avPlayer.state, .failed)
+        withExtendedLifetime(abstractPlayer) {}
+    }
+
     func testFailureWithoutAbstractPlayerStillMarksPlayerFailed() throws {
         var retainedPlayer: IRAVPlayer?
         autoreleasepool {
@@ -797,7 +829,7 @@ final class IRAVPlayerTests: XCTestCase {
 
         XCTAssertEqual(avPlayer.state, .failed)
         XCTAssertNil(avPlayer.abstractPlayer)
-        avPlayer.displayLink?.invalidate()
+        avPlayer.presentationLoop.close()
     }
 
     func testFailedStatusObservationPostsPlaybackError() throws {
@@ -957,7 +989,10 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertTrue(displayView.attachedAVPlayer === avPlayer.avPlayer)
         XCTAssertEqual(avPlayer.state, .readyToPlay)
         XCTAssertNil(avPlayer.avOutput)
-        XCTAssertTrue(avPlayer.displayLink?.isPaused == true)
+        XCTAssertEqual(
+            avPlayer.presentationLoop.diagnostics.phase,
+            .idle
+        )
         XCTAssertTrue(avPlayer.videoEnable)
         XCTAssertFalse(avPlayer.audioEnable)
         XCTAssertEqual(avPlayer.videoTracks.count, 1)
@@ -993,6 +1028,10 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertEqual(avPlayer.state, .suspend)
         avPlayer.replaceEmpty()
         XCTAssertNil(displayView.attachedAVPlayer)
+        XCTAssertEqual(
+            avPlayer.presentationLoop.diagnostics.phase,
+            .idle
+        )
         withExtendedLifetime(player) {}
     }
 
@@ -1015,11 +1054,46 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertEqual(displayView.rendererType, .AVPlayerPixelBufferVR)
         XCTAssertNil(displayView.attachedAVPlayer)
         XCTAssertNotNil(avPlayer.avOutput)
-        XCTAssertFalse(avPlayer.displayLink?.isPaused ?? true)
+        XCTAssertEqual(
+            avPlayer.presentationLoop.diagnostics.phase,
+            .active
+        )
         if let output = avPlayer.avOutput {
             XCTAssertTrue(item.outputs.contains { $0 === output })
         }
+        avPlayer.replaceEmpty()
+        XCTAssertEqual(
+            avPlayer.presentationLoop.diagnostics.phase,
+            .idle
+        )
+        XCTAssertNil(avPlayer.avOutput)
         withExtendedLifetime(player) {}
+    }
+
+    func testBackendDeinitClosesInjectedPresentationLoop() {
+        let abstractPlayer = IRPlayerImp.player()
+        let loop = IRAVPlayerPresentationLoop.system()
+        weak var weakAVPlayer: IRAVPlayer?
+
+        autoreleasepool {
+            var avPlayer: IRAVPlayer? = IRAVPlayer(
+                abstractPlayer: abstractPlayer,
+                presentationLoop: loop
+            )
+            weakAVPlayer = avPlayer
+            XCTAssertEqual(
+                loop.diagnostics.phase,
+                .idle
+            )
+            avPlayer = nil
+        }
+
+        XCTAssertNil(weakAVPlayer)
+        XCTAssertEqual(
+            loop.diagnostics.phase,
+            .closed
+        )
+        XCTAssertEqual(loop.diagnostics.closeCount, 1)
     }
 
     func testReplaceVideoWithCustomAndFisheyeURLsLeaveRendererUnconfigured() throws {

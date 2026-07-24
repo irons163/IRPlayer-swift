@@ -124,6 +124,7 @@ extension IRAVPlayer {
     }
 
     private func failPlayback(with errorInfo: IRError) {
+        _ = presentationLoop.deactivate()
         guard let abstractPlayer else {
             state = .failed
             return
@@ -172,12 +173,17 @@ extension IRAVPlayer {
 
         switch abstractPlayer.videoType {
         case .normal:
-            displayLink?.isPaused = true
+            _ = presentationLoop.deactivate()
             abstractPlayer.displayView?.rendererType = .AVPlayerLayer
             abstractPlayer.displayView?.setAVPlayer(avPlayer)
 
         case .vr:
-            displayLink?.isPaused = false
+            guard presentationLoop.activate(
+                sessionToken: token
+            ) != nil else {
+                replaceEmpty()
+                return
+            }
             abstractPlayer.displayView?.setAVPlayer(nil)
             abstractPlayer.displayView?.rendererType =
                 .AVPlayerPixelBufferVR
@@ -258,9 +264,9 @@ extension IRAVPlayer {
     }
 
     func replaceEmpty() {
+        _ = presentationLoop.deactivate()
         cancelPendingSeek()
         session.reset()
-        displayLink?.isPaused = true
         abstractPlayer?.displayView?.setAVPlayer(nil)
 
         let shouldSendPlayableReset = playableTime == 0
@@ -282,7 +288,6 @@ extension IRAVPlayer {
         state = .none
         needPlay = false
         readyToPlayTime = 0
-        hasPixelBuffer = false
         abstractPlayer?.displayView?.cleanEmptyBuffer()
     }
 }
