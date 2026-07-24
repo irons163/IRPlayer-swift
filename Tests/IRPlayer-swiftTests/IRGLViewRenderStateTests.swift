@@ -103,27 +103,55 @@ final class IRGLViewRenderStateTests: XCTestCase {
         XCTAssertTrue(state.fish2PanoTextures.isEmpty)
     }
 
-    func testPrepareFish2PanoTexturesRejectsMismatchedPixUVCountWithoutReplacingCache() throws {
+    func testPrepareFish2PanoTexturesRejectsMismatchedGenerationWithoutReplacingCache() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw XCTSkip("Metal device unavailable")
         }
         let state = IRGLViewRenderState()
-        let params = StubFish2PanoShaderParams(pointerCapacity: 2 * 2 * 2)
+        let params = StubFish2PanoShaderParams(
+            elementCapacity: 2 * 2 * 2
+        )
         params.outputWidth = 2
         params.outputHeight = 2
         params.antialias = 2
         let mode = InjectedPanoRenderMode(program: StubFish2PanoProgram(params: params))
 
         state.configureFish2Pano(renderMode: mode)
-        params.queuePixUV(count: 4)
+        params.queuePixelMap(
+            outputWidth: 2,
+            outputHeight: 2,
+            antialias: 2
+        )
         XCTAssertEqual(
             state.prepareFish2PanoTextures(device: device),
             .ready(outputSize: CGSize(width: 2, height: 2), antialias: 2)
         )
         let installedTextures = state.fish2PanoTextures
         XCTAssertEqual(installedTextures.count, 4)
+        var uploadedValues = [Float](
+            repeating: 0,
+            count: 2 * 2 * 2
+        )
+        uploadedValues.withUnsafeMutableBytes {
+            bytes in
+            installedTextures[2].getBytes(
+                bytes.baseAddress!,
+                bytesPerRow:
+                    2 * 2 * MemoryLayout<GLfloat>.stride,
+                from: MTLRegionMake2D(0, 0, 2, 2),
+                mipmapLevel: 0
+            )
+        }
+        XCTAssertEqual(
+            uploadedValues,
+            [Float](repeating: 3, count: 8)
+        )
 
-        params.queuePixUV(count: 1)
+        params.queuePixelMap(
+            outputWidth: 2,
+            outputHeight: 2,
+            antialias: 1
+        )
         XCTAssertEqual(state.prepareFish2PanoTextures(device: device), .waitingForTextures)
 
         XCTAssertEqual(state.fish2PanoTextures.count, installedTextures.count)
@@ -262,40 +290,53 @@ private final class StubFish2PanoProgram: IRGLProgram2DFisheye2Pano {
 }
 
 private final class StubFish2PanoShaderParams: IRGLFish2PanoShaderParams {
-    private let pointerCapacity: Int
-    private var queuedPixUV: [[UnsafeMutablePointer<GLfloat>]] = []
+    private let elementCapacity: Int
+    private var requestGeneration = 0
+    private var queuedPixelMaps:
+        [IRGLFish2PanoPixelMapGeneration] = []
 
-    init(pointerCapacity: Int) {
-        self.pointerCapacity = pointerCapacity
+    init(elementCapacity: Int) {
+        self.elementCapacity = elementCapacity
         super.init()
     }
 
-    deinit {
-        queuedPixUV.forEach(releasePointers)
-    }
-
-    func queuePixUV(count: Int) {
-        let pointers = (0..<count).map { index -> UnsafeMutablePointer<GLfloat> in
-            let pointer = UnsafeMutablePointer<GLfloat>.allocate(capacity: pointerCapacity)
-            pointer.initialize(repeating: GLfloat(index + 1), count: pointerCapacity)
-            return pointer
+    func queuePixelMap(
+        outputWidth: Int,
+        outputHeight: Int,
+        antialias: Int
+    ) {
+        requestGeneration += 1
+        let textureCount =
+            IRGLFish2PanoPixelMapGeneration.textureCount(
+                antialias: antialias
+            ) ?? 0
+        let maps = (0..<textureCount).map {
+            index in
+            Array<GLfloat>(
+                repeating: GLfloat(index + 1),
+                count: elementCapacity
+            )
         }
-        queuedPixUV.append(pointers)
-    }
-
-    override func consumePixUVIfReady() -> [UnsafeMutablePointer<GLfloat>]? {
-        guard !queuedPixUV.isEmpty else { return nil }
-        return queuedPixUV.removeFirst()
-    }
-
-    override func releaseConsumedPixUV(_ consumed: [UnsafeMutablePointer<GLfloat>]) {
-        releasePointers(consumed)
-    }
-
-    private func releasePointers(_ pointers: [UnsafeMutablePointer<GLfloat>]) {
-        for pointer in pointers {
-            pointer.deinitialize(count: pointerCapacity)
-            pointer.deallocate()
+        guard let pixelMap =
+                IRGLFish2PanoPixelMapGeneration(
+                    requestGeneration:
+                        requestGeneration,
+                    outputWidth: outputWidth,
+                    outputHeight: outputHeight,
+                    antialias: antialias,
+                    maps: maps
+                ) else {
+            return
         }
+        queuedPixelMaps.append(pixelMap)
+    }
+
+    override func takePixelMapIfReady()
+        -> IRGLFish2PanoPixelMapGeneration?
+    {
+        guard !queuedPixelMaps.isEmpty else {
+            return nil
+        }
+        return queuedPixelMaps.removeFirst()
     }
 }

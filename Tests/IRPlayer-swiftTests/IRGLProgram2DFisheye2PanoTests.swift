@@ -3,26 +3,42 @@ import XCTest
 
 final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
 
-    func testPanoShaderParamPolicyWrappersRemainSourceCompatible() {
+    func testPanoShaderParamLayoutWrappersMatchManagedGeneration() {
         XCTAssertEqual(
             IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: 480)?.width,
-            IRGLFish2PanoShaderParamsPolicy.outputSize(forTextureWidth: 640, height: 480)?.width
+            IRGLFish2PanoPixelMapGeneration.outputSize(
+                forTextureWidth: 640,
+                height: 480
+            )?.width
         )
         XCTAssertEqual(
             IRGLFish2PanoShaderParams.outputSize(forTextureWidth: 640, height: 480)?.height,
-            IRGLFish2PanoShaderParamsPolicy.outputSize(forTextureWidth: 640, height: 480)?.height
+            IRGLFish2PanoPixelMapGeneration.outputSize(
+                forTextureWidth: 640,
+                height: 480
+            )?.height
         )
         XCTAssertEqual(
             IRGLFish2PanoShaderParams.pixelMapTextureCount(antialias: 3),
-            IRGLFish2PanoShaderParamsPolicy.pixelMapTextureCount(antialias: 3)
+            IRGLFish2PanoPixelMapGeneration.textureCount(
+                antialias: 3
+            )
         )
         XCTAssertEqual(
             IRGLFish2PanoShaderParams.pixelMapCapacity(outputWidth: 10, outputHeight: 20),
-            IRGLFish2PanoShaderParamsPolicy.pixelMapCapacity(outputWidth: 10, outputHeight: 20)
+            IRGLFish2PanoPixelMapGeneration.elementCount(
+                outputWidth: 10,
+                outputHeight: 20
+            )
         )
         XCTAssertEqual(
             IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 20, x: 3, y: 2),
-            IRGLFish2PanoShaderParamsPolicy.pixelMapUVOffset(outputWidth: 10, outputHeight: 20, x: 3, y: 2)
+            IRGLFish2PanoPixelMapGeneration.uvOffset(
+                outputWidth: 10,
+                outputHeight: 20,
+                x: 3,
+                y: 2
+            )
         )
     }
 
@@ -233,17 +249,16 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertTrue(delegate.outputSizes.isEmpty)
     }
 
-    func testPanoShaderParamsConsumePixUVWhenMapIsReady() throws {
+    func testPanoShaderParamsTakesManagedMapOnceWhenReady() throws {
         let params = IRGLFish2PanoShaderParams()
 
-        XCTAssertNil(params.consumePixUVIfReady())
+        XCTAssertNil(params.takePixelMapIfReady())
 
         params.updateTextureWidth(32, height: 24)
-        let pixUV = try waitForPixUV(from: params)
+        let pixelMap = try waitForPixelMap(from: params)
 
-        XCTAssertEqual(pixUV.count, 1)
-        params.releaseConsumedPixUV(pixUV)
-        XCTAssertNil(params.consumePixUVIfReady())
+        XCTAssertEqual(pixelMap.textureCount, 1)
+        XCTAssertNil(params.takePixelMapIfReady())
     }
 
     func testPanoShaderParamsPublishesOnlyLatestPixelMapGeneration() throws {
@@ -252,61 +267,71 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
 
         params.updateTextureWidth(256, height: 192)
         params.updateTextureWidth(32, height: 24)
-        let pixUV = try waitForPixUV(from: params)
+        let pixelMap = try waitForPixelMap(from: params)
 
-        XCTAssertEqual(pixUV.count, 4)
+        XCTAssertEqual(pixelMap.textureCount, 4)
+        XCTAssertEqual(
+            pixelMap.outputWidth,
+            Int(params.outputWidth)
+        )
+        XCTAssertEqual(
+            pixelMap.outputHeight,
+            Int(params.outputHeight)
+        )
+        XCTAssertEqual(
+            pixelMap.antialias,
+            Int(params.antialias)
+        )
         XCTAssertEqual(params.textureWidth, 32)
         XCTAssertEqual(params.textureHeight, 24)
-        params.releaseConsumedPixUV(pixUV)
-        XCTAssertNil(params.consumePixUVIfReady())
+        XCTAssertNil(params.takePixelMapIfReady())
     }
 
-    func testPanoShaderParamsReleaseConsumedPixUVIsIdempotent() throws {
+    func testPanoShaderParamsInvalidUpdateRevokesPublishedMap()
+        throws
+    {
         let params = IRGLFish2PanoShaderParams()
 
         params.updateTextureWidth(32, height: 24)
-        let pixUV = try waitForPixUV(from: params)
+        try waitForPublishedPixelMap(in: params)
+        params.textureWidth = 0
+        params.updateOutputWH()
 
-        params.releaseConsumedPixUV(pixUV)
-        params.releaseConsumedPixUV(pixUV)
-
-        XCTAssertNil(params.consumePixUVIfReady())
+        XCTAssertNil(params.takePixelMapIfReady())
     }
 
-    func testPanoShaderParamsReleaseConsumedPixUVIgnoresMismatchedBuffers() throws {
+    func testPanoShaderParamsTakenMapSurvivesRegeneration()
+        throws
+    {
         let params = IRGLFish2PanoShaderParams()
 
         params.updateTextureWidth(32, height: 24)
-        let pixUV = try waitForPixUV(from: params)
-        let unrelated = UnsafeMutablePointer<GLfloat>.allocate(capacity: 2)
-        defer { unrelated.deallocate() }
-
-        params.releaseConsumedPixUV([])
-        params.releaseConsumedPixUV([unrelated])
-        params.releaseConsumedPixUV(pixUV)
-
-        XCTAssertNil(params.consumePixUVIfReady())
-    }
-
-    func testPanoShaderParamsOwnsConsumedMapsAcrossRegeneration() throws {
-        let params = IRGLFish2PanoShaderParams()
-
-        params.updateTextureWidth(32, height: 24)
-        let firstMap = try waitForPixUV(from: params)
+        let firstMap = try waitForPixelMap(from: params)
         params.updateTextureWidth(40, height: 30)
-        let secondMap = try waitForPixUV(from: params)
+        let secondMap = try waitForPixelMap(from: params)
 
-        XCTAssertNotEqual(firstMap[0], secondMap[0])
-        params.releaseConsumedPixUV(firstMap)
-        params.releaseConsumedPixUV(secondMap)
-        XCTAssertNil(params.consumePixUVIfReady())
+        XCTAssertNotEqual(
+            firstMap.requestGeneration,
+            secondMap.requestGeneration
+        )
+        XCTAssertNotEqual(
+            firstMap.outputWidth,
+            secondMap.outputWidth
+        )
+        XCTAssertEqual(firstMap.textureCount, 1)
+        XCTAssertEqual(secondMap.textureCount, 1)
+        XCTAssertGreaterThan(
+            firstMap.withUnsafeMapBuffer(at: 0) {
+                $0.count
+            } ?? 0,
+            0
+        )
     }
 
     func testPanoShaderParamsGeneratedCoordinatesAreValidOrSentinelValues() throws {
         let params = IRGLFish2PanoShaderParams()
         params.updateTextureWidth(32, height: 24)
-        let pixelMap = try waitForPixUV(from: params)
-        defer { params.releaseConsumedPixUV(pixelMap) }
+        let pixelMap = try waitForPixelMap(from: params)
         let capacity = try XCTUnwrap(
             IRGLFish2PanoShaderParams.pixelMapCapacity(
                 outputWidth: params.outputWidth,
@@ -314,19 +339,35 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
             )
         )
 
-        for offset in stride(from: 0, to: capacity, by: 2) {
-            let u = pixelMap[0][offset]
-            let v = pixelMap[0][offset + 1]
-            if u == -1 || v == -1 {
-                XCTAssertEqual(u, -1)
-                XCTAssertEqual(v, -1)
-            } else {
-                XCTAssertGreaterThanOrEqual(u, 0)
-                XCTAssertLessThan(u, GLfloat(params.textureWidth))
-                XCTAssertGreaterThanOrEqual(v, 0)
-                XCTAssertLessThan(v, GLfloat(params.textureHeight))
+        let didInspect =
+            pixelMap.withUnsafeMapBuffer(at: 0) {
+                buffer in
+                for offset in stride(
+                    from: 0,
+                    to: capacity,
+                    by: 2
+                ) {
+                    let u = buffer[offset]
+                    let v = buffer[offset + 1]
+                    if u == -1 || v == -1 {
+                        XCTAssertEqual(u, -1)
+                        XCTAssertEqual(v, -1)
+                    } else {
+                        XCTAssertGreaterThanOrEqual(u, 0)
+                        XCTAssertLessThan(
+                            u,
+                            GLfloat(params.textureWidth)
+                        )
+                        XCTAssertGreaterThanOrEqual(v, 0)
+                        XCTAssertLessThan(
+                            v,
+                            GLfloat(params.textureHeight)
+                        )
+                    }
+                }
+                return true
             }
-        }
+        XCTAssertEqual(didInspect, true)
     }
 
     func testPanoShaderParamsUpdateOutputIgnoresInvalidTextureSize() {
@@ -403,11 +444,6 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(IRGLFish2PanoShaderParams.pixelMapUVOffset(outputWidth: 10, outputHeight: 20, x: 3, y: 2), 46)
     }
 
-    func testPanoPixelMapGenerationRejectsStaleJobs() {
-        XCTAssertTrue(IRGLFish2PanoShaderParamsPolicy.shouldPublishPixelMap(jobGeneration: 2, currentGeneration: 2))
-        XCTAssertFalse(IRGLFish2PanoShaderParamsPolicy.shouldPublishPixelMap(jobGeneration: 1, currentGeneration: 2))
-    }
-
     func testNormalizedOffsetRejectsInvalidOutputWidth() {
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: 0))
         XCTAssertNil(IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 20, outputWidth: -1))
@@ -452,21 +488,47 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertEqual(value.z, z, accuracy: 0.0001, file: file, line: line)
     }
 
-    private func waitForPixUV(
+    private func waitForPixelMap(
         from params: IRGLFish2PanoShaderParams,
         timeout: TimeInterval = 1,
         file: StaticString = #filePath,
         line: UInt = #line
-    ) throws -> [UnsafeMutablePointer<GLfloat>] {
+    ) throws -> IRGLFish2PanoPixelMapGeneration {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if let pixUV = params.consumePixUVIfReady() {
-                return pixUV
+            if let pixelMap = params.takePixelMapIfReady() {
+                return pixelMap
             }
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
         }
         XCTFail("Expected fish2pano pixel map to become ready", file: file, line: line)
         throw XCTSkip("Pixel map did not become ready before timeout")
+    }
+
+    private func waitForPublishedPixelMap(
+        in params: IRGLFish2PanoShaderParams,
+        timeout: TimeInterval = 1,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if params.publishedPixelMapDiagnostics != nil {
+                return
+            }
+            RunLoop.current.run(
+                mode: .default,
+                before: Date().addingTimeInterval(0.01)
+            )
+        }
+        XCTFail(
+            "Expected fish2pano pixel map publication",
+            file: file,
+            line: line
+        )
+        throw XCTSkip(
+            "Pixel map was not published before timeout"
+        )
     }
 }
 

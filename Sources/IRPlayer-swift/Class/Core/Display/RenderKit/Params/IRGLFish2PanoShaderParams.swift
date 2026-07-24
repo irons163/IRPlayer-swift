@@ -12,6 +12,7 @@ private let DTOR: GLfloat = Float.pi / 180.0
 class IRGLFish2PanoShaderParams: IRGLShaderParams {
 
     private struct PixelMapConfiguration {
+        let requestGeneration: Int
         let textureWidth: Int
         let textureHeight: Int
         let fishAperture: GLfloat
@@ -30,32 +31,6 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         let outputHeight: Int
         let textureCount: Int
         let elementCapacity: Int
-    }
-
-    private final class PixelMap: @unchecked Sendable {
-        let pointers: [UnsafeMutablePointer<GLfloat>]
-
-        init(textureCount: Int, elementCapacity: Int) {
-            var pointers: [UnsafeMutablePointer<GLfloat>] = []
-            pointers.reserveCapacity(textureCount)
-            for _ in 0..<textureCount {
-                let pointer = UnsafeMutablePointer<GLfloat>.allocate(capacity: elementCapacity)
-                pointer.initialize(repeating: -1, count: elementCapacity)
-                pointers.append(pointer)
-            }
-            self.pointers = pointers
-        }
-
-        deinit {
-            for pointer in pointers {
-                pointer.deallocate()
-            }
-        }
-
-        func matches(_ consumed: [UnsafeMutablePointer<GLfloat>]) -> Bool {
-            guard pointers.count == consumed.count else { return false }
-            return zip(pointers, consumed).allSatisfy { $0 == $1 }
-        }
     }
 
     var preferredRotation: GLfloat = 0.0
@@ -81,38 +56,50 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     private let pixelMapQueue = DispatchQueue(label: "irplayer.fish2pano.pixelmap")
     private let pixelMapStateLock = NSLock()
     private var pixelMapGeneration = 0
-    private var publishedPixelMap: PixelMap?
-    private var consumedPixelMaps: [PixelMap] = []
+    private var publishedPixelMap:
+        IRGLFish2PanoPixelMapGeneration?
 
-    func consumePixUVIfReady() -> [UnsafeMutablePointer<GLfloat>]? {
+    var publishedPixelMapDiagnostics:
+        IRGLFish2PanoPixelMapDiagnostics?
+    {
         pixelMapStateLock.lock()
         defer { pixelMapStateLock.unlock() }
-        guard let pixelMap = publishedPixelMap else { return nil }
+        return publishedPixelMap?.diagnostics
+    }
+
+    func takePixelMapIfReady()
+        -> IRGLFish2PanoPixelMapGeneration?
+    {
+        pixelMapStateLock.lock()
+        defer { pixelMapStateLock.unlock() }
+        let pixelMap = publishedPixelMap
         publishedPixelMap = nil
-        consumedPixelMaps.append(pixelMap)
-        return pixelMap.pointers
+        return pixelMap
     }
 
-    func releaseConsumedPixUV(_ consumed: [UnsafeMutablePointer<GLfloat>]) {
+    private func nextPixelMapGeneration() -> Int? {
         pixelMapStateLock.lock()
         defer { pixelMapStateLock.unlock() }
-        guard let index = consumedPixelMaps.firstIndex(where: { $0.matches(consumed) }) else {
-            return
+        let (nextGeneration, overflow) =
+            pixelMapGeneration.addingReportingOverflow(1)
+        guard !overflow else {
+            publishedPixelMap = nil
+            return nil
         }
-        consumedPixelMaps.remove(at: index)
-    }
-
-    private func nextPixelMapGeneration() -> Int {
-        pixelMapStateLock.lock()
-        defer { pixelMapStateLock.unlock() }
-        pixelMapGeneration += 1
+        pixelMapGeneration = nextGeneration
+        publishedPixelMap = nil
         return pixelMapGeneration
     }
 
-    private func publish(_ pixelMap: PixelMap, generation: Int) {
+    private func publish(
+        _ pixelMap: IRGLFish2PanoPixelMapGeneration
+    ) {
         pixelMapStateLock.lock()
         defer { pixelMapStateLock.unlock() }
-        guard generation == pixelMapGeneration else { return }
+        guard pixelMap.requestGeneration
+                == pixelMapGeneration else {
+            return
+        }
         publishedPixelMap = pixelMap
     }
 
@@ -122,29 +109,44 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     }
 
     static func outputSize(forTextureWidth textureWidth: Int, height textureHeight: Int) -> (width: Int, height: Int)? {
-        return IRGLFish2PanoShaderParamsPolicy.outputSize(forTextureWidth: textureWidth, height: textureHeight)
+        IRGLFish2PanoPixelMapGeneration.outputSize(
+            forTextureWidth: textureWidth,
+            height: textureHeight
+        )
     }
 
     static func pixelMapTextureCount(antialias: GLint) -> Int? {
-        return IRGLFish2PanoShaderParamsPolicy.pixelMapTextureCount(antialias: antialias)
+        IRGLFish2PanoPixelMapGeneration.textureCount(
+            antialias: Int(antialias)
+        )
     }
 
     static func pixelMapCapacity(outputWidth: GLint, outputHeight: GLint) -> Int? {
-        return IRGLFish2PanoShaderParamsPolicy.pixelMapCapacity(outputWidth: outputWidth, outputHeight: outputHeight)
+        IRGLFish2PanoPixelMapGeneration.elementCount(
+            outputWidth: Int(outputWidth),
+            outputHeight: Int(outputHeight)
+        )
     }
 
     static func pixelMapUVOffset(outputWidth: GLint, outputHeight: GLint, x: Int, y: Int) -> Int? {
-        return IRGLFish2PanoShaderParamsPolicy.pixelMapUVOffset(outputWidth: outputWidth,
-                                                               outputHeight: outputHeight,
-                                                               x: x,
-                                                               y: y)
+        IRGLFish2PanoPixelMapGeneration.uvOffset(
+            outputWidth: Int(outputWidth),
+            outputHeight: Int(outputHeight),
+            x: x,
+            y: y
+        )
     }
 
-    private static func makePixelMap(configuration: PixelMapConfiguration) -> PixelMap {
-        let pixelMap = PixelMap(
-            textureCount: configuration.textureCount,
-            elementCapacity: configuration.elementCapacity
-        )
+    private static func makePixelMap(
+        configuration: PixelMapConfiguration
+    ) -> IRGLFish2PanoPixelMapGeneration? {
+        var pixelMaps = (0..<configuration.textureCount)
+            .map { _ in
+                Array<GLfloat>(
+                    repeating: -1,
+                    count: configuration.elementCapacity
+                )
+            }
         let transX = configuration.transformX * DTOR
         let transY = configuration.transformY * DTOR
         let transZ = configuration.transformZ * DTOR
@@ -182,13 +184,20 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
                             transZ: transZ,
                             radiusScale: raperture,
                             configuration: configuration,
-                            pixelMap: pixelMap
+                            pixelMaps: &pixelMaps
                         )
                     }
                 }
             }
         }
-        return pixelMap
+        return IRGLFish2PanoPixelMapGeneration(
+            requestGeneration:
+                configuration.requestGeneration,
+            outputWidth: configuration.outputWidth,
+            outputHeight: configuration.outputHeight,
+            antialias: configuration.antialias,
+            maps: pixelMaps
+        )
     }
 
     private static func writePixelFactors(
@@ -202,9 +211,9 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         transZ: Float,
         radiusScale: Float,
         configuration: PixelMapConfiguration,
-        pixelMap: PixelMap
+        pixelMaps: inout [[GLfloat]]
     ) {
-        guard pixelMap.pointers.indices.contains(index),
+        guard pixelMaps.indices.contains(index),
               let uvOffset = pixelMapUVOffset(
                 outputWidth: GLint(configuration.outputWidth),
                 outputHeight: GLint(configuration.outputHeight),
@@ -234,8 +243,8 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
             return
         }
 
-        pixelMap.pointers[index][uvOffset] = GLfloat(u)
-        pixelMap.pointers[index][uvOffset + 1] = GLfloat(v)
+        pixelMaps[index][uvOffset] = GLfloat(u)
+        pixelMaps[index][uvOffset + 1] = GLfloat(v)
     }
 
     func setDefaultValues() {
@@ -278,7 +287,10 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     }
 
     func updateOutputWH() {
-        let jobGeneration = nextPixelMapGeneration()
+        guard let jobGeneration =
+                nextPixelMapGeneration() else {
+            return
+        }
 
         lat1 = 0.0
         lat2 = 60.0
@@ -304,6 +316,7 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
             return
         }
         let configuration = PixelMapConfiguration(
+            requestGeneration: jobGeneration,
             textureWidth: Int(textureWidth),
             textureHeight: Int(textureHeight),
             fishAperture: fishaperture,
@@ -325,8 +338,12 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         )
 
         pixelMapQueue.async { [weak self] in
-            let pixelMap = Self.makePixelMap(configuration: configuration)
-            self?.publish(pixelMap, generation: jobGeneration)
+            guard let pixelMap = Self.makePixelMap(
+                configuration: configuration
+            ) else {
+                return
+            }
+            self?.publish(pixelMap)
         }
     }
 }

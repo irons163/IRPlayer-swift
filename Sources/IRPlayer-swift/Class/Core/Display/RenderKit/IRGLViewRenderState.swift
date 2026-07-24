@@ -67,23 +67,48 @@ final class IRGLViewRenderState {
             fish2PanoLastAntialias = antialias
         }
 
-        let expectedTextureCount = antialias * antialias
-        if let device, let pixUV = params.consumePixUVIfReady() {
-            defer { params.releaseConsumedPixUV(pixUV) }
-
-            guard pixUV.count == expectedTextureCount else {
+        guard let expectedTextureCount =
+                IRGLFish2PanoPixelMapGeneration.textureCount(
+                    antialias: antialias
+                ),
+              let expectedElementCount =
+                IRGLFish2PanoPixelMapGeneration.elementCount(
+                    outputWidth: outputWidth,
+                    outputHeight: outputHeight
+                ) else {
+            return .invalid
+        }
+        if let device,
+           let pixelMap = params.takePixelMapIfReady() {
+            guard pixelMap.outputWidth == outputWidth,
+                  pixelMap.outputHeight == outputHeight,
+                  pixelMap.antialias == antialias,
+                  pixelMap.textureCount
+                    == expectedTextureCount,
+                  pixelMap.elementCountPerTexture
+                    == expectedElementCount else {
                 return .waitingForTextures
             }
             var newTextures: [MTLTexture] = []
             newTextures.reserveCapacity(expectedTextureCount)
             for i in 0..<expectedTextureCount {
-                guard let texture = makeTexUVTexture(device: device,
-                                                     width: outputWidth,
-                                                     height: outputHeight,
-                                                     data: pixUV[i]) else {
+                var uploadedTexture: MTLTexture?
+                let borrowed: Bool? =
+                    pixelMap.withUnsafeMapBuffer(at: i) {
+                        buffer in
+                        uploadedTexture = makeTexUVTexture(
+                            device: device,
+                            width: outputWidth,
+                            height: outputHeight,
+                            data: buffer
+                        )
+                        return true
+                    }
+                guard borrowed == true,
+                      let uploadedTexture else {
                     return .waitingForTextures
                 }
-                newTextures.append(texture)
+                newTextures.append(uploadedTexture)
             }
             fish2PanoTextures = newTextures
         }
@@ -406,11 +431,15 @@ final class IRGLViewRenderState {
     private func makeTexUVTexture(device: MTLDevice,
                                   width: Int,
                                   height: Int,
-                                  data: UnsafeMutablePointer<GLfloat>) -> MTLTexture? {
+                                  data: UnsafeBufferPointer<GLfloat>) -> MTLTexture? {
         guard let layout = Self.texUVTextureLayout(
             width: width,
             height: height
-        ) else {
+        ),
+        let baseAddress = data.baseAddress,
+        data.count
+            == layout.totalByteCount
+                / MemoryLayout<GLfloat>.stride else {
             return nil
         }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float,
@@ -422,7 +451,7 @@ final class IRGLViewRenderState {
         let region = MTLRegionMake2D(0, 0, width, height)
         texture.replace(region: region,
                         mipmapLevel: 0,
-                        withBytes: data,
+                        withBytes: baseAddress,
                         bytesPerRow: layout.bytesPerRow)
         return texture
     }

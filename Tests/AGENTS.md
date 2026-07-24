@@ -56,6 +56,7 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRGLProgramDistortionTests.swift` — Distortion program
 - `IRGLProgramMulti4PTests.swift` — Multi-4P program
 - `IRGLProgramFactoryTests.swift` — Program factory
+- `IRGLFish2PanoPixelMapGenerationTests.swift` — Immutable managed lookup maps and scoped bytes
 - `IRGLProjectionVRTests.swift` — Immutable shared VR mesh and concurrency
 - `IRGLProjectionEquirectangularTests.swift` — Mesh validation, geometry generations, snapshots, and concurrency
 - `IRMetalCommandResourcesTests.swift` — GPU-completion resource lifetime and command caching

@@ -71,8 +71,8 @@ The view becomes a translation layer between UIKit inputs and those owners.
 - Detach AVPlayer layers exactly once and keep all layer mutation on main.
 - Implement empty-buffer cleanup as an actual black-frame render.
 - Consolidate view/strategy policies into their domain owners.
-- Publish fish2pano lookup buffers as immutable generations and retain consumed
-  generations until the renderer explicitly releases them.
+- Publish fish2pano lookup buffers as immutable generations that survive
+  render-state upload independently.
 - Add deterministic failure, lifecycle, ordering, reentrancy, and concurrency
   tests around each owner.
 
@@ -144,10 +144,11 @@ reconfiguration, submission, and close all share the same serial domain.
 attempts one render through the normal frame session.
 
 Fish2pano lookup generation captures an immutable configuration before entering
-its worker queue. The completed buffer is published under one state lock only
-if its generation is current. Consumption transfers that buffer into an
-independently retained set until texture upload releases it, so a newer lookup
-generation cannot overwrite or free memory still in use.
+its worker queue. The completed generation is published under one state lock
+only if its request is current. A later managed-generation refactor replaced
+the original pointer consume/release handoff: shader params now atomically
+transfer one Swift-managed immutable value, and render state borrows its bytes
+only inside scoped texture-upload closures.
 
 ## Snapshot Ownership
 
@@ -203,7 +204,7 @@ renderer type.
 - Repeated close performs no additional teardown.
 - Frame submission after close returns without invoking a renderer.
 - Stale fish2pano lookup jobs are discarded without replacing the published
-  generation, and consumed lookup memory cannot be reclaimed by a newer job.
+  generation, and a taken managed generation survives newer jobs naturally.
 
 ## Acceptance Criteria
 

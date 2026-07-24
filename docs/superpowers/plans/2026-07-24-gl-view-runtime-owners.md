@@ -63,7 +63,8 @@
 - Focused display/runtime/render-mode/fish2pano suites: 123 passed with Thread
   Sanitizer.
 - Thread Sanitizer exposed a fish2pano lookup-map publication race; lookup
-  buffers now use immutable generations with locked transfer and independent
-  consumed-buffer lifetime.
+  buffers now use immutable generations with locked transfer. The later
+  managed lookup-generation slice removed the original pointer release
+  protocol while preserving that fence.
 - Full iOS Simulator suite: 1069 passed.
 - Generic iOS device build: passed.

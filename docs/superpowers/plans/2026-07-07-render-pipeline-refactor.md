@@ -1,5 +1,9 @@
 # Render Pipeline Refactor Implementation Plan
 
+> Historical note: the pointer-based fish2pano upload shown in this completed
+> plan was replaced by the managed lookup-generation design in
+> `docs/superpowers/specs/2026-07-24-fish2pano-managed-lookup-generation-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Extract `IRGLView` render orchestration and mode-specific Metal cache state into internal RenderKit collaborators while preserving all post-2.0 render behavior.
