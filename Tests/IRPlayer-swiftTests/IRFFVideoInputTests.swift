@@ -1,7 +1,12 @@
 import Foundation
 import IRFFMpeg
+import IRPlayerObjc
 import XCTest
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 final class IRFFVideoInputTests: XCTestCase {
     func testInitializerDefaultsToDisplayViewOutputWithoutVideoOutput() {

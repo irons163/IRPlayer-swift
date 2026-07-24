@@ -1,6 +1,10 @@
 import AVFoundation
 import Foundation
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 func makeTestPCMFormat(
     sampleRate: Float64 = 48_000,

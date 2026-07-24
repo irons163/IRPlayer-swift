@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import IRFFMpeg
+import IRPlayerObjc
 
 extension IRFFFormatContext {
     static func stream(

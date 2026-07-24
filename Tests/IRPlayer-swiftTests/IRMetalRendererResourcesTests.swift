@@ -8,7 +8,11 @@
 import CoreVideo
 import Metal
 import XCTest
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 final class IRMetalRendererResourcesTests: XCTestCase {
     private typealias ResourceDependencies =

@@ -4,7 +4,11 @@ import QuartzCore
 import simd
 import UIKit
 import XCTest
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 final class IRGLViewSnapshotTests: XCTestCase {
 

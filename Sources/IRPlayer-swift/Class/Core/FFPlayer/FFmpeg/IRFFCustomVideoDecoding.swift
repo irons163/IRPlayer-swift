@@ -7,6 +7,7 @@
 
 import Foundation
 import IRFFMpeg
+import IRPlayerObjc
 
 public struct IRFFVideoCodecIdentifier:
     RawRepresentable,

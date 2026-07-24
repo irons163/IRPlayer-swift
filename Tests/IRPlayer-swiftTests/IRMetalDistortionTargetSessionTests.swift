@@ -7,7 +7,11 @@
 
 import Metal
 import XCTest
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 private final class IRMetalTargetIdentityRecorder:
     @unchecked Sendable {

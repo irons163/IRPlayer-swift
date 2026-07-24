@@ -60,7 +60,7 @@ struct IRMetalRendererResourceDependencies {
             makeLibrary: { device in
                 #if SWIFT_PACKAGE
                 return (try? device.makeDefaultLibrary(bundle: .module))
-                    ?? (try? device.makeDefaultLibrary())
+                    ?? device.makeDefaultLibrary()
                 #else
                 return (
                     try? device.makeDefaultLibrary(

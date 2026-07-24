@@ -46,15 +46,22 @@ Run from repository root unless noted.
 ```bash
 swift --version
 swift package resolve
-swift build
-swift test
+swift build \
+  --triple arm64-apple-ios15.0 \
+  --sdk "$(xcrun --sdk iphoneos --show-sdk-path)"
+swift build \
+  --build-tests \
+  --triple arm64-apple-ios15.0-simulator \
+  --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)"
 ```
 
-For Xcode workflows (example):
+The package intentionally supports iOS only, and its binary FFmpeg
+dependencies do not contain macOS slices. Use Xcode to execute the tests:
 
 ```bash
 xcodebuild -project IRPlayer-swift.xcodeproj -list
 xcodebuild -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destination 'generic/platform=iOS' build
+xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
 If the scheme name differs locally, use the output of `-list`.

@@ -92,7 +92,20 @@ final class IRMetalDistortionMesh {
                 let yTexture = vTextureBlue * textureHeight - yEyeOffsetTexture
                 let rTexture = sqrtf(xTexture * xTexture + yTexture * yTexture)
 
-                let textureToScreenBlue = (rTexture > 0.0) ? blueDistortInverse(radius: rTexture) / rTexture : 1.0
+                let textureToScreenBlue: Float
+                if rTexture > 0 {
+                    guard let invertedRadius =
+                        invertedBlueRadius(rTexture) else {
+                        return nil
+                    }
+                    textureToScreenBlue = invertedRadius / rTexture
+                } else {
+                    textureToScreenBlue = 1
+                }
+                guard textureToScreenBlue.isFinite,
+                      textureToScreenBlue > 0 else {
+                    return nil
+                }
 
                 let xScreen = xTexture * textureToScreenBlue
                 let yScreen = yTexture * textureToScreenBlue
@@ -110,13 +123,38 @@ final class IRMetalDistortionMesh {
                 let vTextureRed = (yScreen * screenToTextureRed + yEyeOffsetTexture) / textureHeight
 
                 let vignetteSizeTexture = vignetteSizeTanAngle / textureToScreenBlue
-                let dxTexture = clamp(value: xTexture + xEyeOffsetTexture, min: viewportXTexture + vignetteSizeTexture, max: viewportXTexture + viewportWidthTexture - vignetteSizeTexture)
-                let dyTexture = clamp(value: yTexture + yEyeOffsetTexture, min: viewportYTexture + vignetteSizeTexture, max: viewportYTexture + viewportHeightTexture - vignetteSizeTexture)
+                let textureX = xTexture + xEyeOffsetTexture
+                let textureY = yTexture + yEyeOffsetTexture
+                let dxTexture = textureX - clamp(
+                    value: textureX,
+                    min: viewportXTexture + vignetteSizeTexture,
+                    max: viewportXTexture
+                        + viewportWidthTexture
+                        - vignetteSizeTexture
+                )
+                let dyTexture = textureY - clamp(
+                    value: textureY,
+                    min: viewportYTexture + vignetteSizeTexture,
+                    max: viewportYTexture
+                        + viewportHeightTexture
+                        - vignetteSizeTexture
+                )
                 let drTexture = sqrtf(dxTexture * dxTexture + dyTexture * dyTexture)
 
                 let vignette = 1.0 - clamp(value: drTexture / vignetteSizeTexture, min: 0.0, max: 1.0)
 
                 let position = SIMD2<Float>(2.0 * uScreen - 1.0, 2.0 * vScreen - 1.0)
+                guard position.x.isFinite,
+                      position.y.isFinite,
+                      vignette.isFinite,
+                      uTextureRed.isFinite,
+                      vTextureRed.isFinite,
+                      uTextureGreen.isFinite,
+                      vTextureGreen.isFinite,
+                      uTextureBlue.isFinite,
+                      vTextureBlue.isFinite else {
+                    return nil
+                }
                 let vertex = IRMetalDistortionVertex(position: position,
                                                      vignette: vignette,
                                                      redTexCoord: SIMD2<Float>(uTextureRed, vTextureRed),
@@ -157,18 +195,40 @@ final class IRMetalDistortionMesh {
         return (vertices: vertices, indices: indices)
     }
 
-    private static func blueDistortInverse(radius: Float) -> Float {
-        var r0 = radius / 0.9
-        var r = radius * 0.9
-        var dr0 = radius - distort(radius: r0)
-        while abs(r - r0) > 0.0001 {
-            let dr = radius - distort(radius: r)
-            let r2 = r - dr * ((r - r0) / (dr - dr0))
-            r0 = r
-            r = r2
-            dr0 = dr
+    static func invertedBlueRadius(_ radius: Float) -> Float? {
+        guard radius.isFinite, radius >= 0 else {
+            return nil
         }
-        return r
+        let tolerance: Float = 0.0001
+        guard radius > tolerance else {
+            return radius
+        }
+
+        // Positive coefficients make distortion monotonic for nonnegative
+        // radii, so bisection provides a deterministic iteration bound.
+        guard distort(radius: radius).isFinite else {
+            return nil
+        }
+        var lowerBound: Float = 0
+        var upperBound = radius
+        for _ in 0..<32 {
+            let candidate = lowerBound
+                + (upperBound - lowerBound) / 2
+            let distortedRadius = distort(radius: candidate)
+            guard distortedRadius.isFinite else {
+                return nil
+            }
+            if abs(distortedRadius - radius) <= tolerance
+                || upperBound - lowerBound <= tolerance {
+                return candidate
+            }
+            if distortedRadius < radius {
+                lowerBound = candidate
+            } else {
+                upperBound = candidate
+            }
+        }
+        return nil
     }
 
     private static func distort(radius: Float) -> Float {

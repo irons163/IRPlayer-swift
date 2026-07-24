@@ -7,7 +7,11 @@
 
 import Foundation
 import Darwin
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 final class FormatContextInterruptDelegate: IRFFFormatContextDelegate {
     var shouldInterrupt: Bool

@@ -6,7 +6,11 @@
 //
 
 import XCTest
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 final class IRGLScopeTests: XCTestCase {
 

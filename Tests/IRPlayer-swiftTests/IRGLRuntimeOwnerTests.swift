@@ -3,7 +3,11 @@ import CoreImage
 import Metal
 import QuartzCore
 import XCTest
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 private final class IRGLOwnerCounter: @unchecked Sendable {
     private let lock = NSLock()

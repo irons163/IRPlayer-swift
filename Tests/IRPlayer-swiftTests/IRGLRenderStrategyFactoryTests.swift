@@ -9,7 +9,11 @@ import Metal
 import QuartzCore
 import simd
 import XCTest
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 final class IRGLRenderStrategyFactoryTests: XCTestCase {
 

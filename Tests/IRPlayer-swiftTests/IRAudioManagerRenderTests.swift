@@ -1,6 +1,10 @@
 import AVFoundation
 import XCTest
+#if SWIFT_PACKAGE
+@testable import IRPlayerSwift
+#else
 @testable import IRPlayer_swift
+#endif
 
 final class IRAudioManagerRenderTests: XCTestCase {
     func testUnpreparedRenderClearsDestinationAndReturnsSilence() throws {
