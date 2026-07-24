@@ -93,6 +93,7 @@ protocol IRPlaybackBackend: AnyObject {
     var playableTime: TimeInterval { get }
     var seeking: Bool { get }
     var decoderVideoOutput: IRFFDecoderVideoOutput? { get }
+    var snapshot: IRPlaybackBackendSnapshot { get }
 
     func play()
     func pause()

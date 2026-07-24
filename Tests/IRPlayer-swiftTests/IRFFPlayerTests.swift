@@ -356,52 +356,57 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertEqual(ffPlayer.state, .suspend)
 
         ffPlayer.seek(to: 3)
+        var seekResult: Bool?
         ffPlayer.seek(to: 4) { didFinish in
-            XCTFail("Missing decoder should not invoke seek completion, got \(didFinish)")
+            seekResult = didFinish
         }
+        XCTAssertEqual(seekResult, false)
     }
 
-    func testDecoderDelegateCallbacksUpdatePlaybackStateAndProgress() {
+    func testDecoderDelegateCallbacksUpdatePlaybackStateAndProgress() throws {
         let abstractPlayer = IRPlayerImp.player()
         abstractPlayer.manager = nil
         let ffPlayer = IRFFPlayer.player(with: abstractPlayer)
         let decoder = FixedDurationFFDecoder(duration: 10)
         ffPlayer.decoder = decoder
+        let delegate = try XCTUnwrap(decoder.delegate)
         ffPlayer.playing = true
         ffPlayer.progress = 2
 
-        ffPlayer.decoderWillOpenInputStream(decoder)
+        delegate.decoderWillOpenInputStream(decoder)
         XCTAssertEqual(ffPlayer.state, .buffering)
 
-        ffPlayer.decoderDidPrepareToDecodeFrames(decoder)
+        delegate.decoderDidPrepareToDecodeFrames(decoder)
         XCTAssertEqual(ffPlayer.state, .readyToPlay)
 
-        ffPlayer.decoder(decoder, didChangeValueOfBuffering: false)
+        delegate.decoder(decoder, didChangeValueOfBuffering: false)
         XCTAssertEqual(ffPlayer.state, .playing)
 
-        ffPlayer.decoder(decoder, didChangeValueOfBufferedDuration: 3)
+        delegate.decoder(decoder, didChangeValueOfBufferedDuration: 3)
         XCTAssertEqual(ffPlayer.playableTime, 5)
 
-        ffPlayer.decoder(decoder, didChangeValueOfProgress: 4)
+        delegate.decoder(decoder, didChangeValueOfProgress: 4)
         XCTAssertEqual(ffPlayer.progress, 4)
 
-        ffPlayer.decoderDidEndOfFile(decoder)
+        delegate.decoderDidEndOfFile(decoder)
         XCTAssertEqual(ffPlayer.playableTime, 10)
 
-        ffPlayer.decoderDidPlaybackFinished(decoder)
+        delegate.decoderDidPlaybackFinished(decoder)
         XCTAssertEqual(ffPlayer.state, .finished)
 
         withExtendedLifetime(abstractPlayer) {}
     }
 
-    func testDecoderErrorStoresPlayerErrorAndFailsState() {
+    func testDecoderErrorStoresPlayerErrorAndFailsState() throws {
         let abstractPlayer = IRPlayerImp.player()
         abstractPlayer.manager = nil
         let ffPlayer = IRFFPlayer.player(with: abstractPlayer)
         let decoder = FixedDurationFFDecoder(duration: 10)
         let error = NSError(domain: "ff-test", code: 9)
+        ffPlayer.decoder = decoder
+        let delegate = try XCTUnwrap(decoder.delegate)
 
-        ffPlayer.decoder(decoder, didError: error)
+        delegate.decoder(decoder, didError: error)
 
         XCTAssertEqual(ffPlayer.state, .failed)
         XCTAssertEqual(abstractPlayer.error?.error.domain, "ff-test")
@@ -441,26 +446,22 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertEqual(decoder.minBufferedDuration, 0)
     }
 
-    func testStaticPolicyWrappersRemainSourceCompatible() {
+    func testStaticCompatibilityWrappersUseRuntimeOwnerPolicies() {
         XCTAssertEqual(
             IRFFPlayer.replaceVideoReadiness(hasAbstractPlayer: true, hasContentURL: true, hasDisplayView: false),
-            IRFFPlayerPlaybackPolicy.replaceVideoReadiness(
-                hasAbstractPlayer: true,
-                hasContentURL: true,
-                hasDisplayView: false
-            )
+            .missingDisplayView
         )
         XCTAssertEqual(
             IRFFPlayer.playTransition(from: .finished),
-            IRFFPlayerPlaybackPolicy.playTransition(from: .finished)
+            IRFFPlayerStateMachine.playTransition(from: .finished)
         )
         XCTAssertEqual(
             IRFFPlayer.pauseTransition(from: .playing),
-            IRFFPlayerPlaybackPolicy.pauseTransition(from: .playing)
+            IRFFPlayerStateMachine.pauseTransition(from: .playing)
         )
         XCTAssertEqual(
             IRFFPlayer.bufferingTransition(isBuffering: false, isPlaying: false, hasPreparedOnce: false),
-            IRFFPlayerPlaybackPolicy.bufferingTransition(
+            IRFFPlayerStateMachine.bufferingTransition(
                 isBuffering: false,
                 isPlaying: false,
                 hasPreparedOnce: false
