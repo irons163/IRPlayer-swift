@@ -364,9 +364,91 @@ final class IRFFVideoDecoderTests: XCTestCase {
 
         XCTAssertEqual(source.shouldHandleCallCount, 1)
         XCTAssertEqual(source.decodeFrameCallCount, 1)
+        XCTAssertEqual(source.mismatchedCallbackCount, 0)
+        XCTAssertEqual(source.lastPacket?.data, Data([1]))
+        XCTAssertEqual(source.lastInfo?.timebase, 0.25)
+        XCTAssertEqual(source.lastInfo?.framesPerSecond, 30)
         XCTAssertEqual(delegate.bufferedDurationUpdateCallCount, 1)
         XCTAssertEqual(delegate.bufferingCheckCallCount, 1)
         XCTAssertTrue(delegate.errors.isEmpty)
+    }
+
+    func testAsyncCustomSourceOwnsValuesAfterInternalPacketClose() {
+        var codecContext = AVCodecContext()
+        codecContext.codec_id = AV_CODEC_ID_H264
+        codecContext.width = 2
+        codecContext.height = 2
+        let outputFrame = IRFFVideoFrame()
+        outputFrame.duration = 0.25
+        let delivered = expectation(
+            description: "async custom frame delivered"
+        )
+        let source = AsyncVideoInput(
+            outputFrame: outputFrame,
+            onDelivered: {
+                delivered.fulfill()
+            }
+        )
+
+        withUnsafeMutablePointer(
+            to: &codecContext
+        ) { codecContextPointer in
+            let decoder = IRFFVideoDecoder(
+                codecContext: codecContextPointer,
+                timebase: 0.25,
+                fps: 30,
+                delegate: nil
+            )
+            source.videoOutput = decoder
+            decoder.source = source
+            decoder.endOfFile = true
+            codecContextPointer.pointee.codec_id =
+                AV_CODEC_ID_MPEG4
+            codecContextPointer.pointee.width = 99
+            codecContextPointer.pointee.height = 99
+            var byte: UInt8 = 7
+
+            withUnsafeMutablePointer(to: &byte) {
+                bytePointer in
+                var rawPacket = AVPacket()
+                rawPacket.data = bytePointer
+                rawPacket.size = 1
+                rawPacket.stream_index = 0
+                rawPacket.pts = 4
+                let packet = IRFFPacket(
+                    consuming: &rawPacket
+                )
+
+                decoder.putPacket(packet)
+                decoder.decodeFrameThread()
+
+                XCTAssertEqual(
+                    packet.diagnostics.phase,
+                    .closed
+                )
+            }
+
+            byte = 99
+            source.releaseAsyncDecode()
+            wait(for: [delivered], timeout: 2)
+
+            XCTAssertEqual(
+                source.capturedPacket?.data,
+                Data([7])
+            )
+            XCTAssertEqual(
+                source.capturedInfo?.codec.identifier,
+                .h264
+            )
+            XCTAssertEqual(
+                source.capturedInfo?.codec.width,
+                2
+            )
+            XCTAssertTrue(
+                decoder.dequeueFrame() === outputFrame
+            )
+            decoder.destroy()
+        }
     }
 
     func testRuntimeConfigurationSupportsConcurrentReadsAndWrites() {
@@ -461,19 +543,42 @@ private final class VideoDecoderDataSourceSpy: IRFFVideoDecoderDataSource {
     private let frame: IRFFVideoFrame?
     private(set) var shouldHandleCallCount = 0
     private(set) var decodeFrameCallCount = 0
+    private(set) var mismatchedCallbackCount = 0
+    private(set) var lastInfo: IRFFVideoDecoderInfo?
+    private(set) var lastPacket: IRFFCompressedVideoPacket?
+    private var pendingInfo: IRFFVideoDecoderInfo?
+    private var pendingPacket: IRFFCompressedVideoPacket?
 
     init(shouldHandle: Bool, frame: IRFFVideoFrame?) {
         self.shouldHandleResult = shouldHandle
         self.frame = frame
     }
 
-    func shouldHandle(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> Bool {
+    func shouldHandle(
+        _ videoDecoder: IRFFVideoDecoderInfo,
+        decodeFrame packet: IRFFCompressedVideoPacket
+    ) -> Bool {
         shouldHandleCallCount += 1
+        pendingInfo = videoDecoder
+        pendingPacket = packet
+        lastInfo = videoDecoder
+        lastPacket = packet
         return shouldHandleResult
     }
 
-    func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
+    func videoDecoder(
+        _ videoDecoder: IRFFVideoDecoderInfo,
+        decodeFrame packet: IRFFCompressedVideoPacket
+    ) -> IRFFVideoFrame? {
         decodeFrameCallCount += 1
+        if pendingInfo != videoDecoder
+            || pendingPacket != packet {
+            mismatchedCallbackCount += 1
+        }
+        pendingInfo = nil
+        pendingPacket = nil
+        lastInfo = videoDecoder
+        lastPacket = packet
         return frame
     }
 }
@@ -489,5 +594,61 @@ private final class VideoFrameLifecycleProbe:
 
     func frameDidCancel(_ frame: IRFFFrame) {
         cancelCount += 1
+    }
+}
+
+private final class AsyncVideoInput: IRFFVideoInput {
+    private let lock = NSLock()
+    private let gate = DispatchSemaphore(value: 0)
+    private let queue = DispatchQueue(
+        label: "IRFFVideoDecoderTests.async-input"
+    )
+    private let outputFrame: IRFFVideoFrame
+    private let onDelivered: () -> Void
+    private var storedInfo: IRFFVideoDecoderInfo?
+    private var storedPacket: IRFFCompressedVideoPacket?
+
+    var capturedInfo: IRFFVideoDecoderInfo? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedInfo
+    }
+
+    var capturedPacket: IRFFCompressedVideoPacket? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedPacket
+    }
+
+    init(
+        outputFrame: IRFFVideoFrame,
+        onDelivered: @escaping () -> Void
+    ) {
+        self.outputFrame = outputFrame
+        self.onDelivered = onDelivered
+        super.init(outputType: .decoder)
+    }
+
+    override func videoDecoder(
+        _ videoDecoder: IRFFVideoDecoderInfo,
+        decodeFrame packet: IRFFCompressedVideoPacket
+    ) -> IRFFVideoFrame? {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.gate.wait()
+            self.lock.lock()
+            self.storedInfo = videoDecoder
+            self.storedPacket = packet
+            self.lock.unlock()
+            self.videoOutput?.send?(
+                videoFrame: self.outputFrame
+            )
+            self.onDelivered()
+        }
+        return nil
+    }
+
+    func releaseAsyncDecode() {
+        gate.signal()
     }
 }

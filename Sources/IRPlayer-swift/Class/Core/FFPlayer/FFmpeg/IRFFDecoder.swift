@@ -70,7 +70,22 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     weak var delegate: IRFFDecoderDelegate?
-    weak var source: IRFFVideoDecoderDataSource?
+    private let sourceLock = NSLock()
+    private weak var storedSource:
+        IRFFVideoDecoderDataSource?
+    var source: IRFFVideoDecoderDataSource? {
+        get {
+            sourceLock.lock()
+            defer { sourceLock.unlock() }
+            return storedSource
+        }
+        set {
+            sourceLock.lock()
+            storedSource = newValue
+            session.updateVideoDecoderSource(newValue)
+            sourceLock.unlock()
+        }
+    }
     weak var videoOutput: IRFFDecoderVideoOutput?
     weak var audioOutput: IRFFDecoderAudioOutput?
 
@@ -286,12 +301,22 @@ protocol IRFFDecoderDelegate: AnyObject {
         )
     }
 
-    static func videoCodecContext(from formatContext: IRFFFormatContext?) -> UnsafeMutablePointer<AVCodecContext>? {
-        return IRFFDecoderCodecContextPolicy.videoCodecContext(from: formatContext)
+    static func videoCodecContext(
+        from formatContext: IRFFFormatContext?
+    ) -> UnsafeMutablePointer<AVCodecContext>? {
+        guard formatContext?.videoEnable == true else {
+            return nil
+        }
+        return formatContext?.videoCodecContext
     }
 
-    static func audioCodecContext(from formatContext: IRFFFormatContext?) -> UnsafeMutablePointer<AVCodecContext>? {
-        return IRFFDecoderCodecContextPolicy.audioCodecContext(from: formatContext)
+    static func audioCodecContext(
+        from formatContext: IRFFFormatContext?
+    ) -> UnsafeMutablePointer<AVCodecContext>? {
+        guard formatContext?.audioEnable == true else {
+            return nil
+        }
+        return formatContext?.audioCodecContext
     }
 
     static func audioPacketError(fromPacketResult packetResult: Int) -> NSError? {
@@ -528,9 +553,13 @@ protocol IRFFDecoderDelegate: AnyObject {
                 fps: formatContext.videoFPS,
                 delegate: self
             )
-            videoDecoder.source = self
             videoDecoder.videoToolBoxEnable = hardwareDecoderEnable
-            guard session.installVideoDecoder(videoDecoder) else {
+            sourceLock.lock()
+            videoDecoder.source = storedSource
+            let didInstallVideoDecoder =
+                session.installVideoDecoder(videoDecoder)
+            sourceLock.unlock()
+            guard didInstallVideoDecoder else {
                 videoDecoder.destroy()
                 return
             }
@@ -986,17 +1015,6 @@ extension IRFFDecoder: IRFFVideoDecoderDelegate {
     func videoDecoder(_ videoDecoder: IRFFVideoDecoder, didError error: Error) {
         self.error = error
         delegateErrorCallback()
-    }
-}
-
-extension IRFFDecoder: IRFFVideoDecoderDataSource {
-
-    public func shouldHandle(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> Bool {
-        return source?.shouldHandle(videoDecoder, decodeFrame: packet) ?? false
-    }
-
-    public func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
-        return source?.videoDecoder(videoDecoder, decodeFrame: packet)
     }
 }
 

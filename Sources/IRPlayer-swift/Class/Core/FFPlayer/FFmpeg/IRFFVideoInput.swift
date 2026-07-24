@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import IRFFMpeg
 
 open class IRFFVideoInput: IRFFVideoDecoderDataSource {
 
@@ -15,19 +14,44 @@ open class IRFFVideoInput: IRFFVideoDecoderDataSource {
         case decoder
     }
 
-    public var videoOutput: IRFFDecoderVideoOutput?
-    public var outputType: OutputType = .displayView
+    private let outputLock = NSLock()
+    private weak var storedVideoOutput:
+        IRFFDecoderVideoOutput?
 
-    public init(videoOutput: IRFFDecoderVideoOutput? = nil, outputType: OutputType = .displayView) {
-        self.videoOutput = videoOutput
+    public var videoOutput: IRFFDecoderVideoOutput? {
+        get {
+            outputLock.lock()
+            defer { outputLock.unlock() }
+            return storedVideoOutput
+        }
+        set {
+            outputLock.lock()
+            storedVideoOutput = newValue
+            outputLock.unlock()
+        }
+    }
+
+    public let outputType: OutputType
+
+    public init(
+        videoOutput: IRFFDecoderVideoOutput? = nil,
+        outputType: OutputType = .displayView
+    ) {
+        storedVideoOutput = videoOutput
         self.outputType = outputType
     }
 
-    open func shouldHandle(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> Bool {
+    open func shouldHandle(
+        _ videoDecoder: IRFFVideoDecoderInfo,
+        decodeFrame packet: IRFFCompressedVideoPacket
+    ) -> Bool {
         return true
     }
 
-    open func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
+    open func videoDecoder(
+        _ videoDecoder: IRFFVideoDecoderInfo,
+        decodeFrame packet: IRFFCompressedVideoPacket
+    ) -> IRFFVideoFrame? {
         return nil
     }
 }

@@ -16,19 +16,6 @@ protocol IRFFVideoDecoderDelegate: AnyObject {
     func videoDecoderNeedCheckBufferingStatus(_ videoDecoder: IRFFVideoDecoder)
 }
 
-public struct IRFFVideoDecoderInfo {
-    public var codecContext: UnsafeMutablePointer<AVCodecContext>
-    public var videoToolBoxEnable: Bool
-    public var maxDecodeDuration: TimeInterval
-    public var timebase: TimeInterval
-    public var fps: TimeInterval
-}
-
-public protocol IRFFVideoDecoderDataSource: AnyObject {
-    func shouldHandle(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> Bool
-    func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame?
-}
-
 class IRFFVideoDecoder {
     private struct RuntimeSnapshot {
         let canceled: Bool
@@ -42,6 +29,7 @@ class IRFFVideoDecoder {
 
     private let codecContext:
         UnsafeMutablePointer<AVCodecContext>
+    private let codecDescriptor: IRFFVideoCodecDescriptor?
     private let decodeFrame: IRFFDecodeFrame?
     private let packetQueue: IRFFPacketQueue
     private let frameQueue: IRFFFrameQueue
@@ -49,6 +37,9 @@ class IRFFVideoDecoder {
     private lazy var videoToolBox: IRFFVideoToolBox = {
         return IRFFVideoToolBox(codecContext: codecContext)
     }()
+    private let sourceLock = NSLock()
+    private weak var storedSource:
+        IRFFVideoDecoderDataSource?
     private let runtimeLock = NSLock()
     private var runtimeCanceled = false
     private var runtimeError: NSError?
@@ -59,7 +50,18 @@ class IRFFVideoDecoder {
     private var runtimeMaxDecodeDuration: TimeInterval = 2.0
 
     weak var delegate: IRFFVideoDecoderDelegate?
-    weak var source: IRFFVideoDecoderDataSource?
+    var source: IRFFVideoDecoderDataSource? {
+        get {
+            sourceLock.lock()
+            defer { sourceLock.unlock() }
+            return storedSource
+        }
+        set {
+            sourceLock.lock()
+            storedSource = newValue
+            sourceLock.unlock()
+        }
+    }
     let timebase: TimeInterval
     let fps: TimeInterval
 
@@ -128,6 +130,9 @@ class IRFFVideoDecoder {
 
     init(codecContext: UnsafeMutablePointer<AVCodecContext>, timebase: TimeInterval, fps: TimeInterval, delegate: IRFFVideoDecoderDelegate?) {
         self.codecContext = codecContext
+        self.codecDescriptor = IRFFVideoCodecDescriptor(
+            copying: codecContext
+        )
         self.timebase = timebase
         self.fps = fps
         self.delegate = delegate
@@ -331,18 +336,29 @@ class IRFFVideoDecoder {
 
     private func decodeFrame(packet: AVPacket) -> IRFFVideoFrame? {
         let runtime = runtimeSnapshot()
-        let info = IRFFVideoDecoderInfo(
-            codecContext: codecContext,
-            videoToolBoxEnable: runtime.videoToolBoxEnable,
-            maxDecodeDuration: runtime.maxDecodeDuration,
-            timebase: timebase,
-            fps: fps
-        )
-        if self.source?.shouldHandle(info, decodeFrame: packet) == true {
-            if let videoFrame = self.source?.videoDecoder(info, decodeFrame: packet) {
-                return videoFrame
+        if let source,
+           let codecDescriptor,
+           let packetValue = IRFFCompressedVideoPacket(
+                copying: packet
+           ) {
+            let info = IRFFVideoDecoderInfo(
+                codec: codecDescriptor,
+                isHardwareDecodingEnabled:
+                    runtime.videoToolBoxEnable,
+                maximumDecodeDuration:
+                    runtime.maxDecodeDuration,
+                timebase: timebase,
+                framesPerSecond: fps
+            )
+            if source.shouldHandle(
+                info,
+                decodeFrame: packetValue
+            ) {
+                return source.videoDecoder(
+                    info,
+                    decodeFrame: packetValue
+                )
             }
-            return nil
         }
 
         if runtime.videoToolBoxEnable && codecContext.pointee.codec_id == AV_CODEC_ID_H264 {

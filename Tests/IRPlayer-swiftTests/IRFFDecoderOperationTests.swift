@@ -158,14 +158,35 @@ final class IRFFDecoderOperationTests: XCTestCase {
     func testCodecContextHelpersRejectMissingOrDisabledFormatContext() {
         let formatContext = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
 
-        XCTAssertNil(IRFFDecoderCodecContextPolicy.videoCodecContext(from: nil))
-        XCTAssertNil(IRFFDecoderCodecContextPolicy.audioCodecContext(from: nil))
-        XCTAssertNil(IRFFDecoderCodecContextPolicy.videoCodecContext(from: formatContext))
-        XCTAssertNil(IRFFDecoderCodecContextPolicy.audioCodecContext(from: formatContext))
         XCTAssertNil(IRFFDecoder.videoCodecContext(from: nil))
         XCTAssertNil(IRFFDecoder.audioCodecContext(from: nil))
         XCTAssertNil(IRFFDecoder.videoCodecContext(from: formatContext))
         XCTAssertNil(IRFFDecoder.audioCodecContext(from: formatContext))
+    }
+
+    func testCustomSourceBindingSupportsConcurrentReplacement() {
+        let decoder = makeDecoder()
+        let sources = (0..<8).map { _ in
+            DecoderVideoDataSourceSpy(
+                shouldHandle: true,
+                frame: nil
+            )
+        }
+
+        DispatchQueue.concurrentPerform(iterations: 1_000) {
+            index in
+            if index.isMultiple(of: 2) {
+                decoder.source =
+                    sources[index % sources.count]
+            } else {
+                _ = decoder.source
+            }
+        }
+
+        decoder.source = sources[0]
+        XCTAssertTrue(decoder.source === sources[0])
+        decoder.source = nil
+        XCTAssertNil(decoder.source)
     }
 
     func testReleaseDoesNotPrintDebugOutput() {
@@ -404,6 +425,69 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertTrue(output.receivedFrames.contains { $0 === sourceFrame })
         XCTAssertGreaterThanOrEqual(source.shouldHandleCallCount, 1)
         XCTAssertGreaterThanOrEqual(source.decodeFrameCallCount, 1)
+        XCTAssertEqual(source.mismatchedCallbackCount, 0)
+        XCTAssertFalse(source.lastPacket?.data.isEmpty ?? true)
+        XCTAssertEqual(source.lastInfo?.codec.width, 16)
+        XCTAssertEqual(source.lastInfo?.codec.height, 16)
+        XCTAssertTrue(delegate.errors.isEmpty)
+    }
+
+    func testOpenGeneratedVideoFileFallsBackWhenCustomSourceDeclines()
+        throws {
+        let url = try makeTinyVideoFile()
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: url)
+        }
+        let delegate = DecoderDelegateSpy()
+        let output = DecoderVideoOutputSpy()
+        let source = DecoderVideoDataSourceSpy(
+            shouldHandle: false,
+            frame: nil
+        )
+        let prepared = expectation(
+            description: "decoder prepared"
+        )
+        let endOfFile = expectation(
+            description: "decoder reached EOF"
+        )
+        let displayed = expectation(
+            description: "fallback frame displayed"
+        )
+        delegate.onPrepared = { prepared.fulfill() }
+        delegate.onEndOfFile = { endOfFile.fulfill() }
+        output.onFirstFrame = { displayed.fulfill() }
+
+        let decoder = IRFFDecoder(
+            contentURL: url,
+            videoFormat: .mpeg4,
+            videoOutput: output,
+            audioOutput: nil
+        )
+        decoder.delegate = delegate
+        decoder.source = source
+        decoder.hardwareDecoderEnable = false
+        addTeardownBlock {
+            decoder.closeFile()
+        }
+
+        decoder.open()
+
+        wait(
+            for: [prepared, displayed, endOfFile],
+            timeout: 5
+        )
+
+        XCTAssertNil(decoder.error)
+        XCTAssertGreaterThanOrEqual(
+            source.shouldHandleCallCount,
+            1
+        )
+        XCTAssertEqual(source.decodeFrameCallCount, 0)
+        XCTAssertTrue(
+            output.receivedFrames.contains {
+                $0 is IRFFAVYUVVideoFrame
+            }
+        )
         XCTAssertTrue(delegate.errors.isEmpty)
     }
 
@@ -579,34 +663,6 @@ final class IRFFDecoderOperationTests: XCTestCase {
 
             XCTAssertEqual(samplingRate, 0)
             XCTAssertEqual(channelCount, 0)
-        }
-    }
-
-    func testVideoDataSourceCallbacksForwardToSourceOrDefaultToFalseAndNil() {
-        var codecContext = AVCodecContext()
-        let packet = AVPacket()
-        let frame = IRFFVideoFrame()
-        let source = DecoderVideoDataSourceSpy(shouldHandle: true, frame: frame)
-        let decoder = makeDecoder()
-        decoder.source = source
-
-        withUnsafeMutablePointer(to: &codecContext) { codecContextPointer in
-            let info = IRFFVideoDecoderInfo(
-                codecContext: codecContextPointer,
-                videoToolBoxEnable: false,
-                maxDecodeDuration: 1,
-                timebase: 0.25,
-                fps: 30
-            )
-
-            XCTAssertTrue(decoder.shouldHandle(info, decodeFrame: packet))
-            XCTAssertTrue(decoder.videoDecoder(info, decodeFrame: packet) === frame)
-            XCTAssertEqual(source.shouldHandleCallCount, 1)
-            XCTAssertEqual(source.decodeFrameCallCount, 1)
-
-            decoder.source = nil
-            XCTAssertFalse(decoder.shouldHandle(info, decodeFrame: packet))
-            XCTAssertNil(decoder.videoDecoder(info, decodeFrame: packet))
         }
     }
 
@@ -832,6 +888,11 @@ private final class DecoderVideoDataSourceSpy: IRFFVideoDecoderDataSource {
     private let lock = NSLock()
     private var storedShouldHandleCallCount = 0
     private var storedDecodeFrameCallCount = 0
+    private var storedMismatchedCallbackCount = 0
+    private var pendingInfo: IRFFVideoDecoderInfo?
+    private var pendingPacket: IRFFCompressedVideoPacket?
+    private var storedLastInfo: IRFFVideoDecoderInfo?
+    private var storedLastPacket: IRFFCompressedVideoPacket?
 
     var shouldHandleCallCount: Int {
         lock.lock()
@@ -845,21 +906,61 @@ private final class DecoderVideoDataSourceSpy: IRFFVideoDecoderDataSource {
         return storedDecodeFrameCallCount
     }
 
+    var mismatchedCallbackCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedMismatchedCallbackCount
+    }
+
+    var lastInfo: IRFFVideoDecoderInfo? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedLastInfo
+    }
+
+    var lastPacket: IRFFCompressedVideoPacket? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedLastPacket
+    }
+
     init(shouldHandle: Bool, frame: IRFFVideoFrame?) {
         self.shouldHandleResult = shouldHandle
         self.frame = frame
     }
 
-    func shouldHandle(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> Bool {
+    func shouldHandle(
+        _ videoDecoder: IRFFVideoDecoderInfo,
+        decodeFrame packet: IRFFCompressedVideoPacket
+    ) -> Bool {
         lock.lock()
         storedShouldHandleCallCount += 1
+        pendingInfo = videoDecoder
+        pendingPacket = packet
+        storedLastInfo = videoDecoder
+        storedLastPacket = packet
+        if !shouldHandleResult {
+            pendingInfo = nil
+            pendingPacket = nil
+        }
         lock.unlock()
         return shouldHandleResult
     }
 
-    func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
+    func videoDecoder(
+        _ videoDecoder: IRFFVideoDecoderInfo,
+        decodeFrame packet: IRFFCompressedVideoPacket
+    ) -> IRFFVideoFrame? {
         lock.lock()
         storedDecodeFrameCallCount += 1
+        if pendingInfo != videoDecoder
+            || pendingPacket != packet {
+            storedMismatchedCallbackCount += 1
+        }
+        pendingInfo = nil
+        pendingPacket = nil
+        storedLastInfo = videoDecoder
+        storedLastPacket = packet
         lock.unlock()
         return frame
     }

@@ -149,6 +149,15 @@ final class IRFFDecoderSession: @unchecked Sendable {
         return true
     }
 
+    func updateVideoDecoderSource(
+        _ source: IRFFVideoDecoderDataSource?
+    ) {
+        condition.lock()
+        let videoDecoder = videoDecoder
+        condition.unlock()
+        videoDecoder?.source = source
+    }
+
     @discardableResult
     func markOpenFailed() -> Bool {
         condition.lock()

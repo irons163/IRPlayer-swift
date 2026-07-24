@@ -156,7 +156,7 @@
 		B5E94F202D0B21F800149265 /* IRVideoFrameRGB.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF52D0B21F800149265 /* IRVideoFrameRGB.swift */; };
 		B5E94F222D0B21F800149265 /* IRFFDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF82D0B21F800149265 /* IRFFDecoder.swift */; };
 		B5E9521F2F6900E00149265 /* IRFFDecoderAudioPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9521E2F6900E00149265 /* IRFFDecoderAudioPolicy.swift */; };
-		B5E9521D2F6900D00149265 /* IRFFDecoderCodecContextPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9521C2F6900D00149265 /* IRFFDecoderCodecContextPolicy.swift */; };
+		B5E9521D2F6900D00149265 /* IRFFCustomVideoDecoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9521C2F6900D00149265 /* IRFFCustomVideoDecoding.swift */; };
 		B5E952232F6901000149265 /* IRFFDecoderDisplayPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952222F6901000149265 /* IRFFDecoderDisplayPolicy.swift */; };
 		B5E961052F7108020149265 /* IRFFDecoderDisplayLoopState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E961042F7108020149265 /* IRFFDecoderDisplayLoopState.swift */; };
 		B5E971012F7E00000149265 /* IRFFDecoderRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E971002F7E00000149265 /* IRFFDecoderRuntimeState.swift */; };
@@ -490,7 +490,7 @@
 		B5E952362F6901A00149265 /* IRFFAudioDecoderPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioDecoderPolicy.swift; sourceTree = "<group>"; };
 		B5E94DF82D0B21F800149265 /* IRFFDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoder.swift; sourceTree = "<group>"; };
 		B5E9521E2F6900E00149265 /* IRFFDecoderAudioPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderAudioPolicy.swift; sourceTree = "<group>"; };
-		B5E9521C2F6900D00149265 /* IRFFDecoderCodecContextPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderCodecContextPolicy.swift; sourceTree = "<group>"; };
+		B5E9521C2F6900D00149265 /* IRFFCustomVideoDecoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFCustomVideoDecoding.swift; sourceTree = "<group>"; };
 		B5E952222F6901000149265 /* IRFFDecoderDisplayPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderDisplayPolicy.swift; sourceTree = "<group>"; };
 		B5E961042F7108020149265 /* IRFFDecoderDisplayLoopState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderDisplayLoopState.swift; sourceTree = "<group>"; };
 		B5E971002F7E00000149265 /* IRFFDecoderRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoderRuntimeState.swift; sourceTree = "<group>"; };
@@ -1073,7 +1073,7 @@
 				B5E952362F6901A00149265 /* IRFFAudioDecoderPolicy.swift */,
 				B5E94DF82D0B21F800149265 /* IRFFDecoder.swift */,
 				B5E9521E2F6900E00149265 /* IRFFDecoderAudioPolicy.swift */,
-				B5E9521C2F6900D00149265 /* IRFFDecoderCodecContextPolicy.swift */,
+				B5E9521C2F6900D00149265 /* IRFFCustomVideoDecoding.swift */,
 				B5E952222F6901000149265 /* IRFFDecoderDisplayPolicy.swift */,
 				B5E961042F7108020149265 /* IRFFDecoderDisplayLoopState.swift */,
 				B5E971002F7E00000149265 /* IRFFDecoderRuntimeState.swift */,
@@ -1618,7 +1618,7 @@
 				B5E94F202D0B21F800149265 /* IRVideoFrameRGB.swift in Sources */,
 				B5E94F222D0B21F800149265 /* IRFFDecoder.swift in Sources */,
 				B5E9521F2F6900E00149265 /* IRFFDecoderAudioPolicy.swift in Sources */,
-				B5E9521D2F6900D00149265 /* IRFFDecoderCodecContextPolicy.swift in Sources */,
+				B5E9521D2F6900D00149265 /* IRFFCustomVideoDecoding.swift in Sources */,
 				B5E952232F6901000149265 /* IRFFDecoderDisplayPolicy.swift in Sources */,
 				B5E961052F7108020149265 /* IRFFDecoderDisplayLoopState.swift in Sources */,
 				B5E971012F7E00000149265 /* IRFFDecoderRuntimeState.swift in Sources */,

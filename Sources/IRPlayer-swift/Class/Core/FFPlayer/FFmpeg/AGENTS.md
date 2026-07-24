@@ -74,12 +74,22 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 - Decode currently uses empty Videotoolbox flags and depends on the documented
   synchronous callback-before-return contract. If async or temporal flags are
   introduced, redesign result correlation before enabling them.
-- `IRFFVideoInput` allows bypassing the decode pipeline entirely for custom frame sources.
+- `IRFFVideoInput` allows bypassing the decode pipeline entirely for custom
+  frame sources. Its callbacks receive only immutable
+  `IRFFVideoCodecDescriptor`, `IRFFVideoDecoderInfo`, and
+  `IRFFCompressedVideoPacket` values; never expose borrowed `AVPacket` or
+  `AVCodecContext` pointers across that public boundary.
+- Build one custom packet value while the internal packet borrow is active.
+  The value must own payload and side-data bytes so callers may retain it or
+  send it to asynchronous decode work.
+- Custom source and output bindings are synchronized weak references. Detaching
+  a decoder generation must propagate the nil source into an installed video
+  decoder before teardown; an input must never own its display/decoder target.
 - Tests: `IRFFFormatContextTests.swift`,
   `IRFFFormatContextResourcesTests.swift`, `IRFFAudioDecoderTests.swift`,
   `IRFFAudioResampleSessionTests.swift`, `IRFFDecodeFrameTests.swift`,
   `IRFFVideoDecoderTests.swift`, `IRFFVideoToolBoxTests.swift`,
   `IRFFVideoToolBoxSessionTests.swift`, `IRFFToolsTests.swift`,
   `IRFFDictionaryTests.swift`, `IRFFTrackTests.swift`,
-  `IRFFMetadataTests.swift`, and
+  `IRFFMetadataTests.swift`, `IRFFVideoInputTests.swift`, and
   `IRFFDecoderOperationTests.swift`.

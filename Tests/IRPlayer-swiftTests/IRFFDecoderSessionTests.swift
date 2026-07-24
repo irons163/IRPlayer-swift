@@ -1,3 +1,4 @@
+import IRFFMpeg
 import XCTest
 @testable import IRPlayer_swift
 
@@ -356,6 +357,49 @@ final class IRFFDecoderSessionTests: XCTestCase {
 
             XCTAssertEqual(session.diagnostics.phase, .closed)
             XCTAssertFalse(session.diagnostics.hasFormatContext)
+        }
+    }
+
+    func testVideoSourceUpdatesReachInstalledDecoderDuringOpening()
+    {
+        let queue = OperationQueue()
+        let session = IRFFDecoderSession(
+            operationQueue: queue
+        )
+        let sources = (0..<8).map { _ in IRFFVideoInput() }
+        var codecContext = AVCodecContext()
+
+        withUnsafeMutablePointer(
+            to: &codecContext
+        ) { codecContextPointer in
+            let decoder = IRFFVideoDecoder(
+                codecContext: codecContextPointer,
+                timebase: 0.25,
+                fps: 30,
+                delegate: nil
+            )
+            XCTAssertTrue(session.start {})
+            queue.waitUntilAllOperationsAreFinished()
+            XCTAssertTrue(
+                session.installVideoDecoder(decoder)
+            )
+
+            DispatchQueue.concurrentPerform(iterations: 1_000) {
+                index in
+                if index.isMultiple(of: 2) {
+                    session.updateVideoDecoderSource(
+                        sources[index % sources.count]
+                    )
+                } else {
+                    _ = decoder.source
+                }
+            }
+
+            session.updateVideoDecoderSource(sources[0])
+            XCTAssertTrue(decoder.source === sources[0])
+            session.updateVideoDecoderSource(nil)
+            XCTAssertNil(decoder.source)
+            XCTAssertTrue(session.close())
         }
     }
 

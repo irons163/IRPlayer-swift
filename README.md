@@ -163,16 +163,28 @@ integration.
 ```swift
 class MyIRFFVideoInput: IRFFVideoInput {
 
-    override func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
-
-        asyncHWDecode()
+    override func videoDecoder(
+        _ videoDecoder: IRFFVideoDecoderInfo,
+        decodeFrame packet: IRFFCompressedVideoPacket
+    ) -> IRFFVideoFrame? {
+        asyncHWDecode(
+            packet: packet,
+            codec: videoDecoder.codec
+        )
 
         return nil // if it is sync decode instead, return videoFrame from here.
     }
-    
-    func asyncHWDecode() {
+
+    func asyncHWDecode(
+        packet: IRFFCompressedVideoPacket,
+        codec: IRFFVideoCodecDescriptor
+    ) {
         Task {
-            // let videoFrame = ......
+            // packet and codec own all bytes and are safe to retain here.
+            let videoFrame = await decode(
+                packet.data,
+                codec: codec
+            )
             self.videoOutput?.send?(videoFrame: videoFrame)
         }
     }
