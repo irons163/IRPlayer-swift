@@ -20,6 +20,7 @@ extension IRMetalRenderer {
                           drawableSize: CGSize,
                           contentMode: IRGLRenderContentMode) -> Bool {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        let commandResources = IRMetalCommandResources()
         guard let offscreen = makeDistortionOffscreenTexture(size: drawableSize) else { return false }
 
         let offscreenPass = MTLRenderPassDescriptor()
@@ -51,7 +52,12 @@ extension IRMetalRenderer {
                                                      zfar: 1))
 
             if let pixelRenderer = pixelRenderer(for: frame) {
-                return pixelRenderer.render2D(renderer: self, frame: frame, encoder: offscreenEncoder)
+                return pixelRenderer.render2D(
+                    renderer: self,
+                    frame: frame,
+                    encoder: offscreenEncoder,
+                    resources: commandResources
+                )
             }
             return false
         }
@@ -93,6 +99,9 @@ extension IRMetalRenderer {
                                       indexBufferOffset: 0)
 
         encoder.endEncoding()
+        guard commandResources.submit(to: commandBuffer) else {
+            return false
+        }
         commandBuffer.present(drawable)
         commandBuffer.commit()
         return true

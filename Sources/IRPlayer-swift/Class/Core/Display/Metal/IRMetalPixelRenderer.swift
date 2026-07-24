@@ -12,57 +12,91 @@ import simd
 protocol IRMetalPixelRenderer {
     func render2D(renderer: IRMetalRenderer,
                   frame: IRFFVideoFrame,
-                  encoder: MTLRenderCommandEncoder) -> Bool
+                  encoder: MTLRenderCommandEncoder,
+                  resources: IRMetalCommandResources) -> Bool
 
     func renderMesh(renderer: IRMetalRenderer,
                     frame: IRFFVideoFrame,
                     encoder: MTLRenderCommandEncoder,
                     indexCount: Int,
-                    indexBuffer: MTLBuffer) -> Bool
+                    indexBuffer: MTLBuffer,
+                    resources: IRMetalCommandResources) -> Bool
 
     func renderFish2Pano(renderer: IRMetalRenderer,
                          frame: IRFFVideoFrame,
                          encoder: MTLRenderCommandEncoder,
                          params: IRMetalRenderer.Fish2PanoParams,
-                         texUVTextures: [MTLTexture]) -> Bool
+                         texUVTextures: [MTLTexture],
+                         resources: IRMetalCommandResources) -> Bool
 }
 
 final class IRMetalPixelRendererNV12: IRMetalPixelRenderer {
     func render2D(renderer: IRMetalRenderer,
                   frame: IRFFVideoFrame,
-                  encoder: MTLRenderCommandEncoder) -> Bool {
+                  encoder: MTLRenderCommandEncoder,
+                  resources: IRMetalCommandResources) -> Bool {
         guard let cvFrame = frame as? IRFFCVYUVVideoFrame else { return false }
-        if renderer.renderNV12(cvFrame: cvFrame, encoder: encoder) {
+        if renderer.renderNV12(
+            cvFrame: cvFrame,
+            encoder: encoder,
+            resources: resources
+        ) {
             return true
         }
-        return renderer.renderBGRA(cvFrame: cvFrame, encoder: encoder)
+        return renderer.renderBGRA(
+            cvFrame: cvFrame,
+            encoder: encoder,
+            resources: resources
+        )
     }
 
     func renderMesh(renderer: IRMetalRenderer,
                     frame: IRFFVideoFrame,
                     encoder: MTLRenderCommandEncoder,
                     indexCount: Int,
-                    indexBuffer: MTLBuffer) -> Bool {
+                    indexBuffer: MTLBuffer,
+                    resources: IRMetalCommandResources) -> Bool {
         guard let cvFrame = frame as? IRFFCVYUVVideoFrame else { return false }
-        if renderer.renderNV12Mesh(cvFrame: cvFrame, encoder: encoder, indexCount: indexCount, indexBuffer: indexBuffer) {
+        if renderer.renderNV12Mesh(
+            cvFrame: cvFrame,
+            encoder: encoder,
+            indexCount: indexCount,
+            indexBuffer: indexBuffer,
+            resources: resources
+        ) {
             return true
         }
-        return renderer.renderBGRAMesh(cvFrame: cvFrame, encoder: encoder, indexCount: indexCount, indexBuffer: indexBuffer)
+        return renderer.renderBGRAMesh(
+            cvFrame: cvFrame,
+            encoder: encoder,
+            indexCount: indexCount,
+            indexBuffer: indexBuffer,
+            resources: resources
+        )
     }
 
     func renderFish2Pano(renderer: IRMetalRenderer,
                          frame: IRFFVideoFrame,
                          encoder: MTLRenderCommandEncoder,
                          params: IRMetalRenderer.Fish2PanoParams,
-                         texUVTextures: [MTLTexture]) -> Bool {
+                         texUVTextures: [MTLTexture],
+                         resources: IRMetalCommandResources) -> Bool {
         guard IRMetalRenderer.fish2PanoInputsAreValid(params: params, texUVTextureCount: texUVTextures.count) else { return false }
         guard let cvFrame = frame as? IRFFCVYUVVideoFrame else { return false }
-        if let pipeline = renderer.pipelineNV12Fish2Pano, let textures = renderer.makeNV12Textures(from: cvFrame) {
+        guard let generation = renderer.frameTextureGeneration(
+            for: cvFrame,
+            resources: resources
+        ) else {
+            return false
+        }
+
+        if let pipeline = renderer.pipelineNV12Fish2Pano,
+           case let .nv12(y, uv) = generation.textures {
             var fishParams = params
             encoder.setRenderPipelineState(pipeline)
             encoder.setFragmentBytes(&fishParams, length: MemoryLayout<IRMetalRenderer.Fish2PanoParams>.size, index: 0)
-            encoder.setFragmentTexture(textures.y, index: 0)
-            encoder.setFragmentTexture(textures.uv, index: 1)
+            encoder.setFragmentTexture(y, index: 0)
+            encoder.setFragmentTexture(uv, index: 1)
             for i in 0..<9 {
                 let textureIndex = i + 4
                 if i < texUVTextures.count {
@@ -75,7 +109,8 @@ final class IRMetalPixelRendererNV12: IRMetalPixelRenderer {
             return true
         }
 
-        if let pipeline = renderer.pipelineRGBFish2Pano, let texture = renderer.makeBGRATexture(from: cvFrame) {
+        if let pipeline = renderer.pipelineRGBFish2Pano,
+           case let .bgra(texture) = generation.textures {
             var fishParams = params
             encoder.setRenderPipelineState(pipeline)
             encoder.setFragmentBytes(&fishParams, length: MemoryLayout<IRMetalRenderer.Fish2PanoParams>.size, index: 0)
@@ -99,34 +134,52 @@ final class IRMetalPixelRendererNV12: IRMetalPixelRenderer {
 final class IRMetalPixelRendererI420: IRMetalPixelRenderer {
     func render2D(renderer: IRMetalRenderer,
                   frame: IRFFVideoFrame,
-                  encoder: MTLRenderCommandEncoder) -> Bool {
+                  encoder: MTLRenderCommandEncoder,
+                  resources: IRMetalCommandResources) -> Bool {
         guard let yuvFrame = frame as? IRFFAVYUVVideoFrame else { return false }
-        return renderer.renderI420(yuvFrame: yuvFrame, encoder: encoder)
+        return renderer.renderI420(
+            yuvFrame: yuvFrame,
+            encoder: encoder,
+            resources: resources
+        )
     }
 
     func renderMesh(renderer: IRMetalRenderer,
                     frame: IRFFVideoFrame,
                     encoder: MTLRenderCommandEncoder,
                     indexCount: Int,
-                    indexBuffer: MTLBuffer) -> Bool {
+                    indexBuffer: MTLBuffer,
+                    resources: IRMetalCommandResources) -> Bool {
         guard let yuvFrame = frame as? IRFFAVYUVVideoFrame else { return false }
-        return renderer.renderI420Mesh(yuvFrame: yuvFrame, encoder: encoder, indexCount: indexCount, indexBuffer: indexBuffer)
+        return renderer.renderI420Mesh(
+            yuvFrame: yuvFrame,
+            encoder: encoder,
+            indexCount: indexCount,
+            indexBuffer: indexBuffer,
+            resources: resources
+        )
     }
 
     func renderFish2Pano(renderer: IRMetalRenderer,
                          frame: IRFFVideoFrame,
                          encoder: MTLRenderCommandEncoder,
                          params: IRMetalRenderer.Fish2PanoParams,
-                         texUVTextures: [MTLTexture]) -> Bool {
+                         texUVTextures: [MTLTexture],
+                         resources: IRMetalCommandResources) -> Bool {
         guard IRMetalRenderer.fish2PanoInputsAreValid(params: params, texUVTextureCount: texUVTextures.count) else { return false }
         guard let yuvFrame = frame as? IRFFAVYUVVideoFrame else { return false }
-        if let pipeline = renderer.pipelineI420Fish2Pano, let textures = renderer.makeI420Textures(from: yuvFrame) {
+        if let pipeline = renderer.pipelineI420Fish2Pano,
+           let generation = renderer.frameTextureGeneration(
+               for: yuvFrame,
+               resources: resources
+           ),
+           case let .i420(y, u, v) = generation.textures {
             var fishParams = params
             encoder.setRenderPipelineState(pipeline)
             encoder.setFragmentBytes(&fishParams, length: MemoryLayout<IRMetalRenderer.Fish2PanoParams>.size, index: 0)
-            encoder.setFragmentTexture(textures.y, index: 0)
-            encoder.setFragmentTexture(textures.u, index: 1)
-            encoder.setFragmentTexture(textures.v, index: 2)
+            encoder.setFragmentTexture(y, index: 0)
+            encoder.setFragmentTexture(u, index: 1)
+            encoder.setFragmentTexture(v, index: 2)
             for i in 0..<9 {
                 let textureIndex = i + 4
                 if i < texUVTextures.count {
@@ -145,16 +198,22 @@ final class IRMetalPixelRendererI420: IRMetalPixelRenderer {
 final class IRMetalPixelRendererRGB: IRMetalPixelRenderer {
     func render2D(renderer: IRMetalRenderer,
                   frame: IRFFVideoFrame,
-                  encoder: MTLRenderCommandEncoder) -> Bool {
+                  encoder: MTLRenderCommandEncoder,
+                  resources: IRMetalCommandResources) -> Bool {
         guard let rgbFrame = frame as? IRVideoFrameRGB else { return false }
-        return renderer.renderRGB(rgbFrame: rgbFrame, encoder: encoder)
+        return renderer.renderRGB(
+            rgbFrame: rgbFrame,
+            encoder: encoder,
+            resources: resources
+        )
     }
 
     func renderMesh(renderer: IRMetalRenderer,
                     frame: IRFFVideoFrame,
                     encoder: MTLRenderCommandEncoder,
                     indexCount: Int,
-                    indexBuffer: MTLBuffer) -> Bool {
+                    indexBuffer: MTLBuffer,
+                    resources: IRMetalCommandResources) -> Bool {
         // RGB mesh rendering is unsupported.
         return false
     }
@@ -163,10 +222,16 @@ final class IRMetalPixelRendererRGB: IRMetalPixelRenderer {
                          frame: IRFFVideoFrame,
                          encoder: MTLRenderCommandEncoder,
                          params: IRMetalRenderer.Fish2PanoParams,
-                         texUVTextures: [MTLTexture]) -> Bool {
+                         texUVTextures: [MTLTexture],
+                         resources: IRMetalCommandResources) -> Bool {
         guard IRMetalRenderer.fish2PanoInputsAreValid(params: params, texUVTextureCount: texUVTextures.count) else { return false }
         guard let rgbFrame = frame as? IRVideoFrameRGB else { return false }
-        if let pipeline = renderer.pipelineRGBFish2Pano, let texture = renderer.makeRGBTexture(from: rgbFrame) {
+        if let pipeline = renderer.pipelineRGBFish2Pano,
+           let generation = renderer.frameTextureGeneration(
+               for: rgbFrame,
+               resources: resources
+           ),
+           case let .rgb(texture) = generation.textures {
             var fishParams = params
             encoder.setRenderPipelineState(pipeline)
             encoder.setFragmentBytes(&fishParams, length: MemoryLayout<IRMetalRenderer.Fish2PanoParams>.size, index: 0)

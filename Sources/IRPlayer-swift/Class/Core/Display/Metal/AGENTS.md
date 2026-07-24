@@ -6,6 +6,8 @@ Low-level Metal GPU rendering implementation.
 
 | File                                        | Purpose                                       |
 |---------------------------------------------|-----------------------------------------------|
+| `IRMetalCommandResources.swift`             | Per-command resource cache and GPU-completion lifetime |
+| `IRMetalFrameTextureGeneration.swift`       | Immutable NV12/BGRA/I420/RGB texture generations |
 | `IRMetalRenderer.swift`                     | Core Metal renderer — device, command queue, pipeline setup |
 | `IRMetalRenderer+Render2D.swift`            | 2D flat rendering extension                   |
 | `IRMetalRenderer+RenderDistortion.swift`    | Barrel/pincushion distortion rendering        |
@@ -25,8 +27,18 @@ Low-level Metal GPU rendering implementation.
 - Mesh files generate vertex/index buffers for non-planar projections.
 - Verify drawable size assumptions and texture layout when editing.
 - Pixel format handling must support NV12 (hardware decode), YUV420P (software decode), and RGB.
+- Keep every `CVMetalTexture` and its source pixel buffer inside one
+  `IRMetalFrameTextureGeneration`; extracting an `MTLTexture` is not an
+  ownership transfer.
+- Every submitted renderer command must move its `IRMetalCommandResources` to
+  a command-buffer completion handler before commit.
+- Reuse the command scope's cached generation across multiple viewports or
+  distortion eyes; never add a cross-command decoded-frame texture cache.
 - Upload software I420 textures from one `IRFFYUVPlaneSnapshot`; never read
   frame width/height separately from plane bytes or retain pointers beyond
   `withUnsafePlaneBytes`.
 - Respect snapshot-provided chroma dimensions, including odd-sized I420 input.
-- Tests: `IRGLViewSnapshotTests.swift` (visual), plus per-program tests in `Tests/`.
+- Tests: `IRMetalCommandResourcesTests.swift`,
+  `IRMetalFrameTextureGenerationTests.swift`,
+  `IRMetalRendererPixelFormatTests.swift`, `IRGLViewSnapshotTests.swift`
+  (visual), plus per-program tests in `Tests/`.

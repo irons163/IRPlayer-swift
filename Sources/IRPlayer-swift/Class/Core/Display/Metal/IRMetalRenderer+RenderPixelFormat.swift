@@ -13,31 +13,26 @@ import QuartzCore
 
 extension IRMetalRenderer {
 
-    func renderNV12(cvFrame: IRFFCVYUVVideoFrame, encoder: MTLRenderCommandEncoder) -> Bool {
+    func renderNV12(
+        cvFrame: IRFFCVYUVVideoFrame,
+        encoder: MTLRenderCommandEncoder,
+        resources: IRMetalCommandResources
+    ) -> Bool {
         guard let pipeline = pipelineNV12 else { return false }
-        guard let pixelBuffer = Optional.some(cvFrame.pixelBuffer) else { return false }
-        guard let textureCache = textureCache else { return false }
-
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
-        let format = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        IRMetalRuntimeDebugOutput.write("IRMetalRenderer: CVPixelBuffer format=\(format)")
-        guard format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange ||
-              format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else {
+        let pixelFormat = CVPixelBufferGetPixelFormatType(
+            cvFrame.pixelBuffer
+        )
+        IRMetalRuntimeDebugOutput.write(
+            "IRMetalRenderer: CVPixelBuffer format=\(pixelFormat)"
+        )
+        guard let generation = frameTextureGeneration(
+            for: cvFrame,
+            resources: resources
+        ),
+        case let .nv12(yTexture, uvTexture) =
+            generation.textures else {
             return false
         }
-
-        var yTextureRef: CVMetalTexture?
-        var uvTextureRef: CVMetalTexture?
-
-        CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, pixelBuffer, nil, .r8Unorm, width, height, 0, &yTextureRef)
-        CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, pixelBuffer, nil, .rg8Unorm, width / 2, height / 2, 1, &uvTextureRef)
-
-        guard let yTextureRef = yTextureRef, let uvTextureRef = uvTextureRef else {
-            IRMetalRuntimeDebugOutput.write("IRMetalRenderer: failed to create CVMetalTexture")
-            return false
-        }
-        guard let yTexture = CVMetalTextureGetTexture(yTextureRef), let uvTexture = CVMetalTextureGetTexture(uvTextureRef) else { return false }
 
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentTexture(yTexture, index: 0)
@@ -46,72 +41,65 @@ extension IRMetalRenderer {
         return true
     }
 
-    func renderBGRA(cvFrame: IRFFCVYUVVideoFrame, encoder: MTLRenderCommandEncoder) -> Bool {
+    func renderBGRA(
+        cvFrame: IRFFCVYUVVideoFrame,
+        encoder: MTLRenderCommandEncoder,
+        resources: IRMetalCommandResources
+    ) -> Bool {
         guard let pipeline = pipelineRGB else { return false }
-        guard let texture = makeBGRATexture(from: cvFrame) else { return false }
+        guard let generation = frameTextureGeneration(
+            for: cvFrame,
+            resources: resources
+        ),
+        case let .bgra(texture) = generation.textures else {
+            return false
+        }
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentTexture(texture, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         return true
     }
 
-    func renderI420(yuvFrame: IRFFAVYUVVideoFrame, encoder: MTLRenderCommandEncoder) -> Bool {
+    func renderI420(
+        yuvFrame: IRFFAVYUVVideoFrame,
+        encoder: MTLRenderCommandEncoder,
+        resources: IRMetalCommandResources
+    ) -> Bool {
         guard let pipeline = pipelineI420 else { return false }
-        guard let textures = makeI420Textures(
-            from: yuvFrame
-        ) else {
+        guard let generation = frameTextureGeneration(
+            for: yuvFrame,
+            resources: resources
+        ),
+        case let .i420(y, u, v) = generation.textures else {
             return false
         }
 
         encoder.setRenderPipelineState(pipeline)
-        encoder.setFragmentTexture(textures.y, index: 0)
-        encoder.setFragmentTexture(textures.u, index: 1)
-        encoder.setFragmentTexture(textures.v, index: 2)
+        encoder.setFragmentTexture(y, index: 0)
+        encoder.setFragmentTexture(u, index: 1)
+        encoder.setFragmentTexture(v, index: 2)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         return true
     }
 
-    func renderRGB(rgbFrame: IRVideoFrameRGB, encoder: MTLRenderCommandEncoder) -> Bool {
+    func renderRGB(
+        rgbFrame: IRVideoFrameRGB,
+        encoder: MTLRenderCommandEncoder,
+        resources: IRMetalCommandResources
+    ) -> Bool {
         guard let pipeline = pipelineRGB else { return false }
-        guard let texture = makeRGBTexture(from: rgbFrame) else { return false }
+        guard let generation = frameTextureGeneration(
+            for: rgbFrame,
+            resources: resources
+        ),
+        case let .rgb(texture) = generation.textures else {
+            return false
+        }
 
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentTexture(texture, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         return true
-    }
-
-    func makeNV12Textures(from cvFrame: IRFFCVYUVVideoFrame) -> (y: MTLTexture, uv: MTLTexture)? {
-        guard let textureCache = textureCache else { return nil }
-        let pixelBuffer = cvFrame.pixelBuffer
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
-        let format = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        guard format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange ||
-              format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else { return nil }
-
-        var yTextureRef: CVMetalTexture?
-        var uvTextureRef: CVMetalTexture?
-        CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, pixelBuffer, nil, .r8Unorm, width, height, 0, &yTextureRef)
-        CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, pixelBuffer, nil, .rg8Unorm, width / 2, height / 2, 1, &uvTextureRef)
-
-        guard let yRef = yTextureRef, let uvRef = uvTextureRef else { return nil }
-        guard let y = CVMetalTextureGetTexture(yRef), let uv = CVMetalTextureGetTexture(uvRef) else { return nil }
-        return (y: y, uv: uv)
-    }
-
-    func makeBGRATexture(from cvFrame: IRFFCVYUVVideoFrame) -> MTLTexture? {
-        guard let textureCache = textureCache else { return nil }
-        let pixelBuffer = cvFrame.pixelBuffer
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
-        let format = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        guard format == kCVPixelFormatType_32BGRA else { return nil }
-
-        var textureRef: CVMetalTexture?
-        CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, textureCache, pixelBuffer, nil, .bgra8Unorm, width, height, 0, &textureRef)
-        guard let ref = textureRef else { return nil }
-        return CVMetalTextureGetTexture(ref)
     }
 
     func makeI420Textures(from yuvFrame: IRFFAVYUVVideoFrame) -> (y: MTLTexture, u: MTLTexture, v: MTLTexture)? {

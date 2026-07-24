@@ -5,6 +5,7 @@
 //  Created by Codex on 2026/6/2.
 //
 
+import CoreVideo
 import Metal
 import QuartzCore
 import XCTest
@@ -47,6 +48,30 @@ final class IRMetalRendererDistortionTests: XCTestCase {
         frame.width = width
         frame.height = height
         return frame
+    }
+
+    private func makePixelBuffer(
+        format: OSType
+    ) throws -> CVPixelBuffer {
+        var pixelBuffer: CVPixelBuffer?
+        let attributes: [String: Any] = [
+            kCVPixelBufferMetalCompatibilityKey as String:
+                true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+        ]
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            2,
+            2,
+            format,
+            attributes as CFDictionary,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess,
+              let pixelBuffer else {
+            throw XCTSkip("CVPixelBuffer unavailable")
+        }
+        return pixelBuffer
     }
 
     func testDistortionTextureSizeRejectsInvalidOrOverflowingSizes() {
@@ -121,6 +146,54 @@ final class IRMetalRendererDistortionTests: XCTestCase {
                                                 contentMode: .scaleAspectFit))
         XCTAssertEqual(renderer.distortionOffscreenTexture?.width, 4)
         XCTAssertEqual(renderer.distortionOffscreenTexture?.height, 4)
+    }
+
+    func testRenderDistortionDrawsCoreVideoFrames() throws {
+        let renderer = try makeRenderer()
+        guard renderer.pipelineNV12 != nil,
+              renderer.pipelineRGB != nil,
+              renderer.pipelineDistortion != nil else {
+            throw XCTSkip(
+                "Metal Core Video distortion pipelines unavailable"
+            )
+        }
+        let drawable = try makeOffscreenDrawable(
+            renderer: renderer
+        )
+        let leftMesh = try XCTUnwrap(
+            IRMetalDistortionMesh(
+                device: renderer.device,
+                modelType: .left
+            )
+        )
+        let rightMesh = try XCTUnwrap(
+            IRMetalDistortionMesh(
+                device: renderer.device,
+                modelType: .right
+            )
+        )
+        let formats: [OSType] = [
+            kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+            kCVPixelFormatType_32BGRA
+        ]
+
+        for format in formats {
+            let frame = IRFFCVYUVVideoFrame(
+                pixelBuffer: try makePixelBuffer(
+                    format: format
+                )
+            )
+            XCTAssertTrue(
+                renderer.renderDistortion(
+                    frame: frame,
+                    leftMesh: leftMesh,
+                    rightMesh: rightMesh,
+                    to: drawable,
+                    drawableSize: CGSize(width: 4, height: 4),
+                    contentMode: .scaleAspectFit
+                )
+            )
+        }
     }
 
     func testRenderDistortionRejectsUnsupportedFrameAfterOffscreenPass() throws {

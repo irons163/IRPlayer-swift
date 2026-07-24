@@ -14,24 +14,38 @@ import QuartzCore
 extension IRMetalRenderer {
 
     func renderNV12Mesh(cvFrame: IRFFCVYUVVideoFrame,
-                                encoder: MTLRenderCommandEncoder,
-                                indexCount: Int,
-                                indexBuffer: MTLBuffer) -> Bool {
+                        encoder: MTLRenderCommandEncoder,
+                        indexCount: Int,
+                        indexBuffer: MTLBuffer,
+                        resources: IRMetalCommandResources) -> Bool {
         guard let pipeline = pipelineNV12Mesh else { return false }
-        guard let textures = makeNV12Textures(from: cvFrame) else { return false }
+        guard let generation = frameTextureGeneration(
+            for: cvFrame,
+            resources: resources
+        ),
+        case let .nv12(y, uv) = generation.textures else {
+            return false
+        }
         encoder.setRenderPipelineState(pipeline)
-        encoder.setFragmentTexture(textures.y, index: 0)
-        encoder.setFragmentTexture(textures.uv, index: 1)
+        encoder.setFragmentTexture(y, index: 0)
+        encoder.setFragmentTexture(uv, index: 1)
         encoder.drawIndexedPrimitives(type: .triangle, indexCount: indexCount, indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
         return true
     }
 
     func renderBGRAMesh(cvFrame: IRFFCVYUVVideoFrame,
-                                encoder: MTLRenderCommandEncoder,
-                                indexCount: Int,
-                                indexBuffer: MTLBuffer) -> Bool {
+                        encoder: MTLRenderCommandEncoder,
+                        indexCount: Int,
+                        indexBuffer: MTLBuffer,
+                        resources: IRMetalCommandResources) -> Bool {
         guard let pipeline = pipelineRGBMesh else { return false }
-        guard let texture = makeBGRATexture(from: cvFrame) else { return false }
+        guard let generation = frameTextureGeneration(
+            for: cvFrame,
+            resources: resources
+        ),
+        case let .bgra(texture) = generation.textures else {
+            return false
+        }
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentTexture(texture, index: 0)
         encoder.drawIndexedPrimitives(type: .triangle, indexCount: indexCount, indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
@@ -39,15 +53,22 @@ extension IRMetalRenderer {
     }
 
     func renderI420Mesh(yuvFrame: IRFFAVYUVVideoFrame,
-                                encoder: MTLRenderCommandEncoder,
-                                indexCount: Int,
-                                indexBuffer: MTLBuffer) -> Bool {
+                        encoder: MTLRenderCommandEncoder,
+                        indexCount: Int,
+                        indexBuffer: MTLBuffer,
+                        resources: IRMetalCommandResources) -> Bool {
         guard let pipeline = pipelineI420Mesh else { return false }
-        guard let textures = makeI420Textures(from: yuvFrame) else { return false }
+        guard let generation = frameTextureGeneration(
+            for: yuvFrame,
+            resources: resources
+        ),
+        case let .i420(y, u, v) = generation.textures else {
+            return false
+        }
         encoder.setRenderPipelineState(pipeline)
-        encoder.setFragmentTexture(textures.y, index: 0)
-        encoder.setFragmentTexture(textures.u, index: 1)
-        encoder.setFragmentTexture(textures.v, index: 2)
+        encoder.setFragmentTexture(y, index: 0)
+        encoder.setFragmentTexture(u, index: 1)
+        encoder.setFragmentTexture(v, index: 2)
         encoder.drawIndexedPrimitives(type: .triangle, indexCount: indexCount, indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
         return true
     }

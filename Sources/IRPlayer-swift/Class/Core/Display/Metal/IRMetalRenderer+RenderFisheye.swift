@@ -21,6 +21,7 @@ extension IRMetalRenderer {
                        drawableSize: CGSize,
                        viewport: CGRect) -> Bool {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        let commandResources = IRMetalCommandResources()
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
 
@@ -39,11 +40,17 @@ extension IRMetalRenderer {
                                                  frame: frame,
                                                  encoder: encoder,
                                                  indexCount: mesh.indexCount,
-                                                 indexBuffer: mesh.indexBuffer)
+                                                 indexBuffer: mesh.indexBuffer,
+                                                 resources: commandResources)
         }
 
         encoder.endEncoding()
         if didRender {
+            guard commandResources.submit(
+                to: commandBuffer
+            ) else {
+                return false
+            }
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }
@@ -59,6 +66,7 @@ extension IRMetalRenderer {
                             viewports: [CGRect]) -> Bool {
         guard !viewports.isEmpty, viewports.count == mvpList.count else { return false }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        let commandResources = IRMetalCommandResources()
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
 
@@ -79,7 +87,8 @@ extension IRMetalRenderer {
                                              frame: frame,
                                              encoder: encoder,
                                              indexCount: mesh.indexCount,
-                                             indexBuffer: mesh.indexBuffer) {
+                                             indexBuffer: mesh.indexBuffer,
+                                             resources: commandResources) {
                     encoder.endEncoding()
                     return false
                 }
@@ -89,6 +98,11 @@ extension IRMetalRenderer {
 
         encoder.endEncoding()
         if didRender {
+            guard commandResources.submit(
+                to: commandBuffer
+            ) else {
+                return false
+            }
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }

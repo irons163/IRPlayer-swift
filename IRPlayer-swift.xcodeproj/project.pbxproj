@@ -22,6 +22,8 @@
 		B5E953112F6904700149265 /* IRGLRenderModeFactoryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953102F6904700149265 /* IRGLRenderModeFactoryPolicy.swift */; };
 		4A9D78772F6436E500CDB43B /* IRGLMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9D78762F6436E500CDB43B /* IRGLMath.swift */; };
 		4A9D78992F65855F00CDB43B /* IRMetalPixelRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9D78902F65855F00CDB43B /* IRMetalPixelRenderer.swift */; };
+		B5E97B012F8600000149265 /* IRMetalCommandResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97B002F8600000149265 /* IRMetalCommandResources.swift */; };
+		B5E97B032F8600010149265 /* IRMetalFrameTextureGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97B022F8600010149265 /* IRMetalFrameTextureGeneration.swift */; };
 		4A9D789A2F65855F00CDB43B /* IRMetalRenderer+RenderPixelFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9D78972F65855F00CDB43B /* IRMetalRenderer+RenderPixelFormat.swift */; };
 		4A9D789B2F65855F00CDB43B /* IRMetalRenderer+RenderDistortion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9D78932F65855F00CDB43B /* IRMetalRenderer+RenderDistortion.swift */; };
 		4A9D789E2F65855F00CDB43B /* IRMetalRenderer+RenderFish2Pano.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9D78942F65855F00CDB43B /* IRMetalRenderer+RenderFish2Pano.swift */; };
@@ -228,6 +230,8 @@
 		B5E979092F8400020149265 /* IRFFAudioResampleSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E979082F8400020149265 /* IRFFAudioResampleSessionTests.swift */; };
 		B5E979012F8400000149265 /* IRFFPacketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E979002F8400000149265 /* IRFFPacketTests.swift */; };
 		B5E97A032F8500010149265 /* IRYUVImageConversionSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97A022F8500010149265 /* IRYUVImageConversionSessionTests.swift */; };
+		B5E97B052F8600020149265 /* IRMetalCommandResourcesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97B042F8600020149265 /* IRMetalCommandResourcesTests.swift */; };
+		B5E97B072F8600030149265 /* IRMetalFrameTextureGenerationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97B062F8600030149265 /* IRMetalFrameTextureGenerationTests.swift */; };
 		B5E950492F68A02200149265 /* IRFFPacketQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */; };
 		B5E950532F68A02600149265 /* IRFFVideoDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */; };
 		B5E953132F6905000149265 /* IRFFDictionaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953122F6905000149265 /* IRFFDictionaryTests.swift */; };
@@ -341,6 +345,8 @@
 		B5E9525A2F6902C00149265 /* IRMetalDistortionMeshPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalDistortionMeshPolicy.swift; sourceTree = "<group>"; };
 		4A9D78762F6436E500CDB43B /* IRGLMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLMath.swift; sourceTree = "<group>"; };
 		4A9D78902F65855F00CDB43B /* IRMetalPixelRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalPixelRenderer.swift; sourceTree = "<group>"; };
+		B5E97B002F8600000149265 /* IRMetalCommandResources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalCommandResources.swift; sourceTree = "<group>"; };
+		B5E97B022F8600010149265 /* IRMetalFrameTextureGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalFrameTextureGeneration.swift; sourceTree = "<group>"; };
 		4A9D78922F65855F00CDB43B /* IRMetalRenderer+Render2D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+Render2D.swift"; sourceTree = "<group>"; };
 		4A9D78932F65855F00CDB43B /* IRMetalRenderer+RenderDistortion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderDistortion.swift"; sourceTree = "<group>"; };
 		4A9D78942F65855F00CDB43B /* IRMetalRenderer+RenderFish2Pano.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderFish2Pano.swift"; sourceTree = "<group>"; };
@@ -551,6 +557,8 @@
 		B5E979082F8400020149265 /* IRFFAudioResampleSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioResampleSessionTests.swift; sourceTree = "<group>"; };
 		B5E979002F8400000149265 /* IRFFPacketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketTests.swift; sourceTree = "<group>"; };
 		B5E97A022F8500010149265 /* IRYUVImageConversionSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRYUVImageConversionSessionTests.swift; sourceTree = "<group>"; };
+		B5E97B042F8600020149265 /* IRMetalCommandResourcesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalCommandResourcesTests.swift; sourceTree = "<group>"; };
+		B5E97B062F8600030149265 /* IRMetalFrameTextureGenerationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalFrameTextureGenerationTests.swift; sourceTree = "<group>"; };
 		B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueueTests.swift; sourceTree = "<group>"; };
 		B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoDecoderTests.swift; sourceTree = "<group>"; };
 		B5E953122F6905000149265 /* IRFFDictionaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDictionaryTests.swift; sourceTree = "<group>"; };
@@ -674,6 +682,8 @@
 		4A5170982F5DB698009F8BBA /* Metal */ = {
 			isa = PBXGroup;
 			children = (
+				B5E97B002F8600000149265 /* IRMetalCommandResources.swift */,
+				B5E97B022F8600010149265 /* IRMetalFrameTextureGeneration.swift */,
 				4A9D78902F65855F00CDB43B /* IRMetalPixelRenderer.swift */,
 				4A9D78922F65855F00CDB43B /* IRMetalRenderer+Render2D.swift */,
 				4A9D78932F65855F00CDB43B /* IRMetalRenderer+RenderDistortion.swift */,
@@ -1249,6 +1259,8 @@
 				B5E979082F8400020149265 /* IRFFAudioResampleSessionTests.swift */,
 				B5E979002F8400000149265 /* IRFFPacketTests.swift */,
 				B5E97A022F8500010149265 /* IRYUVImageConversionSessionTests.swift */,
+				B5E97B042F8600020149265 /* IRMetalCommandResourcesTests.swift */,
+				B5E97B062F8600030149265 /* IRMetalFrameTextureGenerationTests.swift */,
 				B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */,
 				B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */,
 				B5E953122F6905000149265 /* IRFFDictionaryTests.swift */,
@@ -1595,6 +1607,8 @@
 				B5E971052F7E00020149265 /* IRFFmpegBootstrap.swift in Sources */,
 				B5E94F252D0B21F800149265 /* IRFFVideoDecoder.swift in Sources */,
 				B5E94F272D0B21F800149265 /* IRGLSupportPixelFormat.swift in Sources */,
+				B5E97B012F8600000149265 /* IRMetalCommandResources.swift in Sources */,
+				B5E97B032F8600010149265 /* IRMetalFrameTextureGeneration.swift in Sources */,
 				4A9D78992F65855F00CDB43B /* IRMetalPixelRenderer.swift in Sources */,
 				4A9D789A2F65855F00CDB43B /* IRMetalRenderer+RenderPixelFormat.swift in Sources */,
 				4A9D789B2F65855F00CDB43B /* IRMetalRenderer+RenderDistortion.swift in Sources */,
@@ -1703,6 +1717,8 @@
 				B5E979092F8400020149265 /* IRFFAudioResampleSessionTests.swift in Sources */,
 				B5E979012F8400000149265 /* IRFFPacketTests.swift in Sources */,
 				B5E97A032F8500010149265 /* IRYUVImageConversionSessionTests.swift in Sources */,
+				B5E97B052F8600020149265 /* IRMetalCommandResourcesTests.swift in Sources */,
+				B5E97B072F8600030149265 /* IRMetalFrameTextureGenerationTests.swift in Sources */,
 				B5E950492F68A02200149265 /* IRFFPacketQueueTests.swift in Sources */,
 				B5E950532F68A02600149265 /* IRFFVideoDecoderTests.swift in Sources */,
 				B5E953132F6905000149265 /* IRFFDictionaryTests.swift in Sources */,

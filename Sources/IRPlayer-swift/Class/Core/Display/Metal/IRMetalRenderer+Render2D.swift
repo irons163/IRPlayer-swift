@@ -20,6 +20,7 @@ extension IRMetalRenderer {
                 zoomScale: Float,
                 translation: SIMD2<Float>) -> Bool {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        let commandResources = IRMetalCommandResources()
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
 
@@ -35,8 +36,18 @@ extension IRMetalRenderer {
                                                orientation: .topLeftFlipped))
 
         if let pixelRenderer = pixelRenderer(for: frame) {
-            if pixelRenderer.render2D(renderer: self, frame: frame, encoder: encoder) {
+            if pixelRenderer.render2D(
+                renderer: self,
+                frame: frame,
+                encoder: encoder,
+                resources: commandResources
+            ) {
                 encoder.endEncoding()
+                guard commandResources.submit(
+                    to: commandBuffer
+                ) else {
+                    return false
+                }
                 commandBuffer.present(drawable)
                 commandBuffer.commit()
                 return true
@@ -56,6 +67,7 @@ extension IRMetalRenderer {
                      translations: [SIMD2<Float>]) -> Bool {
         guard !viewports.isEmpty, viewports.count == contentModes.count else { return false }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        let commandResources = IRMetalCommandResources()
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
 
@@ -79,12 +91,22 @@ extension IRMetalRenderer {
             encoder.setVertexBytes(&translationVector, length: MemoryLayout<SIMD2<Float>>.size, index: 2)
 
             if let pixelRenderer = pixelRenderer(for: frame) {
-                didRender = pixelRenderer.render2D(renderer: self, frame: frame, encoder: encoder) || didRender
+                didRender = pixelRenderer.render2D(
+                    renderer: self,
+                    frame: frame,
+                    encoder: encoder,
+                    resources: commandResources
+                ) || didRender
             }
         }
 
         encoder.endEncoding()
         if didRender {
+            guard commandResources.submit(
+                to: commandBuffer
+            ) else {
+                return false
+            }
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }
@@ -93,9 +115,13 @@ extension IRMetalRenderer {
 
     func renderClear(to drawable: CAMetalDrawable) {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+        let commandResources = IRMetalCommandResources()
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return }
         encoder.endEncoding()
+        guard commandResources.submit(to: commandBuffer) else {
+            return
+        }
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }

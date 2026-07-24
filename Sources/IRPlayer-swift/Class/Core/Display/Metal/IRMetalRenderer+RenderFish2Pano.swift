@@ -25,6 +25,7 @@ extension IRMetalRenderer {
                          translation: SIMD2<Float>) -> Bool {
         guard Self.fish2PanoInputsAreValid(params: params, texUVTextureCount: texUVTextures.count) else { return false }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
+        let commandResources = IRMetalCommandResources()
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
 
@@ -59,11 +60,17 @@ extension IRMetalRenderer {
                                                       frame: frame,
                                                       encoder: encoder,
                                                       params: fishParams,
-                                                      texUVTextures: texUVTextures)
+                                                      texUVTextures: texUVTextures,
+                                                      resources: commandResources)
         }
 
         encoder.endEncoding()
         if didRender {
+            guard commandResources.submit(
+                to: commandBuffer
+            ) else {
+                return false
+            }
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }

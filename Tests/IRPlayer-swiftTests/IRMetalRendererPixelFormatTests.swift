@@ -61,7 +61,10 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
 
     private func withOffscreenEncoder(
         renderer: IRMetalRenderer,
-        _ body: (MTLRenderCommandEncoder) throws -> Void
+        _ body: (
+            MTLRenderCommandEncoder,
+            IRMetalCommandResources
+        ) throws -> Void
     ) throws {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm,
@@ -92,8 +95,10 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         var translationVector = SIMD2<Float>(repeating: 0)
         encoder.setVertexBytes(&translationVector, length: MemoryLayout<SIMD2<Float>>.size, index: 2)
 
-        try body(encoder)
+        let resources = IRMetalCommandResources()
+        try body(encoder, resources)
         encoder.endEncoding()
+        XCTAssertTrue(resources.submit(to: commandBuffer))
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
     }
@@ -516,14 +521,20 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let pixelBuffer = try makePixelBuffer(format: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
         let frame = IRFFCVYUVVideoFrame(pixelBuffer: pixelBuffer)
 
-        let textures = renderer.makeNV12Textures(from: frame)
+        let generation = try XCTUnwrap(
+            renderer.makeNV12TextureGeneration(from: frame)
+        )
+        guard case let .nv12(y, uv) =
+                generation.textures else {
+            return XCTFail("expected NV12 textures")
+        }
 
-        XCTAssertEqual(textures?.y.width, 2)
-        XCTAssertEqual(textures?.y.height, 2)
-        XCTAssertEqual(textures?.y.pixelFormat, .r8Unorm)
-        XCTAssertEqual(textures?.uv.width, 1)
-        XCTAssertEqual(textures?.uv.height, 1)
-        XCTAssertEqual(textures?.uv.pixelFormat, .rg8Unorm)
+        XCTAssertEqual(y.width, 2)
+        XCTAssertEqual(y.height, 2)
+        XCTAssertEqual(y.pixelFormat, .r8Unorm)
+        XCTAssertEqual(uv.width, 1)
+        XCTAssertEqual(uv.height, 1)
+        XCTAssertEqual(uv.pixelFormat, .rg8Unorm)
     }
 
     func testMakeNV12TexturesRejectsNonBiPlanarPixelBuffer() throws {
@@ -531,7 +542,9 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let pixelBuffer = try makePixelBuffer(format: kCVPixelFormatType_32BGRA)
         let frame = IRFFCVYUVVideoFrame(pixelBuffer: pixelBuffer)
 
-        XCTAssertNil(renderer.makeNV12Textures(from: frame))
+        XCTAssertNil(
+            renderer.makeNV12TextureGeneration(from: frame)
+        )
     }
 
     func testMakeBGRATextureCreatesTextureForBGRAAndRejectsNV12() throws {
@@ -539,12 +552,24 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let bgraFrame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_32BGRA))
         let nv12Frame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange))
 
-        let texture = renderer.makeBGRATexture(from: bgraFrame)
+        let generation = try XCTUnwrap(
+            renderer.makeBGRATextureGeneration(
+                from: bgraFrame
+            )
+        )
+        guard case let .bgra(texture) =
+                generation.textures else {
+            return XCTFail("expected BGRA texture")
+        }
 
-        XCTAssertEqual(texture?.width, 2)
-        XCTAssertEqual(texture?.height, 2)
-        XCTAssertEqual(texture?.pixelFormat, .bgra8Unorm)
-        XCTAssertNil(renderer.makeBGRATexture(from: nv12Frame))
+        XCTAssertEqual(texture.width, 2)
+        XCTAssertEqual(texture.height, 2)
+        XCTAssertEqual(texture.pixelFormat, .bgra8Unorm)
+        XCTAssertNil(
+            renderer.makeBGRATextureGeneration(
+                from: nv12Frame
+            )
+        )
     }
 
     func testMakeI420TexturesRejectsMissingPlanesAndInvalidSize() throws {
@@ -593,8 +618,16 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
             throw XCTSkip("RGB Metal pipeline unavailable")
         }
 
-        try withOffscreenEncoder(renderer: renderer) { encoder in
-            XCTAssertTrue(renderer.renderRGB(rgbFrame: makeRGBFrame(), encoder: encoder))
+        try withOffscreenEncoder(renderer: renderer) {
+            encoder,
+            resources in
+            XCTAssertTrue(
+                renderer.renderRGB(
+                    rgbFrame: makeRGBFrame(),
+                    encoder: encoder,
+                    resources: resources
+                )
+            )
         }
     }
 
@@ -605,8 +638,16 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         }
         let frame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_32BGRA))
 
-        try withOffscreenEncoder(renderer: renderer) { encoder in
-            XCTAssertTrue(renderer.renderBGRA(cvFrame: frame, encoder: encoder))
+        try withOffscreenEncoder(renderer: renderer) {
+            encoder,
+            resources in
+            XCTAssertTrue(
+                renderer.renderBGRA(
+                    cvFrame: frame,
+                    encoder: encoder,
+                    resources: resources
+                )
+            )
         }
     }
 
@@ -617,8 +658,16 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         }
 
         try withI420Frame { frame in
-            try withOffscreenEncoder(renderer: renderer) { encoder in
-                XCTAssertTrue(renderer.renderI420(yuvFrame: frame, encoder: encoder))
+            try withOffscreenEncoder(renderer: renderer) {
+                encoder,
+                resources in
+                XCTAssertTrue(
+                    renderer.renderI420(
+                        yuvFrame: frame,
+                        encoder: encoder,
+                        resources: resources
+                    )
+                )
             }
         }
     }
@@ -645,6 +694,40 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
                                             ],
                                             zoomScales: [1.25],
                                             translations: [SIMD2<Float>(0.1, -0.1)]))
+    }
+
+    func testRenderMultiDrawsNV12AcrossViewports() throws {
+        let renderer = try makeRenderer()
+        guard renderer.pipelineNV12 != nil else {
+            throw XCTSkip("NV12 Metal pipeline unavailable")
+        }
+        let drawable = try makeOffscreenDrawable(
+            renderer: renderer
+        )
+        let frame = IRFFCVYUVVideoFrame(
+            pixelBuffer: try makePixelBuffer(
+                format:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+            )
+        )
+
+        XCTAssertTrue(
+            renderer.renderMulti(
+                frame: frame,
+                to: drawable,
+                drawableSize: CGSize(width: 4, height: 2),
+                viewports: [
+                    CGRect(x: 0, y: 0, width: 2, height: 2),
+                    CGRect(x: 2, y: 0, width: 2, height: 2)
+                ],
+                contentModes: [
+                    .scaleAspectFit,
+                    .scaleAspectFill
+                ],
+                zoomScales: [1, 1],
+                translations: [.zero, .zero]
+            )
+        )
     }
 
     func testRenderFish2PanoEncodesValidInputsAndRejectsUnsupportedFrame() throws {
@@ -680,19 +763,24 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let nv12Frame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange))
 
         try withI420Frame { yuvFrame in
-            try withOffscreenEncoder(renderer: renderer) { encoder in
+            try withOffscreenEncoder(renderer: renderer) {
+                encoder,
+                resources in
                 XCTAssertFalse(renderer.renderNV12Mesh(cvFrame: nv12Frame,
                                                        encoder: encoder,
                                                        indexCount: 3,
-                                                       indexBuffer: indexBuffer))
+                                                       indexBuffer: indexBuffer,
+                                                       resources: resources))
                 XCTAssertFalse(renderer.renderBGRAMesh(cvFrame: bgraFrame,
                                                        encoder: encoder,
                                                        indexCount: 3,
-                                                       indexBuffer: indexBuffer))
+                                                       indexBuffer: indexBuffer,
+                                                       resources: resources))
                 XCTAssertFalse(renderer.renderI420Mesh(yuvFrame: yuvFrame,
                                                        encoder: encoder,
                                                        indexCount: 3,
-                                                       indexBuffer: indexBuffer))
+                                                       indexBuffer: indexBuffer,
+                                                       resources: resources))
             }
         }
     }
@@ -786,12 +874,15 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let frame = makeRGBFrame()
         let lookupTexture = try makeFish2PanoLookupTexture(renderer: renderer)
 
-        try withOffscreenEncoder(renderer: renderer) { encoder in
+        try withOffscreenEncoder(renderer: renderer) {
+            encoder,
+            resources in
             XCTAssertTrue(pixelRenderer.renderFish2Pano(renderer: renderer,
                                                         frame: frame,
                                                         encoder: encoder,
                                                         params: makeFish2PanoParams(),
-                                                        texUVTextures: [lookupTexture]))
+                                                        texUVTextures: [lookupTexture],
+                                                        resources: resources))
         }
     }
 
@@ -804,12 +895,15 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let lookupTexture = try makeFish2PanoLookupTexture(renderer: renderer)
 
         try withI420Frame { frame in
-            try withOffscreenEncoder(renderer: renderer) { encoder in
+            try withOffscreenEncoder(renderer: renderer) {
+                encoder,
+                resources in
                 XCTAssertTrue(pixelRenderer.renderFish2Pano(renderer: renderer,
                                                             frame: frame,
                                                             encoder: encoder,
                                                             params: makeFish2PanoParams(),
-                                                            texUVTextures: [lookupTexture]))
+                                                            texUVTextures: [lookupTexture],
+                                                            resources: resources))
             }
         }
     }
@@ -825,17 +919,21 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let nv12Frame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange))
         let bgraFrame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(format: kCVPixelFormatType_32BGRA))
 
-        try withOffscreenEncoder(renderer: renderer) { encoder in
+        try withOffscreenEncoder(renderer: renderer) {
+            encoder,
+            resources in
             XCTAssertTrue(pixelRenderer.renderFish2Pano(renderer: renderer,
                                                         frame: nv12Frame,
                                                         encoder: encoder,
                                                         params: makeFish2PanoParams(),
-                                                        texUVTextures: [lookupTexture]))
+                                                        texUVTextures: [lookupTexture],
+                                                        resources: resources))
             XCTAssertTrue(pixelRenderer.renderFish2Pano(renderer: renderer,
                                                         frame: bgraFrame,
                                                         encoder: encoder,
                                                         params: makeFish2PanoParams(),
-                                                        texUVTextures: [lookupTexture]))
+                                                        texUVTextures: [lookupTexture],
+                                                        resources: resources))
         }
     }
 
@@ -847,13 +945,19 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let pixelRenderer = IRMetalPixelRendererRGB()
         let frame = makeRGBFrame()
 
-        try withOffscreenEncoder(renderer: renderer) { encoder in
-            XCTAssertTrue(pixelRenderer.render2D(renderer: renderer, frame: frame, encoder: encoder))
+        try withOffscreenEncoder(renderer: renderer) {
+            encoder,
+            resources in
+            XCTAssertTrue(pixelRenderer.render2D(renderer: renderer,
+                                                 frame: frame,
+                                                 encoder: encoder,
+                                                 resources: resources))
             XCTAssertFalse(pixelRenderer.renderMesh(renderer: renderer,
                                                     frame: frame,
                                                     encoder: encoder,
                                                     indexCount: 0,
-                                                    indexBuffer: renderer.vertexBuffer!))
+                                                    indexBuffer: renderer.vertexBuffer!,
+                                                    resources: resources))
         }
     }
 
@@ -879,48 +983,69 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let lookupTexture = try makeFish2PanoLookupTexture(renderer: renderer)
 
         try withI420Frame { frame in
-            try withOffscreenEncoder(renderer: renderer) { encoder in
-                XCTAssertFalse(nv12Renderer.render2D(renderer: renderer, frame: nv12Frame, encoder: encoder))
-                XCTAssertFalse(nv12Renderer.render2D(renderer: renderer, frame: bgraFrame, encoder: encoder))
+            try withOffscreenEncoder(renderer: renderer) {
+                encoder,
+                resources in
+                XCTAssertFalse(nv12Renderer.render2D(renderer: renderer,
+                                                     frame: nv12Frame,
+                                                     encoder: encoder,
+                                                     resources: resources))
+                XCTAssertFalse(nv12Renderer.render2D(renderer: renderer,
+                                                     frame: bgraFrame,
+                                                     encoder: encoder,
+                                                     resources: resources))
                 XCTAssertFalse(nv12Renderer.renderMesh(renderer: renderer,
                                                        frame: nv12Frame,
                                                        encoder: encoder,
                                                        indexCount: 3,
-                                                       indexBuffer: indexBuffer))
+                                                       indexBuffer: indexBuffer,
+                                                       resources: resources))
                 XCTAssertFalse(nv12Renderer.renderMesh(renderer: renderer,
                                                        frame: bgraFrame,
                                                        encoder: encoder,
                                                        indexCount: 3,
-                                                       indexBuffer: indexBuffer))
+                                                       indexBuffer: indexBuffer,
+                                                       resources: resources))
                 XCTAssertFalse(nv12Renderer.renderFish2Pano(renderer: renderer,
                                                             frame: nv12Frame,
                                                             encoder: encoder,
                                                             params: params,
-                                                            texUVTextures: [lookupTexture]))
+                                                            texUVTextures: [lookupTexture],
+                                                            resources: resources))
                 XCTAssertFalse(nv12Renderer.renderFish2Pano(renderer: renderer,
                                                             frame: bgraFrame,
                                                             encoder: encoder,
                                                             params: params,
-                                                            texUVTextures: [lookupTexture]))
+                                                            texUVTextures: [lookupTexture],
+                                                            resources: resources))
 
-                XCTAssertFalse(i420Renderer.render2D(renderer: renderer, frame: frame, encoder: encoder))
+                XCTAssertFalse(i420Renderer.render2D(renderer: renderer,
+                                                     frame: frame,
+                                                     encoder: encoder,
+                                                     resources: resources))
                 XCTAssertFalse(i420Renderer.renderMesh(renderer: renderer,
                                                        frame: frame,
                                                        encoder: encoder,
                                                        indexCount: 3,
-                                                       indexBuffer: indexBuffer))
+                                                       indexBuffer: indexBuffer,
+                                                       resources: resources))
                 XCTAssertFalse(i420Renderer.renderFish2Pano(renderer: renderer,
                                                             frame: frame,
                                                             encoder: encoder,
                                                             params: params,
-                                                            texUVTextures: [lookupTexture]))
+                                                            texUVTextures: [lookupTexture],
+                                                            resources: resources))
 
-                XCTAssertFalse(rgbRenderer.render2D(renderer: renderer, frame: rgbFrame, encoder: encoder))
+                XCTAssertFalse(rgbRenderer.render2D(renderer: renderer,
+                                                    frame: rgbFrame,
+                                                    encoder: encoder,
+                                                    resources: resources))
                 XCTAssertFalse(rgbRenderer.renderFish2Pano(renderer: renderer,
                                                            frame: rgbFrame,
                                                            encoder: encoder,
                                                            params: params,
-                                                           texUVTextures: [lookupTexture]))
+                                                           texUVTextures: [lookupTexture],
+                                                           resources: resources))
             }
         }
     }
@@ -931,14 +1056,22 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let pixelRenderer = IRMetalPixelRendererRGB()
         let frame = makeRGBFrame()
 
-        try withOffscreenEncoder(renderer: renderer) { encoder in
-            XCTAssertFalse(renderer.renderRGB(rgbFrame: frame, encoder: encoder))
-            XCTAssertFalse(pixelRenderer.render2D(renderer: renderer, frame: frame, encoder: encoder))
+        try withOffscreenEncoder(renderer: renderer) {
+            encoder,
+            resources in
+            XCTAssertFalse(renderer.renderRGB(rgbFrame: frame,
+                                              encoder: encoder,
+                                              resources: resources))
+            XCTAssertFalse(pixelRenderer.render2D(renderer: renderer,
+                                                  frame: frame,
+                                                  encoder: encoder,
+                                                  resources: resources))
             XCTAssertFalse(pixelRenderer.renderMesh(renderer: renderer,
                                                     frame: frame,
                                                     encoder: encoder,
                                                     indexCount: 0,
-                                                    indexBuffer: renderer.vertexBuffer!))
+                                                    indexBuffer: renderer.vertexBuffer!,
+                                                    resources: resources))
         }
     }
 
@@ -950,30 +1083,42 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let params = makeFish2PanoParams()
         let lookupTexture = try makeFish2PanoLookupTexture(renderer: renderer)
 
-        try withOffscreenEncoder(renderer: renderer) { encoder in
-            XCTAssertFalse(nv12Renderer.render2D(renderer: renderer, frame: rgbFrame, encoder: encoder))
+        try withOffscreenEncoder(renderer: renderer) {
+            encoder,
+            resources in
+            XCTAssertFalse(nv12Renderer.render2D(renderer: renderer,
+                                                 frame: rgbFrame,
+                                                 encoder: encoder,
+                                                 resources: resources))
             XCTAssertFalse(nv12Renderer.renderMesh(renderer: renderer,
                                                    frame: rgbFrame,
                                                    encoder: encoder,
                                                    indexCount: 0,
-                                                   indexBuffer: renderer.vertexBuffer!))
+                                                   indexBuffer: renderer.vertexBuffer!,
+                                                   resources: resources))
             XCTAssertFalse(nv12Renderer.renderFish2Pano(renderer: renderer,
                                                         frame: rgbFrame,
                                                         encoder: encoder,
                                                         params: params,
-                                                        texUVTextures: [lookupTexture]))
+                                                        texUVTextures: [lookupTexture],
+                                                        resources: resources))
 
-            XCTAssertFalse(i420Renderer.render2D(renderer: renderer, frame: rgbFrame, encoder: encoder))
+            XCTAssertFalse(i420Renderer.render2D(renderer: renderer,
+                                                 frame: rgbFrame,
+                                                 encoder: encoder,
+                                                 resources: resources))
             XCTAssertFalse(i420Renderer.renderMesh(renderer: renderer,
                                                    frame: rgbFrame,
                                                    encoder: encoder,
                                                    indexCount: 0,
-                                                   indexBuffer: renderer.vertexBuffer!))
+                                                   indexBuffer: renderer.vertexBuffer!,
+                                                   resources: resources))
             XCTAssertFalse(i420Renderer.renderFish2Pano(renderer: renderer,
                                                         frame: rgbFrame,
                                                         encoder: encoder,
                                                         params: params,
-                                                        texUVTextures: [lookupTexture]))
+                                                        texUVTextures: [lookupTexture],
+                                                        resources: resources))
         }
     }
 }
