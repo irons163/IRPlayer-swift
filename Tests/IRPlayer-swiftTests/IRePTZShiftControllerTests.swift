@@ -61,13 +61,40 @@ final class IRePTZShiftControllerTests: XCTestCase {
         XCTAssertEqual(program.panCalls[0].y, 0)
     }
 
-    func testAdjustedDegreeWrapperMatchesPolicy() {
-        XCTAssertEqual(IRePTZShiftController.adjustedDegree(45, angle: 180, factor: 0.5),
-                       IRePTZShiftPolicy.adjustedDegree(45, angle: 180, factor: 0.5),
-                       accuracy: 0.0001)
-        XCTAssertEqual(IRePTZShiftPolicy.adjustedDegree(.nan, angle: 180, factor: 1), 0)
-        XCTAssertEqual(IRePTZShiftPolicy.adjustedDegree(45, angle: 0, factor: 1), 0)
-        XCTAssertEqual(IRePTZShiftPolicy.adjustedDegree(.greatestFiniteMagnitude, angle: 1, factor: 2), 0)
+    func testAdjustedDegreeChecksInputsAndDerivedOverflow() {
+        XCTAssertEqual(
+            IRePTZShiftController.adjustedDegree(
+                45,
+                angle: 180,
+                factor: 0.5
+            ),
+            45,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            IRePTZShiftController.adjustedDegree(
+                .nan,
+                angle: 180,
+                factor: 1
+            ),
+            0
+        )
+        XCTAssertEqual(
+            IRePTZShiftController.adjustedDegree(
+                45,
+                angle: 0,
+                factor: 1
+            ),
+            0
+        )
+        XCTAssertEqual(
+            IRePTZShiftController.adjustedDegree(
+                .greatestFiniteMagnitude,
+                angle: 1,
+                factor: 2
+            ),
+            0
+        )
     }
 }
 

@@ -34,62 +34,117 @@ final class IRBounceControllerTests: XCTestCase {
     func testBounceGeometryBuildsRightAndUpEdges() {
         let targetSize = CGSize(width: 100, height: 80)
 
-        let rightGeometry = IRBouncePolicy.bouncePathGeometry(amount: 3,
-                                                             direction: .right,
-                                                             targetSize: targetSize)
+        let rightGeometry =
+            IRBounceController.bouncePathGeometry(
+                amount: 3,
+                direction: .right,
+                targetSize: targetSize
+            )
         XCTAssertEqual(rightGeometry.start, .zero)
         XCTAssertEqual(rightGeometry.control, CGPoint(x: 3, y: 40))
         XCTAssertEqual(rightGeometry.end, CGPoint(x: 0, y: 80))
 
-        let upGeometry = IRBouncePolicy.bouncePathGeometry(amount: -4,
-                                                          direction: .up,
-                                                          targetSize: targetSize)
+        let upGeometry =
+            IRBounceController.bouncePathGeometry(
+                amount: -4,
+                direction: .up,
+                targetSize: targetSize
+            )
         XCTAssertEqual(upGeometry.start, CGPoint(x: 0, y: 80))
         XCTAssertEqual(upGeometry.control, CGPoint(x: 50, y: 76))
         XCTAssertEqual(upGeometry.end, CGPoint(x: 100, y: 80))
     }
 
     func testBounceGeometryRejectsMalformedInputs() {
-        let geometry = IRBouncePolicy.bouncePathGeometry(amount: .nan,
-                                                         direction: .left,
-                                                         targetSize: CGSize(width: CGFloat.infinity, height: -80))
+        let cases: [(CGFloat, CGSize)] = [
+            (CGFloat.nan, CGSize(width: 100, height: 80)),
+            (
+                1,
+                CGSize(width: CGFloat.infinity, height: 80)
+            ),
+            (
+                1,
+                CGSize(width: 100, height: -CGFloat.infinity)
+            ),
+            (1, CGSize(width: 0, height: 80)),
+            (1, CGSize(width: 100, height: -80))
+        ]
 
-        XCTAssertEqual(geometry.start, .zero)
-        XCTAssertEqual(geometry.control, .zero)
-        XCTAssertEqual(geometry.end, .zero)
+        for (amount, size) in cases {
+            XCTAssertEqual(
+                IRBounceController.bouncePathGeometry(
+                    amount: amount,
+                    direction: .left,
+                    targetSize: size
+                ),
+                .zero
+            )
+        }
     }
 
     func testBounceGeometryReturnsZeroForUnsupportedDirection() {
-        let geometry = IRBouncePolicy.bouncePathGeometry(amount: 4,
-                                                         direction: .none,
-                                                         targetSize: CGSize(width: 100, height: 80))
-
-        XCTAssertEqual(geometry.start, .zero)
-        XCTAssertEqual(geometry.control, .zero)
-        XCTAssertEqual(geometry.end, .zero)
+        XCTAssertEqual(
+            IRBounceController.bouncePathGeometry(
+                amount: 4,
+                direction: .none,
+                targetSize: CGSize(width: 100, height: 80)
+            ),
+            .zero
+        )
     }
 
     func testBounceAnimationPlanMapsDirectionsToKeysAndAxes() {
-        XCTAssertEqual(IRBounceController.animationPlan(for: .left), IRBounceAnimationPlan(key: "bounce_right", axis: .horizontal))
-        XCTAssertEqual(IRBounceController.animationPlan(for: .right), IRBounceAnimationPlan(key: "bounce_left", axis: .horizontal))
-        XCTAssertEqual(IRBounceController.animationPlan(for: .up), IRBounceAnimationPlan(key: "bounce_bottom", axis: .vertical))
-        XCTAssertEqual(IRBounceController.animationPlan(for: .down), IRBounceAnimationPlan(key: "bounce_top", axis: .vertical))
-        XCTAssertNil(IRBounceController.animationPlan(for: .none))
+        let cases: [
+            (
+                IRScrollDirectionType,
+                IRBounceController.AnimationPlan?
+            )
+        ] = [
+            (
+                .left,
+                .init(key: "bounce_right", axis: .horizontal)
+            ),
+            (
+                .right,
+                .init(key: "bounce_left", axis: .horizontal)
+            ),
+            (
+                .up,
+                .init(key: "bounce_bottom", axis: .vertical)
+            ),
+            (
+                .down,
+                .init(key: "bounce_top", axis: .vertical)
+            ),
+            (.none, nil)
+        ]
+
+        for (direction, expected) in cases {
+            XCTAssertEqual(
+                IRBounceController.animationPlan(
+                    for: direction
+                ),
+                expected
+            )
+        }
     }
 
-    func testBounceControllerWrappersMatchPolicy() {
-        let targetSize = CGSize(width: 120, height: 90)
-        let wrapperGeometry = IRBounceController.bouncePathGeometry(amount: -240,
-                                                                    direction: .left,
-                                                                    targetSize: targetSize)
-        let policyGeometry = IRBouncePolicy.bouncePathGeometry(amount: -240,
-                                                               direction: .left,
-                                                               targetSize: targetSize)
-
-        XCTAssertEqual(wrapperGeometry.start, policyGeometry.start)
-        XCTAssertEqual(wrapperGeometry.control, policyGeometry.control)
-        XCTAssertEqual(wrapperGeometry.end, policyGeometry.end)
-        XCTAssertEqual(IRBounceController.animationPlan(for: .up), IRBouncePolicy.animationPlan(for: .up))
-        XCTAssertNil(IRBouncePolicy.animationPlan(for: .none))
+    func testBounceGeometryRejectsDerivedCoordinateOverflow() {
+        for direction in [
+            IRScrollDirectionType.left,
+            .up
+        ] {
+            XCTAssertEqual(
+                IRBounceController.bouncePathGeometry(
+                    amount: CGFloat.greatestFiniteMagnitude,
+                    direction: direction,
+                    targetSize: CGSize(
+                        width: CGFloat.greatestFiniteMagnitude,
+                        height: CGFloat.greatestFiniteMagnitude
+                    )
+                ),
+                .zero
+            )
+        }
     }
 }

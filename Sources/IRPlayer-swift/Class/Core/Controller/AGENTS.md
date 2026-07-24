@@ -22,7 +22,11 @@ These controllers interpret user input (touch gestures, device motion) and trans
 - Controllers feed into `Display/RenderKit/Transform/` controllers.
 - `IRSensor` owns Core Motion input; `IRePTZShiftController` only translates
   configured device-shift degrees.
-- `IRBounceController` enforces viewport boundaries with spring-like behavior.
+- Bounce geometry and animation mapping belong to `IRBounceController`; ePTZ
+  degree normalization belongs to `IRePTZShiftController`.
+- Base gesture classification/admission belongs to `IRGestureController`;
+  render-space mapping and GL gesture admission belong to
+  `IRGLGestureController`. Do not reintroduce forwarding policy mirrors.
 - Keep UIKit controller delivery on the main thread.
 - Smooth scrolling uses the shared `Display/IRDisplayLinkDriver.swift`; it must
   remain paused while the animation session is idle and close during
@@ -33,7 +37,8 @@ These controllers interpret user input (touch gestures, device motion) and trans
 - Gesture `willDecelerate` must reflect whether the session actually accepted
   work. Presentation motion restarts only after pan deceleration completion;
   sensor degree smoothing must not emit that gesture completion.
-- Tests: `IRGLGestureControllerTests.swift`,
+- Tests: `IRBounceControllerTests.swift`,
+  `IRGestureControllerTests.swift`, `IRGLGestureControllerTests.swift`,
   `IRDisplayLinkDriverTests.swift`,
   `IRSmoothScrollSessionTests.swift`, `IRSmoothScrollControllerTests.swift`,
   and `IRePTZShiftControllerTests.swift`.

@@ -16,6 +16,37 @@ import UIKit
 }
 
 @objcMembers public class IRBounceController: NSObject {
+    struct PathGeometry: Hashable, Equatable, Sendable {
+        static let zero = PathGeometry(
+            start: .zero,
+            control: .zero,
+            end: .zero
+        )
+
+        let start: CGPoint
+        let control: CGPoint
+        let end: CGPoint
+
+        var isFinite: Bool {
+            start.x.isFinite &&
+                start.y.isFinite &&
+                control.x.isFinite &&
+                control.y.isFinite &&
+                end.x.isFinite &&
+                end.y.isFinite
+        }
+    }
+
+    struct AnimationPlan: Equatable {
+        enum Axis {
+            case horizontal
+            case vertical
+        }
+
+        let key: String
+        let axis: Axis
+    }
+
     private weak var targetView: UIView?
     private var horizontalLineLayer: CAShapeLayer?
     private var verticalLineLayer: CAShapeLayer?
@@ -26,12 +57,114 @@ import UIKit
         return targetView?.bounds.size.height ?? 0
     }
 
-    @nonobjc static func bouncePathGeometry(amount: CGFloat, direction type: IRScrollDirectionType, targetSize: CGSize) -> IRBouncePathGeometry {
-        return IRBouncePolicy.bouncePathGeometry(amount: amount, direction: type, targetSize: targetSize)
+    @nonobjc static func bouncePathGeometry(
+        amount: CGFloat,
+        direction type: IRScrollDirectionType,
+        targetSize: CGSize
+    ) -> PathGeometry {
+        guard amount.isFinite,
+              targetSize.width.isFinite,
+              targetSize.height.isFinite,
+              targetSize.width > 0,
+              targetSize.height > 0 else {
+            return .zero
+        }
+
+        let targetViewWidth = targetSize.width
+        let targetViewHeight = targetSize.height
+        let bounceWidth = min(
+            targetViewWidth / 10,
+            targetViewHeight / 10
+        )
+        let geometry: PathGeometry
+
+        switch type {
+        case .left:
+            geometry = PathGeometry(
+                start: CGPoint(x: targetViewWidth, y: 0),
+                control: CGPoint(
+                    x: max(
+                        targetViewWidth + amount,
+                        targetViewWidth - bounceWidth
+                    ),
+                    y: targetViewHeight / 2
+                ),
+                end: CGPoint(
+                    x: targetViewWidth,
+                    y: targetViewHeight
+                )
+            )
+
+        case .right:
+            geometry = PathGeometry(
+                start: .zero,
+                control: CGPoint(
+                    x: min(amount, bounceWidth),
+                    y: targetViewHeight / 2
+                ),
+                end: CGPoint(x: 0, y: targetViewHeight)
+            )
+
+        case .up:
+            geometry = PathGeometry(
+                start: CGPoint(x: 0, y: targetViewHeight),
+                control: CGPoint(
+                    x: targetViewWidth / 2,
+                    y: max(
+                        targetViewHeight + amount,
+                        targetViewHeight - bounceWidth
+                    )
+                ),
+                end: CGPoint(
+                    x: targetViewWidth,
+                    y: targetViewHeight
+                )
+            )
+
+        case .down:
+            geometry = PathGeometry(
+                start: .zero,
+                control: CGPoint(
+                    x: targetViewWidth / 2,
+                    y: min(amount, bounceWidth)
+                ),
+                end: CGPoint(x: targetViewWidth, y: 0)
+            )
+
+        case .none:
+            return .zero
+        }
+
+        return geometry.isFinite ? geometry : .zero
     }
 
-    @nonobjc static func animationPlan(for type: IRScrollDirectionType) -> IRBounceAnimationPlan? {
-        return IRBouncePolicy.animationPlan(for: type)
+    @nonobjc static func animationPlan(
+        for type: IRScrollDirectionType
+    ) -> AnimationPlan? {
+        switch type {
+        case .left:
+            return AnimationPlan(
+                key: "bounce_right",
+                axis: .horizontal
+            )
+        case .right:
+            return AnimationPlan(
+                key: "bounce_left",
+                axis: .horizontal
+            )
+        case .up:
+            return AnimationPlan(
+                key: "bounce_bottom",
+                axis: .vertical
+            )
+        case .down:
+            return AnimationPlan(
+                key: "bounce_top",
+                axis: .vertical
+            )
+        case .none:
+            return nil
+        }
     }
 
     public func addBounceToView(_ view: UIView) {

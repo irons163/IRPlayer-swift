@@ -82,6 +82,8 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRGLTransformController2DTests.swift` — 2D transform
 - `IRGLTransformController3DFisheyeTests.swift` — 3D fisheye transform
 - `IRGLTransformControllerVRTests.swift` — VR transform
+- `IRBounceControllerTests.swift` — Bounce geometry and animation semantics
+- `IRGestureControllerTests.swift` — Base gesture semantics and callbacks
 - `IRGLGestureControllerTests.swift` — Gesture input
 - `IRDisplayLinkDriverTests.swift` — Shared display-link lifecycle owner
 - `IRSmoothScrollSessionTests.swift` — Locked animation state and calculations

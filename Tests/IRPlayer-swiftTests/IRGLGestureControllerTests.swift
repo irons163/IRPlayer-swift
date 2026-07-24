@@ -4,81 +4,151 @@ import XCTest
 
 final class IRGLGestureControllerTests: XCTestCase {
 
-    func testGesturePolicyConvertsTouchPointToRenderSpace() {
-        let point = IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
-                                                 viewHeight: 100,
-                                                 screenScale: 3)
+    func testRenderPointConvertsViewPointToRenderSpace() {
+        let point = IRGLGestureController.renderPoint(
+            from: CGPoint(x: 12, y: 20),
+            viewHeight: 100,
+            screenScale: 3
+        )
 
         XCTAssertEqual(point.x, 36)
         XCTAssertEqual(point.y, 240)
     }
 
-    func testGesturePolicyDefaultsInvalidInputsToZero() {
+    func testRenderPointDefaultsInvalidInputsToZero() {
         XCTAssertEqual(
-            IRGLGesturePolicy.renderPoint(from: CGPoint(x: CGFloat.nan, y: 20),
-                                          viewHeight: 100,
-                                          screenScale: 3),
+            IRGLGestureController.renderPoint(
+                from: CGPoint(x: CGFloat.nan, y: 20),
+                viewHeight: 100,
+                screenScale: 3
+            ),
             .zero
         )
         XCTAssertEqual(
-            IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
-                                          viewHeight: CGFloat.infinity,
-                                          screenScale: 3),
+            IRGLGestureController.renderPoint(
+                from: CGPoint(x: 12, y: 20),
+                viewHeight: CGFloat.infinity,
+                screenScale: 3
+            ),
             .zero
         )
         XCTAssertEqual(
-            IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
-                                          viewHeight: 100,
-                                          screenScale: 0),
+            IRGLGestureController.renderPoint(
+                from: CGPoint(x: 12, y: 20),
+                viewHeight: 100,
+                screenScale: 0
+            ),
             .zero
         )
         XCTAssertEqual(
-            IRGLGesturePolicy.renderPoint(from: CGPoint(x: 12, y: 20),
-                                          viewHeight: 100,
-                                          screenScale: -1),
+            IRGLGestureController.renderPoint(
+                from: CGPoint(x: 12, y: 20),
+                viewHeight: 100,
+                screenScale: -1
+            ),
             .zero
         )
     }
 
-    func testGesturePolicyMapsPanRecognizerStatesToActions() {
-        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .began), .begin)
-        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .changed), .update)
-        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .possible), .update)
-        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .ended), .endWithDeceleration)
-        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .cancelled), .cancel)
-        XCTAssertEqual(IRGLGesturePolicy.panAction(for: .failed), .cancel)
+    func testRenderPointRejectsDerivedCoordinateOverflow() {
+        XCTAssertEqual(
+            IRGLGestureController.renderPoint(
+                from: CGPoint(
+                    x: CGFloat.greatestFiniteMagnitude,
+                    y: -CGFloat.greatestFiniteMagnitude
+                ),
+                viewHeight: CGFloat.greatestFiniteMagnitude,
+                screenScale: CGFloat.greatestFiniteMagnitude
+            ),
+            .zero
+        )
     }
 
-    func testGesturePolicyMapsContinuousRecognizerStatesToActions() {
-        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .began), .begin)
-        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .changed), .update)
-        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .possible), .update)
-        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .ended), .end)
-        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .cancelled), .end)
-        XCTAssertEqual(IRGLGesturePolicy.continuousAction(for: .failed), .end)
+    func testPanActionCoversEveryKnownRecognizerState() {
+        let cases: [
+            (
+                UIGestureRecognizer.State,
+                IRGLGestureController.PanAction
+            )
+        ] = [
+            (.possible, .update),
+            (.began, .begin),
+            (.changed, .update),
+            (.ended, .endWithDeceleration),
+            (.cancelled, .cancel),
+            (.failed, .cancel)
+        ]
+
+        for (state, expected) in cases {
+            XCTAssertEqual(
+                IRGLGestureController.glPanAction(for: state),
+                expected
+            )
+        }
     }
 
-    func testGesturePolicyShouldBeginRejectsDisabledDoubleTapAndSwipeWhileZooming() {
-        XCTAssertFalse(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: false,
-                                                           isDoubleTapGesture: false,
-                                                           doubleTapEnabled: true,
-                                                           isSwipeGesture: false,
-                                                           isProgramZooming: false))
-        XCTAssertFalse(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: true,
-                                                           isDoubleTapGesture: true,
-                                                           doubleTapEnabled: false,
-                                                           isSwipeGesture: false,
-                                                           isProgramZooming: false))
-        XCTAssertFalse(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: true,
-                                                           isDoubleTapGesture: false,
-                                                           doubleTapEnabled: true,
-                                                           isSwipeGesture: true,
-                                                           isProgramZooming: true))
-        XCTAssertTrue(IRGLGesturePolicy.shouldBeginGesture(superAllowsGesture: true,
-                                                          isDoubleTapGesture: true,
-                                                          doubleTapEnabled: true,
-                                                          isSwipeGesture: true,
-                                                          isProgramZooming: false))
+    func testContinuousActionCoversEveryKnownRecognizerState() {
+        let cases: [
+            (
+                UIGestureRecognizer.State,
+                IRGLGestureController.ContinuousAction
+            )
+        ] = [
+            (.possible, .update),
+            (.began, .begin),
+            (.changed, .update),
+            (.ended, .end),
+            (.cancelled, .end),
+            (.failed, .end)
+        ]
+
+        for (state, expected) in cases {
+            XCTAssertEqual(
+                IRGLGestureController.continuousAction(
+                    for: state
+                ),
+                expected
+            )
+        }
+    }
+
+    func testShouldBeginRejectsDisabledOrConflictingGestures() {
+        XCTAssertFalse(
+            IRGLGestureController.shouldBeginGesture(
+                superAllowsGesture: false,
+                isDoubleTapGesture: false,
+                doubleTapEnabled: true,
+                isSwipeGesture: false,
+                isProgramZooming: false
+            )
+        )
+        XCTAssertFalse(
+            IRGLGestureController.shouldBeginGesture(
+                superAllowsGesture: true,
+                isDoubleTapGesture: true,
+                doubleTapEnabled: false,
+                isSwipeGesture: false,
+                isProgramZooming: false
+            )
+        )
+        XCTAssertFalse(
+            IRGLGestureController.shouldBeginGesture(
+                superAllowsGesture: true,
+                isDoubleTapGesture: false,
+                doubleTapEnabled: true,
+                isSwipeGesture: true,
+                isProgramZooming: true
+            )
+        )
+        XCTAssertTrue(
+            IRGLGestureController.shouldBeginGesture(
+                superAllowsGesture: true,
+                isDoubleTapGesture: true,
+                doubleTapEnabled: true,
+                isSwipeGesture: true,
+                isProgramZooming: false
+            )
+        )
     }
 
     func testClearingCurrentModeClearsSmoothScrollMode() {

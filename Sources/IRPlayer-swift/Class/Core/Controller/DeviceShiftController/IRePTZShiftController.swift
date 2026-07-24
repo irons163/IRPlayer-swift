@@ -32,7 +32,18 @@ public class IRePTZShiftController {
         program?.didPanByDegreeX(adjustedDegreeX, degreeY: adjustedDegreeY)
     }
 
-    static func adjustedDegree(_ degree: Float, angle: Float, factor: Float) -> Float {
-        return IRePTZShiftPolicy.adjustedDegree(degree, angle: angle, factor: factor)
+    static func adjustedDegree(
+        _ degree: Float,
+        angle: Float,
+        factor: Float
+    ) -> Float {
+        guard degree.isFinite,
+              angle.isFinite,
+              factor.isFinite,
+              angle != 0 else {
+            return 0
+        }
+        let adjustedDegree = degree * factor * 360 / angle
+        return adjustedDegree.isFinite ? adjustedDegree : 0
     }
 }
