@@ -106,7 +106,6 @@ final class IRFFAudioRenderer:
             }
 
             guard let frame = storedCurrentFrame,
-                  let samples = frame.samples,
                   let plan = Self.copyPlan(
                     frameSize: frame.size,
                     outputOffset: frame.outputOffset,
@@ -118,10 +117,15 @@ final class IRFFAudioRenderer:
                 return
             }
 
-            let sourceBytes = UnsafeRawPointer(samples)
-                .advanced(by: frame.outputOffset)
-                .assumingMemoryBound(to: UInt8.self)
-            memcpy(currentOutput, sourceBytes, plan.bytesToCopy)
+            guard frame.copySamples(
+                to: currentOutput,
+                byteOffset: frame.outputOffset,
+                byteCount: plan.bytesToCopy
+            ) else {
+                frame.stopPlaying()
+                storedCurrentFrame = nil
+                return
+            }
 
             remainingFrames -= UInt32(plan.framesToCopy)
             currentOutput = currentOutput.advanced(

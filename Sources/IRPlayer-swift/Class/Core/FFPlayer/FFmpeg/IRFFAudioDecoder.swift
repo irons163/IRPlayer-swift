@@ -287,12 +287,33 @@ class IRFFAudioDecoder {
         audioFrame.setSamplesLength(sampleByteCount)
         let fallbackDuration = Self.fallbackDuration(sampleByteCount: sampleByteCount, channelCount: channelCount, samplingRate: samplingRate)
         audioFrame.duration = Self.decodedFrameDuration(ticks: tempFrame.pointee.duration, timebase: timebase, fallbackDuration: fallbackDuration)
-        guard let samples = audioFrame.samples else { return nil }
 
         var scale: Float32 = 1.0 / Float32(Int16.max)
         let audioDataPointer = audioDataBuffer.bindMemory(to: Int16.self, capacity: numberOfElements)
-        vDSP_vflt16(audioDataPointer, 1, samples, 1, vDSP_Length(numberOfElements))
-        vDSP_vsmul(samples, 1, &scale, samples, 1, vDSP_Length(numberOfElements))
+        guard audioFrame.activeSampleCount == numberOfElements,
+              audioFrame.withMutableSamples({ samples in
+                  guard let baseAddress = samples.baseAddress else {
+                      return false
+                  }
+                  vDSP_vflt16(
+                      audioDataPointer,
+                      1,
+                      baseAddress,
+                      1,
+                      vDSP_Length(numberOfElements)
+                  )
+                  vDSP_vsmul(
+                      baseAddress,
+                      1,
+                      &scale,
+                      baseAddress,
+                      1,
+                      vDSP_Length(numberOfElements)
+                  )
+                  return true
+              }) else {
+            return nil
+        }
 
         return audioFrame
     }

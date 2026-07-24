@@ -548,8 +548,11 @@ private func makeFFPlayerWithoutAudioManager() -> IRFFPlayer {
 private func makeAudioFrame(samples values: [Float]) -> IRFFAudioFrame {
     let frame = IRFFAudioFrame()
     frame.setSamplesLength(values.count * MemoryLayout<Float>.size)
-    for (index, value) in values.enumerated() {
-        frame.samples?[index] = value
+    frame.withMutableSamples { samples in
+        for (index, value) in values.enumerated() {
+            samples[index] = value
+        }
+        return true
     }
     frame.startPlaying()
     return frame

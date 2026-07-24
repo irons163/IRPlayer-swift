@@ -41,6 +41,11 @@ FFmpeg-based player and decoder pipeline.
   closing its decoder source.
 - Audio dequeue from the decoder must be non-waiting; an empty queue produces
   silence for the current callback.
+- Decoded audio samples are owned by `IRFFAudioFrame`. The decoder writes
+  within its scoped mutable borrow; the renderer consumes only through the
+  frame's checked byte-copy boundary.
+- Keep audio sample allocation and growth out of
+  `IRFFAudioRenderer.audioManager`.
 - Reset is repeatable, close is terminal/idempotent, and deinit must not publish
   state/time/failure events or clear a display that may have been reused.
 - Apply or clear `IRGLView` presentation only through the main-thread

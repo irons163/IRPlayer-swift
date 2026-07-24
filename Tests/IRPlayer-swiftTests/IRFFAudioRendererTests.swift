@@ -53,6 +53,37 @@ final class IRFFAudioRendererTests: XCTestCase {
         XCTAssertEqual(source.fetchCount, 1)
     }
 
+    func testRendererConsumesMultipleFramesWithoutChangingStorageCapacity() {
+        let firstFrame = makeRendererAudioFrame([1, 2])
+        let secondFrame = makeRendererAudioFrame([3, 4])
+        let firstCapacity = firstFrame.sampleCapacity
+        let secondCapacity = secondFrame.sampleCapacity
+        let source = TestAudioFrameSource(
+            frames: [firstFrame, secondFrame]
+        )
+        let renderer = IRFFAudioRenderer()
+        renderer.attachSource(source)
+        renderer.setEnabled(true)
+        var output = [Float](repeating: 0, count: 4)
+
+        output.withUnsafeMutableBufferPointer { buffer in
+            renderer.audioManager(
+                makeTestAudioManager(),
+                outputData: buffer.baseAddress!,
+                numberOfFrames: 2,
+                numberOfChannels: 2
+            )
+        }
+
+        XCTAssertEqual(output, [1, 2, 3, 4])
+        XCTAssertNil(renderer.currentFrame)
+        XCTAssertFalse(firstFrame.playing)
+        XCTAssertFalse(secondFrame.playing)
+        XCTAssertEqual(source.fetchCount, 2)
+        XCTAssertEqual(firstFrame.sampleCapacity, firstCapacity)
+        XCTAssertEqual(secondFrame.sampleCapacity, secondCapacity)
+    }
+
     func testMissingSamplesOrInvalidOffsetStopsCurrentFrame() {
         let missingSamples = IRFFAudioFrame()
         missingSamples.startPlaying()
@@ -267,8 +298,11 @@ private final class TestAudioFrameSource:
 private func makeRendererAudioFrame(_ values: [Float]) -> IRFFAudioFrame {
     let frame = IRFFAudioFrame()
     frame.setSamplesLength(values.count * MemoryLayout<Float>.stride)
-    for (index, value) in values.enumerated() {
-        frame.samples?[index] = value
+    frame.withMutableSamples { samples in
+        for (index, value) in values.enumerated() {
+            samples[index] = value
+        }
+        return true
     }
     frame.startPlaying()
     return frame

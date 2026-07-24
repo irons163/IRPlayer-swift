@@ -27,6 +27,8 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFFormatContextTests.swift` — Format context open/read
 - `IRFFFormatContextResourcesTests.swift` — FFmpeg generation/callback ownership
 - `IRFFAudioDecoderTests.swift` — Audio decoding
+- `IRFFAudioFrameTests.swift` — Managed decoded-audio storage and checked copy
+- `IRFFAudioRendererTests.swift` — Real-time decoded-audio consumption
 - `IRFFVideoDecoderTests.swift` — Video decoding
 - `IRFFVideoToolBoxTests.swift` — Hardware decode via VideoToolBox
 - `IRFFVideoToolBoxSessionTests.swift` — VideoToolbox generation/callback ownership
@@ -36,6 +38,7 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFMetadataTests.swift` — Stream metadata
 
 ### Frame Management Tests
+- `IRFFAudioFrameTests.swift` — Managed PCM storage, reuse, and active bounds
 - `IRFFAVYUVVideoFrameTests.swift` — YUV video frame
 - `IRFFFramePoolTests.swift` — Frame pool reuse
 - `IRFFFrameQueueTests.swift` — Frame queue thread safety
@@ -74,13 +77,13 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 ## Running Tests
 
 ```bash
-swift test                          # Run all tests
-swift test --filter IRGLProgram2D   # Run specific test class
+xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift \
+  -destination 'platform=iOS Simulator,id=<simulator-udid>'
 ```
 
 ## Agent Notes
 
-- Tests use the `IRPlayerSwift` module dependency.
-- There are no integration tests requiring media files — tests use mocks/stubs.
+- Tests use the `IRPlayer_swift` module dependency.
+- Some decoder integration tests use generated or bundled media fixtures.
 - When adding new source files, add a corresponding test file following the naming convention: `<ClassName>Tests.swift`.
 - Run relevant tests first, then broader tests if impact is cross-cutting.

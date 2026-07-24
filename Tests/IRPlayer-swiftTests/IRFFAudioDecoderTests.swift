@@ -335,6 +335,18 @@ final class IRFFAudioDecoderTests: XCTestCase {
         let frame = try XCTUnwrap(decodedFrame)
         XCTAssertGreaterThan(frame.duration, 0)
         XCTAssertGreaterThan(frame.size, 0)
+        let samples = try XCTUnwrap(frame.sampleSnapshot())
+        XCTAssertEqual(
+            samples.count * MemoryLayout<Float>.stride,
+            frame.size
+        )
+        XCTAssertTrue(samples.allSatisfy(\.isFinite))
+        XCTAssertTrue(samples.contains { $0 != 0 })
+        XCTAssertTrue(
+            samples.allSatisfy {
+                (-1.0...1.0).contains($0)
+            }
+        )
         XCTAssertEqual(decoder.size(), 0)
 
         decoder.flush()
