@@ -125,17 +125,6 @@ class IRFFVideoDecoder {
         }
     }
 
-    static let flushPacket: AVPacket = makeFlushPacket()
-
-    static func makeFlushPacket() -> AVPacket {
-        var packet = AVPacket()
-        packet.data = withUnsafeMutablePointer(to: &packet) {
-            return UnsafeMutableRawPointer($0).assumingMemoryBound(to: UInt8.self)
-        }
-        packet.duration = 0
-        return packet
-    }
-
     init(codecContext: UnsafeMutablePointer<AVCodecContext>, timebase: TimeInterval, fps: TimeInterval, delegate: IRFFVideoDecoderDelegate?) {
         self.codecContext = codecContext
         self.timebase = timebase
@@ -219,13 +208,11 @@ class IRFFVideoDecoder {
 
     static func packetQueueFallbackDuration(packetDuration: Int64,
                                             packetSize: Int32,
-                                            isFlushPacket: Bool,
                                             timebase: TimeInterval,
                                             fps: TimeInterval) -> TimeInterval {
         return IRFFVideoDecoderPolicy.packetQueueFallbackDuration(
             packetDuration: packetDuration,
             packetSize: packetSize,
-            isFlushPacket: isFlushPacket,
             timebase: timebase,
             fps: fps
         )
@@ -239,11 +226,14 @@ class IRFFVideoDecoder {
         return frameQueue.getFrameAsync() as? IRFFVideoFrame
     }
 
-    func putPacket(_ packet: AVPacket) {
+    func putPacket(_ packet: IRFFPacket) {
+        guard let snapshot = packet.snapshot else {
+            packet.close()
+            return
+        }
         let duration = Self.packetQueueFallbackDuration(
-            packetDuration: packet.duration,
-            packetSize: packet.size,
-            isFlushPacket: packet.data == IRFFVideoDecoder.flushPacket.data,
+            packetDuration: snapshot.duration,
+            packetSize: snapshot.size,
             timebase: timebase,
             fps: fps
         )
@@ -254,7 +244,7 @@ class IRFFVideoDecoder {
         packetQueue.flush()
         frameQueue.flush()
         framePool?.flush()
-        putPacket(IRFFVideoDecoder.flushPacket)
+        packetQueue.putFlush()
     }
 
     func destroy() {
@@ -266,7 +256,7 @@ class IRFFVideoDecoder {
 
     func decodeFrameThread() {
         decoding = true
-        while true {
+        decodeLoop: while true {
             let runtime = runtimeSnapshot()
             if runtime.canceled || runtime.error != nil {
                 IRFFRuntimeDebugOutput.write("decode video thread quit")
@@ -288,27 +278,50 @@ class IRFFVideoDecoder {
                 continue
             }
 
-            var packet = packetQueue.getPacket()
+            let item = packetQueue.getItem()
             let packetRuntime = runtimeSnapshot()
             if packetRuntime.canceled || packetRuntime.error != nil {
-                av_packet_unref(&packet)
+                if case let .packet(packet) = item {
+                    packet.close()
+                }
                 break
             }
-            if packetRuntime.endOfFile {
-                delegate?.videoDecoderNeedUpdateBufferedDuration(self)
-            }
-            if packet.data == IRFFVideoDecoder.flushPacket.data {
+
+            switch item {
+            case .closed:
+                break decodeLoop
+            case .flush:
                 IRFFRuntimeDebugOutput.write("video codec flush")
                 avcodec_flush_buffers(codecContext)
                 videoToolBox.flush()
                 continue
-            }
-            if packet.stream_index < 0 || packet.data == nil { continue }
+            case let .packet(packet):
+                if packetRuntime.endOfFile {
+                    delegate?
+                        .videoDecoderNeedUpdateBufferedDuration(
+                            self
+                        )
+                }
+                guard let snapshot = packet.snapshot,
+                      snapshot.streamIndex >= 0,
+                      snapshot.hasData else {
+                    packet.close()
+                    continue
+                }
 
-            if let videoFrame = decodeFrame(packet: packet) {
-                frameQueue.putSortFrame(videoFrame)
+                var decodedFrame: IRFFVideoFrame?
+                let didBorrow = packet.withPacket {
+                    borrowedPacket in
+                    decodedFrame = decodeFrame(
+                        packet: borrowedPacket
+                    )
+                    return true
+                }
+                packet.close()
+                if didBorrow, let decodedFrame {
+                    frameQueue.putSortFrame(decodedFrame)
+                }
             }
-            av_packet_unref(&packet)
         }
         decoding = false
         delegate?.videoDecoderNeedCheckBufferingStatus(self)

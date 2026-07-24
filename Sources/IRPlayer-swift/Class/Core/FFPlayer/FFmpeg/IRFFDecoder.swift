@@ -562,7 +562,6 @@ protocol IRFFDecoderDelegate: AnyObject {
         initialResources.audioDecoder?.flush()
         reading = true
         var finished = false
-        var packet = AVPacket()
         while !finished {
             let runtimeSnapshot = runtimeState.snapshot
             if Self.readLoopExitAction(
@@ -614,7 +613,12 @@ protocol IRFFDecoderDelegate: AnyObject {
                 Thread.sleep(forTimeInterval: interval)
                 continue
             }
-            let result = resources.formatContext?.readFrame(&packet)
+            let packet = IRFFPacket()
+            let result = packet.fill {
+                rawPacket in
+                resources.formatContext?
+                    .readFrame(&rawPacket) ?? -1
+            }
             if case let .finishEOF(transition)? = Self.readLoopEOFAction(readFrameResult: result) {
                 IRFFRuntimeDebugOutput.write("read packet finished")
                 endOfFile = transition.endOfFile
@@ -625,8 +629,12 @@ protocol IRFFDecoderDelegate: AnyObject {
                 }
                 break
             }
+            guard let packetSnapshot = packet.snapshot else {
+                packet.close()
+                continue
+            }
             let packetAction = Self.readLoopPacketAction(
-                streamIndex: packet.stream_index,
+                streamIndex: packetSnapshot.streamIndex,
                 videoTrackIndex: resources.formatContext?.videoTrack?.index,
                 audioTrackIndex: resources.formatContext?.audioTrack?.index
             )
@@ -645,9 +653,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                 }
                 updateBufferedDurationByAudio()
             case .routePacket(.ignored):
-                break
+                packet.close()
             case .quit, .completeSeek(_), .sleep(_), .finishEOF(_):
-                break
+                packet.close()
             }
         }
         reading = false

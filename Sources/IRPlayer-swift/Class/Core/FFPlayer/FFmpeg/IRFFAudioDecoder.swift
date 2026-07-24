@@ -189,11 +189,32 @@ class IRFFAudioDecoder {
         return frameQueue.getFrameAsync() as? IRFFAudioFrame
     }
 
-    func putPacket(_ packet: AVPacket) -> Int {
-        var packet = packet
-        if !Self.shouldDecodePacket(hasData: packet.data != nil) { return 0 }
+    func putPacket(_ packet: IRFFPacket) -> Int {
+        defer { packet.close() }
+        guard let snapshot = packet.snapshot,
+              Self.shouldDecodePacket(
+                  hasData: snapshot.hasData
+              ) else {
+            return 0
+        }
 
-        var result = avcodec_send_packet(codecContext, &packet)
+        var decodeResult = -1
+        let didBorrow = packet.withPacket {
+            borrowedPacket in
+            decodeResult = decodePacket(borrowedPacket)
+            return true
+        }
+        return didBorrow ? decodeResult : -1
+    }
+
+    private func decodePacket(
+        _ borrowedPacket: AVPacket
+    ) -> Int {
+        var borrowedPacket = borrowedPacket
+        var result = avcodec_send_packet(
+            codecContext,
+            &borrowedPacket
+        )
         if Self.packetDecodeResultIsFailure(result) {
             return -1
         }
@@ -212,7 +233,6 @@ class IRFFAudioDecoder {
                 }
             }
         }
-        av_packet_unref(&packet)
         return 0
     }
 

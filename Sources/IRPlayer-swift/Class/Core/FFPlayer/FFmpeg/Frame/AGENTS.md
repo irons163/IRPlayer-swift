@@ -15,6 +15,7 @@ Frame data models and queue management for the FFmpeg decode pipeline.
 | `IRFFAudioFrame.swift`        | Decoded audio frame                                 |
 | `IRFFFramePool.swift`         | Object pool for frame reuse to reduce allocations   |
 | `IRFFFrameQueue.swift`        | Thread-safe queue for decoded frames                |
+| `IRFFPacket.swift`            | Single-owner FFmpeg packet lifecycle                |
 | `IRFFPacketQueue.swift`       | Thread-safe queue for undecoded packets             |
 
 ## Agent Notes
@@ -32,12 +33,18 @@ Frame data models and queue management for the FFmpeg decode pipeline.
   snapshots remain immutable through Swift copy-on-write.
 - `IRFFCVYUVVideoFrame` is used with VideoToolBox hardware decoding (CVPixelBuffer).
 - `IRFFFramePool` reduces allocation churn by reusing frame objects.
-- `IRFFFrameQueue` and `IRFFPacketQueue` are producer-consumer queues — threading is critical.
+- Every ready `AVPacket` reference must be owned by one `IRFFPacket`. Borrow
+  raw packet state only through its scoped operation and close it exactly once.
+- The video packet queue transfers `IRFFPacket` owners across threads. Keep
+  packet, flush, and closed as typed items; never encode control state in
+  `AVPacket.data` or `stream_index`.
+- `IRFFFrameQueue` and `IRFFPacketQueue` are producer-consumer queues —
+  threading is critical.
 - `IRFFAudioFrame` owns decoded PCM in managed contiguous storage. Keep
   mutation inside `withMutableSamples`, reads inside snapshots or checked
   copies, and never restore a stored or escaping sample pointer.
 - Grow audio sample storage on the decoder side. The real-time render callback
   may copy active bytes but must not resize frame storage.
 - Tests: `IRFFAudioFrameTests.swift`, `IRFFAVYUVVideoFrameTests.swift`,
-  `IRFFFramePoolTests.swift`, `IRFFFrameQueueTests.swift`, and
-  `IRFFPacketQueueTests.swift`.
+  `IRFFFramePoolTests.swift`, `IRFFFrameQueueTests.swift`,
+  `IRFFPacketTests.swift`, and `IRFFPacketQueueTests.swift`.

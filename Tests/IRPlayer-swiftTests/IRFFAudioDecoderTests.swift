@@ -278,8 +278,12 @@ final class IRFFAudioDecoderTests: XCTestCase {
             XCTAssertTrue(decoder.isEmpty())
             XCTAssertEqual(decoder.duration(), 0)
 
-            let packet = AVPacket()
+            let packet = IRFFPacket()
             XCTAssertEqual(decoder.putPacket(packet), 0)
+            XCTAssertEqual(
+                packet.diagnostics.phase,
+                .closed
+            )
 
             XCTAssertEqual(decoder.size(), 0)
             XCTAssertTrue(decoder.isEmpty())
@@ -322,11 +326,25 @@ final class IRFFAudioDecoderTests: XCTestCase {
         var decodedFrame: IRFFAudioFrame?
         let audioTrackIndex = try XCTUnwrap(context.audioTrack?.index)
         for _ in 0..<32 where decodedFrame == nil {
-            var packet = AVPacket()
-            guard context.readFrame(&packet) >= 0 else { break }
-            guard packet.stream_index == audioTrackIndex else { continue }
+            var rawPacket = AVPacket()
+            guard context.readFrame(&rawPacket) >= 0 else {
+                break
+            }
+            let packet = IRFFPacket(
+                consuming: &rawPacket
+            )
+            guard let streamIndex =
+                    packet.snapshot?.streamIndex,
+                  Int(streamIndex)
+                    == audioTrackIndex else {
+                continue
+            }
 
             XCTAssertEqual(decoder.putPacket(packet), 0)
+            XCTAssertEqual(
+                packet.diagnostics.phase,
+                .closed
+            )
             if !decoder.isEmpty() {
                 decodedFrame = decoder.getFrameAsync()
             }

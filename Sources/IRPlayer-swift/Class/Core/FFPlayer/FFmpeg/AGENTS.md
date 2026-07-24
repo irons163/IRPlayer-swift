@@ -47,6 +47,9 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
   pass its pointer only through the fixed-result scoped borrow.
 - Format and stream metadata dictionaries are borrowed. Convert them to Swift
   values without freeing or retaining their FFmpeg pointers.
+- Each successful format read publishes one `IRFFPacket` owner. Audio consumes
+  and closes it synchronously; video transfers it through the typed packet
+  queue and closes it after scoped decode.
 - `IRFFDecoder` coordinates the decode loop across audio and video.
 - `IRFFVideoToolBox` wraps Apple's VideoToolBox for hardware H.264 decoding.
 - Keep VideoToolbox setup, decode, reset, and close serialized through the

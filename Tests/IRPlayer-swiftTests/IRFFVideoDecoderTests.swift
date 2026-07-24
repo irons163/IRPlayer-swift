@@ -32,24 +32,13 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertEqual(
             IRFFVideoDecoder.packetQueueFallbackDuration(packetDuration: 0,
                                                          packetSize: 1,
-                                                         isFlushPacket: false,
                                                          timebase: 0.25,
                                                          fps: 30),
             IRFFVideoDecoderPolicy.packetQueueFallbackDuration(packetDuration: 0,
                                                                packetSize: 1,
-                                                               isFlushPacket: false,
                                                                timebase: 0.25,
                                                                fps: 30)
         )
-    }
-
-    func testFlushPacketWrapperMatchesSentinelBuilder() {
-        let packet = IRFFVideoDecoder.makeFlushPacket()
-
-        XCTAssertNotNil(packet.data)
-        XCTAssertEqual(packet.duration, 0)
-        XCTAssertNotNil(IRFFVideoDecoder.flushPacket.data)
-        XCTAssertEqual(IRFFVideoDecoder.flushPacket.duration, 0)
     }
 
     func testFrameDurationUsesTicksAndRepeatPictureWhenAvailable() {
@@ -198,7 +187,6 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertEqual(
             IRFFVideoDecoder.packetQueueFallbackDuration(packetDuration: 0,
                                                          packetSize: 32,
-                                                         isFlushPacket: false,
                                                          timebase: 0.25,
                                                          fps: 25),
             0.04,
@@ -207,7 +195,6 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertEqual(
             IRFFVideoDecoder.packetQueueFallbackDuration(packetDuration: 4,
                                                          packetSize: 32,
-                                                         isFlushPacket: false,
                                                          timebase: 0.25,
                                                          fps: 25),
             0
@@ -215,15 +202,6 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertEqual(
             IRFFVideoDecoder.packetQueueFallbackDuration(packetDuration: 0,
                                                          packetSize: 0,
-                                                         isFlushPacket: false,
-                                                         timebase: 0.25,
-                                                         fps: 25),
-            0
-        )
-        XCTAssertEqual(
-            IRFFVideoDecoder.packetQueueFallbackDuration(packetDuration: 0,
-                                                         packetSize: 32,
-                                                         isFlushPacket: true,
                                                          timebase: 0.25,
                                                          fps: 25),
             0
@@ -261,9 +239,12 @@ final class IRFFVideoDecoderTests: XCTestCase {
             XCTAssertTrue(decoder.getFrameAsync() === frame)
             XCTAssertTrue(decoder.frameEmpty())
 
-            var packet = AVPacket()
-            packet.duration = 4
-            packet.size = 32
+            var rawPacket = AVPacket()
+            rawPacket.duration = 4
+            rawPacket.size = 32
+            let packet = IRFFPacket(
+                consuming: &rawPacket
+            )
 
             decoder.putPacket(packet)
 
@@ -276,6 +257,10 @@ final class IRFFVideoDecoderTests: XCTestCase {
             XCTAssertFalse(decoder.packetEmpty())
             XCTAssertEqual(decoder.packetSize(), 0)
             XCTAssertEqual(decoder.packetDuration(), 0)
+            XCTAssertEqual(
+                packet.diagnostics.phase,
+                .closed
+            )
 
             decoder.destroy()
 
@@ -327,15 +312,22 @@ final class IRFFVideoDecoderTests: XCTestCase {
             decoder.source = source
             decoder.endOfFile = true
 
-            var packet = AVPacket()
-            packet.stream_index = 0
-            packet.duration = 1
-            packet.size = 1
+            var rawPacket = AVPacket()
+            rawPacket.stream_index = 0
+            rawPacket.duration = 1
+            rawPacket.size = 1
             var byte: UInt8 = 1
             withUnsafeMutablePointer(to: &byte) { pointer in
-                packet.data = pointer
+                rawPacket.data = pointer
+                let packet = IRFFPacket(
+                    consuming: &rawPacket
+                )
                 decoder.putPacket(packet)
                 decoder.decodeFrameThread()
+                XCTAssertEqual(
+                    packet.diagnostics.phase,
+                    .closed
+                )
             }
 
             XCTAssertFalse(decoder.decoding)

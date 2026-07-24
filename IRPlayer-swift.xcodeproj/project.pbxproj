@@ -104,7 +104,7 @@
 		B5E94F052D0B21F800149265 /* IRGLGestureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D792D0B21F800149265 /* IRGLGestureController.swift */; };
 		B5E952612F6902F00149265 /* IRGLGesturePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952602F6902F00149265 /* IRGLGesturePolicy.swift */; };
 		B5E94F072D0B21F800149265 /* IRFFPacketQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF32D0B21F800149265 /* IRFFPacketQueue.swift */; };
-		B5E9527B2F6903C00149265 /* IRFFPacketQueuePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9527A2F6903C00149265 /* IRFFPacketQueuePolicy.swift */; };
+		B5E9527B2F6903C00149265 /* IRFFPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9527A2F6903C00149265 /* IRFFPacket.swift */; };
 		B5E94F082D0B21F800149265 /* IRPlayerNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E122D0B21F800149265 /* IRPlayerNotification.swift */; };
 		B5E94F0C2D0B21F800149265 /* IRGLRenderMode3DFisheye.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D912D0B21F800149265 /* IRGLRenderMode3DFisheye.swift */; };
 		B5E94F0D2D0B21F800149265 /* IRFFFormatContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF92D0B21F800149265 /* IRFFFormatContext.swift */; };
@@ -222,6 +222,7 @@
 		B5E951A32F6900020149265 /* IRPLFImageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951A22F6900020149265 /* IRPLFImageTests.swift */; };
 		B5E951A52F6900030149265 /* IRVideoFrameRGBTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951A42F6900030149265 /* IRVideoFrameRGBTests.swift */; };
 		B5E950092F68A00500149265 /* IRFFFrameQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */; };
+		B5E979012F8400000149265 /* IRFFPacketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E979002F8400000149265 /* IRFFPacketTests.swift */; };
 		B5E950492F68A02200149265 /* IRFFPacketQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */; };
 		B5E950532F68A02600149265 /* IRFFVideoDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */; };
 		B5E953132F6905000149265 /* IRFFDictionaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E953122F6905000149265 /* IRFFDictionaryTests.swift */; };
@@ -462,7 +463,7 @@
 		B5E94DF22D0B21F800149265 /* IRFFFrameQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueue.swift; sourceTree = "<group>"; };
 		B5E952782F6903B00149265 /* IRFFFrameQueuePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueuePolicy.swift; sourceTree = "<group>"; };
 		B5E94DF32D0B21F800149265 /* IRFFPacketQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueue.swift; sourceTree = "<group>"; };
-		B5E9527A2F6903C00149265 /* IRFFPacketQueuePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueuePolicy.swift; sourceTree = "<group>"; };
+		B5E9527A2F6903C00149265 /* IRFFPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacket.swift; sourceTree = "<group>"; };
 		B5E94DF42D0B21F800149265 /* IRFFVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoFrame.swift; sourceTree = "<group>"; };
 		B5E94DF52D0B21F800149265 /* IRVideoFrameRGB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRVideoFrameRGB.swift; sourceTree = "<group>"; };
 		B5E952742F6903900149265 /* IRVideoFrameRGBPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRVideoFrameRGBPolicy.swift; sourceTree = "<group>"; };
@@ -539,6 +540,7 @@
 		B5E951A22F6900020149265 /* IRPLFImageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRPLFImageTests.swift; sourceTree = "<group>"; };
 		B5E951A42F6900030149265 /* IRVideoFrameRGBTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRVideoFrameRGBTests.swift; sourceTree = "<group>"; };
 		B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFFrameQueueTests.swift; sourceTree = "<group>"; };
+		B5E979002F8400000149265 /* IRFFPacketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketTests.swift; sourceTree = "<group>"; };
 		B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacketQueueTests.swift; sourceTree = "<group>"; };
 		B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoDecoderTests.swift; sourceTree = "<group>"; };
 		B5E953122F6905000149265 /* IRFFDictionaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDictionaryTests.swift; sourceTree = "<group>"; };
@@ -1019,7 +1021,7 @@
 				B5E94DF22D0B21F800149265 /* IRFFFrameQueue.swift */,
 				B5E952782F6903B00149265 /* IRFFFrameQueuePolicy.swift */,
 				B5E94DF32D0B21F800149265 /* IRFFPacketQueue.swift */,
-				B5E9527A2F6903C00149265 /* IRFFPacketQueuePolicy.swift */,
+				B5E9527A2F6903C00149265 /* IRFFPacket.swift */,
 				B5E94DF42D0B21F800149265 /* IRFFVideoFrame.swift */,
 				B5E94DF52D0B21F800149265 /* IRVideoFrameRGB.swift */,
 				B5E952742F6903900149265 /* IRVideoFrameRGBPolicy.swift */,
@@ -1231,6 +1233,7 @@
 				B5E950542F68A02700149265 /* IRPlayerLifecycleDecisionTests.swift */,
 				B5E950582F68A02900149265 /* IRPlaybackTimePolicyTests.swift */,
 				B5E950082F68A00500149265 /* IRFFFrameQueueTests.swift */,
+				B5E979002F8400000149265 /* IRFFPacketTests.swift */,
 				B5E950482F68A02200149265 /* IRFFPacketQueueTests.swift */,
 				B5E950522F68A02600149265 /* IRFFVideoDecoderTests.swift */,
 				B5E953122F6905000149265 /* IRFFDictionaryTests.swift */,
@@ -1516,7 +1519,7 @@
 				B5E94F052D0B21F800149265 /* IRGLGestureController.swift in Sources */,
 				B5E952612F6902F00149265 /* IRGLGesturePolicy.swift in Sources */,
 				B5E94F072D0B21F800149265 /* IRFFPacketQueue.swift in Sources */,
-				B5E9527B2F6903C00149265 /* IRFFPacketQueuePolicy.swift in Sources */,
+				B5E9527B2F6903C00149265 /* IRFFPacket.swift in Sources */,
 				B5E94F082D0B21F800149265 /* IRPlayerNotification.swift in Sources */,
 				B5E94F0C2D0B21F800149265 /* IRGLRenderMode3DFisheye.swift in Sources */,
 				B5A024E42D0B2F1C00BE80C5 /* IRFFMpegErrorUtil.m in Sources */,
@@ -1679,6 +1682,7 @@
 				B5E950552F68A02700149265 /* IRPlayerLifecycleDecisionTests.swift in Sources */,
 				B5E950592F68A02900149265 /* IRPlaybackTimePolicyTests.swift in Sources */,
 				B5E950092F68A00500149265 /* IRFFFrameQueueTests.swift in Sources */,
+				B5E979012F8400000149265 /* IRFFPacketTests.swift in Sources */,
 				B5E950492F68A02200149265 /* IRFFPacketQueueTests.swift in Sources */,
 				B5E950532F68A02600149265 /* IRFFVideoDecoderTests.swift in Sources */,
 				B5E953132F6905000149265 /* IRFFDictionaryTests.swift in Sources */,

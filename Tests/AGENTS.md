@@ -39,11 +39,12 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFMetadataTests.swift` — Immutable stream metadata and numeric parsing
 
 ### Frame Management Tests
+- `IRFFPacketTests.swift` — FFmpeg packet move/borrow/close ownership
 - `IRFFAudioFrameTests.swift` — Managed PCM storage, reuse, and active bounds
 - `IRFFAVYUVVideoFrameTests.swift` — YUV video frame
 - `IRFFFramePoolTests.swift` — Frame pool reuse
 - `IRFFFrameQueueTests.swift` — Frame queue thread safety
-- `IRFFPacketQueueTests.swift` — Packet queue
+- `IRFFPacketQueueTests.swift` — Owned packet queue and typed control items
 
 ### Rendering Pipeline Tests
 - `IRGLProgram2DTests.swift` — 2D program

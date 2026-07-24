@@ -6,7 +6,12 @@
 //
 
 import Foundation
-import IRFFMpeg
+
+enum IRFFPacketQueueItem: Sendable {
+    case packet(IRFFPacket)
+    case flush
+    case closed
+}
 
 class IRFFPacketQueue: NSObject {
     private let timebase: TimeInterval
@@ -43,34 +48,72 @@ class IRFFPacketQueue: NSObject {
         return IRFFPacketQueue(timebase: timebase)
     }
 
-    func putPacket(_ packet: AVPacket, duration: TimeInterval) {
+    @discardableResult
+    func putPacket(
+        _ packet: IRFFPacket,
+        duration fallbackDuration: TimeInterval
+    ) -> Bool {
+        guard let snapshot = packet.snapshot else {
+            packet.close()
+            return false
+        }
+        let packetDuration = Self.accountedDuration(
+            for: snapshot,
+            fallbackDuration: fallbackDuration,
+            timebase: timebase
+        )
+        let packetSize = Self.accountedSize(for: snapshot)
+
         condition.lock()
         if destroyToken {
             condition.unlock()
-            return
+            packet.close()
+            return false
         }
-        let packetDuration = Self.accountedDuration(for: packet, fallbackDuration: duration, timebase: timebase)
-        packets.append(IRFFPacketQueueEntry(packet: packet, duration: packetDuration))
-        storedSize += Self.accountedSize(for: packet)
+        packets.append(
+            IRFFPacketQueueEntry(
+                item: .packet(packet),
+                size: packetSize,
+                duration: packetDuration
+            )
+        )
+        storedSize += packetSize
         storedDuration += packetDuration
         condition.signal()
         condition.unlock()
+        return true
     }
 
-    func getPacket() -> AVPacket {
+    @discardableResult
+    func putFlush() -> Bool {
         condition.lock()
-        var packet = AVPacket()
-        packet.stream_index = -2
+        guard !destroyToken else {
+            condition.unlock()
+            return false
+        }
+        packets.append(
+            IRFFPacketQueueEntry(
+                item: .flush,
+                size: 0,
+                duration: 0
+            )
+        )
+        condition.signal()
+        condition.unlock()
+        return true
+    }
+
+    func getItem() -> IRFFPacketQueueItem {
+        condition.lock()
         while packets.isEmpty {
             if destroyToken {
                 condition.unlock()
-                return packet
+                return .closed
             }
             condition.wait()
         }
         let entry = packets.removeFirst()
-        packet = entry.packet
-        storedSize -= Self.accountedSize(for: packet)
+        storedSize -= entry.size
         if storedSize < 0 || packets.isEmpty {
             storedSize = 0
         }
@@ -79,7 +122,7 @@ class IRFFPacketQueue: NSObject {
             storedDuration = 0
         }
         condition.unlock()
-        return packet
+        return entry.item
     }
 
     func flush() {
@@ -97,26 +140,51 @@ class IRFFPacketQueue: NSObject {
     }
 
     private func flushLocked() {
-        for i in packets.indices {
-            av_packet_unref(&packets[i].packet)
+        for entry in packets {
+            if case let .packet(packet) = entry.item {
+                packet.close()
+            }
         }
         packets.removeAll()
         storedSize = 0
         storedDuration = 0
     }
 
-    static func accountedDuration(for packet: AVPacket,
-                                  fallbackDuration: TimeInterval,
-                                  timebase: TimeInterval) -> TimeInterval {
-        return IRFFPacketQueuePolicy.accountedDuration(for: packet, fallbackDuration: fallbackDuration, timebase: timebase)
+    static func accountedDuration(
+        for packet: IRFFPacket.Snapshot,
+        fallbackDuration: TimeInterval,
+        timebase: TimeInterval
+    ) -> TimeInterval {
+        if packet.duration > 0,
+           timebase.isFinite,
+           timebase > 0 {
+            let duration =
+                Double(packet.duration) * timebase
+            guard duration.isFinite, duration > 0 else {
+                return 0
+            }
+            return duration
+        }
+        guard fallbackDuration.isFinite,
+              fallbackDuration > 0 else {
+            return 0
+        }
+        return fallbackDuration
     }
 
-    static func accountedSize(for packet: AVPacket) -> Int {
-        return IRFFPacketQueuePolicy.accountedSize(for: packet)
+    static func accountedSize(
+        for packet: IRFFPacket.Snapshot
+    ) -> Int {
+        max(0, Int(packet.size))
+    }
+
+    deinit {
+        destroy()
     }
 }
 
 private struct IRFFPacketQueueEntry {
-    var packet: AVPacket
+    let item: IRFFPacketQueueItem
+    let size: Int
     let duration: TimeInterval
 }

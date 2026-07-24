@@ -58,10 +58,12 @@ enum IRFFVideoDecoderPolicy {
 
     static func packetQueueFallbackDuration(packetDuration: Int64,
                                             packetSize: Int32,
-                                            isFlushPacket: Bool,
                                             timebase: TimeInterval,
                                             fps: TimeInterval) -> TimeInterval {
-        guard packetDuration <= 0, packetSize > 0, !isFlushPacket else { return 0 }
+        guard packetDuration <= 0,
+              packetSize > 0 else {
+            return 0
+        }
         return frameDuration(ticks: 0, repeatPicture: 0, timebase: timebase, fps: fps)
     }
 }
