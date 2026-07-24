@@ -31,9 +31,11 @@ FFmpeg-based player and decoder pipeline.
   across synchronous callbacks so the newest reentrant command wins.
 - Every installed decoder needs its own token and delegate bridge. Reject stale
   or unknown callbacks rather than forwarding them to the runtime.
-- Publish and configure a complete decoder generation before calling `open()`.
-- Detach decoder delegate, source, video output, and audio output before
-  `closeFile()`.
+- Publish one complete decoder collaborator generation—delegate bridge,
+  source, video output, and audio output—before calling `open()`.
+- Replacement, reset, close, and unpublished discard must invoke one terminal
+  collaborator revoke before `closeFile()`; never clear those four links as
+  independent mutations.
 - Keep seek completion generation-owned and exactly once. Reset/replacement
   cancels pending seeks with `false`; seeking without a decoder also completes
   `false`.

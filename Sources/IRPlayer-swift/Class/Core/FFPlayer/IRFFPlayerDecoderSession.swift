@@ -251,7 +251,6 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
                 discardUnpublishedDecoderLocked(decoder)
                 return nil
             }
-            decoder.source = configuration.source
             decoder.hardwareDecoderEnable =
                 configuration.hardwareDecoderEnabled
             decoder.isLiveStream = configuration.isLiveStream
@@ -259,7 +258,16 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
                 configuration.minimumBufferedDuration
 
             let bridge = DelegateBridge(session: self, token: token)
-            decoder.delegate = bridge
+            guard decoder.installCollaborators(
+                delegate: bridge,
+                source: configuration.source,
+                videoOutput: configuration.videoOutput,
+                audioOutput: configuration.audioOutput
+            ) else {
+                rejectedCommandCount += 1
+                discardUnpublishedDecoderLocked(decoder)
+                return nil
+            }
             generation = OwnedGeneration(
                 token: token,
                 decoder: decoder,
@@ -301,7 +309,13 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
             generationCounter &+= 1
             let token = Token(generation: generationCounter)
             let bridge = DelegateBridge(session: self, token: token)
-            decoder.delegate = bridge
+            guard decoder.installDelegatePreservingCollaborators(
+                bridge
+            ) else {
+                rejectedCommandCount += 1
+                discardUnpublishedDecoderLocked(decoder)
+                return nil
+            }
             generation = OwnedGeneration(
                 token: token,
                 decoder: decoder,
@@ -450,22 +464,14 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
 
         let seekTickets = Array(generation.pendingSeeks.values)
         generation.pendingSeeks.removeAll()
-        if generation.decoder.delegate === generation.bridge {
-            generation.decoder.delegate = nil
-        }
-        generation.decoder.source = nil
-        generation.decoder.videoOutput = nil
-        generation.decoder.audioOutput = nil
+        _ = generation.decoder.revokeCollaborators()
         seekTickets.forEach { $0.finish(false) }
         generation.decoder.closeFile()
     }
 
     private func discardUnpublishedDecoderLocked(_ decoder: IRFFDecoder) {
         guard generation?.decoder !== decoder else { return }
-        decoder.delegate = nil
-        decoder.source = nil
-        decoder.videoOutput = nil
-        decoder.audioOutput = nil
+        _ = decoder.revokeCollaborators()
         decoder.closeFile()
     }
 

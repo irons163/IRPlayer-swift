@@ -69,25 +69,32 @@ protocol IRFFDecoderDelegate: AnyObject {
         let clampedTime: TimeInterval
     }
 
-    weak var delegate: IRFFDecoderDelegate?
-    private let sourceLock = NSLock()
-    private weak var storedSource:
-        IRFFVideoDecoderDataSource?
+    private let collaborators:
+        IRFFDecoderCollaboratorSession
+
+    var delegate: IRFFDecoderDelegate? {
+        get { collaborators.snapshot.delegate }
+        set { collaborators.updateDelegate(newValue) }
+    }
+
     var source: IRFFVideoDecoderDataSource? {
-        get {
-            sourceLock.lock()
-            defer { sourceLock.unlock() }
-            return storedSource
-        }
+        get { collaborators.snapshot.source }
         set {
-            sourceLock.lock()
-            storedSource = newValue
-            session.updateVideoDecoderSource(newValue)
-            sourceLock.unlock()
+            collaborators.updateSource(newValue) { [session] source in
+                session.updateVideoDecoderSource(source)
+            }
         }
     }
-    weak var videoOutput: IRFFDecoderVideoOutput?
-    weak var audioOutput: IRFFDecoderAudioOutput?
+
+    var videoOutput: IRFFDecoderVideoOutput? {
+        get { collaborators.snapshot.videoOutput }
+        set { collaborators.updateVideoOutput(newValue) }
+    }
+
+    var audioOutput: IRFFDecoderAudioOutput? {
+        get { collaborators.snapshot.audioOutput }
+        set { collaborators.updateAudioOutput(newValue) }
+    }
 
     private let session = IRFFDecoderSession()
     private let runtimeState = IRFFDecoderRuntimeState()
@@ -102,7 +109,12 @@ protocol IRFFDecoderDelegate: AnyObject {
         get { runtimeState.snapshot.progress }
         set {
             guard let change = runtimeState.setProgress(newValue) else { return }
-            delegate?.decoder(self, didChangeValueOfProgress: change.current)
+            notifyDelegate {
+                $0.decoder(
+                    self,
+                    didChangeValueOfProgress: change.current
+                )
+            }
         }
     }
     private(set) var bufferedDuration: TimeInterval {
@@ -116,10 +128,12 @@ protocol IRFFDecoderDelegate: AnyObject {
                 requestedValue: newValue,
                 normalizedValue: transition.bufferedDuration
             ) else { return }
-            delegate?.decoder(
-                self,
-                didChangeValueOfBufferedDuration: change.current
-            )
+            notifyDelegate {
+                $0.decoder(
+                    self,
+                    didChangeValueOfBufferedDuration: change.current
+                )
+            }
             if transition.shouldFinishPlayback {
                 playbackFinished = true
             }
@@ -130,7 +144,12 @@ protocol IRFFDecoderDelegate: AnyObject {
         get { runtimeState.snapshot.buffering }
         set {
             guard let change = runtimeState.setBuffering(newValue) else { return }
-            delegate?.decoder(self, didChangeValueOfBuffering: change.current)
+            notifyDelegate {
+                $0.decoder(
+                    self,
+                    didChangeValueOfBuffering: change.current
+                )
+            }
         }
     }
     private(set) var playbackFinished: Bool {
@@ -139,7 +158,9 @@ protocol IRFFDecoderDelegate: AnyObject {
             guard let change = runtimeState.setPlaybackFinished(newValue),
                   change.current else { return }
             progress = duration
-            delegate?.decoderDidPlaybackFinished(self)
+            notifyDelegate {
+                $0.decoderDidPlaybackFinished(self)
+            }
         }
     }
     var closed: Bool { runtimeState.snapshot.closed }
@@ -269,10 +290,66 @@ protocol IRFFDecoderDelegate: AnyObject {
     init(contentURL: URL, videoFormat: IRVideoFormat, videoOutput: IRFFDecoderVideoOutput?, audioOutput: IRFFDecoderAudioOutput?) {
         self.contentURL = contentURL
         self.videoFormat = videoFormat
-        self.videoOutput = videoOutput
-        self.audioOutput = audioOutput
+        self.collaborators = IRFFDecoderCollaboratorSession(
+            configuration: .init(
+                delegate: nil,
+                source: nil,
+                videoOutput: videoOutput,
+                audioOutput: audioOutput
+            )
+        )
         super.init()
         IRFFmpegBootstrap.initializeIfNeeded()
+    }
+
+    var collaboratorDiagnostics:
+        IRFFDecoderCollaboratorSession.Diagnostics {
+        collaborators.diagnostics
+    }
+
+    @discardableResult
+    func installCollaborators(
+        delegate: IRFFDecoderDelegate?,
+        source: IRFFVideoDecoderDataSource?,
+        videoOutput: IRFFDecoderVideoOutput?,
+        audioOutput: IRFFDecoderAudioOutput?
+    ) -> Bool {
+        collaborators.install(
+            .init(
+                delegate: delegate,
+                source: source,
+                videoOutput: videoOutput,
+                audioOutput: audioOutput
+            )
+        ) { [session] snapshot in
+            session.updateVideoDecoderSource(snapshot.source)
+        }
+    }
+
+    @discardableResult
+    func installDelegatePreservingCollaborators(
+        _ delegate: IRFFDecoderDelegate
+    ) -> Bool {
+        collaborators.installDelegatePreservingCollaborators(
+            delegate
+        ) { [session] snapshot in
+            session.updateVideoDecoderSource(snapshot.source)
+        }
+    }
+
+    @discardableResult
+    func revokeCollaborators() -> Bool {
+        collaborators.revoke { [session] in
+            session.updateVideoDecoderSource(nil)
+        }
+    }
+
+    private func notifyDelegate(
+        _ notification: (IRFFDecoderDelegate) -> Void
+    ) {
+        collaborators.withDelegate(default: ()) {
+            notification($0)
+        }
     }
 
     func open() {
@@ -524,7 +601,9 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     private func openFormatContext() {
         guard !closed else { return }
-        delegate?.decoderWillOpenInputStream(self)
+        notifyDelegate {
+            $0.decoderWillOpenInputStream(self)
+        }
         guard !closed else { return }
 
         let formatContext = IRFFFormatContext(
@@ -554,11 +633,12 @@ protocol IRFFDecoderDelegate: AnyObject {
                 delegate: self
             )
             videoDecoder.videoToolBoxEnable = hardwareDecoderEnable
-            sourceLock.lock()
-            videoDecoder.source = storedSource
-            let didInstallVideoDecoder =
-                session.installVideoDecoder(videoDecoder)
-            sourceLock.unlock()
+            let didInstallVideoDecoder = collaborators.withSnapshot(
+                default: false
+            ) { [session] snapshot in
+                videoDecoder.source = snapshot.source
+                return session.installVideoDecoder(videoDecoder)
+            }
             guard didInstallVideoDecoder else {
                 videoDecoder.destroy()
                 return
@@ -579,7 +659,9 @@ protocol IRFFDecoderDelegate: AnyObject {
         guard !closed else { return }
 
         guard runtimeState.markPreparedIfOpen() else { return }
-        delegate?.decoderDidPrepareToDecodeFrames(self)
+        notifyDelegate {
+            $0.decoderDidPrepareToDecodeFrames(self)
+        }
         guard !closed else { return }
 
         scheduleWorkers()
@@ -654,7 +736,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                 resources.videoDecoder?.endOfFile = transition.videoEndOfFile
                 finished = transition.shouldFinishReadLoop
                 if transition.shouldNotifyDelegate {
-                    delegate?.decoderDidEndOfFile(self)
+                    notifyDelegate {
+                        $0.decoderDidEndOfFile(self)
+                    }
                 }
                 break
             }
@@ -710,7 +794,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 hasCurrentFrame: displayedFrame != nil
             ) {
                 if replayCurrentFrame, let currentFrame = displayedFrame {
-                    videoOutput?.send?(videoFrame: currentFrame)
+                    collaborators.deliverVideoFrame(currentFrame)
                 }
                 Thread.sleep(forTimeInterval: sleepTime)
                 continue
@@ -747,7 +831,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 }
                 currentVideoFrame = newFrame
                 if let currentFrame = newFrame {
-                    videoOutput?.send?(videoFrame: currentFrame)
+                    collaborators.deliverVideoFrame(currentFrame)
                     updateProgressByVideo()
                     if runtimeSnapshot.endOfFile {
                         updateBufferedDurationByVideo()
@@ -768,7 +852,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 }
                 currentVideoFrame = newFrame
                 if let currentFrame = newFrame {
-                    videoOutput?.send?(videoFrame: currentFrame)
+                    collaborators.deliverVideoFrame(currentFrame)
                     updateProgressByVideo()
                     if runtimeSnapshot.endOfFile {
                         updateBufferedDurationByVideo()
@@ -832,10 +916,12 @@ protocol IRFFDecoderDelegate: AnyObject {
         }
         seekResult.displacedCompletion?(false)
         if let progressChange = seekResult.progressChange {
-            delegate?.decoder(
-                self,
-                didChangeValueOfProgress: progressChange.current
-            )
+            notifyDelegate {
+                $0.decoder(
+                    self,
+                    didChangeValueOfProgress: progressChange.current
+                )
+            }
         }
         session.withResources(default: ()) {
             $0.videoDecoder?.paused = true
@@ -880,6 +966,7 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     private func closeFileAsync(_ async: Bool) {
+        _ = revokeCollaborators()
         guard runtimeState.beginClose() else { return }
         let seekCompletions = runtimeState.cancelSeeks()
         seekCompletions.forEach { $0(false) }
@@ -920,10 +1007,12 @@ protocol IRFFDecoderDelegate: AnyObject {
             transition.buffering,
             startTime: transition.bufferingStartTime
         ) {
-            delegate?.decoder(
-                self,
-                didChangeValueOfBuffering: bufferingChange.current
-            )
+            notifyDelegate {
+                $0.decoder(
+                    self,
+                    didChangeValueOfBuffering: bufferingChange.current
+                )
+            }
         }
     }
 
@@ -979,7 +1068,9 @@ protocol IRFFDecoderDelegate: AnyObject {
         guard !runtimeSnapshot.closed,
               runtimeSnapshot.hasError,
               let error = error else { return }
-        delegate?.decoder(self, didError: error)
+        notifyDelegate {
+            $0.decoder(self, didError: error)
+        }
     }
 
     deinit {
@@ -995,11 +1086,15 @@ extension IRFFDecoder: IRFFFormatContextDelegate {
 
 extension IRFFDecoder: IRFFAudioDecoderDelegate {
     func audioDecoder(_ audioDecoder: IRFFAudioDecoder, samplingRate: inout Float64) {
-        samplingRate = audioOutput?.samplingRate ?? 0
+        samplingRate = collaborators.withAudioOutput(default: 0) {
+            $0.samplingRate
+        }
     }
 
     func audioDecoder(_ audioDecoder: IRFFAudioDecoder, channelCount: inout UInt32) {
-        channelCount = audioOutput?.numberOfChannels ?? 0
+        channelCount = collaborators.withAudioOutput(default: 0) {
+            $0.numberOfChannels
+        }
     }
 }
 

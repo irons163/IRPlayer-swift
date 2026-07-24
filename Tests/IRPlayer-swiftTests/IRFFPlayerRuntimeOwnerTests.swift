@@ -172,6 +172,61 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         XCTAssertEqual(recorder.events, ["willOpenInput"])
         XCTAssertEqual(session.diagnostics.phase, .active)
         XCTAssertEqual(session.diagnostics.acceptedEventCount, 1)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.phase, .active)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.generation, 2)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.installCount, 2)
+        XCTAssertTrue(decoder.collaboratorDiagnostics.hasDelegate)
+        XCTAssertTrue(decoder.collaboratorDiagnostics.hasSource)
+        XCTAssertTrue(decoder.collaboratorDiagnostics.hasVideoOutput)
+        XCTAssertTrue(decoder.collaboratorDiagnostics.hasAudioOutput)
+    }
+
+    func testAdoptionInstallsBridgeWhilePreservingEveryExistingBinding() {
+        let decoder = ControlledFFPlayerDecoder()
+        let source = IRFFVideoInput()
+        let videoOutput = FFPlayerVideoOutputProbe()
+        let audioOutput = FFPlayerAudioOutputProbe()
+        decoder.source = source
+        decoder.videoOutput = videoOutput
+        decoder.audioOutput = audioOutput
+        let session = IRFFPlayerDecoderSession()
+
+        XCTAssertNotNil(
+            session.adopt(decoder, eventHandler: { _ in })
+        )
+
+        XCTAssertNotNil(decoder.delegate)
+        XCTAssertTrue(decoder.source === source)
+        XCTAssertTrue(decoder.videoOutput === videoOutput)
+        XCTAssertTrue(decoder.audioOutput === audioOutput)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.phase, .active)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.generation, 2)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.installCount, 2)
+    }
+
+    func testActivationRejectsDecoderWhoseCollaboratorsAreRevoked() {
+        let decoder = ControlledFFPlayerDecoder()
+        XCTAssertTrue(decoder.revokeCollaborators())
+        let session = IRFFPlayerDecoderSession { _, _, _, _ in
+            decoder
+        }
+
+        XCTAssertNil(
+            session.activate(
+                configuration: makeFFPlayerSessionConfiguration(),
+                eventHandler: { _ in }
+            )
+        )
+
+        XCTAssertNil(session.currentDecoder)
+        XCTAssertEqual(session.diagnostics.phase, .idle)
+        XCTAssertEqual(session.diagnostics.rejectedCommandCount, 1)
+        XCTAssertEqual(decoder.closeCount, 1)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.phase, .revoked)
+        XCTAssertEqual(
+            decoder.collaboratorDiagnostics.rejectedUpdateCount,
+            1
+        )
     }
 
     func testFactoryReentrantCloseCannotResurrectSession() {
@@ -240,6 +295,9 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         XCTAssertNil(first.delegate)
         XCTAssertEqual(first.closeCount, 1)
         XCTAssertTrue(session.currentDecoder === second)
+        XCTAssertEqual(first.collaboratorDiagnostics.phase, .revoked)
+        XCTAssertEqual(first.collaboratorDiagnostics.revokeCount, 1)
+        XCTAssertEqual(second.collaboratorDiagnostics.phase, .active)
 
         staleBridge.decoder(first, didChangeValueOfProgress: 99)
         second.delegate?.decoder(
@@ -333,6 +391,12 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
 
         XCTAssertEqual(decoder.closeCount, 1)
         XCTAssertEqual(session.diagnostics.phase, .idle)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.phase, .revoked)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.revokeCount, 1)
+        XCTAssertFalse(decoder.collaboratorDiagnostics.hasDelegate)
+        XCTAssertFalse(decoder.collaboratorDiagnostics.hasSource)
+        XCTAssertFalse(decoder.collaboratorDiagnostics.hasVideoOutput)
+        XCTAssertFalse(decoder.collaboratorDiagnostics.hasAudioOutput)
     }
 
     func testSeekWithoutDecoderCompletesFalse() {

@@ -261,6 +261,69 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertNil(decoder.fetchAudioFrame())
     }
 
+    func testCloseAtomicallyRevokesEveryCollaboratorAndRejectsRebinding() {
+        let delegate = DecoderDelegateSpy()
+        let source = DecoderVideoDataSourceSpy(
+            shouldHandle: false,
+            frame: nil
+        )
+        let videoOutput = DecoderVideoOutputSpy()
+        let audioOutput = DecoderAudioOutputSpy(
+            numberOfChannels: 2,
+            samplingRate: 48_000
+        )
+        let decoder = IRFFDecoder(
+            contentURL: URL(
+                fileURLWithPath: "/tmp/collaborator-close.mp4"
+            ),
+            videoFormat: .mpeg4,
+            videoOutput: videoOutput,
+            audioOutput: audioOutput
+        )
+        decoder.delegate = delegate
+        decoder.source = source
+
+        XCTAssertTrue(decoder.delegate === delegate)
+        XCTAssertTrue(decoder.source === source)
+        XCTAssertTrue(decoder.videoOutput === videoOutput)
+        XCTAssertTrue(decoder.audioOutput === audioOutput)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.phase, .active)
+
+        decoder.closeFile()
+
+        XCTAssertEqual(decoder.collaboratorDiagnostics.phase, .revoked)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.generation, 2)
+        XCTAssertEqual(decoder.collaboratorDiagnostics.revokeCount, 1)
+        XCTAssertNil(decoder.delegate)
+        XCTAssertNil(decoder.source)
+        XCTAssertNil(decoder.videoOutput)
+        XCTAssertNil(decoder.audioOutput)
+
+        decoder.delegate = delegate
+        decoder.source = source
+        decoder.videoOutput = videoOutput
+        decoder.audioOutput = audioOutput
+        XCTAssertFalse(
+            decoder.installCollaborators(
+                delegate: delegate,
+                source: source,
+                videoOutput: videoOutput,
+                audioOutput: audioOutput
+            )
+        )
+        decoder.closeFile()
+
+        XCTAssertEqual(decoder.collaboratorDiagnostics.revokeCount, 1)
+        XCTAssertEqual(
+            decoder.collaboratorDiagnostics.rejectedUpdateCount,
+            5
+        )
+        XCTAssertNil(decoder.delegate)
+        XCTAssertNil(decoder.source)
+        XCTAssertNil(decoder.videoOutput)
+        XCTAssertNil(decoder.audioOutput)
+    }
+
     func testOpenGeneratedVideoFilePreparesAndReadsToEndOfFile() throws {
         let url = try makeTinyVideoFile()
         addTeardownBlock {
