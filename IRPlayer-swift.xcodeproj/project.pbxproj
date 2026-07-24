@@ -97,6 +97,8 @@
 		B5E94EF32D0B21F800149265 /* IRGLProjectionOrthographic.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DC42D0B21F800149265 /* IRGLProjectionOrthographic.swift */; };
 		B5E94EF52D0B21F800149265 /* IRFFFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF02D0B21F800149265 /* IRFFFrame.swift */; };
 		B5E94EF62D0B21F800149265 /* IRFFVideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF42D0B21F800149265 /* IRFFVideoFrame.swift */; };
+		B5E97D012F8800000149265 /* IRSensorMotionDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97D002F8800000149265 /* IRSensorMotionDriver.swift */; };
+		B5E97D032F8800010149265 /* IRSensorMotionSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97D022F8800010149265 /* IRSensorMotionSession.swift */; };
 		B5E94EF72D0B21F800149265 /* IRSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E0B2D0B21F800149265 /* IRSensor.swift */; };
 		B5E94EFB2D0B21F800149265 /* IRFFAudioDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF72D0B21F800149265 /* IRFFAudioDecoder.swift */; };
 		B5E979032F8400010149265 /* IRFFDecodeFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E979022F8400010149265 /* IRFFDecodeFrame.swift */; };
@@ -244,6 +246,8 @@
 		B5E9504D2F68A02400149265 /* IRFFTrackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */; };
 		B5E9500B2F68A00600149265 /* IRGLRenderModeFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */; };
 		B5E9500D2F68A00700149265 /* IRMatrix4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */; };
+		B5E97D052F8800020149265 /* IRSensorMotionDriverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97D042F8800020149265 /* IRSensorMotionDriverTests.swift */; };
+		B5E97D072F8800030149265 /* IRSensorMotionSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97D062F8800030149265 /* IRSensorMotionSessionTests.swift */; };
 		B5E951C12F6900200149265 /* IRSensorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951C02F6900200149265 /* IRSensorTests.swift */; };
 		B5E9500F2F68A00800149265 /* IRAudioManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9500E2F68A00800149265 /* IRAudioManagerTests.swift */; };
 		B5E951D12F6900300149265 /* IRAudioManagerRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951D02F6900300149265 /* IRAudioManagerRenderTests.swift */; };
@@ -522,6 +526,8 @@
 		B5E977042F8200020149265 /* IRFFPlayerPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPlayerPresentation.swift; sourceTree = "<group>"; };
 		B5E977062F8200030149265 /* IRFFPlayerDecoderSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPlayerDecoderSession.swift; sourceTree = "<group>"; };
 		B5E977082F8200040149265 /* IRFFPlayerRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPlayerRuntime.swift; sourceTree = "<group>"; };
+		B5E97D002F8800000149265 /* IRSensorMotionDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSensorMotionDriver.swift; sourceTree = "<group>"; };
+		B5E97D022F8800010149265 /* IRSensorMotionSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSensorMotionSession.swift; sourceTree = "<group>"; };
 		B5E94E0B2D0B21F800149265 /* IRSensor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSensor.swift; sourceTree = "<group>"; };
 		B5E94E0F2D0B21F800149265 /* IRFFMpegErrorUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFMpegErrorUtil.swift; sourceTree = "<group>"; };
 		B5E94E102D0B21F800149265 /* IRYUVTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRYUVTools.swift; sourceTree = "<group>"; };
@@ -573,6 +579,8 @@
 		B5E9504C2F68A02400149265 /* IRFFTrackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFTrackTests.swift; sourceTree = "<group>"; };
 		B5E9500A2F68A00600149265 /* IRGLRenderModeFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderModeFactoryTests.swift; sourceTree = "<group>"; };
 		B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMatrix4Tests.swift; sourceTree = "<group>"; };
+		B5E97D042F8800020149265 /* IRSensorMotionDriverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSensorMotionDriverTests.swift; sourceTree = "<group>"; };
+		B5E97D062F8800030149265 /* IRSensorMotionSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSensorMotionSessionTests.swift; sourceTree = "<group>"; };
 		B5E951C02F6900200149265 /* IRSensorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSensorTests.swift; sourceTree = "<group>"; };
 		B5E9500E2F68A00800149265 /* IRAudioManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAudioManagerTests.swift; sourceTree = "<group>"; };
 		B5E951D02F6900300149265 /* IRAudioManagerRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRAudioManagerRenderTests.swift; sourceTree = "<group>"; };
@@ -1111,6 +1119,8 @@
 		B5E94E0C2D0B21F800149265 /* Matrix */ = {
 			isa = PBXGroup;
 			children = (
+				B5E97D002F8800000149265 /* IRSensorMotionDriver.swift */,
+				B5E97D022F8800010149265 /* IRSensorMotionSession.swift */,
 				B5E94E0B2D0B21F800149265 /* IRSensor.swift */,
 			);
 			path = Matrix;
@@ -1315,6 +1325,8 @@
 				B5E970172F7A000C0149265 /* IRPlayerRenderConfigurationTests.swift */,
 				B5E950342F68A01800149265 /* IRePTZShiftControllerTests.swift */,
 				B5E9500C2F68A00700149265 /* IRMatrix4Tests.swift */,
+				B5E97D042F8800020149265 /* IRSensorMotionDriverTests.swift */,
+				B5E97D062F8800030149265 /* IRSensorMotionSessionTests.swift */,
 				B5E951C02F6900200149265 /* IRSensorTests.swift */,
 				B5E950042F68A00300149265 /* IRModelPayloadTests.swift */,
 				B5E951A02F6900010149265 /* IRPhotoSaverTests.swift */,
@@ -1539,6 +1551,8 @@
 				B5E9525B2F6902C00149265 /* IRMetalDistortionMeshPolicy.swift in Sources */,
 				B5E9525D2F6902D00149265 /* IRGLRenderModeSettingPolicy.swift in Sources */,
 				B5E94EF62D0B21F800149265 /* IRFFVideoFrame.swift in Sources */,
+				B5E97D012F8800000149265 /* IRSensorMotionDriver.swift in Sources */,
+				B5E97D032F8800010149265 /* IRSensorMotionSession.swift in Sources */,
 				B5E94EF72D0B21F800149265 /* IRSensor.swift in Sources */,
 				B5E94EFB2D0B21F800149265 /* IRFFAudioDecoder.swift in Sources */,
 				B5E979052F8400010149265 /* IRFFAudioResampleSession.swift in Sources */,
@@ -1774,6 +1788,8 @@
 				B5E950352F68A01800149265 /* IRePTZShiftControllerTests.swift in Sources */,
 				B5E9505D2F68A02B00149265 /* IRGLFisheyeTransformPolicyTests.swift in Sources */,
 				B5E9500D2F68A00700149265 /* IRMatrix4Tests.swift in Sources */,
+				B5E97D052F8800020149265 /* IRSensorMotionDriverTests.swift in Sources */,
+				B5E97D072F8800030149265 /* IRSensorMotionSessionTests.swift in Sources */,
 				B5E951C12F6900200149265 /* IRSensorTests.swift in Sources */,
 				B5E950052F68A00300149265 /* IRModelPayloadTests.swift in Sources */,
 				B5E951A12F6900010149265 /* IRPhotoSaverTests.swift in Sources */,

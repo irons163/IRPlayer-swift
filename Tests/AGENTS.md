@@ -72,6 +72,9 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRGLTransformControllerVRTests.swift` — VR transform
 - `IRGLGestureControllerTests.swift` — Gesture input
 - `IRePTZShiftControllerTests.swift` — Electronic PTZ
+- `IRSensorMotionDriverTests.swift` — Immutable Core Motion value boundary
+- `IRSensorMotionSessionTests.swift` — Generation-fenced motion state and math
+- `IRSensorTests.swift` — Sensor lifecycle, delivery, and concurrency
 
 ### Other Tests
 - `IRGLScopeTests.swift` — Viewport scope bounds

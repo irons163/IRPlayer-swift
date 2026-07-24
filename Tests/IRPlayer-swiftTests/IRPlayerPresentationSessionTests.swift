@@ -119,6 +119,30 @@ final class IRPlayerPresentationSessionTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(motion.stopCount, 1)
     }
 
+    func testZoomAndDragLifecycleRestartOwnedMotion() {
+        let (session, motion) = makePresentationSession()
+        session.apply(videoType: .vr, displayMode: .box)
+        XCTAssertEqual(motion.resetCount, 1)
+
+        session.glViewWillBeginZooming(session.displayView)
+        session.glViewDidEndZooming(
+            session.displayView,
+            atScale: 1
+        )
+        session.glViewWillBeginDragging(session.displayView)
+        session.glViewDidEndDragging(
+            session.displayView,
+            willDecelerate: true
+        )
+        session.glViewDidEndDragging(
+            session.displayView,
+            willDecelerate: false
+        )
+
+        XCTAssertEqual(motion.resetCount, 3)
+        XCTAssertEqual(motion.stopCount, 2)
+    }
+
     private func makePresentationSession() -> (
         IRPlayerPresentationSession,
         PresentationMotionProbe
