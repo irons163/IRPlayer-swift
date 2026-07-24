@@ -92,6 +92,8 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRGLShaderParamsTests.swift` — Shader parameters
 - `IRMatrix4Tests.swift` — Matrix math
 - `IRAudioManagerTests.swift` — Audio output
+- `IRPhotoSaverTests.swift` — Photo-library transaction stages, coalescing,
+  closure, duplicate callback rejection, and concurrency
 
 ### Test Support
 - `IRPlayerTestSupport.swift` — Shared test utilities, mocks, and helpers

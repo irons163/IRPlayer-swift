@@ -9,101 +9,114 @@ import Photos
 import UIKit
 
 enum IRPhotoSaver {
-
-    enum Failure {
+    enum Failure: Error, Equatable, Sendable {
         case permissionNotGranted
         case albumUnavailable
+        case assetSaveFailed
+        case cancelled
+        case closed
     }
 
-    static func save(_ image: UIImage, toAlbum albumName: String? = nil) {
-        requestPermission { granted in
-            guard granted else {
-                writeDiagnostic(for: .permissionNotGranted)
+    enum Outcome: Equatable, Sendable {
+        case saved
+        case failed(Failure)
+    }
+
+    enum Destination: Equatable, Sendable {
+        case library
+        case album(String)
+    }
+
+    private static let systemSession = IRPhotoLibrarySession()
+
+    static func save(
+        _ image: UIImage,
+        toAlbum albumName: String? = nil
+    ) {
+        _ = systemSession.save(
+            image,
+            toAlbum: albumName
+        ) { outcome in
+            guard case .failed(let failure) = outcome else {
                 return
             }
-
-            switch Self.saveDestination(albumName: albumName) {
-            case .library:
-                PHPhotoLibrary.shared().performChanges({
-                    PHAssetChangeRequest.creationRequestForAsset(from: image)
-                })
-                return
-
-            case .album(let albumName):
-                fetchOrCreateAlbum(named: albumName) { album in
-                    guard let album = album else {
-                        writeDiagnostic(for: .albumUnavailable)
-                        return
-                    }
-
-                    PHPhotoLibrary.shared().performChanges({
-                        let createAsset = PHAssetChangeRequest.creationRequestForAsset(from: image)
-                        guard let placeholder = createAsset.placeholderForCreatedAsset else { return }
-
-                        if let albumChange = PHAssetCollectionChangeRequest(for: album) {
-                            albumChange.addAssets([placeholder] as NSArray)
-                        }
-                    })
-                }
-            }
+            writeDiagnostic(for: failure)
         }
     }
+
+    @discardableResult
+    static func save(
+        _ image: UIImage,
+        toAlbum albumName: String? = nil,
+        completion: @escaping IRPhotoLibrarySession.Completion
+    ) -> IRPhotoLibrarySession.Token? {
+        systemSession.save(
+            image,
+            toAlbum: albumName,
+            completion: completion
+        )
+    }
+
+    #if IRPhotoSaverDiagnosticOutputEnable
+    static let isDiagnosticOutputEnabled = true
+    #else
+    static let isDiagnosticOutputEnabled = false
+    #endif
 
     static func writeDiagnostic(for failure: Failure) {
-        IRPhotoSaverPolicy.writeDiagnostic(for: failure)
-    }
-
-    static var isDiagnosticOutputEnabled: Bool {
-        IRPhotoSaverPolicy.isDiagnosticOutputEnabled
-    }
-
-    static func diagnosticMessage(for failure: Failure) -> String? {
-        IRPhotoSaverPolicy.diagnosticMessage(for: failure)
-    }
-
-    static func photoLibraryAccessIsGranted(_ status: PHAuthorizationStatus) -> Bool {
-        IRPhotoSaverPolicy.photoLibraryAccessIsGranted(status)
-    }
-
-    static func saveDestination(albumName: String?) -> IRPhotoSaverPolicy.SaveDestination {
-        IRPhotoSaverPolicy.saveDestination(albumName: albumName)
-    }
-
-    static func createdAlbumIdentifier(success: Bool, placeholderLocalIdentifier: String?) -> String? {
-        IRPhotoSaverPolicy.createdAlbumIdentifier(success: success,
-                                                  placeholderLocalIdentifier: placeholderLocalIdentifier)
-    }
-
-    private static func requestPermission(completion: @escaping (Bool) -> Void) {
-        PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
-            completion(Self.photoLibraryAccessIsGranted(status))
-        }
-    }
-
-    private static func fetchOrCreateAlbum(named name: String,
-                                           completion: @escaping (PHAssetCollection?) -> Void) {
-        let options = PHFetchOptions()
-        options.predicate = NSPredicate(format: "title = %@", name)
-        let result = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: options)
-
-        if let existing = result.firstObject {
-            completion(existing)
+        guard let message = diagnosticMessage(for: failure) else {
             return
         }
+        print(message)
+    }
 
-        var placeholder: PHObjectPlaceholder?
-
-        PHPhotoLibrary.shared().performChanges({
-            let create = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: name)
-            placeholder = create.placeholderForCreatedAssetCollection
-        }) { success, _ in
-            guard let id = Self.createdAlbumIdentifier(success: success,
-                                                       placeholderLocalIdentifier: placeholder?.localIdentifier) else {
-                completion(nil)
-                return
-            }
-            let fetch = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [id], options: nil)
-            completion(fetch.firstObject)
+    static func diagnosticMessage(
+        for failure: Failure
+    ) -> String? {
+        #if IRPhotoSaverDiagnosticOutputEnable
+        switch failure {
+        case .permissionNotGranted:
+            return "IRPhotoSaver: photo-library permission was not granted"
+        case .albumUnavailable:
+            return "IRPhotoSaver: the destination album is unavailable"
+        case .assetSaveFailed:
+            return "IRPhotoSaver: the image could not be saved"
+        case .cancelled:
+            return "IRPhotoSaver: the save request was cancelled"
+        case .closed:
+            return "IRPhotoSaver: the photo-library session is closed"
         }
+        #else
+        return nil
+        #endif
+    }
+
+    static func photoLibraryAccessIsGranted(
+        _ status: PHAuthorizationStatus
+    ) -> Bool {
+        status == .authorized || status == .limited
+    }
+
+    static func saveDestination(
+        albumName: String?
+    ) -> Destination {
+        guard let albumName else { return .library }
+        let normalizedName = albumName.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !normalizedName.isEmpty else { return .library }
+        return .album(normalizedName)
+    }
+
+    static func createdAlbumIdentifier(
+        success: Bool,
+        placeholderLocalIdentifier: String?
+    ) -> String? {
+        guard success,
+              let placeholderLocalIdentifier,
+              !placeholderLocalIdentifier.isEmpty else {
+            return nil
+        }
+        return placeholderLocalIdentifier
     }
 }
