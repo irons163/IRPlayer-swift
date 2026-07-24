@@ -7,161 +7,307 @@
 
 import Foundation
 
-class IRFFFramePool: NSObject, IRFFFrameDelegate {
-    var frameClassName: AnyClass
-    private let frameFactory: () -> IRFFFrame?
-    var lock = NSLock()
-    var playingFrame: IRFFFrame?
-    var unuseFrames = Set<IRFFFrame>()
-    var usedFrames = Set<IRFFFrame>()
+final class IRFFFramePool:
+    NSObject,
+    IRFFFrameDelegate,
+    @unchecked Sendable
+{
+    enum Phase:
+        Equatable,
+        Hashable,
+        Sendable
+    {
+        case open
+        case closed
+    }
 
-    init(capacity: Int, frameClassName: AnyClass, frameFactory: (() -> IRFFFrame?)? = nil) {
+    struct Diagnostics:
+        Equatable,
+        Hashable,
+        Sendable
+    {
+        let phase: Phase
+        let availableCount: Int
+        let leasedCount: Int
+        let hasPlayingFrame: Bool
+        let totalCount: Int
+        let revision: UInt64
+    }
+
+    private let frameClassName: AnyClass
+    private let frameFactory: () -> IRFFFrame?
+    private let factoryLock = NSLock()
+    private let lock = NSLock()
+    private var phase: Phase = .open
+    private var ownedFrames:
+        [ObjectIdentifier: IRFFFrame] = [:]
+    private var availableIDs:
+        Set<ObjectIdentifier> = []
+    private var leasedIDs:
+        Set<ObjectIdentifier> = []
+    private var playingID: ObjectIdentifier?
+    private var revision: UInt64 = 0
+
+    init(
+        capacity: Int,
+        frameClassName: AnyClass,
+        frameFactory: (() -> IRFFFrame?)? = nil
+    ) {
         self.frameClassName = frameClassName
-        self.frameFactory = frameFactory ?? IRFFFramePool.makeFrameFactory(for: frameClassName)
+        self.frameFactory =
+            frameFactory
+            ?? Self.makeFrameFactory(
+                for: frameClassName
+            )
         super.init()
-        let reserveCapacity = Self.reserveCapacity(from: capacity)
-        unuseFrames.reserveCapacity(reserveCapacity)
-        usedFrames.reserveCapacity(reserveCapacity)
+
+        let reserveCapacity = max(0, capacity)
+        ownedFrames.reserveCapacity(reserveCapacity)
+        availableIDs.reserveCapacity(reserveCapacity)
+        leasedIDs.reserveCapacity(reserveCapacity)
     }
 
     static func videoPool() -> IRFFFramePool {
-        return IRFFFramePool(capacity: 60, frameClassName: IRFFAVYUVVideoFrame.self) {
+        IRFFFramePool(
+            capacity: 60,
+            frameClassName: IRFFAVYUVVideoFrame.self
+        ) {
             IRFFAVYUVVideoFrame()
         }
     }
 
     static func audioPool() -> IRFFFramePool {
-        return IRFFFramePool(capacity: 500, frameClassName: IRFFAudioFrame.self) {
+        IRFFFramePool(
+            capacity: 500,
+            frameClassName: IRFFAudioFrame.self
+        ) {
             IRFFAudioFrame()
         }
     }
 
-    static func pool(withCapacity number: Int, frameClassName: AnyClass) -> IRFFFramePool {
-        return IRFFFramePool(capacity: number, frameClassName: frameClassName)
-    }
-
-    static func reserveCapacity(from capacity: Int) -> Int {
-        return IRFFFramePoolPolicy.reserveCapacity(from: capacity)
-    }
-
-    static func isFrame(_ frame: IRFFFrame?, compatibleWith frameClassName: AnyClass) -> Bool {
-        return IRFFFramePoolPolicy.isFrame(frame, compatibleWith: frameClassName)
-    }
-
-    private static func makeFrameFactory(for frameClassName: AnyClass) -> () -> IRFFFrame? {
-        return {
-            guard let frameClass = frameClassName as? NSObject.Type else { return nil }
-            return frameClass.init() as? IRFFFrame
-        }
-    }
-
-    var count: Int {
-        return unuseCount + usedCount + (playingFrame != nil ? 1 : 0)
-    }
-
-    var unuseCount: Int {
-        return unuseFrames.count
-    }
-
-    var usedCount: Int {
-        return usedFrames.count
-    }
-
-    func getUnuseFrame() -> IRFFFrame? {
+    var diagnostics: Diagnostics {
         lock.lock()
         defer { lock.unlock() }
-
-        if let frame = unuseFrames.popFirst() {
-            usedFrames.insert(frame)
-            return frame
-        } else {
-            guard let frame = frameFactory() else { return nil }
-            frame.delegate = self
-            usedFrames.insert(frame)
-            return frame
-        }
+        return diagnosticsLocked()
     }
 
-    func setFrameUnuse(_ frame: IRFFFrame?) {
-        guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
+    func leaseFrame() -> IRFFFrame? {
         lock.lock()
+        guard phase == .open else {
+            lock.unlock()
+            return nil
+        }
+        if let identifier = availableIDs.popFirst(),
+           let frame = ownedFrames[identifier] {
+            leasedIDs.insert(identifier)
+            advanceRevisionLocked()
+            lock.unlock()
+            return frame
+        }
+        lock.unlock()
+
+        factoryLock.lock()
+        let createdFrame = frameFactory()
+        factoryLock.unlock()
+
+        guard let frame = createdFrame,
+              isCompatible(frame) else {
+            return nil
+        }
+        let identifier = ObjectIdentifier(frame)
+
+        lock.lock()
+        guard phase == .open,
+              ownedFrames[identifier] == nil else {
+            lock.unlock()
+            return nil
+        }
         frame.prepareForReuse()
-        unuseFrames.insert(frame)
-        usedFrames.remove(frame)
-        if playingFrame == frame {
-            playingFrame = nil
-        }
+        frame.delegate = self
+        ownedFrames[identifier] = frame
+        leasedIDs.insert(identifier)
+        advanceRevisionLocked()
         lock.unlock()
+        return frame
     }
 
-    func setFramesUnuse(_ frames: [IRFFFrame]) {
-        guard !frames.isEmpty else { return }
+    @discardableResult
+    func flush() -> Int {
         lock.lock()
-        for frame in frames where Self.isFrame(frame, compatibleWith: frameClassName) {
+        guard phase == .open else {
+            lock.unlock()
+            return 0
+        }
+
+        let leased = leasedIDs
+        let playing = playingID
+        let returnedCount =
+            leased.count + (playing == nil ? 0 : 1)
+        guard returnedCount > 0 else {
+            lock.unlock()
+            return 0
+        }
+
+        for identifier in leased {
+            ownedFrames[identifier]?.prepareForReuse()
+            availableIDs.insert(identifier)
+        }
+        leasedIDs.removeAll(keepingCapacity: true)
+        if let playing,
+           let frame = ownedFrames[playing] {
             frame.prepareForReuse()
-            usedFrames.remove(frame)
-            unuseFrames.insert(frame)
-            if playingFrame == frame {
-                playingFrame = nil
-            }
+            availableIDs.insert(playing)
+            playingID = nil
         }
+        advanceRevisionLocked()
         lock.unlock()
+        return returnedCount
     }
 
-    func setFrameStartDrawing(_ frame: IRFFFrame?) {
-        guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
+    @discardableResult
+    func close() -> Bool {
         lock.lock()
-        if let playingFrame = playingFrame {
-            playingFrame.prepareForReuse()
-            unuseFrames.insert(playingFrame)
+        guard phase == .open else {
+            lock.unlock()
+            return false
         }
-        playingFrame = frame
-        usedFrames.remove(frame)
-        lock.unlock()
-    }
 
-    func setFrameStopDrawing(_ frame: IRFFFrame?) {
-        guard Self.isFrame(frame, compatibleWith: frameClassName), let frame else { return }
-        lock.lock()
-        if playingFrame == frame {
+        phase = .closed
+        for frame in ownedFrames.values {
             frame.prepareForReuse()
-            unuseFrames.insert(frame)
-            playingFrame = nil
+            frame.clearDelegate(ifOwnedBy: self)
         }
+        ownedFrames.removeAll()
+        availableIDs.removeAll()
+        leasedIDs.removeAll()
+        playingID = nil
+        advanceRevisionLocked()
         lock.unlock()
-    }
-
-    func flush() {
-        lock.lock()
-        for frame in usedFrames {
-            frame.prepareForReuse()
-            unuseFrames.insert(frame)
-        }
-        usedFrames.removeAll()
-        if let playingFrame {
-            playingFrame.prepareForReuse()
-            unuseFrames.insert(playingFrame)
-            self.playingFrame = nil
-        }
-        lock.unlock()
+        return true
     }
 
     // MARK: - IRFFFrameDelegate
 
     func frameDidStartPlaying(_ frame: IRFFFrame) {
-        setFrameStartDrawing(frame)
+        startPlaying(frame)
     }
 
     func frameDidStopPlaying(_ frame: IRFFFrame) {
-        setFrameStopDrawing(frame)
+        stopPlaying(frame)
     }
 
     func frameDidCancel(_ frame: IRFFFrame) {
-        setFrameUnuse(frame)
+        returnFrame(frame)
     }
 
     deinit {
-        IRPlayerImp.Logger.libraryLogger.debug("IRFFFramePool release")
+        close()
+        IRPlayerImp.Logger.libraryLogger.debug(
+            "IRFFFramePool release"
+        )
     }
 
+    private static func makeFrameFactory(
+        for frameClassName: AnyClass
+    ) -> () -> IRFFFrame? {
+        {
+            guard let frameClass =
+                    frameClassName as? NSObject.Type else {
+                return nil
+            }
+            return frameClass.init() as? IRFFFrame
+        }
+    }
+
+    private func isCompatible(
+        _ frame: IRFFFrame
+    ) -> Bool {
+        frame.isKind(of: frameClassName)
+    }
+
+    private func returnFrame(_ frame: IRFFFrame) {
+        lock.lock()
+        returnFrameLocked(frame)
+        lock.unlock()
+    }
+
+    private func startPlaying(_ frame: IRFFFrame) {
+        let identifier = ObjectIdentifier(frame)
+
+        lock.lock()
+        guard phase == .open,
+              ownedFrames[identifier] === frame,
+              leasedIDs.contains(identifier) else {
+            if availableIDs.contains(identifier) {
+                frame.prepareForReuse()
+            }
+            lock.unlock()
+            return
+        }
+
+        if let previousID = playingID,
+           previousID != identifier,
+           let previousFrame =
+               ownedFrames[previousID] {
+            previousFrame.prepareForReuse()
+            availableIDs.insert(previousID)
+        }
+        leasedIDs.remove(identifier)
+        availableIDs.remove(identifier)
+        playingID = identifier
+        advanceRevisionLocked()
+        lock.unlock()
+    }
+
+    private func stopPlaying(_ frame: IRFFFrame) {
+        let identifier = ObjectIdentifier(frame)
+
+        lock.lock()
+        guard phase == .open,
+              ownedFrames[identifier] === frame,
+              playingID == identifier else {
+            lock.unlock()
+            return
+        }
+        frame.prepareForReuse()
+        availableIDs.insert(identifier)
+        playingID = nil
+        advanceRevisionLocked()
+        lock.unlock()
+    }
+
+    private func returnFrameLocked(
+        _ frame: IRFFFrame
+    ) {
+        let identifier = ObjectIdentifier(frame)
+        guard phase == .open,
+              ownedFrames[identifier] === frame,
+              leasedIDs.contains(identifier)
+                || playingID == identifier else {
+            return
+        }
+
+        frame.prepareForReuse()
+        leasedIDs.remove(identifier)
+        if playingID == identifier {
+            playingID = nil
+        }
+        availableIDs.insert(identifier)
+        advanceRevisionLocked()
+    }
+
+    private func diagnosticsLocked() -> Diagnostics {
+        Diagnostics(
+            phase: phase,
+            availableCount: availableIDs.count,
+            leasedCount: leasedIDs.count,
+            hasPlayingFrame: playingID != nil,
+            totalCount: ownedFrames.count,
+            revision: revision
+        )
+    }
+
+    private func advanceRevisionLocked() {
+        revision &+= 1
+    }
 }

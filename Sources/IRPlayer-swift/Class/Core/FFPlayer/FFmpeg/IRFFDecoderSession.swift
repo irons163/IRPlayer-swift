@@ -1,6 +1,26 @@
 import Foundation
 
 final class IRFFDecoderSession: @unchecked Sendable {
+    private enum OperationRole: String {
+        case open
+        case read
+        case decode
+        case display
+
+        var qualityOfService: QualityOfService {
+            switch self {
+            case .decode, .display:
+                // Decode waits for packets and display waits for decoded
+                // frames. Keeping both consumers at default QoS avoids
+                // priority inversion when upstream completion arrives on a
+                // default-QoS thread.
+                return .default
+            case .open, .read:
+                return .userInitiated
+            }
+        }
+    }
+
     enum Phase: Equatable {
         case idle
         case opening
@@ -51,7 +71,7 @@ final class IRFFDecoderSession: @unchecked Sendable {
 
     init(operationQueue: OperationQueue = OperationQueue()) {
         operationQueue.maxConcurrentOperationCount = 3
-        operationQueue.qualityOfService = .userInitiated
+        operationQueue.qualityOfService = .default
         self.operationQueue = operationQueue
     }
 
@@ -88,7 +108,7 @@ final class IRFFDecoderSession: @unchecked Sendable {
         defer { condition.unlock() }
         guard phase == .idle, let operationQueue else { return false }
 
-        let operation = configuredOperation(block: open)
+        let operation = configuredOperation(role: .open, block: open)
         phase = .opening
         openOperation = operation
         openScheduleCount += 1
@@ -164,7 +184,7 @@ final class IRFFDecoderSession: @unchecked Sendable {
 
         var scheduled = false
         if needsScheduling(readOperation) {
-            let operation = configuredOperation(block: read)
+            let operation = configuredOperation(role: .read, block: read)
             operation.addDependency(openOperation)
             readOperation = operation
             readScheduleCount += 1
@@ -173,7 +193,7 @@ final class IRFFDecoderSession: @unchecked Sendable {
         }
 
         if includeVideo, needsScheduling(decodeOperation) {
-            let operation = configuredOperation(block: decode)
+            let operation = configuredOperation(role: .decode, block: decode)
             operation.addDependency(openOperation)
             decodeOperation = operation
             decodeScheduleCount += 1
@@ -182,7 +202,7 @@ final class IRFFDecoderSession: @unchecked Sendable {
         }
 
         if includeVideo, needsScheduling(displayOperation) {
-            let operation = configuredOperation(block: display)
+            let operation = configuredOperation(role: .display, block: display)
             operation.addDependency(openOperation)
             displayOperation = operation
             displayScheduleCount += 1
@@ -254,10 +274,14 @@ final class IRFFDecoderSession: @unchecked Sendable {
         phase == .opening || phase == .active
     }
 
-    private func configuredOperation(block: @escaping () -> Void) -> BlockOperation {
+    private func configuredOperation(
+        role: OperationRole,
+        block: @escaping () -> Void
+    ) -> BlockOperation {
         let operation = BlockOperation(block: block)
+        operation.name = "IRFFDecoderSession.\(role.rawValue)"
         operation.queuePriority = .veryHigh
-        operation.qualityOfService = .userInitiated
+        operation.qualityOfService = role.qualityOfService
         return operation
     }
 

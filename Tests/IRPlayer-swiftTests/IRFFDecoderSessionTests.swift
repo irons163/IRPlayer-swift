@@ -50,6 +50,30 @@ final class IRFFDecoderSessionTests: XCTestCase {
         )
         XCTAssertNotNil(openOperation)
         XCTAssertEqual(pendingOperations.count, 4)
+        XCTAssertEqual(
+            pendingOperations.first {
+                $0.name == "IRFFDecoderSession.open"
+            }?.qualityOfService,
+            .userInitiated
+        )
+        XCTAssertEqual(
+            pendingOperations.first {
+                $0.name == "IRFFDecoderSession.read"
+            }?.qualityOfService,
+            .userInitiated
+        )
+        XCTAssertEqual(
+            pendingOperations.first {
+                $0.name == "IRFFDecoderSession.decode"
+            }?.qualityOfService,
+            .default
+        )
+        XCTAssertEqual(
+            pendingOperations.first {
+                $0.name == "IRFFDecoderSession.display"
+            }?.qualityOfService,
+            .default
+        )
         XCTAssertTrue(
             pendingOperations
                 .filter { $0 !== openOperation }

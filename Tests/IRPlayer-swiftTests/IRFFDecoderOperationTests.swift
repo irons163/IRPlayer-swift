@@ -678,51 +678,105 @@ private final class SeekableFFDecoder: IRFFDecoder {
 }
 
 private final class DecoderDelegateSpy: IRFFDecoderDelegate {
-    var onError: (() -> Void)?
-    var onPrepared: (() -> Void)?
-    var onEndOfFile: (() -> Void)?
-    private(set) var willOpenCount = 0
-    private(set) var preparedCount = 0
-    private(set) var endOfFileCount = 0
-    private(set) var playbackFinishedCount = 0
-    private(set) var errors: [NSError] = []
-    private(set) var bufferingValues: [Bool] = []
-    private(set) var bufferedDurations: [TimeInterval] = []
-    private(set) var progressValues: [TimeInterval] = []
+    private let lock = NSLock()
+    private var storedOnError: (() -> Void)?
+    private var storedOnPrepared: (() -> Void)?
+    private var storedOnEndOfFile: (() -> Void)?
+    private var storedWillOpenCount = 0
+    private var storedPreparedCount = 0
+    private var storedEndOfFileCount = 0
+    private var storedPlaybackFinishedCount = 0
+    private var storedErrors: [NSError] = []
+    private var storedBufferingValues: [Bool] = []
+    private var storedBufferedDurations: [TimeInterval] = []
+    private var storedProgressValues: [TimeInterval] = []
+
+    var onError: (() -> Void)? {
+        get { withLock { storedOnError } }
+        set { withLock { storedOnError = newValue } }
+    }
+
+    var onPrepared: (() -> Void)? {
+        get { withLock { storedOnPrepared } }
+        set { withLock { storedOnPrepared = newValue } }
+    }
+
+    var onEndOfFile: (() -> Void)? {
+        get { withLock { storedOnEndOfFile } }
+        set { withLock { storedOnEndOfFile = newValue } }
+    }
+
+    var willOpenCount: Int { withLock { storedWillOpenCount } }
+    var preparedCount: Int { withLock { storedPreparedCount } }
+    var endOfFileCount: Int { withLock { storedEndOfFileCount } }
+    var playbackFinishedCount: Int {
+        withLock { storedPlaybackFinishedCount }
+    }
+    var errors: [NSError] { withLock { storedErrors } }
+    var bufferingValues: [Bool] { withLock { storedBufferingValues } }
+    var bufferedDurations: [TimeInterval] {
+        withLock { storedBufferedDurations }
+    }
+    var progressValues: [TimeInterval] { withLock { storedProgressValues } }
 
     func decoderWillOpenInputStream(_ decoder: IRFFDecoder) {
-        willOpenCount += 1
+        withLock {
+            storedWillOpenCount += 1
+        }
     }
 
     func decoderDidPrepareToDecodeFrames(_ decoder: IRFFDecoder) {
-        preparedCount += 1
-        onPrepared?()
+        let callback = withLock {
+            storedPreparedCount += 1
+            return storedOnPrepared
+        }
+        callback?()
     }
 
     func decoderDidEndOfFile(_ decoder: IRFFDecoder) {
-        endOfFileCount += 1
-        onEndOfFile?()
+        let callback = withLock {
+            storedEndOfFileCount += 1
+            return storedOnEndOfFile
+        }
+        callback?()
     }
 
     func decoderDidPlaybackFinished(_ decoder: IRFFDecoder) {
-        playbackFinishedCount += 1
+        withLock {
+            storedPlaybackFinishedCount += 1
+        }
     }
 
     func decoder(_ decoder: IRFFDecoder, didError error: Error) {
-        errors.append(error as NSError)
-        onError?()
+        let callback = withLock {
+            storedErrors.append(error as NSError)
+            return storedOnError
+        }
+        callback?()
     }
 
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBuffering buffering: Bool) {
-        bufferingValues.append(buffering)
+        withLock {
+            storedBufferingValues.append(buffering)
+        }
     }
 
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfBufferedDuration bufferedDuration: TimeInterval) {
-        bufferedDurations.append(bufferedDuration)
+        withLock {
+            storedBufferedDurations.append(bufferedDuration)
+        }
     }
 
     func decoder(_ decoder: IRFFDecoder, didChangeValueOfProgress progress: TimeInterval) {
-        progressValues.append(progress)
+        withLock {
+            storedProgressValues.append(progress)
+        }
+    }
+
+    private func withLock<Result>(_ body: () -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
     }
 }
 
@@ -737,22 +791,59 @@ private final class DecoderAudioOutputSpy: IRFFDecoderAudioOutput {
 }
 
 private final class DecoderVideoOutputSpy: NSObject, IRFFDecoderVideoOutput {
-    private(set) var receivedFrames: [IRFFVideoFrame] = []
-    var onFirstFrame: (() -> Void)?
+    private let lock = NSLock()
+    private var storedReceivedFrames: [IRFFVideoFrame] = []
+    private var storedOnFirstFrame: (() -> Void)?
+
+    var receivedFrames: [IRFFVideoFrame] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedReceivedFrames
+    }
+
+    var onFirstFrame: (() -> Void)? {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedOnFirstFrame
+        }
+        set {
+            lock.lock()
+            storedOnFirstFrame = newValue
+            lock.unlock()
+        }
+    }
 
     func send(videoFrame frame: IRFFVideoFrame) {
-        receivedFrames.append(frame)
-        if receivedFrames.count == 1 {
-            onFirstFrame?()
-        }
+        lock.lock()
+        storedReceivedFrames.append(frame)
+        let callback =
+            storedReceivedFrames.count == 1
+            ? storedOnFirstFrame
+            : nil
+        lock.unlock()
+        callback?()
     }
 }
 
 private final class DecoderVideoDataSourceSpy: IRFFVideoDecoderDataSource {
     private let shouldHandleResult: Bool
     private let frame: IRFFVideoFrame?
-    private(set) var shouldHandleCallCount = 0
-    private(set) var decodeFrameCallCount = 0
+    private let lock = NSLock()
+    private var storedShouldHandleCallCount = 0
+    private var storedDecodeFrameCallCount = 0
+
+    var shouldHandleCallCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedShouldHandleCallCount
+    }
+
+    var decodeFrameCallCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedDecodeFrameCallCount
+    }
 
     init(shouldHandle: Bool, frame: IRFFVideoFrame?) {
         self.shouldHandleResult = shouldHandle
@@ -760,12 +851,16 @@ private final class DecoderVideoDataSourceSpy: IRFFVideoDecoderDataSource {
     }
 
     func shouldHandle(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> Bool {
-        shouldHandleCallCount += 1
+        lock.lock()
+        storedShouldHandleCallCount += 1
+        lock.unlock()
         return shouldHandleResult
     }
 
     func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
-        decodeFrameCallCount += 1
+        lock.lock()
+        storedDecodeFrameCallCount += 1
+        lock.unlock()
         return frame
     }
 }

@@ -220,12 +220,12 @@ class IRFFVideoDecoder {
         )
     }
 
-    func getFrameSync() -> IRFFVideoFrame? {
-        return frameQueue.getFrameSync() as? IRFFVideoFrame
+    func waitForFrame() -> IRFFVideoFrame? {
+        return frameQueue.waitForFrame() as? IRFFVideoFrame
     }
 
-    func getFrameAsync() -> IRFFVideoFrame? {
-        return frameQueue.getFrameAsync() as? IRFFVideoFrame
+    func dequeueFrame() -> IRFFVideoFrame? {
+        return frameQueue.dequeue() as? IRFFVideoFrame
     }
 
     func putPacket(_ packet: IRFFPacket) {
@@ -251,9 +251,9 @@ class IRFFVideoDecoder {
 
     func destroy() {
         canceled = true
-        frameQueue.destroy()
+        frameQueue.close()
         packetQueue.destroy()
-        framePool.flush()
+        framePool.close()
     }
 
     func decodeFrameThread() {
@@ -321,7 +321,7 @@ class IRFFVideoDecoder {
                 }
                 packet.close()
                 if didBorrow, let decodedFrame {
-                    frameQueue.putSortFrame(decodedFrame)
+                    frameQueue.enqueueSorted(decodedFrame)
                 }
             }
         }
@@ -410,10 +410,11 @@ class IRFFVideoDecoder {
             return nil
         }
 
-        let videoFrame =
-            framePool.getUnuseFrame()
-                as? IRFFAVYUVVideoFrame
-            ?? IRFFAVYUVVideoFrame()
+        guard let videoFrame =
+                framePool.leaseFrame()
+                    as? IRFFAVYUVVideoFrame else {
+            return nil
+        }
         videoFrame.setFrameData(frame, width: Int(codecContext.pointee.width), height: Int(codecContext.pointee.height))
         videoFrame.position = IRFFFrameTime.position(timestamp: frame.pointee.best_effort_timestamp, timebase: timebase)
 
@@ -468,6 +469,6 @@ class IRFFVideoDecoder {
 
 extension IRFFVideoDecoder: IRFFDecoderVideoOutput {
     func send(videoFrame: IRFFVideoFrame) {
-        self.frameQueue.putSortFrame(videoFrame)
+        self.frameQueue.enqueueSorted(videoFrame)
     }
 }

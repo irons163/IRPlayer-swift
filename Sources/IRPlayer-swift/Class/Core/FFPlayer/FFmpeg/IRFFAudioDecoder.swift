@@ -156,16 +156,16 @@ class IRFFAudioDecoder {
     }
 
     func destroy() {
-        frameQueue.destroy()
-        framePool.flush()
+        frameQueue.close()
+        framePool.close()
     }
 
-    func getFrameSync() -> IRFFAudioFrame? {
-        return frameQueue.getFrameSync() as? IRFFAudioFrame
+    func waitForFrame() -> IRFFAudioFrame? {
+        return frameQueue.waitForFrame() as? IRFFAudioFrame
     }
 
-    func getFrameAsync() -> IRFFAudioFrame? {
-        return frameQueue.getFrameAsync() as? IRFFAudioFrame
+    func dequeueFrame() -> IRFFAudioFrame? {
+        return frameQueue.dequeue() as? IRFFAudioFrame
     }
 
     func putPacket(_ packet: IRFFPacket) -> Int {
@@ -225,7 +225,7 @@ class IRFFAudioDecoder {
                 break
             }
             if let receivedFrame {
-                frameQueue.putFrame(receivedFrame)
+                frameQueue.enqueue(receivedFrame)
             }
         }
         return 0
@@ -246,7 +246,7 @@ class IRFFAudioDecoder {
         reloadAudioOutputInfo()
         updateResampler()
         guard let audioFrame =
-                framePool.getUnuseFrame()
+                framePool.leaseFrame()
                     as? IRFFAudioFrame else {
             return nil
         }

@@ -709,7 +709,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 if resources.videoDecoder?.frameEmpty() ?? true {
                     updateBufferedDurationByVideo()
                 }
-                let newFrame = resources.videoDecoder?.getFrameSync()
+                let newFrame = resources.videoDecoder?.waitForFrame()
                 if !Self.shouldAcceptDisplayFrame(
                     currentPosition: displayedFrame?.position,
                     nextPosition: newFrame?.position
@@ -730,7 +730,7 @@ protocol IRFFDecoderDelegate: AnyObject {
                 if resources.videoDecoder?.frameEmpty() ?? true {
                     updateBufferedDurationByVideo()
                 }
-                let newFrame = resources.videoDecoder?.getFrameSync()
+                let newFrame = resources.videoDecoder?.waitForFrame()
                 if !Self.shouldAcceptDisplayFrame(
                     currentPosition: displayedFrame?.position,
                     nextPosition: newFrame?.position
@@ -831,7 +831,7 @@ protocol IRFFDecoderDelegate: AnyObject {
             ) {
                 return nil
             }
-            guard let audioFrame = resources.audioDecoder?.getFrameAsync()
+            guard let audioFrame = resources.audioDecoder?.dequeueFrame()
             else {
                 updateBufferedDurationByAudio()
                 return nil

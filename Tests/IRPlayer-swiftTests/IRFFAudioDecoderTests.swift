@@ -256,9 +256,10 @@ final class IRFFAudioDecoderTests: XCTestCase {
             XCTAssertEqual(decoder.duration(), 0)
 
             decoder.destroy()
+            decoder.destroy()
 
-            XCTAssertNil(decoder.getFrameSync())
-            XCTAssertNil(decoder.getFrameAsync())
+            XCTAssertNil(decoder.waitForFrame())
+            XCTAssertNil(decoder.dequeueFrame())
         }
 
         XCTAssertGreaterThanOrEqual(delegate.samplingRateRequestCount, 1)
@@ -312,7 +313,7 @@ final class IRFFAudioDecoderTests: XCTestCase {
                 .closed
             )
             if !decoder.isEmpty() {
-                decodedFrame = decoder.getFrameAsync()
+                decodedFrame = decoder.dequeueFrame()
             }
         }
 

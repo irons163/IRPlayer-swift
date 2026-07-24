@@ -1,30 +1,74 @@
+import Foundation
 import XCTest
 @testable import IRPlayer_swift
 
 final class IRFFFramePoolTests: XCTestCase {
+    private final class DelegateProbe:
+        NSObject,
+        IRFFFrameDelegate
+    {
+        struct Snapshot {
+            let startCount: Int
+            let stopCount: Int
+            let cancelCount: Int
+        }
 
-    private final class DelegateSpy: NSObject, IRFFFrameDelegate {
-        private(set) var startedFrame: IRFFFrame?
-        private(set) var stoppedFrame: IRFFFrame?
-        private(set) var canceledFrame: IRFFFrame?
+        private let lock = NSLock()
+        private var startCount = 0
+        private var stopCount = 0
+        private var cancelCount = 0
+
+        var snapshot: Snapshot {
+            lock.lock()
+            defer { lock.unlock() }
+            return Snapshot(
+                startCount: startCount,
+                stopCount: stopCount,
+                cancelCount: cancelCount
+            )
+        }
 
         func frameDidStartPlaying(_ frame: IRFFFrame) {
-            startedFrame = frame
+            lock.lock()
+            startCount += 1
+            lock.unlock()
         }
 
         func frameDidStopPlaying(_ frame: IRFFFrame) {
-            stoppedFrame = frame
+            lock.lock()
+            stopCount += 1
+            lock.unlock()
         }
 
         func frameDidCancel(_ frame: IRFFFrame) {
-            canceledFrame = frame
+            lock.lock()
+            cancelCount += 1
+            lock.unlock()
         }
     }
 
-    func testSubtitleAndArtworkFramesReportSpecializedTypes() {
+    private final class FrameBox:
+        @unchecked Sendable
+    {
+        private let lock = NSLock()
+        private var storedFrame: IRFFFrame?
+
+        var frame: IRFFFrame? {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedFrame
+        }
+
+        func store(_ frame: IRFFFrame?) {
+            lock.lock()
+            storedFrame = frame
+            lock.unlock()
+        }
+    }
+
+    func testSpecializedFramesReportTypesAndArtwork() {
         let artwork = IRFFArtworkFrame()
         let picture = Data([1, 2, 3])
-
         artwork.picture = picture
 
         XCTAssertEqual(IRFFSubtitleFrame().type, .subtitle)
@@ -32,141 +76,381 @@ final class IRFFFramePoolTests: XCTestCase {
         XCTAssertEqual(artwork.picture, picture)
     }
 
-    func testFrameCancelClearsPlayingAndNotifiesDelegate() {
+    func testFramePublishesCoherentTransportSnapshot() {
         let frame = IRFFFrame()
-        let delegate = DelegateSpy()
+        frame.position = 1.25
+        frame.duration = 0.5
+        frame.size = 128
+
+        XCTAssertEqual(
+            frame.transportSnapshot(),
+            IRFFFrameTransportSnapshot(
+                position: 1.25,
+                duration: 0.5,
+                size: 128
+            )
+        )
+    }
+
+    func testFrameLifecycleUpdatesBeforeUnlockedDelegateDelivery() {
+        let frame = IRFFFrame()
+        let delegate = DelegateProbe()
         frame.delegate = delegate
 
         frame.startPlaying()
+        XCTAssertTrue(frame.playing)
+        frame.stopPlaying()
+        XCTAssertFalse(frame.playing)
         frame.cancel()
 
-        XCTAssertFalse(frame.playing)
-        XCTAssertTrue(delegate.startedFrame === frame)
-        XCTAssertTrue(delegate.canceledFrame === frame)
-        XCTAssertNil(delegate.stoppedFrame)
+        let snapshot = delegate.snapshot
+        XCTAssertEqual(snapshot.startCount, 1)
+        XCTAssertEqual(snapshot.stopCount, 1)
+        XCTAssertEqual(snapshot.cancelCount, 1)
     }
 
-    func testDefaultPoolsCreateExpectedFrameTypesWithoutModuleNameLookup() {
-        let videoFrame = IRFFFramePool.videoPool().getUnuseFrame()
-        let audioFrame = IRFFFramePool.audioPool().getUnuseFrame()
+    func testDefaultPoolsCreateExpectedFrameTypes() {
+        let videoFrame =
+            IRFFFramePool.videoPool().leaseFrame()
+        let audioFrame =
+            IRFFFramePool.audioPool().leaseFrame()
 
         XCTAssertTrue(videoFrame is IRFFAVYUVVideoFrame)
         XCTAssertTrue(audioFrame is IRFFAudioFrame)
     }
 
-    func testFramePoolReserveCapacityRejectsNegativeValues() {
-        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: 2), 2)
-        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: 0), 0)
-        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: -1), 0)
-    }
+    func testPoolMovesOneOwnedFrameThroughExactBuckets()
+        throws
+    {
+        let pool = makePool(capacity: 2)
+        let frame = try XCTUnwrap(pool.leaseFrame())
 
-    func testFrameCompatibilityRequiresMatchingFrameClass() {
-        XCTAssertFalse(IRFFFramePool.isFrame(nil, compatibleWith: IRFFAudioFrame.self))
-        XCTAssertTrue(IRFFFramePool.isFrame(IRFFAudioFrame(), compatibleWith: IRFFAudioFrame.self))
-        XCTAssertFalse(IRFFFramePool.isFrame(IRFFAVYUVVideoFrame(), compatibleWith: IRFFAudioFrame.self))
-    }
-
-    func testStaticPolicyWrappersRemainSourceCompatible() {
-        let audioFrame = IRFFAudioFrame()
-        let videoFrame = IRFFAVYUVVideoFrame()
-
-        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: 4), IRFFFramePoolPolicy.reserveCapacity(from: 4))
-        XCTAssertEqual(IRFFFramePool.reserveCapacity(from: -4), IRFFFramePoolPolicy.reserveCapacity(from: -4))
         XCTAssertEqual(
-            IRFFFramePool.isFrame(audioFrame, compatibleWith: IRFFAudioFrame.self),
-            IRFFFramePoolPolicy.isFrame(audioFrame, compatibleWith: IRFFAudioFrame.self)
+            pool.diagnostics,
+            .init(
+                phase: .open,
+                availableCount: 0,
+                leasedCount: 1,
+                hasPlayingFrame: false,
+                totalCount: 1,
+                revision: 1
+            )
         )
-        XCTAssertEqual(
-            IRFFFramePool.isFrame(videoFrame, compatibleWith: IRFFAudioFrame.self),
-            IRFFFramePoolPolicy.isFrame(videoFrame, compatibleWith: IRFFAudioFrame.self)
-        )
-        XCTAssertEqual(
-            IRFFFramePool.isFrame(nil, compatibleWith: IRFFAudioFrame.self),
-            IRFFFramePoolPolicy.isFrame(nil, compatibleWith: IRFFAudioFrame.self)
-        )
-    }
-
-    func testFramePoolMovesFramesThroughUsedPlayingAndUnuseBuckets() throws {
-        let pool = IRFFFramePool.pool(withCapacity: 2, frameClassName: IRFFFrame.self)
-        let frame = try XCTUnwrap(pool.getUnuseFrame())
-
-        XCTAssertEqual(pool.usedCount, 1)
-        XCTAssertEqual(pool.unuseCount, 0)
 
         frame.startPlaying()
-        XCTAssertEqual(pool.usedCount, 0)
-        XCTAssertEqual(pool.unuseCount, 0)
-        XCTAssertTrue(pool.playingFrame === frame)
+        var diagnostics = pool.diagnostics
+        XCTAssertEqual(diagnostics.availableCount, 0)
+        XCTAssertEqual(diagnostics.leasedCount, 0)
+        XCTAssertTrue(diagnostics.hasPlayingFrame)
+        XCTAssertEqual(diagnostics.totalCount, 1)
 
         frame.stopPlaying()
-        XCTAssertNil(pool.playingFrame)
-        XCTAssertEqual(pool.usedCount, 0)
-        XCTAssertEqual(pool.unuseCount, 1)
-    }
-
-    func testFlushReturnsUsedAndPlayingFramesToUnuseBucket() throws {
-        let pool = IRFFFramePool.pool(withCapacity: 2, frameClassName: IRFFFrame.self)
-        let usedFrame = try XCTUnwrap(pool.getUnuseFrame())
-        let playingFrame = try XCTUnwrap(pool.getUnuseFrame())
-
-        playingFrame.startPlaying()
-        pool.flush()
-
-        XCTAssertNil(pool.playingFrame)
-        XCTAssertFalse(playingFrame.playing)
-        XCTAssertEqual(pool.usedCount, 0)
-        XCTAssertEqual(pool.unuseCount, 2)
-        XCTAssertEqual(pool.count, 2)
-        XCTAssertTrue(pool.unuseFrames.contains(usedFrame))
-        XCTAssertTrue(pool.unuseFrames.contains(playingFrame))
-    }
-
-    func testSetFrameUnuseClearsMatchingPlayingFrame() throws {
-        let pool = IRFFFramePool.pool(withCapacity: 1, frameClassName: IRFFFrame.self)
-        let frame = try XCTUnwrap(pool.getUnuseFrame())
-
-        frame.startPlaying()
-        pool.setFrameUnuse(frame)
-
-        XCTAssertNil(pool.playingFrame)
+        diagnostics = pool.diagnostics
+        XCTAssertEqual(diagnostics.availableCount, 1)
+        XCTAssertEqual(diagnostics.leasedCount, 0)
+        XCTAssertFalse(diagnostics.hasPlayingFrame)
+        XCTAssertEqual(diagnostics.totalCount, 1)
         XCTAssertFalse(frame.playing)
-        XCTAssertEqual(pool.usedCount, 0)
-        XCTAssertEqual(pool.unuseCount, 1)
     }
 
-    func testSetFramesUnuseClearsMatchingPlayingFrame() throws {
-        let pool = IRFFFramePool.pool(withCapacity: 2, frameClassName: IRFFFrame.self)
-        let usedFrame = try XCTUnwrap(pool.getUnuseFrame())
-        let playingFrame = try XCTUnwrap(pool.getUnuseFrame())
+    func testFlushReturnsLeasedAndPlayingFramesForReuse()
+        throws
+    {
+        let pool = makePool(capacity: 2)
+        let leased = try XCTUnwrap(pool.leaseFrame())
+        let playing = try XCTUnwrap(pool.leaseFrame())
+        playing.startPlaying()
 
-        playingFrame.startPlaying()
-        pool.setFramesUnuse([usedFrame, playingFrame])
+        XCTAssertEqual(pool.flush(), 2)
+        XCTAssertEqual(pool.flush(), 0)
 
-        XCTAssertNil(pool.playingFrame)
-        XCTAssertEqual(pool.usedCount, 0)
-        XCTAssertEqual(pool.unuseCount, 2)
-        XCTAssertTrue(pool.unuseFrames.contains(usedFrame))
-        XCTAssertTrue(pool.unuseFrames.contains(playingFrame))
+        let diagnostics = pool.diagnostics
+        XCTAssertEqual(diagnostics.availableCount, 2)
+        XCTAssertEqual(diagnostics.leasedCount, 0)
+        XCTAssertFalse(diagnostics.hasPlayingFrame)
+        XCTAssertEqual(diagnostics.totalCount, 2)
+        XCTAssertFalse(playing.playing)
+
+        let firstReuse = try XCTUnwrap(pool.leaseFrame())
+        let secondReuse = try XCTUnwrap(pool.leaseFrame())
+        XCTAssertEqual(
+            Set([
+                ObjectIdentifier(firstReuse),
+                ObjectIdentifier(secondReuse)
+            ]),
+            Set([
+                ObjectIdentifier(leased),
+                ObjectIdentifier(playing)
+            ])
+        )
     }
 
-    func testCancelReturnsFrameForReuseAndStartingNewFrameReleasesPreviousPlayingFrame() throws {
-        let pool = IRFFFramePool.pool(withCapacity: 2, frameClassName: IRFFFrame.self)
-        let firstFrame = try XCTUnwrap(pool.getUnuseFrame())
+    func testCancelReturnsFrameAndNewPlayingFrameReleasesPrevious()
+        throws
+    {
+        let pool = makePool(capacity: 2)
+        let first = try XCTUnwrap(pool.leaseFrame())
+        first.position = 1
+        first.duration = 0.5
+        first.size = 128
+        first.cancel()
 
-        firstFrame.cancel()
-        XCTAssertEqual(pool.unuseCount, 1)
-        XCTAssertEqual(pool.usedCount, 0)
+        let reused = try XCTUnwrap(pool.leaseFrame())
+        XCTAssertTrue(reused === first)
+        XCTAssertEqual(
+            reused.transportSnapshot(),
+            .init(position: 0, duration: 0, size: 0)
+        )
+        reused.startPlaying()
 
-        let reusedFrame = try XCTUnwrap(pool.getUnuseFrame())
-        XCTAssertTrue(reusedFrame === firstFrame)
-        reusedFrame.startPlaying()
+        let second = try XCTUnwrap(pool.leaseFrame())
+        second.startPlaying()
 
-        let secondFrame = try XCTUnwrap(pool.getUnuseFrame())
-        secondFrame.startPlaying()
+        let diagnostics = pool.diagnostics
+        XCTAssertEqual(diagnostics.availableCount, 1)
+        XCTAssertEqual(diagnostics.leasedCount, 0)
+        XCTAssertTrue(diagnostics.hasPlayingFrame)
+        XCTAssertFalse(reused.playing)
 
-        XCTAssertTrue(pool.playingFrame === secondFrame)
-        XCTAssertTrue(pool.unuseFrames.contains(reusedFrame))
-        XCTAssertFalse(reusedFrame.playing)
-        XCTAssertEqual(pool.usedCount, 0)
+        second.stopPlaying()
+        let afterStop = pool.diagnostics
+        XCTAssertEqual(afterStop.availableCount, 2)
+        XCTAssertFalse(afterStop.hasPlayingFrame)
+    }
+
+    func testPoolRejectsIncompatibleFactoryResult() {
+        let pool = IRFFFramePool(
+            capacity: 1,
+            frameClassName: IRFFAudioFrame.self
+        ) {
+            IRFFAVYUVVideoFrame()
+        }
+
+        XCTAssertNil(pool.leaseFrame())
+        XCTAssertEqual(pool.diagnostics.totalCount, 0)
+    }
+
+    func testPoolRejectsDuplicateFactoryIdentity() throws {
+        let factoryFrame = IRFFFrame()
+        let pool = IRFFFramePool(
+            capacity: 1,
+            frameClassName: IRFFFrame.self
+        ) {
+            factoryFrame
+        }
+
+        XCTAssertTrue(
+            try XCTUnwrap(pool.leaseFrame())
+                === factoryFrame
+        )
+        XCTAssertNil(pool.leaseFrame())
+        XCTAssertEqual(pool.diagnostics.leasedCount, 1)
+        XCTAssertEqual(pool.diagnostics.totalCount, 1)
+    }
+
+    func testCloseWhileFactoryIsInFlightRejectsPublication() {
+        let factoryStarted = expectation(
+            description: "factory started"
+        )
+        let leaseFinished = expectation(
+            description: "lease finished"
+        )
+        let allowFactoryToFinish =
+            DispatchSemaphore(value: 0)
+        let createdFrame = IRFFFrame()
+        let result = FrameBox()
+        let pool = IRFFFramePool(
+            capacity: 1,
+            frameClassName: IRFFFrame.self
+        ) {
+            factoryStarted.fulfill()
+            allowFactoryToFinish.wait()
+            return createdFrame
+        }
+
+        DispatchQueue.global(qos: .default).async {
+            result.store(pool.leaseFrame())
+            leaseFinished.fulfill()
+        }
+
+        wait(for: [factoryStarted], timeout: 1)
+        XCTAssertTrue(pool.close())
+        allowFactoryToFinish.signal()
+        wait(for: [leaseFinished], timeout: 1)
+
+        XCTAssertNil(result.frame)
+        XCTAssertNil(createdFrame.delegate)
+        XCTAssertEqual(pool.diagnostics.phase, .closed)
+        XCTAssertEqual(pool.diagnostics.totalCount, 0)
+    }
+
+    func testForeignAndAlreadyAvailableFramesCannotChangeBuckets()
+        throws
+    {
+        let pool = makePool(capacity: 1)
+        let owned = try XCTUnwrap(pool.leaseFrame())
+        let foreign = IRFFFrame()
+        foreign.delegate = pool
+
+        foreign.startPlaying()
+        foreign.stopPlaying()
+        foreign.cancel()
+        XCTAssertEqual(pool.diagnostics.leasedCount, 1)
+
+        owned.cancel()
+        let revision = pool.diagnostics.revision
+        owned.cancel()
+        owned.startPlaying()
+
+        let diagnostics = pool.diagnostics
+        XCTAssertEqual(diagnostics.availableCount, 1)
+        XCTAssertEqual(diagnostics.totalCount, 1)
+        XCTAssertEqual(diagnostics.revision, revision)
+        XCTAssertFalse(owned.playing)
+    }
+
+    func testCloseIsTerminalRepeatableAndDetachesFrames()
+        throws
+    {
+        let pool = makePool(capacity: 2)
+        let leased = try XCTUnwrap(pool.leaseFrame())
+        let playing = try XCTUnwrap(pool.leaseFrame())
+        playing.startPlaying()
+
+        XCTAssertTrue(pool.close())
+        XCTAssertFalse(pool.close())
+        XCTAssertNil(pool.leaseFrame())
+        leased.cancel()
+        playing.stopPlaying()
+
+        let diagnostics = pool.diagnostics
+        XCTAssertEqual(diagnostics.phase, .closed)
+        XCTAssertEqual(diagnostics.availableCount, 0)
+        XCTAssertEqual(diagnostics.leasedCount, 0)
+        XCTAssertFalse(diagnostics.hasPlayingFrame)
+        XCTAssertEqual(diagnostics.totalCount, 0)
+        XCTAssertNil(leased.delegate)
+        XCTAssertNil(playing.delegate)
+    }
+
+    func testCloseReleasesPoolOwnedFrames() {
+        let pool = makePool(capacity: 1)
+        weak var weakFrame: IRFFFrame?
+
+        autoreleasepool {
+            var frame = pool.leaseFrame()
+            weakFrame = frame
+            frame = nil
+        }
+        XCTAssertNotNil(weakFrame)
+
+        pool.close()
+        XCTAssertNil(weakFrame)
+    }
+
+    func testConcurrentLifecycleAndDiagnosticsRemainCoherent() {
+        let pool = makePool(capacity: 32)
+        let group = DispatchGroup()
+        let queue = DispatchQueue(
+            label: "IRFFFramePoolTests.concurrent",
+            attributes: .concurrent
+        )
+        let resultLock = NSLock()
+        var observedInvalidSnapshot = false
+
+        for worker in 0..<6 {
+            group.enter()
+            queue.async {
+                for iteration in 0..<300 {
+                    if let frame = pool.leaseFrame() {
+                        if (worker + iteration).isMultiple(of: 2) {
+                            frame.startPlaying()
+                            frame.stopPlaying()
+                        } else {
+                            frame.cancel()
+                        }
+                    }
+
+                    let diagnostics = pool.diagnostics
+                    let partitionCount =
+                        diagnostics.availableCount
+                        + diagnostics.leasedCount
+                        + (diagnostics.hasPlayingFrame ? 1 : 0)
+                    if diagnostics.phase != .open
+                        || partitionCount
+                            != diagnostics.totalCount {
+                        resultLock.lock()
+                        observedInvalidSnapshot = true
+                        resultLock.unlock()
+                    }
+                }
+                group.leave()
+            }
+        }
+
+        XCTAssertEqual(
+            group.wait(timeout: .now() + 5),
+            .success
+        )
+        pool.flush()
+        resultLock.lock()
+        XCTAssertFalse(observedInvalidSnapshot)
+        resultLock.unlock()
+
+        let diagnostics = pool.diagnostics
+        XCTAssertEqual(
+            diagnostics.availableCount,
+            diagnostics.totalCount
+        )
+        XCTAssertEqual(diagnostics.leasedCount, 0)
+        XCTAssertFalse(diagnostics.hasPlayingFrame)
+    }
+
+    func testConcurrentFrameTransportAndLifecycleAccessIsRaceFree() {
+        let frame = IRFFFrame()
+        let delegate = DelegateProbe()
+        frame.delegate = delegate
+        let group = DispatchGroup()
+        let queue = DispatchQueue(
+            label: "IRFFFrameTests.concurrent",
+            attributes: .concurrent
+        )
+
+        for worker in 0..<4 {
+            group.enter()
+            queue.async {
+                for iteration in 0..<500 {
+                    frame.position =
+                        TimeInterval(worker * 500 + iteration)
+                    frame.duration = 0.001
+                    frame.size = iteration
+                    _ = frame.transportSnapshot()
+                    if iteration.isMultiple(of: 3) {
+                        frame.startPlaying()
+                    } else if iteration.isMultiple(of: 2) {
+                        frame.stopPlaying()
+                    } else {
+                        frame.cancel()
+                    }
+                }
+                group.leave()
+            }
+        }
+
+        XCTAssertEqual(
+            group.wait(timeout: .now() + 5),
+            .success
+        )
+        XCTAssertTrue(frame.duration.isFinite)
+        XCTAssertGreaterThanOrEqual(frame.size, 0)
+    }
+
+    private func makePool(
+        capacity: Int
+    ) -> IRFFFramePool {
+        IRFFFramePool(
+            capacity: capacity,
+            frameClassName: IRFFFrame.self
+        )
     }
 }

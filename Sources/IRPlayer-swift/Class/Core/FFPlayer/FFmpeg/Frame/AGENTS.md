@@ -6,15 +6,15 @@ Frame data models and queue management for the FFmpeg decode pipeline.
 
 | File                          | Purpose                                             |
 |-------------------------------|-----------------------------------------------------|
-| `IRFFFrame.swift`             | Base frame protocol/class                           |
+| `IRFFFrame.swift`             | Synchronized lifecycle and transport metadata value |
 | `IRFFVideoFrame.swift`        | Base video frame                                    |
 | `IRFFAVYUVVideoFrame.swift`   | Software-decoded YUV frame generation owner         |
 | `IRFFYUVPlaneStorage.swift`   | Managed I420 layouts, storage, and COW snapshots    |
 | `IRFFCVYUVVideoFrame.swift`   | Hardware-decoded YUV video frame (CVPixelBuffer)    |
 | `IRVideoFrameRGB.swift`       | RGB video frame                                     |
 | `IRFFAudioFrame.swift`        | Decoded audio frame                                 |
-| `IRFFFramePool.swift`         | Object pool for frame reuse to reduce allocations   |
-| `IRFFFrameQueue.swift`        | Thread-safe queue for decoded frames                |
+| `IRFFFramePool.swift`         | Explicit frame lease/reuse/close owner               |
+| `IRFFFrameQueue.swift`        | Immutable-entry decoded-frame transfer owner         |
 | `IRFFPacket.swift`            | Single-owner FFmpeg packet lifecycle                |
 | `IRFFPacketQueue.swift`       | Thread-safe queue for undecoded packets             |
 
@@ -32,14 +32,28 @@ Frame data models and queue management for the FFmpeg decode pipeline.
 - Flush revokes active data but retains reusable managed capacity. Existing
   snapshots remain immutable through Swift copy-on-write.
 - `IRFFCVYUVVideoFrame` is used with VideoToolBox hardware decoding (CVPixelBuffer).
-- `IRFFFramePool` reduces allocation churn by reusing frame objects.
+- `IRFFFrame` synchronizes delegate, playing state, position, duration, and
+  size. Queue admission must use its coherent transport snapshot.
+- `IRFFFramePool` reduces allocation churn with one exact partition of owned
+  available, leased, and playing identities. Only `leaseFrame()` creates or
+  transfers a lease. Keep factory validation, reusable flush, and terminal
+  close semantics intact.
+- Pool diagnostics are the only supported way to inspect buckets; do not
+  expose mutable sets or unlocked count fields.
 - Every ready `AVPacket` reference must be owned by one `IRFFPacket`. Borrow
   raw packet state only through its scoped operation and close it exactly once.
 - The video packet queue transfers `IRFFPacket` owners across threads. Keep
   packet, flush, and closed as typed items; never encode control state in
   `AVPacket.data` or `stream_index`.
-- `IRFFFrameQueue` and `IRFFPacketQueue` are producer-consumer queues —
-  threading is critical.
+- `IRFFFrameQueue` captures immutable position/duration/size entries when
+  ownership transfers. Never recalculate accounting from a mutable frame.
+- Synchronous frame dequeue waits on the condition and close broadcasts to all
+  waiters. Flush and close cancel drained frames outside the queue lock so
+  pooled ownership returns without callback reentrancy.
+- Duplicate queue identity is rejected without cancellation because the queue
+  already owns that frame. Overflow and post-close offers are cancelled.
+- `IRFFFrameQueue` and `IRFFPacketQueue` are producer-consumer owners —
+  threading, wakeup, and terminal lifecycle behavior are critical.
 - `IRFFAudioFrame` owns decoded PCM in managed contiguous storage. Keep
   mutation inside `withMutableSamples`, reads inside snapshots or checked
   copies, and never restore a stored or escaping sample pointer.

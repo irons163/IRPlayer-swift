@@ -7,163 +7,323 @@
 
 import Foundation
 
-class IRFFFrameQueue: NSObject {
-    static let maxVideoDuration: TimeInterval = 1.0
+final class IRFFFrameQueue:
+    @unchecked Sendable
+{
+    enum Phase:
+        Equatable,
+        Hashable,
+        Sendable
+    {
+        case open
+        case closed
+    }
 
-    private var frames: [IRFFFrame] = []
+    enum Admission:
+        Equatable,
+        Hashable,
+        Sendable
+    {
+        case accepted
+        case rejectedNil
+        case rejectedDuplicate
+        case rejectedAccountingOverflow
+        case rejectedClosed
+    }
+
+    struct Diagnostics:
+        Equatable,
+        Hashable,
+        Sendable
+    {
+        let phase: Phase
+        let count: Int
+        let duration: TimeInterval
+        let size: Int
+        let revision: UInt64
+    }
+
+    private struct Entry {
+        let identifier: ObjectIdentifier
+        let frame: IRFFFrame
+        let position: TimeInterval
+        let duration: TimeInterval
+        let size: Int
+        let insertionSequence: UInt64
+    }
+
+    private enum Ordering {
+        case fifo
+        case position
+    }
+
     private let condition = NSCondition()
-    private var storedSize: Int = 0
+    private var phase: Phase = .open
+    private var entries: [Entry] = []
+    private var enqueuedIDs:
+        Set<ObjectIdentifier> = []
+    private var storedSize = 0
     private var storedDuration: TimeInterval = 0
-    private var destroyToken = false
+    private var nextInsertionSequence: UInt64 = 0
+    private var revision: UInt64 = 0
 
-    var size: Int {
+    var diagnostics: Diagnostics {
         condition.lock()
         defer { condition.unlock() }
-        return storedSize
+        return diagnosticsLocked()
+    }
+
+    var size: Int {
+        diagnostics.size
     }
 
     var count: Int {
+        diagnostics.count
+    }
+
+    var duration: TimeInterval {
+        diagnostics.duration
+    }
+
+    @discardableResult
+    func enqueue(
+        _ frame: IRFFFrame?
+    ) -> Admission {
+        admit(frame, ordering: .fifo)
+    }
+
+    @discardableResult
+    func enqueueSorted(
+        _ frame: IRFFFrame?
+    ) -> Admission {
+        admit(frame, ordering: .position)
+    }
+
+    func waitForFrame() -> IRFFFrame? {
         condition.lock()
-        defer { condition.unlock() }
-        return frames.count
-    }
-
-    @objc dynamic var duration: TimeInterval {
-        condition.lock()
-        defer { condition.unlock() }
-        return storedDuration
-    }
-
-    static func frameQueue() -> IRFFFrameQueue {
-        return IRFFFrameQueue()
-    }
-
-    static func sleepTimeIntervalForFull() -> TimeInterval {
-        return IRFFFrameQueuePolicy.sleepTimeIntervalForFull(maxVideoDuration: maxVideoDuration)
-    }
-
-    static func sleepTimeIntervalForFullAndPaused() -> TimeInterval {
-        return IRFFFrameQueuePolicy.sleepTimeIntervalForFullAndPaused(maxVideoDuration: maxVideoDuration)
-    }
-
-    static func accountedDuration(for frame: IRFFFrame) -> TimeInterval {
-        return IRFFFrameQueuePolicy.accountedDuration(for: frame)
-    }
-
-    static func accountedSize(for frame: IRFFFrame) -> Int {
-        return IRFFFrameQueuePolicy.accountedSize(for: frame)
-    }
-
-    static func shouldInsert(_ frame: IRFFFrame, after existingFrame: IRFFFrame) -> Bool {
-        return IRFFFrameQueuePolicy.shouldInsert(frame, after: existingFrame)
-    }
-
-    func putFrame(_ frame: IRFFFrame?) {
-        guard let frame = frame else { return }
-        condition.lock()
-        if destroyToken {
-            condition.unlock()
-            return
+        while phase == .open,
+              entries.isEmpty {
+            condition.wait()
         }
-        frames.append(frame)
-        storedDuration += Self.accountedDuration(for: frame)
-        storedSize += Self.accountedSize(for: frame)
-        condition.signal()
-        condition.unlock()
-    }
-
-    func putSortFrame(_ frame: IRFFFrame?) {
-        guard let frame = frame else { return }
-        condition.lock()
-        if destroyToken {
-            condition.unlock()
-            return
-        }
-        var added = false
-        if !frames.isEmpty {
-            for i in stride(from: frames.count - 1, through: 0, by: -1) {
-                if Self.shouldInsert(frame, after: frames[i]) {
-                    frames.insert(frame, at: i + 1)
-                    added = true
-                    break
-                }
-            }
-        }
-        if !added {
-            frames.insert(frame, at: 0)
-        }
-        storedDuration += Self.accountedDuration(for: frame)
-        storedSize += Self.accountedSize(for: frame)
-        condition.signal()
-        condition.unlock()
-    }
-
-    func getFrameSync() -> IRFFFrame? {
-        // Poll instead of blocking on condition.wait() to avoid a priority inversion
-        // warning from the Thread Performance Checker. NSCondition.wait() is an
-        // indefinite block — the checker fires whenever a high-QoS thread waits on a
-        // condition that a lower-QoS thread must signal, regardless of the queue's QoS
-        // setting. A 5 ms sleep is imperceptible at 30/60 fps.
-        while true {
-            condition.lock()
-            if destroyToken {
-                condition.unlock()
-                return nil
-            }
-            if !frames.isEmpty {
-                let frame = frames.removeFirst()
-                storedDuration -= Self.accountedDuration(for: frame)
-                if storedDuration < 0 || frames.isEmpty {
-                    storedDuration = 0
-                }
-                storedSize -= Self.accountedSize(for: frame)
-                if storedSize <= 0 || frames.isEmpty {
-                    storedSize = 0
-                }
-                condition.unlock()
-                return frame
-            }
-            condition.unlock()
-            Thread.sleep(forTimeInterval: 0.005)
-        }
-    }
-
-    func getFrameAsync() -> IRFFFrame? {
-        condition.lock()
-        guard !destroyToken, !frames.isEmpty else {
+        guard phase == .open else {
             condition.unlock()
             return nil
         }
-        let frame = frames.removeFirst()
-        storedDuration -= Self.accountedDuration(for: frame)
-        if storedDuration < 0 || frames.isEmpty {
-            storedDuration = 0
-        }
-        storedSize -= Self.accountedSize(for: frame)
-        if storedSize <= 0 || frames.isEmpty {
-            storedSize = 0
-        }
+        let frame = removeFirstLocked()
         condition.unlock()
         return frame
     }
 
-    func flush() {
+    func dequeue() -> IRFFFrame? {
         condition.lock()
-        flushLocked()
+        guard phase == .open,
+              !entries.isEmpty else {
+            condition.unlock()
+            return nil
+        }
+        let frame = removeFirstLocked()
         condition.unlock()
+        return frame
     }
 
-    func destroy() {
+    @discardableResult
+    func flush() -> Int {
         condition.lock()
-        flushLocked()
-        destroyToken = true
+        guard phase == .open else {
+            condition.unlock()
+            return 0
+        }
+        let drainedFrames = drainLocked()
+        guard !drainedFrames.isEmpty else {
+            condition.unlock()
+            return 0
+        }
+        advanceRevisionLocked()
+        condition.unlock()
+
+        cancel(drainedFrames)
+        return drainedFrames.count
+    }
+
+    @discardableResult
+    func close() -> Bool {
+        condition.lock()
+        guard phase == .open else {
+            condition.unlock()
+            return false
+        }
+        phase = .closed
+        let drainedFrames = drainLocked()
+        advanceRevisionLocked()
         condition.broadcast()
         condition.unlock()
+
+        cancel(drainedFrames)
+        return true
     }
 
-    private func flushLocked() {
-        frames.removeAll()
+    deinit {
+        close()
+    }
+
+    private func admit(
+        _ frame: IRFFFrame?,
+        ordering: Ordering
+    ) -> Admission {
+        guard let frame else {
+            return .rejectedNil
+        }
+
+        let transport = frame.transportSnapshot()
+        let duration =
+            Self.accountedDuration(
+                transport.duration
+            )
+        let size = max(0, transport.size)
+        let identifier = ObjectIdentifier(frame)
+        var shouldCancel = false
+        let result: Admission
+
+        condition.lock()
+        if phase == .closed {
+            shouldCancel = true
+            result = .rejectedClosed
+        } else if enqueuedIDs.contains(identifier) {
+            result = .rejectedDuplicate
+        } else {
+            let (newSize, sizeOverflow) =
+                storedSize.addingReportingOverflow(size)
+            let newDuration = storedDuration + duration
+            let durationLost =
+                duration > 0
+                && newDuration <= storedDuration
+            guard !sizeOverflow,
+                  newSize >= storedSize,
+                  newDuration.isFinite,
+                  !durationLost else {
+                condition.unlock()
+                frame.cancel()
+                return .rejectedAccountingOverflow
+            }
+
+            let entry = Entry(
+                identifier: identifier,
+                frame: frame,
+                position: transport.position,
+                duration: duration,
+                size: size,
+                insertionSequence:
+                    nextInsertionSequence
+            )
+            nextInsertionSequence &+= 1
+            switch ordering {
+            case .fifo:
+                entries.append(entry)
+            case .position:
+                let index =
+                    insertionIndexLocked(for: entry)
+                entries.insert(entry, at: index)
+            }
+            enqueuedIDs.insert(identifier)
+            storedSize = newSize
+            storedDuration = newDuration
+            advanceRevisionLocked()
+            condition.signal()
+            result = .accepted
+        }
+        condition.unlock()
+
+        if shouldCancel {
+            frame.cancel()
+        }
+        return result
+    }
+
+    private static func accountedDuration(
+        _ duration: TimeInterval
+    ) -> TimeInterval {
+        guard duration.isFinite,
+              duration > 0 else {
+            return 0
+        }
+        return duration
+    }
+
+    private func insertionIndexLocked(
+        for entry: Entry
+    ) -> Int {
+        guard !entries.isEmpty else { return 0 }
+        for index in entries.indices.reversed() {
+            if shouldInsert(
+                entry,
+                after: entries[index]
+            ) {
+                return index + 1
+            }
+        }
+        return 0
+    }
+
+    private func shouldInsert(
+        _ entry: Entry,
+        after existing: Entry
+    ) -> Bool {
+        if entry.position.isFinite,
+           existing.position.isFinite {
+            if entry.position == existing.position {
+                return entry.insertionSequence
+                    > existing.insertionSequence
+            }
+            return entry.position > existing.position
+        }
+        if !entry.position.isFinite {
+            return true
+        }
+        return false
+    }
+
+    private func removeFirstLocked() -> IRFFFrame {
+        let entry = entries.removeFirst()
+        enqueuedIDs.remove(entry.identifier)
+        storedDuration =
+            max(0, storedDuration - entry.duration)
+        storedSize = max(0, storedSize - entry.size)
+        if entries.isEmpty {
+            storedDuration = 0
+            storedSize = 0
+        }
+        advanceRevisionLocked()
+        return entry.frame
+    }
+
+    private func drainLocked() -> [IRFFFrame] {
+        let frames = entries.map(\.frame)
+        entries.removeAll(keepingCapacity: true)
+        enqueuedIDs.removeAll(keepingCapacity: true)
         storedDuration = 0
         storedSize = 0
+        return frames
+    }
+
+    private func cancel(
+        _ frames: [IRFFFrame]
+    ) {
+        for frame in frames {
+            frame.cancel()
+        }
+    }
+
+    private func diagnosticsLocked() -> Diagnostics {
+        Diagnostics(
+            phase: phase,
+            count: entries.count,
+            duration: storedDuration,
+            size: storedSize,
+            revision: revision
+        )
+    }
+
+    private func advanceRevisionLocked() {
+        revision &+= 1
     }
 }

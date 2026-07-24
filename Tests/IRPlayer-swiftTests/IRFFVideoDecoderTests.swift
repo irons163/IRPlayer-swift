@@ -229,14 +229,14 @@ final class IRFFVideoDecoderTests: XCTestCase {
             XCTAssertEqual(decoder.duration(), 0)
             XCTAssertEqual(decoder.packetDuration(), 0)
             XCTAssertEqual(decoder.frameDuration(), 0)
-            XCTAssertNil(decoder.getFrameAsync())
+            XCTAssertNil(decoder.dequeueFrame())
 
             decoder.send(videoFrame: frame)
 
             XCTAssertFalse(decoder.empty())
             XCTAssertFalse(decoder.frameEmpty())
             XCTAssertEqual(decoder.frameDuration(), 0.5)
-            XCTAssertTrue(decoder.getFrameAsync() === frame)
+            XCTAssertTrue(decoder.dequeueFrame() === frame)
             XCTAssertTrue(decoder.frameEmpty())
 
             var rawPacket = AVPacket()
@@ -266,8 +266,8 @@ final class IRFFVideoDecoderTests: XCTestCase {
 
             XCTAssertTrue(decoder.packetEmpty())
             XCTAssertTrue(decoder.frameEmpty())
-            XCTAssertNil(decoder.getFrameAsync())
-            XCTAssertNil(decoder.getFrameSync())
+            XCTAssertNil(decoder.dequeueFrame())
+            XCTAssertNil(decoder.waitForFrame())
         }
     }
 
@@ -292,6 +292,33 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertEqual(delegate.bufferingCheckCallCount, 1)
         XCTAssertEqual(delegate.bufferedDurationUpdateCallCount, 0)
         XCTAssertTrue(delegate.errors.isEmpty)
+    }
+
+    func testDestroyRejectsAndCancelsLateExternalFrame() {
+        var codecContext = AVCodecContext()
+        let frame = IRFFVideoFrame()
+        let probe = VideoFrameLifecycleProbe()
+        frame.delegate = probe
+
+        withUnsafeMutablePointer(
+            to: &codecContext
+        ) { codecContextPointer in
+            let decoder = IRFFVideoDecoder(
+                codecContext: codecContextPointer,
+                timebase: 0.25,
+                fps: 30,
+                delegate: nil
+            )
+
+            decoder.destroy()
+            decoder.destroy()
+            decoder.send(videoFrame: frame)
+
+            XCTAssertTrue(decoder.frameEmpty())
+            XCTAssertNil(decoder.dequeueFrame())
+        }
+
+        XCTAssertEqual(probe.cancelCount, 1)
     }
 
     func testDecodeFrameThreadUsesSourceFrameBeforeFinishingAtEndOfFile() {
@@ -331,7 +358,7 @@ final class IRFFVideoDecoderTests: XCTestCase {
             }
 
             XCTAssertFalse(decoder.decoding)
-            XCTAssertTrue(decoder.getFrameAsync() === sourceFrame)
+            XCTAssertTrue(decoder.dequeueFrame() === sourceFrame)
             XCTAssertTrue(decoder.frameEmpty())
         }
 
@@ -448,5 +475,19 @@ private final class VideoDecoderDataSourceSpy: IRFFVideoDecoderDataSource {
     func videoDecoder(_ videoDecoder: IRFFVideoDecoderInfo, decodeFrame packet: AVPacket) -> IRFFVideoFrame? {
         decodeFrameCallCount += 1
         return frame
+    }
+}
+
+private final class VideoFrameLifecycleProbe:
+    NSObject,
+    IRFFFrameDelegate
+{
+    private(set) var cancelCount = 0
+
+    func frameDidStartPlaying(_ frame: IRFFFrame) {}
+    func frameDidStopPlaying(_ frame: IRFFFrame) {}
+
+    func frameDidCancel(_ frame: IRFFFrame) {
+        cancelCount += 1
     }
 }
