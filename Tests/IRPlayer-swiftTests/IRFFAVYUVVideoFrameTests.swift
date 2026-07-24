@@ -551,34 +551,65 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertEqual(IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2), 24)
     }
 
-    func testYUVToolsWrappersRemainSourceCompatible() {
+    func testYUVToolsExposeCheckedSemantics() {
         XCTAssertEqual(
-            IRYUVChannelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2),
-            IRYUVToolsPolicy.channelFilterNeedSizeChecked(linesize: 4, width: 8, height: 3, channelCount: 2)
+            IRYUVChannelFilterNeedSizeChecked(
+                linesize: 4,
+                width: 8,
+                height: 3,
+                channelCount: 2
+            ),
+            24
         )
         XCTAssertEqual(
-            IRYUVChannelFilterNeedSize(linesize: 4, width: 8, height: 3, channelCount: 2),
-            IRYUVToolsPolicy.channelFilterNeedSize(linesize: 4, width: 8, height: 3, channelCount: 2)
+            IRYUVChannelFilterNeedSize(
+                linesize: 4,
+                width: 8,
+                height: 3,
+                channelCount: 2
+            ),
+            24
         )
-        XCTAssertEqual(IRYUVToolsPolicy.channelFilterNeedSize(linesize: 0, width: 8, height: 3, channelCount: 2), 0)
         XCTAssertEqual(
-            IRYUVImageDimensions32(width: 640, height: 480)?.width,
-            IRYUVToolsPolicy.imageDimensions32(width: 640, height: 480)?.width
+            IRYUVChannelFilterNeedSize(
+                linesize: 0,
+                width: 8,
+                height: 3,
+                channelCount: 2
+            ),
+            0
         )
         XCTAssertEqual(
-            IRYUVImageDimensions32(width: 640, height: 480)?.height,
-            IRYUVToolsPolicy.imageDimensions32(width: 640, height: 480)?.height
+            IRYUVImageDimensions32(
+                width: 640,
+                height: 480
+            )?.width,
+            640
         )
-        XCTAssertNil(IRYUVToolsPolicy.imageDimensions32(width: 0, height: 480))
         XCTAssertEqual(
-            IRYUVSourcePlaneInputsAreValid(srcData: [UnsafePointer<UInt8>(bitPattern: 1)],
-                                           srcLinesize: [3]),
-            IRYUVToolsPolicy.sourcePlaneInputsAreValid(srcData: [UnsafePointer<UInt8>(bitPattern: 1)],
-                                                       srcLinesize: [3])
+            IRYUVImageDimensions32(
+                width: 640,
+                height: 480
+            )?.height,
+            480
+        )
+        XCTAssertNil(
+            IRYUVImageDimensions32(
+                width: 0,
+                height: 480
+            )
+        )
+        XCTAssertTrue(
+            IRYUVSourcePlaneInputsAreValid(
+                srcData: [
+                    UnsafePointer<UInt8>(bitPattern: 1)
+                ],
+                srcLinesize: [3]
+            )
         )
     }
 
-    func testYUVToolsPolicyChannelFilterCopiesAdjustedRowsAndClearsDestination() {
+    func testYUVChannelFilterCopiesAdjustedRowsAndClearsDestination() {
         var source: [UInt8] = [
             1, 2, 3, 4,
             5, 6, 7, 8,
@@ -588,7 +619,7 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
 
         source.withUnsafeMutableBufferPointer { sourceBuffer in
             destination.withUnsafeMutableBufferPointer { destinationBuffer in
-                IRYUVToolsPolicy.channelFilter(
+                IRYUVChannelFilter(
                     src: sourceBuffer.baseAddress!,
                     linesize: 4,
                     width: 2,
@@ -603,13 +634,13 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertEqual(destination, [1, 2, 5, 6, 9, 10])
     }
 
-    func testYUVToolsPolicyChannelFilterLeavesDestinationZeroedWhenOutputIsTooSmall() {
+    func testYUVChannelFilterLeavesDestinationZeroedWhenOutputIsTooSmall() {
         var source = [UInt8](1...8)
         var destination = [UInt8](repeating: 0xff, count: 3)
 
         source.withUnsafeMutableBufferPointer { sourceBuffer in
             destination.withUnsafeMutableBufferPointer { destinationBuffer in
-                IRYUVToolsPolicy.channelFilter(
+                IRYUVChannelFilter(
                     src: sourceBuffer.baseAddress!,
                     linesize: 4,
                     width: 2,
@@ -624,13 +655,13 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertEqual(destination, [0, 0, 0])
     }
 
-    func testYUVToolsPolicyChannelFilterIgnoresZeroSizedDestination() {
+    func testYUVChannelFilterIgnoresZeroSizedDestination() {
         var source = [UInt8](1...4)
         var destination = [UInt8](repeating: 0xff, count: 1)
 
         source.withUnsafeMutableBufferPointer { sourceBuffer in
             destination.withUnsafeMutableBufferPointer { destinationBuffer in
-                IRYUVToolsPolicy.channelFilter(
+                IRYUVChannelFilter(
                     src: sourceBuffer.baseAddress!,
                     linesize: 4,
                     width: 1,

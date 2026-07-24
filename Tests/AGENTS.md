@@ -44,6 +44,7 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFPacketTests.swift` — FFmpeg packet move/borrow/close ownership
 - `IRFFAudioFrameTests.swift` — Managed PCM storage, reuse, and active bounds
 - `IRFFAVYUVVideoFrameTests.swift` — YUV video frame
+- `IRYUVImageConversionSessionTests.swift` — Scaler and managed RGB24 output ownership
 - `IRFFFramePoolTests.swift` — Frame pool reuse
 - `IRFFFrameQueueTests.swift` — Frame queue thread safety
 - `IRFFPacketQueueTests.swift` — Owned packet queue and typed control items
