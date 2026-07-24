@@ -39,6 +39,8 @@ FFmpeg-based player and decoder pipeline.
 - Keep seek completion generation-owned and exactly once. Reset/replacement
   cancels pending seeks with `false`; seeking without a decoder also completes
   `false`.
+- Keep progress-post throttling and live-duration decisions on
+  `IRFFPlayerRuntime`, beside the timestamp and progress state they consume.
 - Stop and drain `IRAudioManager` before resetting `IRFFAudioRenderer` or
   closing its decoder source.
 - Audio dequeue from the decoder must be non-waiting; an empty queue produces

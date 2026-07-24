@@ -11,10 +11,16 @@ import XCTest
 
 final class IRModelPayloadTests: XCTestCase {
 
-    func testNotificationPayloadWrappersRemainSourceCompatible() {
+    func testNotificationPayloadOwnersBuildExactValues() {
         XCTAssertEqual(
-            IRPlayerNotificationPayload.state(previous: .buffering, current: .playing) as NSDictionary,
-            IRPlayerNotificationPayloadPolicy.state(previous: .buffering, current: .playing) as NSDictionary
+            IRPlayerNotificationPayload.state(
+                previous: .buffering,
+                current: .playing
+            ) as NSDictionary,
+            [
+                IRPlayerStatePreviousKey: IRPlayerState.buffering,
+                IRPlayerStateCurrentKey: IRPlayerState.playing
+            ] as NSDictionary
         )
         XCTAssertEqual(
             IRPlayerNotificationPayload.progress(
@@ -22,11 +28,11 @@ final class IRModelPayloadTests: XCTestCase {
                 current: NSNumber(value: 3),
                 total: NSNumber(value: 12)
             ) as NSDictionary,
-            IRPlayerNotificationPayloadPolicy.progress(
-                percent: NSNumber(value: 0.25),
-                current: NSNumber(value: 3),
-                total: NSNumber(value: 12)
-            ) as NSDictionary
+            [
+                IRPlayerProgressPercentKey: NSNumber(value: 0.25),
+                IRPlayerProgressCurrentKey: NSNumber(value: 3),
+                IRPlayerProgressTotalKey: NSNumber(value: 12)
+            ] as NSDictionary
         )
         XCTAssertEqual(
             IRPlayerNotificationPayload.playable(
@@ -34,28 +40,18 @@ final class IRModelPayloadTests: XCTestCase {
                 current: NSNumber(value: 6),
                 total: NSNumber(value: 12)
             ) as NSDictionary,
-            IRPlayerNotificationPayloadPolicy.playable(
-                percent: NSNumber(value: 0.5),
-                current: NSNumber(value: 6),
-                total: NSNumber(value: 12)
-            ) as NSDictionary
-        )
-        XCTAssertEqual(
-            IRPlayerNotificationPayload.timePercent(current: 3, total: 12),
-            IRPlayerNotificationPayloadPolicy.timePercent(current: 3, total: 12)
-        )
-        XCTAssertEqual(
-            IRPlayerNotificationPayload.cgFloat(NSNumber(value: 4.5)),
-            IRPlayerNotificationPayloadPolicy.cgFloat(NSNumber(value: 4.5))
-        )
-        XCTAssertEqual(
-            IRPlayerNotificationPayload.state(NSNumber(value: IRPlayerState.failed.rawValue)),
-            IRPlayerNotificationPayloadPolicy.state(NSNumber(value: IRPlayerState.failed.rawValue))
+            [
+                IRPlayerPlayablePercentKey: NSNumber(value: 0.5),
+                IRPlayerPlayableCurrentKey: NSNumber(value: 6),
+                IRPlayerPlayableTotalKey: NSNumber(value: 12)
+            ] as NSDictionary
         )
 
         let error = IRError()
-        XCTAssertTrue(IRPlayerNotificationPayload.error(error)[IRPlayerErrorKey] as? IRError === error)
-        XCTAssertTrue(IRPlayerNotificationPayloadPolicy.error(error)[IRPlayerErrorKey] as? IRError === error)
+        XCTAssertTrue(
+            IRPlayerNotificationPayload.error(error)[IRPlayerErrorKey]
+                as? IRError === error
+        )
     }
 
     func testDefaultIRErrorUsesValidNSError() {
@@ -103,7 +99,6 @@ final class IRModelPayloadTests: XCTestCase {
     func testStatePayloadDefaultsOutOfRangeRawValues() {
         XCTAssertEqual(IRPlayerNotificationPayload.state(NSNumber(value: Int.max)), .none)
         XCTAssertEqual(IRPlayerNotificationPayload.state(Int.min), .none)
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.state(Int.max), .none)
     }
 
     func testStatePayloadAcceptsTypedStatesAndIntegerRawValues() {
@@ -188,23 +183,14 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(IRPlayerNotificationPayload.cgFloat(Double.infinity), 0)
     }
 
-    func testPayloadPolicyCGFloatConvertsDirectNumericInputs() {
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.cgFloat(CGFloat(1.25)), 1.25, accuracy: 0.0001)
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.cgFloat(NSNumber(value: 2.5)), 2.5, accuracy: 0.0001)
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.cgFloat(Double(3.75)), 3.75, accuracy: 0.0001)
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.cgFloat(Float(4.5)), 4.5, accuracy: 0.0001)
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.cgFloat(5), 5, accuracy: 0.0001)
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.cgFloat("5"), 0)
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.cgFloat(NSNumber(value: true)), 0)
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.cgFloat(Double.infinity), 0)
-    }
-
-    func testPayloadPolicyStateAcceptsDirectIntegerRawValues() {
+    func testStatePayloadAcceptsDirectIntegerRawValues() {
         XCTAssertEqual(
-            IRPlayerNotificationPayloadPolicy.state(IRPlayerState.readyToPlay.rawValue),
+            IRPlayerNotificationPayload.state(
+                IRPlayerState.readyToPlay.rawValue
+            ),
             .readyToPlay
         )
-        XCTAssertEqual(IRPlayerNotificationPayloadPolicy.state(Int.max), .none)
+        XCTAssertEqual(IRPlayerNotificationPayload.state(Int.max), .none)
     }
 
     func testProgressPayloadDefaultsNonFiniteNumbers() {
@@ -246,6 +232,23 @@ final class IRModelPayloadTests: XCTestCase {
         XCTAssertEqual(IRPlayerNotificationPayload.timePercent(current: 3, total: -1), NSNumber(value: 0))
         XCTAssertEqual(IRPlayerNotificationPayload.timePercent(current: Double.nan, total: 12), NSNumber(value: 0))
         XCTAssertEqual(IRPlayerNotificationPayload.timePercent(current: 3, total: Double.infinity), NSNumber(value: 0))
+    }
+
+    func testTimePercentClampsCurrentIntoPlayableRange() {
+        XCTAssertEqual(
+            IRPlayerNotificationPayload.timePercent(
+                current: -1,
+                total: 10
+            ),
+            NSNumber(value: 0)
+        )
+        XCTAssertEqual(
+            IRPlayerNotificationPayload.timePercent(
+                current: 15,
+                total: 10
+            ),
+            NSNumber(value: 1)
+        )
     }
 
     func testErrorParserReturnsExistingIRErrorAndWrapsNSError() {

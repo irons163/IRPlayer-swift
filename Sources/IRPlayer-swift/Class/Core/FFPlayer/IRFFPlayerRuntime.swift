@@ -20,6 +20,13 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
         let decoderSession: IRFFPlayerDecoderSession.Diagnostics
     }
 
+    struct ProgressPostDecision: Equatable, Sendable {
+        let shouldPost: Bool
+        let current: TimeInterval
+        let total: TimeInterval
+        let nextLastPostTime: TimeInterval
+    }
+
     let executor: IRFFPlayerExecutor
     let decoderSession: IRFFPlayerDecoderSession
     let audioRenderer: IRFFAudioRenderer
@@ -62,6 +69,65 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
         )
         self.audioRenderer = audioRenderer
         _ = audioManager?.registerAudioSession()
+    }
+
+    static func progressPostDecision(
+        progress: TimeInterval,
+        oldProgress: TimeInterval,
+        duration: TimeInterval,
+        lastPostTime: TimeInterval,
+        now: TimeInterval,
+        seekEnabled: Bool
+    ) -> ProgressPostDecision {
+        let safeDuration =
+            duration.isFinite && duration >= 0
+            ? duration
+            : 0
+        guard progress != oldProgress else {
+            return ProgressPostDecision(
+                shouldPost: false,
+                current: progress,
+                total: safeDuration,
+                nextLastPostTime: lastPostTime
+            )
+        }
+        guard progress.isFinite else {
+            return ProgressPostDecision(
+                shouldPost: false,
+                current: 0,
+                total: safeDuration,
+                nextLastPostTime: lastPostTime
+            )
+        }
+
+        if progress <= 0.000001 || progress == safeDuration {
+            return ProgressPostDecision(
+                shouldPost: true,
+                current: progress,
+                total: safeDuration,
+                nextLastPostTime: lastPostTime
+            )
+        }
+
+        let elapsed = now - lastPostTime
+        guard now.isFinite,
+              lastPostTime.isFinite,
+              elapsed.isFinite,
+              elapsed >= 1 else {
+            return ProgressPostDecision(
+                shouldPost: false,
+                current: progress,
+                total: safeDuration,
+                nextLastPostTime: lastPostTime
+            )
+        }
+
+        return ProgressPostDecision(
+            shouldPost: true,
+            current: progress,
+            total: seekEnabled ? safeDuration : progress,
+            nextLastPostTime: now
+        )
     }
 
     var diagnostics: Diagnostics {
@@ -458,7 +524,7 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
         storedProgress = progress
 
         let decoder = decoderSession.currentDecoder
-        let decision = IRPlaybackTimePolicy.progressPostDecision(
+        let decision = Self.progressPostDecision(
             progress: progress,
             oldProgress: oldProgress,
             duration: decoder?.duration ?? 0,
@@ -475,15 +541,15 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
     }
 
     private func setPlayableTimeLocked(_ playableTime: TimeInterval) {
-        let normalized = IRPlaybackTimePolicy.clampedPlayableTime(
-            playableTime,
-            duration: currentDurationLocked()
-        )
+        let duration = currentDurationLocked()
+        let normalized =
+            IRPlaybackTimeRange(duration: duration)?
+                .clamped(playableTime) ?? 0
         guard normalized != storedPlayableTime else { return }
         storedPlayableTime = normalized
         host?.playbackBackendDidUpdatePlayableTime(
             current: normalized,
-            total: currentDurationLocked()
+            total: duration
         )
     }
 

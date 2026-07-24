@@ -22,7 +22,7 @@ enum IRFFDecoderReadLoopState {
     }
 
     static func seekCompletionAction(seeking: Bool, progress: TimeInterval) -> Action? {
-        guard let transition = IRFFDecoderSeekPolicy.seekCompletionTransition(
+        guard let transition = IRFFDecoder.seekCompletionTransition(
             seeking: seeking,
             progress: progress
         ) else {

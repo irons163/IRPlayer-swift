@@ -30,26 +30,6 @@ final class IRFFDecoderOperationTests: XCTestCase {
             )
         )
         XCTAssertEqual(
-            IRFFDecoder.seekPreparation(
-                requestedTime: 30,
-                seekEnabled: true,
-                hasError: false,
-                hasAudio: true,
-                seekMinTime: 0,
-                duration: 40,
-                minBufferedDuration: 2
-            ),
-            IRFFDecoderSeekPolicy.seekPreparation(
-                requestedTime: 30,
-                seekEnabled: true,
-                hasError: false,
-                hasAudio: true,
-                seekMinTime: 0,
-                duration: 40,
-                minBufferedDuration: 2
-            )
-        )
-        XCTAssertEqual(
             IRFFDecoder.audioSyncedVideoSleepDuration(
                 framePosition: 10,
                 frameDuration: 0.04,
@@ -92,14 +72,6 @@ final class IRFFDecoderOperationTests: XCTestCase {
                 playbackFinished: false,
                 audioEnabled: true
             )
-        )
-        XCTAssertEqual(
-            IRFFDecoder.resumeSeekTarget(playbackFinished: true),
-            IRFFDecoderSeekPolicy.resumeSeekTarget(playbackFinished: true)
-        )
-        XCTAssertEqual(
-            IRFFDecoder.seekCompletionTransition(seeking: true, progress: 3),
-            IRFFDecoderSeekPolicy.seekCompletionTransition(seeking: true, progress: 3)
         )
         XCTAssertEqual(
             IRFFDecoder.readPacketEOFTransition(readFrameResult: -1),

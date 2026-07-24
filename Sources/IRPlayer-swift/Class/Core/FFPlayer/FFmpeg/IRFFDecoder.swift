@@ -423,14 +423,31 @@ protocol IRFFDecoderDelegate: AnyObject {
                                 seekMinTime: TimeInterval,
                                 duration: TimeInterval,
                                 minBufferedDuration: TimeInterval) -> SeekPreparation? {
-        return IRFFDecoderSeekPolicy.seekPreparation(
-            requestedTime: requestedTime,
-            seekEnabled: seekEnabled,
-            hasError: hasError,
-            hasAudio: hasAudio,
-            seekMinTime: seekMinTime,
-            duration: duration,
-            minBufferedDuration: minBufferedDuration
+        guard seekEnabled,
+              !hasError,
+              requestedTime.isFinite,
+              seekMinTime.isFinite,
+              duration.isFinite,
+              minBufferedDuration.isFinite,
+              seekMinTime >= 0,
+              duration >= 0,
+              minBufferedDuration >= 0 else {
+            return nil
+        }
+
+        let tailBufferDuration: TimeInterval = hasAudio ? 8 : 15
+        let reservedDuration =
+            minBufferedDuration + tailBufferDuration
+        let rawSeekMaxTime = duration - reservedDuration
+        guard reservedDuration.isFinite,
+              rawSeekMaxTime.isFinite else {
+            return nil
+        }
+
+        let seekMaxTime = max(rawSeekMaxTime, seekMinTime)
+        return SeekPreparation(
+            clampedTime:
+                min(max(requestedTime, seekMinTime), seekMaxTime)
         )
     }
 
@@ -478,11 +495,21 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func resumeSeekTarget(playbackFinished: Bool) -> TimeInterval? {
-        return IRFFDecoderSeekPolicy.resumeSeekTarget(playbackFinished: playbackFinished)
+        return playbackFinished ? 0 : nil
     }
 
     static func seekCompletionTransition(seeking: Bool, progress: TimeInterval) -> SeekCompletionTransition? {
-        return IRFFDecoderSeekPolicy.seekCompletionTransition(seeking: seeking, progress: progress)
+        guard seeking, progress.isFinite else { return nil }
+        return SeekCompletionTransition(
+            endOfFile: false,
+            playbackFinished: false,
+            buffering: true,
+            videoPaused: false,
+            videoEndOfFile: false,
+            seekToTime: 0,
+            audioTimeClock: progress,
+            shouldClearFrames: true
+        )
     }
 
     static func readPacketEOFTransition(readFrameResult: Int32?) -> ReadPacketEOFTransition? {

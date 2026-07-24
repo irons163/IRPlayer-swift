@@ -61,31 +61,91 @@ enum IRPayloadNumber {
 enum IRPlayerNotificationPayload {
 
     static func state(previous: IRPlayerState, current: IRPlayerState) -> [AnyHashable: Any] {
-        return IRPlayerNotificationPayloadPolicy.state(previous: previous, current: current)
+        return [
+            IRPlayerStatePreviousKey: previous,
+            IRPlayerStateCurrentKey: current
+        ]
     }
 
     static func progress(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
-        return IRPlayerNotificationPayloadPolicy.progress(percent: percent, current: current, total: total)
+        return [
+            IRPlayerProgressPercentKey: finiteNumber(percent),
+            IRPlayerProgressCurrentKey: finiteNumber(current),
+            IRPlayerProgressTotalKey: finiteNumber(total)
+        ]
     }
 
     static func playable(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
-        return IRPlayerNotificationPayloadPolicy.playable(percent: percent, current: current, total: total)
+        return [
+            IRPlayerPlayablePercentKey: finiteNumber(percent),
+            IRPlayerPlayableCurrentKey: finiteNumber(current),
+            IRPlayerPlayableTotalKey: finiteNumber(total)
+        ]
     }
 
     static func timePercent(current: TimeInterval, total: TimeInterval) -> NSNumber {
-        return IRPlayerNotificationPayloadPolicy.timePercent(current: current, total: total)
+        guard total > 0,
+              let range = IRPlaybackTimeRange(duration: total),
+              let boundedCurrent = range.clamped(current) else {
+            return NSNumber(value: 0)
+        }
+        let percent = boundedCurrent / range.duration
+        return NSNumber(value: percent.isFinite ? percent : 0)
     }
 
     static func error(_ error: IRError) -> [AnyHashable: Any] {
-        return IRPlayerNotificationPayloadPolicy.error(error)
+        return [IRPlayerErrorKey: error]
     }
 
     static func cgFloat(_ value: Any?) -> CGFloat {
-        return IRPlayerNotificationPayloadPolicy.cgFloat(value)
+        if value is Bool {
+            return 0
+        }
+
+        let converted: CGFloat
+        if let value = value as? CGFloat {
+            converted = value
+        } else if let value = value as? NSNumber {
+            guard !IRPayloadNumber.isBoolean(value) else {
+                return 0
+            }
+            converted = CGFloat(truncating: value)
+        } else if let value = value as? Double {
+            converted = CGFloat(value)
+        } else if let value = value as? Float {
+            converted = CGFloat(value)
+        } else if let value = value as? Int {
+            converted = CGFloat(value)
+        } else {
+            return 0
+        }
+        return converted.isFinite ? converted : 0
     }
 
     static func state(_ value: Any?) -> IRPlayerState {
-        return IRPlayerNotificationPayloadPolicy.state(value)
+        if let value = value as? IRPlayerState {
+            return value
+        }
+        if let value = value as? NSNumber {
+            guard let rawValue =
+                IRPayloadNumber.integerRawValue(from: value) else {
+                return .none
+            }
+            return IRPlayerState(rawValue: rawValue) ?? .none
+        }
+        if let value = value as? Int {
+            return IRPlayerState(rawValue: value) ?? .none
+        }
+        return .none
+    }
+
+    private static func finiteNumber(_ value: NSNumber?) -> NSNumber {
+        guard let value,
+              !IRPayloadNumber.isBoolean(value),
+              value.doubleValue.isFinite else {
+            return NSNumber(value: 0)
+        }
+        return value
     }
 }
 

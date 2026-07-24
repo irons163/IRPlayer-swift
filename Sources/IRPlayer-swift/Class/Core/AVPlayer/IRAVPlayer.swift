@@ -260,10 +260,8 @@ extension IRAVPlayer {
               end.isFinite else {
             return 0
         }
-        return IRPlaybackTimePolicy.clampedPlayableTime(
-            end,
-            duration: totalDuration
-        )
+        return IRPlaybackTimeRange(duration: totalDuration)?
+            .clamped(end) ?? 0
     }
 
     static func avAssetLoadDecision(

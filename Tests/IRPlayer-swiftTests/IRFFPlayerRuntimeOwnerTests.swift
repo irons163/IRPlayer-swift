@@ -516,6 +516,148 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
 }
 
 final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
+    func testProgressDecisionPostsAtStartEndAndThrottleBoundary() {
+        XCTAssertEqual(
+            IRFFPlayerRuntime.progressPostDecision(
+                progress: 0,
+                oldProgress: 1,
+                duration: 10,
+                lastPostTime: 20,
+                now: 20.1,
+                seekEnabled: true
+            ),
+            .init(
+                shouldPost: true,
+                current: 0,
+                total: 10,
+                nextLastPostTime: 20
+            )
+        )
+        XCTAssertEqual(
+            IRFFPlayerRuntime.progressPostDecision(
+                progress: 10,
+                oldProgress: 9,
+                duration: 10,
+                lastPostTime: 20,
+                now: 20.1,
+                seekEnabled: true
+            ),
+            .init(
+                shouldPost: true,
+                current: 10,
+                total: 10,
+                nextLastPostTime: 20
+            )
+        )
+        XCTAssertEqual(
+            IRFFPlayerRuntime.progressPostDecision(
+                progress: 5,
+                oldProgress: 4,
+                duration: 10,
+                lastPostTime: 20,
+                now: 20.5,
+                seekEnabled: true
+            ),
+            .init(
+                shouldPost: false,
+                current: 5,
+                total: 10,
+                nextLastPostTime: 20
+            )
+        )
+        XCTAssertEqual(
+            IRFFPlayerRuntime.progressPostDecision(
+                progress: 5,
+                oldProgress: 4,
+                duration: 10,
+                lastPostTime: 20,
+                now: 21,
+                seekEnabled: true
+            ),
+            .init(
+                shouldPost: true,
+                current: 5,
+                total: 10,
+                nextLastPostTime: 21
+            )
+        )
+    }
+
+    func testProgressDecisionUsesProgressAsLiveDuration() {
+        XCTAssertEqual(
+            IRFFPlayerRuntime.progressPostDecision(
+                progress: 5,
+                oldProgress: 4,
+                duration: 10,
+                lastPostTime: 20,
+                now: 21,
+                seekEnabled: false
+            ),
+            .init(
+                shouldPost: true,
+                current: 5,
+                total: 5,
+                nextLastPostTime: 21
+            )
+        )
+    }
+
+    func testProgressDecisionRejectsUnchangedOrNonFiniteProgress() {
+        XCTAssertEqual(
+            IRFFPlayerRuntime.progressPostDecision(
+                progress: 4,
+                oldProgress: 4,
+                duration: 10,
+                lastPostTime: 20,
+                now: 21,
+                seekEnabled: true
+            ),
+            .init(
+                shouldPost: false,
+                current: 4,
+                total: 10,
+                nextLastPostTime: 20
+            )
+        )
+        XCTAssertEqual(
+            IRFFPlayerRuntime.progressPostDecision(
+                progress: .nan,
+                oldProgress: 4,
+                duration: 10,
+                lastPostTime: 20,
+                now: 21,
+                seekEnabled: true
+            ),
+            .init(
+                shouldPost: false,
+                current: 0,
+                total: 10,
+                nextLastPostTime: 20
+            )
+        )
+    }
+
+    func testProgressDecisionRejectsInvalidDerivedElapsedTime() {
+        let decision = IRFFPlayerRuntime.progressPostDecision(
+            progress: 5,
+            oldProgress: 4,
+            duration: .nan,
+            lastPostTime: -.greatestFiniteMagnitude,
+            now: .greatestFiniteMagnitude,
+            seekEnabled: true
+        )
+
+        XCTAssertEqual(
+            decision,
+            .init(
+                shouldPost: false,
+                current: 5,
+                total: 0,
+                nextLastPostTime: -.greatestFiniteMagnitude
+            )
+        )
+    }
+
     func testReentrantReplaceRequestWinsFacadePresentationGeneration() {
         let host = FFPlayerRuntimeHostSpy()
         host.displayView = IRGLView(frame: .zero)

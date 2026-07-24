@@ -31,3 +31,6 @@ This directory contains all the main Swift source code for the IRPlayer framewor
   synchronized by `IRPlayerEnvironmentSession`.
 - Keep `IRPlayerImp.Logger` as compatibility accessors over
   `IRPlayerLoggingSession`; do not add mutable static logger state.
+- Keep notification payload construction, numeric decoding, and finite defaults
+  on `IRPlayerNotificationPayload`; do not recreate a forwarding policy layer.
+- Use `IRPlaybackTimeRange` for shared finite non-negative duration bounds.

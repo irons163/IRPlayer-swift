@@ -62,6 +62,9 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
   `extended_data`, and managed Int16 scratch access inside its scoped
   conversion operation.
 - `IRFFDecoder` coordinates the decode loop across audio and video.
+- Keep seek range validation, resume targeting, and seek-completion transitions
+  on `IRFFDecoder`; read-loop states may consume those owner semantics but must
+  not recreate them.
 - Delegate, custom source, video output, and audio output belong to one
   `IRFFDecoderCollaboratorSession` generation. Install a complete generation
   before opening, and use one terminal revoke before resource teardown.

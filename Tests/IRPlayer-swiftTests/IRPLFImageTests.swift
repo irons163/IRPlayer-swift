@@ -64,11 +64,24 @@ final class IRPLFImageTests: XCTestCase {
         XCTAssertEqual(IRPLFImageRGBDataByteCount(linesize: 12, width: 4, height: 2), 24)
     }
 
-    func testRGBDataByteCountWrapperMatchesPolicy() {
+    func testRGBDataByteCountPreservesPaddedRows() {
         XCTAssertEqual(
-            IRPLFImageRGBDataByteCount(linesize: 12, width: 4, height: 2),
-            IRPLFImagePolicy.rgbDataByteCount(linesize: 12, width: 4, height: 2)
+            IRPLFImageRGBDataByteCount(
+                linesize: 16,
+                width: 4,
+                height: 2
+            ),
+            32
         )
-        XCTAssertNil(IRPLFImagePolicy.rgbDataByteCount(linesize: 11, width: 4, height: 2))
+    }
+
+    func testRGBDataByteCountRejectsMinimumRowOverflow() {
+        XCTAssertNil(
+            IRPLFImageRGBDataByteCount(
+                linesize: Int.max,
+                width: Int.max,
+                height: 1
+            )
+        )
     }
 }

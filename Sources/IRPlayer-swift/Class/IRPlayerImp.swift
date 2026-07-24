@@ -589,7 +589,7 @@ extension IRPlayerImp:
     ) {
         IRPlayerNotification.postPlayer(
             self,
-            progressPercent: IRPlaybackTimePolicy.percent(
+            progressPercent: IRPlayerNotificationPayload.timePercent(
                 current: current,
                 total: total
             ),
@@ -604,7 +604,7 @@ extension IRPlayerImp:
     ) {
         IRPlayerNotification.postPlayer(
             self,
-            playablePercent: IRPlaybackTimePolicy.percent(
+            playablePercent: IRPlayerNotificationPayload.timePercent(
                 current: current,
                 total: total
             ),

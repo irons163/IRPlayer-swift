@@ -42,6 +42,8 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFVideoToolBoxTests.swift` — Hardware decode via VideoToolBox
 - `IRFFVideoToolBoxSessionTests.swift` — VideoToolbox generation/callback ownership
 - `IRFFDecoderOperationTests.swift` — Decoder operation lifecycle
+- `IRFFDecoderSeekSemanticsTests.swift` — Decoder-owned seek bounds, resume,
+  completion, and malformed arithmetic
 - `IRFFDecoderCollaboratorSessionTests.swift` — Atomic weak collaborator
   generations, terminal revoke, delivery ordering, and concurrency
 - `IRFFDictionaryTests.swift` — Owned options and borrowed dictionary values
@@ -95,6 +97,7 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRSensorTests.swift` — Sensor lifecycle, delivery, and concurrency
 
 ### Other Tests
+- `IRPlaybackTimeRangeTests.swift` — Validated shared playback-duration bounds
 - `IRGLScopeTests.swift` — Viewport scope bounds
 - `IRGLShaderParamsTests.swift` — Shader parameters
 - `IRMatrix4Tests.swift` — Matrix math
