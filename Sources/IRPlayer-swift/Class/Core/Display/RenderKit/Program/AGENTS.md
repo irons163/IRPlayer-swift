@@ -38,4 +38,9 @@ Render programs that configure geometry, projection, and transform for each rend
 - Programs are the core abstraction — they wire together projection, transform, scope, and shader params.
 - `Distortion/` and `VR/` have `.h` headers because they bridge to Objective-C for legacy compatibility.
 - Each factory corresponds to a render mode in `Mode/`.
+- Program and factory owners contain their viewport, scale, parameter, and
+  layout semantics; do not add parallel `*Policy` forwarding layers.
+- Preserve the parent viewport origin when splitting multi-view geometry.
+- Panorama offset normalization must remain O(1), preserve signed exact-width
+  boundaries, and reject non-finite derived arithmetic.
 - Tests: `IRGLProgram2DTests.swift`, `IRGLProgram2DFisheye2PanoTests.swift`, `IRGLProgram2DFisheye2PerspTests.swift`, `IRGLProgramDistortionTests.swift`, `IRGLProgramMulti4PTests.swift`, `IRGLProgramFactoryTests.swift`.

@@ -56,4 +56,11 @@ High-level rendering abstraction layer that sits above the Metal renderer.
 - Mode selection drives which program, projection, and transform are used.
 - Each render mode has a corresponding factory in `Program/Factory/`.
 - Shader params in `Params/` are consumed by programs to set uniforms.
+- Keep render-domain decisions on their owning mode, program, parameter, or
+  transform type. Do not add parallel `*Policy` wrappers that mirror owner
+  APIs.
+- Validate both external numeric inputs and derived arithmetic before
+  publishing viewport, transform, scope, shader, or projection state.
+- Angle and panorama wrapping must use bounded-work remainder arithmetic;
+  never normalize finite values with magnitude-proportional loops.
 - When adding a new render mode, you need: a Mode, a Program, a Factory, and potentially a new Transform/Projection.

@@ -21,7 +21,12 @@ class IRGLShaderParams: NSObject {
     var outputHeight: GLint = 0
 
     static func boundedGLint(from value: Double) -> GLint? {
-        return IRGLShaderParamsPolicy.boundedGLint(from: value)
+        guard value.isFinite,
+              value >= Double(GLint.min),
+              value <= Double(GLint.max) else {
+            return nil
+        }
+        return GLint(value)
     }
 
     func updateTextureWidth(_ w: Int, height h: Int) {

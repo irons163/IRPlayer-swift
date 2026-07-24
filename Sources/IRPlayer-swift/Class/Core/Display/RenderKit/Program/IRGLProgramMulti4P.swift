@@ -24,12 +24,53 @@ enum IRGLProgramMultiMode: Int, Hashable, Equatable, Sendable, RawRepresentable 
         programCount: Int,
         selectedIndex: Int?
     ) -> [CGRect] {
-        return IRGLProgramMulti4PPolicy.viewportRanges(
-            in: viewprotRange,
-            displayMode: displayMode,
-            programCount: programCount,
-            selectedIndex: selectedIndex
-        )
+        guard programCount > 0,
+              programCount <= 4,
+              viewprotRange.origin.x.isFinite,
+              viewprotRange.origin.y.isFinite,
+              viewprotRange.width.isFinite,
+              viewprotRange.height.isFinite,
+              viewprotRange.width >= 0,
+              viewprotRange.height >= 0 else {
+            return []
+        }
+
+        switch displayMode {
+        case .multiDisplay:
+            let viewportWidth = viewprotRange.width / 2
+            let viewportHeight = viewprotRange.height / 2
+            guard viewportWidth.isFinite,
+                  viewportHeight.isFinite else {
+                return []
+            }
+
+            var ranges: [CGRect] = []
+            ranges.reserveCapacity(programCount)
+            for index in 0..<programCount {
+                let x =
+                    viewprotRange.origin.x +
+                    CGFloat(index % 2) * viewportWidth
+                let y =
+                    viewprotRange.origin.y +
+                    CGFloat(index / 2) * viewportHeight
+                guard x.isFinite, y.isFinite else { return [] }
+                ranges.append(
+                    CGRect(
+                        x: x,
+                        y: y,
+                        width: viewportWidth,
+                        height: viewportHeight
+                    )
+                )
+            }
+            return ranges
+        case .singleDisplay:
+            return (0..<programCount).map { index in
+                index == selectedIndex
+                    ? viewprotRange
+                    : .zero
+            }
+        }
     }
 
     override public init(programs: [IRGLProgram2D], viewprotRange: CGRect) {

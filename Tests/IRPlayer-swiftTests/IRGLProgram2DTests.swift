@@ -4,42 +4,6 @@ import XCTest
 
 final class IRGLProgram2DTests: XCTestCase {
 
-    func testStaticPolicyWrappersRemainSourceCompatible() throws {
-        let viewportRange = CGRect(x: 0, y: 0, width: 320.9, height: 180.2)
-        XCTAssertEqual(
-            IRGLProgram2D.viewportSize(from: viewportRange)?.width,
-            IRGLProgram2DPolicy.viewportSize(from: viewportRange)?.width
-        )
-        XCTAssertEqual(
-            IRGLProgram2D.viewportSize(from: viewportRange)?.height,
-            IRGLProgram2DPolicy.viewportSize(from: viewportRange)?.height
-        )
-        XCTAssertEqual(
-            IRGLProgram2D.scrollToBounds(for: [.toMaxX, .toMinY]),
-            IRGLProgram2DPolicy.scrollToBounds(for: [.toMaxX, .toMinY])
-        )
-
-        let wrapperDecision = try XCTUnwrap(IRGLProgram2D.outputScaleDecision(
-            outputWidth: 400,
-            outputHeight: 200,
-            viewportWidth: 100,
-            viewportHeight: 100,
-            contentMode: .scaleAspectFit,
-            shouldUpdateToDefaultWhenOutputSizeChanged: true
-        ))
-        let policyDecision = try XCTUnwrap(IRGLProgram2DPolicy.outputScaleDecision(
-            outputWidth: 400,
-            outputHeight: 200,
-            viewportWidth: 100,
-            viewportHeight: 100,
-            contentMode: .scaleAspectFit,
-            shouldUpdateToDefaultWhenOutputSizeChanged: true
-        ))
-        XCTAssertEqual(wrapperDecision.scaleX, policyDecision.scaleX, accuracy: 0.0001)
-        XCTAssertEqual(wrapperDecision.scaleY, policyDecision.scaleY, accuracy: 0.0001)
-        XCTAssertEqual(wrapperDecision.shouldUpdateToDefault, policyDecision.shouldUpdateToDefault)
-    }
-
     func testTouchedInProgramUsesViewportRange() {
         let program = IRGLProgram2D(
             pixelFormat: .RGB_IRPixelFormat,
@@ -117,6 +81,27 @@ final class IRGLProgram2DTests: XCTestCase {
         XCTAssertEqual(program.calculateViewport(), CGRect(x: 10, y: 20, width: 100, height: 80))
     }
 
+    func testCalculateViewportRejectsDerivedOverflow() {
+        let program = IRGLProgram2D(
+            pixelFormat: .RGB_IRPixelFormat,
+            viewportRange: CGRect(x: 10, y: 20, width: 100, height: 80),
+            parameter: nil
+        )
+        program.tramsformController = RecordingTransformController(
+            scope: IRGLScope2D(
+                scaleX: .greatestFiniteMagnitude,
+                scaleY: 1,
+                offsetX: 0,
+                offsetY: 0,
+                panDegree: 0,
+                w: 2,
+                h: 100
+            )
+        )
+
+        XCTAssertEqual(program.calculateViewport(), .zero)
+    }
+
     func testViewportSizeRejectsNonFiniteOrOverflowingDimensions() {
         XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: CGFloat.nan, height: 10)))
         XCTAssertNil(IRGLProgram2D.viewportSize(from: CGRect(x: 0, y: 0, width: 10, height: CGFloat.infinity)))
@@ -131,7 +116,7 @@ final class IRGLProgram2DTests: XCTestCase {
         XCTAssertEqual(size?.height, 180)
     }
 
-    func testScrollToBoundsPolicyMapsHorizontalVerticalAndCombinedStatuses() {
+    func testScrollToBoundsMapsHorizontalVerticalAndCombinedStatuses() {
         XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMaxX]), .horizontal)
         XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMinX]), .horizontal)
         XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMaxY]), .vertical)
@@ -140,7 +125,7 @@ final class IRGLProgram2DTests: XCTestCase {
         XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.toMinX, .toMaxY]), .both)
     }
 
-    func testScrollToBoundsPolicyIgnoresNonBoundsStatuses() {
+    func testScrollToBoundsIgnoresNonBoundsStatuses() {
         XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: []), .none)
         XCTAssertEqual(IRGLProgram2D.scrollToBounds(for: [.fail]), .none)
     }

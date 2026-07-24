@@ -11,7 +11,7 @@ import XCTest
 
 final class IRGLProgramFactoryTests: XCTestCase {
 
-    func testFactoryPolicyExpandsMaximumScaleWithoutChangingDefaults() {
+    func testFactoryExpandsMaximumScaleWithoutChangingDefaults() throws {
         let range = IRGLScaleRange(minScaleX: 0.5,
                                    minScaleY: 0.75,
                                    maxScaleX: 4,
@@ -19,7 +19,12 @@ final class IRGLProgramFactoryTests: XCTestCase {
                                    defaultScaleX: 1.25,
                                    defaultScaleY: 1.5)
 
-        let expanded = IRGLProgramFactoryPolicy.expandedScaleRange(from: range, multiplier: 1.5)
+        let expanded = try XCTUnwrap(
+            IRGLProgramFactory.expandedScaleRange(
+                from: range,
+                multiplier: 1.5
+            )
+        )
 
         XCTAssertEqual(expanded.minScaleX, 0.5)
         XCTAssertEqual(expanded.minScaleY, 0.75)
@@ -29,7 +34,7 @@ final class IRGLProgramFactoryTests: XCTestCase {
         XCTAssertEqual(expanded.defaultScaleY, 1.5)
     }
 
-    func testFactoryPolicyClampsFisheyeScopeToParameterLatitude() {
+    func testFactoryClampsFisheyeScopeToParameterLatitude() throws {
         let range = IRGLScopeRange(minLat: -90,
                                    maxLat: 90,
                                    minLng: -180,
@@ -37,7 +42,12 @@ final class IRGLProgramFactoryTests: XCTestCase {
                                    defaultLat: 120,
                                    defaultLng: 20)
 
-        let adjusted = IRGLProgramFactoryPolicy.fisheyeScopeRange(from: range, latmax: 80)
+        let adjusted = try XCTUnwrap(
+            IRGLProgramFactory.fisheyeScopeRange(
+                from: range,
+                latmax: 80
+            )
+        )
 
         XCTAssertEqual(adjusted.minLat, -90)
         XCTAssertEqual(adjusted.maxLat, 80)
@@ -47,7 +57,7 @@ final class IRGLProgramFactoryTests: XCTestCase {
         XCTAssertEqual(adjusted.defaultLng, 20)
     }
 
-    func testFactoryPolicyAppliesSingleAndFourPanelDefaults() {
+    func testFactoryAppliesSingleAndFourPanelDefaults() throws {
         let range = IRGLScopeRange(minLat: -90,
                                    maxLat: 80,
                                    minLng: -180,
@@ -55,22 +65,114 @@ final class IRGLProgramFactoryTests: XCTestCase {
                                    defaultLat: -5,
                                    defaultLng: 20)
 
-        XCTAssertEqual(IRGLProgramFactoryPolicy.defaultFisheyeScope(from: range, panelIndex: nil).defaultLng, 90)
-        XCTAssertEqual((0..<4).map { IRGLProgramFactoryPolicy.defaultFisheyeScope(from: range, panelIndex: $0).defaultLng },
-                       [90, 180, 270, 0])
-        XCTAssertEqual(IRGLProgramFactoryPolicy.defaultFisheyeScope(from: range, panelIndex: nil).defaultLat, -40)
+        XCTAssertEqual(
+            try XCTUnwrap(
+                IRGLProgramFactory.defaultFisheyeScope(
+                    from: range,
+                    panelIndex: nil
+                )
+            ).defaultLng,
+            90
+        )
+        XCTAssertEqual(
+            try (0..<4).map {
+                try XCTUnwrap(
+                    IRGLProgramFactory.defaultFisheyeScope(
+                        from: range,
+                        panelIndex: $0
+                    )
+                ).defaultLng
+            },
+            [90, 180, 270, 0]
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(
+                IRGLProgramFactory.defaultFisheyeScope(
+                    from: range,
+                    panelIndex: nil
+                )
+            ).defaultLat,
+            -40
+        )
     }
 
-    func testFactoryPolicyResolvesFisheyeParameter() {
+    func testFactoryResolvesFisheyeParameter() {
         let parameter = makeFisheyeParameter()
 
-        XCTAssertTrue(IRGLProgramFactoryPolicy.fisheyeParameter(from: parameter) === parameter)
-        XCTAssertNil(IRGLProgramFactoryPolicy.fisheyeParameter(from: IRMediaParameter(width: 320, height: 180)))
+        XCTAssertTrue(
+            IRGLProgramFactory.fisheyeParameter(from: parameter) ===
+                parameter
+        )
+        XCTAssertNil(
+            IRGLProgramFactory.fisheyeParameter(
+                from: IRMediaParameter(width: 320, height: 180)
+            )
+        )
 
-        let fallback = IRGLProgramFactoryPolicy.fisheyeParameter(from: nil)
+        let fallback = IRGLProgramFactory.fisheyeParameter(from: nil)
         XCTAssertEqual(fallback?.width, 0)
         XCTAssertEqual(fallback?.height, 0)
         XCTAssertEqual(fallback?.latmax, 0)
+    }
+
+    func testFactorySemanticsRejectMalformedRangesAndDerivedOverflow() {
+        let scaleRange = IRGLScaleRange(
+            minScaleX: 1,
+            minScaleY: 1,
+            maxScaleX: .greatestFiniteMagnitude,
+            maxScaleY: 4,
+            defaultScaleX: 1,
+            defaultScaleY: 1
+        )
+        let scopeRange = IRGLScopeRange(
+            minLat: 90,
+            maxLat: -90,
+            minLng: -180,
+            maxLng: 180,
+            defaultLat: 0,
+            defaultLng: 0
+        )
+
+        XCTAssertNil(
+            IRGLProgramFactory.expandedScaleRange(
+                from: scaleRange,
+                multiplier: 2
+            )
+        )
+        XCTAssertNil(
+            IRGLProgramFactory.fisheyeScopeRange(
+                from: scopeRange,
+                latmax: 80
+            )
+        )
+        XCTAssertNil(
+            IRGLProgramFactory.defaultFisheyeScope(
+                from: scopeRange,
+                panelIndex: nil
+            )
+        )
+    }
+
+    func testFactoryRejectsMalformedFisheyeParameter() {
+        let parameter = IRFisheyeParameter(
+            width: 0,
+            height: 1080,
+            up: false,
+            rx: 515,
+            ry: 515,
+            cx: 680,
+            cy: 545,
+            latmax: 80
+        )
+
+        XCTAssertNil(IRGLProgramFactory.fisheyeParameter(from: parameter))
+        XCTAssertNil(
+            IRGLProgramFactory.createIRGLProgram3DFisheye(
+                pixelFormat: .YUV_IRPixelFormat,
+                viewportRange: .zero,
+                parameter: parameter
+            )
+        )
     }
 
     func test2DProgramFactoryAttaches2DControllerAndOrthographicProjection() {

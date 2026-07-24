@@ -103,6 +103,14 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         publishedPixelMap = pixelMap
     }
 
+    private func isCurrentPixelMapGeneration(
+        _ generation: Int
+    ) -> Bool {
+        pixelMapStateLock.lock()
+        defer { pixelMapStateLock.unlock() }
+        return generation == pixelMapGeneration
+    }
+
     override init() {
         super.init()
         setDefaultValues()
@@ -138,8 +146,12 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     }
 
     private static func makePixelMap(
-        configuration: PixelMapConfiguration
+        configuration: PixelMapConfiguration,
+        shouldContinue: () -> Bool
     ) -> IRGLFish2PanoPixelMapGeneration? {
+        guard shouldContinue() else {
+            return nil
+        }
         var pixelMaps = (0..<configuration.textureCount)
             .map { _ in
                 Array<GLfloat>(
@@ -158,6 +170,9 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         let y0 = (tlat1 + tlat2) / (tlat1 - tlat2)
 
         for y in 0..<configuration.outputHeight {
+            guard shouldContinue() else {
+                return nil
+            }
             for x in 0..<configuration.outputWidth {
                 for i in 0..<configuration.antialias {
                     let fractionX = Float(x) + Float(i) / Float(configuration.antialias)
@@ -338,12 +353,20 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         )
 
         pixelMapQueue.async { [weak self] in
+            guard let self else {
+                return
+            }
             guard let pixelMap = Self.makePixelMap(
-                configuration: configuration
+                configuration: configuration,
+                shouldContinue: {
+                    self.isCurrentPixelMapGeneration(
+                        configuration.requestGeneration
+                    )
+                }
             ) else {
                 return
             }
-            self?.publish(pixelMap)
+            self.publish(pixelMap)
         }
     }
 }

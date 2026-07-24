@@ -32,13 +32,42 @@ import Foundation
     }
 
     static func textureSize(from params: IRGLFish2PanoShaderParams?) -> (width: Int, height: Int)? {
-        return IRGLProgram2DFisheye2PanoPolicy.textureSize(from: params)
+        guard let params,
+              params.textureWidth > 0,
+              params.textureHeight > 0 else {
+            return nil
+        }
+        return (
+            Int(params.textureWidth),
+            Int(params.textureHeight)
+        )
     }
 
     static func normalizedOffsetX(currentOffset: Float, delta: Float, outputWidth: GLint) -> Float? {
-        return IRGLProgram2DFisheye2PanoPolicy.normalizedOffsetX(currentOffset: currentOffset,
-                                                                 delta: delta,
-                                                                 outputWidth: outputWidth)
+        guard outputWidth > 0,
+              currentOffset.isFinite,
+              delta.isFinite else {
+            return nil
+        }
+
+        let width = Float(outputWidth)
+        let unwrappedOffset = currentOffset - delta
+        guard width.isFinite,
+              unwrappedOffset.isFinite else {
+            return nil
+        }
+
+        let remainder =
+            unwrappedOffset.truncatingRemainder(
+                dividingBy: width
+            )
+        guard remainder.isFinite else { return nil }
+        if remainder == 0, unwrappedOffset != 0 {
+            return unwrappedOffset.sign == .minus
+                ? -width
+                : width
+        }
+        return remainder
     }
 
     override func updateTextureWidth(_ w: Int, height h: Int) {
@@ -67,12 +96,26 @@ import Foundation
         if status.contains(.toMaxX) || status.contains(.toMinX) {
             guard let fish2Pano,
                   let transformController = tramsformController,
-                  transformController.getScope().w != 0,
-                  transformController.getScope().scaleX != 0 else {
+                  fish2Pano.outputWidth > 0 else {
                 return false
             }
-            let width = Float(fish2Pano.outputWidth) / Float(transformController.getScope().w)
-            let delta = willScrollX / transformController.getScope().scaleX * width
+            let scope = transformController.getScope()
+            guard scope.w > 0,
+                  scope.scaleX.isFinite,
+                  scope.scaleX > 0,
+                  willScrollX.isFinite else {
+                return false
+            }
+            let width =
+                Float(fish2Pano.outputWidth) /
+                Float(scope.w)
+            let delta =
+                willScrollX / scope.scaleX * width
+            guard width.isFinite,
+                  width > 0,
+                  delta.isFinite else {
+                return false
+            }
             guard let offsetX = Self.normalizedOffsetX(
                 currentOffset: fish2Pano.offsetX,
                 delta: delta,

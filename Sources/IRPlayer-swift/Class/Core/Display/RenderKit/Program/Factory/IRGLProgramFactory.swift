@@ -9,6 +9,154 @@ import Foundation
 
 @objcMembers public class IRGLProgramFactory: NSObject {
 
+    static func expandedScaleRange(
+        from range: IRGLScaleRange,
+        multiplier: Float
+    ) -> IRGLScaleRange? {
+        guard multiplier.isFinite,
+              multiplier >= 1,
+              range.minScaleX.isFinite,
+              range.minScaleY.isFinite,
+              range.maxScaleX.isFinite,
+              range.maxScaleY.isFinite,
+              range.defaultScaleX.isFinite,
+              range.defaultScaleY.isFinite,
+              range.minScaleX > 0,
+              range.minScaleY > 0,
+              range.maxScaleX >= range.minScaleX,
+              range.maxScaleY >= range.minScaleY,
+              range.defaultScaleX > 0,
+              range.defaultScaleY > 0 else {
+            return nil
+        }
+
+        let maxScaleX = range.maxScaleX * multiplier
+        let maxScaleY = range.maxScaleY * multiplier
+        guard maxScaleX.isFinite,
+              maxScaleY.isFinite else {
+            return nil
+        }
+        return IRGLScaleRange(
+            minScaleX: range.minScaleX,
+            minScaleY: range.minScaleY,
+            maxScaleX: maxScaleX,
+            maxScaleY: maxScaleY,
+            defaultScaleX: range.defaultScaleX,
+            defaultScaleY: range.defaultScaleY
+        )
+    }
+
+    static func fisheyeScopeRange(
+        from range: IRGLScopeRange,
+        latmax: Float
+    ) -> IRGLScopeRange? {
+        guard latmax.isFinite,
+              range.minLat.isFinite,
+              range.maxLat.isFinite,
+              range.minLng.isFinite,
+              range.maxLng.isFinite,
+              range.defaultLat.isFinite,
+              range.defaultLng.isFinite,
+              range.minLat <= range.maxLat,
+              range.minLng <= range.maxLng else {
+            return nil
+        }
+
+        let maxLat =
+            range.maxLat > 0
+            ? latmax
+            : latmax - 90
+        guard maxLat.isFinite,
+              maxLat >= range.minLat else {
+            return nil
+        }
+
+        let defaultLat: Float
+        if range.defaultLat > maxLat ||
+            range.defaultLat < range.minLat {
+            defaultLat = (maxLat + range.minLat) / 2
+        } else {
+            defaultLat = range.defaultLat
+        }
+        guard defaultLat.isFinite else { return nil }
+        return IRGLScopeRange(
+            minLat: range.minLat,
+            maxLat: maxLat,
+            minLng: range.minLng,
+            maxLng: range.maxLng,
+            defaultLat: defaultLat,
+            defaultLng: range.defaultLng
+        )
+    }
+
+    static func defaultFisheyeScope(
+        from range: IRGLScopeRange,
+        panelIndex: Int?
+    ) -> IRGLScopeRange? {
+        guard range.minLat.isFinite,
+              range.maxLat.isFinite,
+              range.minLng.isFinite,
+              range.maxLng.isFinite,
+              range.minLat <= range.maxLat,
+              range.minLng <= range.maxLng else {
+            return nil
+        }
+
+        let defaultLng: Float
+        switch panelIndex {
+        case 1:
+            defaultLng = 180
+        case 2:
+            defaultLng = 270
+        case 3:
+            defaultLng = 0
+        default:
+            defaultLng = 90
+        }
+        return IRGLScopeRange(
+            minLat: range.minLat,
+            maxLat: range.maxLat,
+            minLng: range.minLng,
+            maxLng: range.maxLng,
+            defaultLat:
+                min(max(-40, range.minLat), range.maxLat),
+            defaultLng: defaultLng
+        )
+    }
+
+    static func fisheyeParameter(
+        from parameter: IRMediaParameter?
+    ) -> IRFisheyeParameter? {
+        guard let parameter else {
+            return IRFisheyeParameter(
+                width: 0,
+                height: 0,
+                up: false,
+                rx: 0,
+                ry: 0,
+                cx: 0,
+                cy: 0,
+                latmax: 0
+            )
+        }
+        guard let parameter =
+                parameter as? IRFisheyeParameter,
+              parameter.width.isFinite,
+              parameter.height.isFinite,
+              parameter.rx.isFinite,
+              parameter.ry.isFinite,
+              parameter.cx.isFinite,
+              parameter.cy.isFinite,
+              parameter.latmax.isFinite,
+              parameter.width > 0,
+              parameter.height > 0,
+              parameter.rx > 0,
+              parameter.ry > 0 else {
+            return nil
+        }
+        return parameter
+    }
+
     public static func createIRGLProgram2D(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram2D {
         let program = IRGLProgram2D(pixelFormat: pixelFormat, viewportRange: viewportRange, parameter: parameter)
         if program.tramsformController == nil {
@@ -26,7 +174,13 @@ import Foundation
             program.tramsformController?.delegate = program
 
             let oldScaleRange = program.tramsformController?.scaleRange ?? IRGLScaleRange(minScaleX: 0, minScaleY: 0, maxScaleX: 0, maxScaleY: 0, defaultScaleX: 0, defaultScaleY: 0)
-            program.tramsformController?.scaleRange = IRGLProgramFactoryPolicy.expandedScaleRange(from: oldScaleRange, multiplier: 1.5)
+            if let expandedScaleRange = expandedScaleRange(
+                from: oldScaleRange,
+                multiplier: 1.5
+            ) {
+                program.tramsformController?.scaleRange =
+                    expandedScaleRange
+            }
         }
         program.mapProjection = IRGLProjectionOrthographic(textureWidth: 0, height: 0)
         return program
@@ -43,7 +197,9 @@ import Foundation
     }
 
     public static func createIRGLProgram3DFisheye(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgram3DFisheye? {
-        guard let fisheyeParameter = IRGLProgramFactoryPolicy.fisheyeParameter(from: parameter) else {
+        guard let fisheyeParameter = fisheyeParameter(
+            from: parameter
+        ) else {
             return nil
         }
 
@@ -53,8 +209,16 @@ import Foundation
             program.tramsformController?.delegate = program
 
             let oldScopeRange = program.tramsformController?.scopeRange ?? IRGLScopeRange(minLat: 0, maxLat: 0, minLng: 0, maxLng: 0, defaultLat: 0, defaultLng: 0)
-            let fisheyeScopeRange = IRGLProgramFactoryPolicy.fisheyeScopeRange(from: oldScopeRange, latmax: fisheyeParameter.latmax)
-            program.tramsformController?.scopeRange = IRGLProgramFactoryPolicy.defaultFisheyeScope(from: fisheyeScopeRange, panelIndex: nil)
+            if let fisheyeScopeRange = fisheyeScopeRange(
+                from: oldScopeRange,
+                latmax: fisheyeParameter.latmax
+            ), let defaultScope = defaultFisheyeScope(
+                from: fisheyeScopeRange,
+                panelIndex: nil
+            ) {
+                program.tramsformController?.scopeRange =
+                    defaultScope
+            }
         }
         program.mapProjection = IRGLProjectionEquirectangular(textureWidth: fisheyeParameter.width, height: fisheyeParameter.height, centerX: fisheyeParameter.cx, centerY: fisheyeParameter.cy, radius: fisheyeParameter.ry)
         return program
@@ -92,7 +256,9 @@ import Foundation
     }
 
     public static func createIRGLProgram3DFisheye4P(pixelFormat: IRPixelFormat, viewportRange: CGRect, parameter: IRMediaParameter?) -> IRGLProgramMulti4P? {
-        guard let fisheyeParameter = IRGLProgramFactoryPolicy.fisheyeParameter(from: parameter) else {
+        guard let fisheyeParameter = fisheyeParameter(
+            from: parameter
+        ) else {
             return nil
         }
 
@@ -117,12 +283,24 @@ import Foundation
                 program.tramsformController?.delegate = program
 
                 let oldScopeRange = program.tramsformController?.scopeRange ?? IRGLScopeRange(minLat: 0, maxLat: 0, minLng: 0, maxLng: 0, defaultLat: 0, defaultLng: 0)
-                program.tramsformController?.scopeRange = IRGLProgramFactoryPolicy.fisheyeScopeRange(from: oldScopeRange, latmax: fisheyeParameter.latmax)
+                if let scopeRange = fisheyeScopeRange(
+                    from: oldScopeRange,
+                    latmax: fisheyeParameter.latmax
+                ) {
+                    program.tramsformController?.scopeRange =
+                        scopeRange
+                }
             }
             program.mapProjection = mapProjection
 
             let scopeRange = program.tramsformController?.scopeRange ?? IRGLScopeRange(minLat: 0, maxLat: 0, minLng: 0, maxLng: 0, defaultLat: 0, defaultLng: 0)
-            program.tramsformController?.scopeRange = IRGLProgramFactoryPolicy.defaultFisheyeScope(from: scopeRange, panelIndex: index)
+            if let defaultScope = defaultFisheyeScope(
+                from: scopeRange,
+                panelIndex: index
+            ) {
+                program.tramsformController?.scopeRange =
+                    defaultScope
+            }
         }
 
         return program
@@ -143,7 +321,13 @@ import Foundation
             program.tramsformController?.delegate = program
 
             let oldScaleRange = program.tramsformController?.scaleRange ?? IRGLScaleRange(minScaleX: 0, minScaleY: 0, maxScaleX: 0, maxScaleY: 0, defaultScaleX: 0, defaultScaleY: 0)
-            program.tramsformController?.scaleRange = IRGLProgramFactoryPolicy.expandedScaleRange(from: oldScaleRange, multiplier: 1.5)
+            if let expandedScaleRange = expandedScaleRange(
+                from: oldScaleRange,
+                multiplier: 1.5
+            ) {
+                program.tramsformController?.scaleRange =
+                    expandedScaleRange
+            }
         }
         program.mapProjection = IRGLProjectionVR(textureWidth: 0, height: 0)
         return program
@@ -164,7 +348,13 @@ import Foundation
             program.tramsformController?.delegate = program
 
             let oldScaleRange = program.tramsformController?.scaleRange ?? IRGLScaleRange(minScaleX: 0, minScaleY: 0, maxScaleX: 0, maxScaleY: 0, defaultScaleX: 0, defaultScaleY: 0)
-            program.tramsformController?.scaleRange = IRGLProgramFactoryPolicy.expandedScaleRange(from: oldScaleRange, multiplier: 1.5)
+            if let expandedScaleRange = expandedScaleRange(
+                from: oldScaleRange,
+                multiplier: 1.5
+            ) {
+                program.tramsformController?.scaleRange =
+                    expandedScaleRange
+            }
         }
         program.mapProjection = IRGLProjectionVR(textureWidth: 0, height: 0)
         return program

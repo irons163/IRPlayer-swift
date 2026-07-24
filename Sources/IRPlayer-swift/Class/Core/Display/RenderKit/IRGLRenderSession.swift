@@ -447,21 +447,29 @@ final class IRGLRenderSession: @unchecked Sendable {
         }
         let scope = controller.getScope()
         guard scope.w > 0,
-              scope.scaleX != 0,
-              params.outputWidth > 0 else {
+              scope.scaleX.isFinite,
+              scope.scaleX > 0,
+              dx.isFinite,
+              params.outputWidth > 0,
+              params.offsetX.isFinite else {
             return
         }
 
         let outputWidth = Float(params.outputWidth)
         let widthScale = outputWidth / Float(scope.w)
-        params.offsetX -= dx / scope.scaleX * widthScale
-        while params.offsetX > outputWidth
-                || params.offsetX < -outputWidth {
-            if params.offsetX > outputWidth {
-                params.offsetX -= outputWidth
-            } else {
-                params.offsetX += outputWidth
-            }
+        let delta = dx / scope.scaleX * widthScale
+        guard outputWidth.isFinite,
+              widthScale.isFinite,
+              widthScale > 0,
+              delta.isFinite,
+              let offsetX =
+                IRGLProgram2DFisheye2Pano.normalizedOffsetX(
+                    currentOffset: params.offsetX,
+                    delta: delta,
+                    outputWidth: params.outputWidth
+                ) else {
+            return
         }
+        params.offsetX = offsetX
     }
 }

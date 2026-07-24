@@ -42,35 +42,68 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         )
     }
 
-    func testStaticPolicyWrappersRemainSourceCompatible() {
-        let params = IRGLFish2PanoShaderParams()
-        params.textureWidth = 1920
-        params.textureHeight = 960
-
-        XCTAssertEqual(
-            IRGLProgram2DFisheye2Pano.textureSize(from: params)?.width,
-            IRGLProgram2DFisheye2PanoPolicy.textureSize(from: params)?.width
-        )
-        XCTAssertEqual(
-            IRGLProgram2DFisheye2Pano.textureSize(from: params)?.height,
-            IRGLProgram2DFisheye2PanoPolicy.textureSize(from: params)?.height
-        )
-        XCTAssertEqual(
-            IRGLProgram2DFisheye2Pano.normalizedOffsetX(currentOffset: 0, delta: 260, outputWidth: 100),
-            IRGLProgram2DFisheye2PanoPolicy.normalizedOffsetX(currentOffset: 0, delta: 260, outputWidth: 100)
-        )
-    }
-
     func testTextureSizeRejectsMissingParamsAndReturnsExistingDimensions() {
         XCTAssertNil(IRGLProgram2DFisheye2Pano.textureSize(from: nil))
 
         let params = IRGLFish2PanoShaderParams()
+        params.textureWidth = 0
+        params.textureHeight = 960
+        XCTAssertNil(IRGLProgram2DFisheye2Pano.textureSize(from: params))
+
         params.textureWidth = 1920
         params.textureHeight = 960
 
         let size = IRGLProgram2DFisheye2Pano.textureSize(from: params)
         XCTAssertEqual(size?.width, 1920)
         XCTAssertEqual(size?.height, 960)
+    }
+
+    func testOffsetNormalizationPreservesSignedExactWidthBoundary() {
+        XCTAssertEqual(
+            IRGLProgram2DFisheye2Pano.normalizedOffsetX(
+                currentOffset: 0,
+                delta: 100,
+                outputWidth: 100
+            ),
+            -100
+        )
+        XCTAssertEqual(
+            IRGLProgram2DFisheye2Pano.normalizedOffsetX(
+                currentOffset: 0,
+                delta: -100,
+                outputWidth: 100
+            ),
+            100
+        )
+    }
+
+    func testOffsetNormalizationHandlesHugeFiniteInputInConstantWork() {
+        let offset = IRGLProgram2DFisheye2Pano.normalizedOffsetX(
+            currentOffset: .greatestFiniteMagnitude,
+            delta: 0,
+            outputWidth: 100
+        )
+
+        XCTAssertNotNil(offset)
+        XCTAssertTrue(offset?.isFinite == true)
+        XCTAssertLessThanOrEqual(abs(offset ?? .infinity), 100)
+    }
+
+    func testOffsetNormalizationRejectsInvalidAndDerivedOverflow() {
+        XCTAssertNil(
+            IRGLProgram2DFisheye2Pano.normalizedOffsetX(
+                currentOffset: 0,
+                delta: 1,
+                outputWidth: 0
+            )
+        )
+        XCTAssertNil(
+            IRGLProgram2DFisheye2Pano.normalizedOffsetX(
+                currentOffset: .greatestFiniteMagnitude,
+                delta: -.greatestFiniteMagnitude,
+                outputWidth: 100
+            )
+        )
     }
 
     func testProgramInitializesAndUpdatesFish2PanoShaderParams() throws {

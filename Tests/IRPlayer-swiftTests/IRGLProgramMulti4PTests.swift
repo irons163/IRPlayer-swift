@@ -11,41 +11,7 @@ import XCTest
 
 final class IRGLProgramMulti4PTests: XCTestCase {
 
-    func testStaticPolicyWrappersRemainSourceCompatible() {
-        let viewportRange = CGRect(x: 0, y: 0, width: 400, height: 200)
-
-        XCTAssertEqual(
-            IRGLProgramMulti4P.viewportRanges(
-                in: viewportRange,
-                displayMode: .multiDisplay,
-                programCount: 4,
-                selectedIndex: nil
-            ),
-            IRGLProgramMulti4PPolicy.viewportRanges(
-                in: viewportRange,
-                displayMode: .multiDisplay,
-                programCount: 4,
-                selectedIndex: nil
-            )
-        )
-
-        XCTAssertEqual(
-            IRGLProgramMulti4P.viewportRanges(
-                in: viewportRange,
-                displayMode: .singleDisplay,
-                programCount: 4,
-                selectedIndex: 2
-            ),
-            IRGLProgramMulti4PPolicy.viewportRanges(
-                in: viewportRange,
-                displayMode: .singleDisplay,
-                programCount: 4,
-                selectedIndex: 2
-            )
-        )
-    }
-
-    func testViewportRangesPolicySplitsMultiDisplayIntoQuadrants() {
+    func testViewportRangesSplitMultiDisplayIntoQuadrants() {
         let ranges = IRGLProgramMulti4P.viewportRanges(
             in: CGRect(x: 0, y: 0, width: 400, height: 200),
             displayMode: .multiDisplay,
@@ -56,7 +22,7 @@ final class IRGLProgramMulti4PTests: XCTestCase {
         XCTAssertEqual(ranges, expectedQuadrants())
     }
 
-    func testViewportRangesPolicyShowsOnlySelectedProgramInSingleDisplay() {
+    func testViewportRangesShowOnlySelectedProgramInSingleDisplay() {
         let ranges = IRGLProgramMulti4P.viewportRanges(
             in: CGRect(x: 0, y: 0, width: 400, height: 200),
             displayMode: .singleDisplay,
@@ -72,7 +38,7 @@ final class IRGLProgramMulti4PTests: XCTestCase {
         ])
     }
 
-    func testViewportRangesPolicyHidesAllProgramsForMissingSingleSelection() {
+    func testViewportRangesHideAllProgramsForMissingSingleSelection() {
         let ranges = IRGLProgramMulti4P.viewportRanges(
             in: CGRect(x: 0, y: 0, width: 400, height: 200),
             displayMode: .singleDisplay,
@@ -81,6 +47,66 @@ final class IRGLProgramMulti4PTests: XCTestCase {
         )
 
         XCTAssertEqual(ranges, [.zero, .zero, .zero, .zero])
+    }
+
+    func testViewportRangesPreserveParentOrigin() {
+        let ranges = IRGLProgramMulti4P.viewportRanges(
+            in: CGRect(x: 10, y: 20, width: 400, height: 200),
+            displayMode: .multiDisplay,
+            programCount: 4,
+            selectedIndex: nil
+        )
+
+        XCTAssertEqual(ranges, [
+            CGRect(x: 10, y: 20, width: 200, height: 100),
+            CGRect(x: 210, y: 20, width: 200, height: 100),
+            CGRect(x: 10, y: 120, width: 200, height: 100),
+            CGRect(x: 210, y: 120, width: 200, height: 100)
+        ])
+    }
+
+    func testViewportRangesRejectMalformedGeometryAndEmptyPrograms() {
+        XCTAssertEqual(
+            IRGLProgramMulti4P.viewportRanges(
+                in: CGRect(x: CGFloat.nan, y: 0, width: 400, height: 200),
+                displayMode: .multiDisplay,
+                programCount: 4,
+                selectedIndex: nil
+            ),
+            []
+        )
+        XCTAssertEqual(
+            IRGLProgramMulti4P.viewportRanges(
+                in: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 400,
+                    height: CGFloat.infinity
+                ),
+                displayMode: .multiDisplay,
+                programCount: 4,
+                selectedIndex: nil
+            ),
+            []
+        )
+        XCTAssertEqual(
+            IRGLProgramMulti4P.viewportRanges(
+                in: CGRect(x: 0, y: 0, width: 400, height: 200),
+                displayMode: .multiDisplay,
+                programCount: 0,
+                selectedIndex: nil
+            ),
+            []
+        )
+        XCTAssertEqual(
+            IRGLProgramMulti4P.viewportRanges(
+                in: CGRect(x: 0, y: 0, width: 400, height: 200),
+                displayMode: .multiDisplay,
+                programCount: 5,
+                selectedIndex: nil
+            ),
+            []
+        )
     }
 
     func testTouchSelectsProgramInMatchingQuadrant() {

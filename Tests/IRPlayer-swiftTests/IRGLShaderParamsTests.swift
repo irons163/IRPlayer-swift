@@ -3,12 +3,33 @@ import XCTest
 
 final class IRGLShaderParamsTests: XCTestCase {
 
-    func testStaticPolicyWrappersRemainSourceCompatible() {
-        XCTAssertEqual(IRGLShaderParams.boundedGLint(from: 42), IRGLShaderParamsPolicy.boundedGLint(from: 42))
-        XCTAssertEqual(IRGLShaderParams.boundedGLint(from: Double(GLint.max)), IRGLShaderParamsPolicy.boundedGLint(from: Double(GLint.max)))
-        XCTAssertEqual(IRGLShaderParams.boundedGLint(from: Double(GLint.min)), IRGLShaderParamsPolicy.boundedGLint(from: Double(GLint.min)))
+    func testBoundedGLintAcceptsExactBoundsAndTruncatesFractions() {
+        XCTAssertEqual(IRGLShaderParams.boundedGLint(from: 42), 42)
+        XCTAssertEqual(
+            IRGLShaderParams.boundedGLint(from: Double(GLint.max)),
+            GLint.max
+        )
+        XCTAssertEqual(
+            IRGLShaderParams.boundedGLint(from: Double(GLint.min)),
+            GLint.min
+        )
+        XCTAssertEqual(IRGLShaderParams.boundedGLint(from: 42.9), 42)
+        XCTAssertEqual(IRGLShaderParams.boundedGLint(from: -42.9), -42)
+    }
+
+    func testBoundedGLintRejectsNonFiniteAndOutOfRangeValues() {
         XCTAssertNil(IRGLShaderParams.boundedGLint(from: .nan))
-        XCTAssertNil(IRGLShaderParamsPolicy.boundedGLint(from: .nan))
+        XCTAssertNil(IRGLShaderParams.boundedGLint(from: .infinity))
+        XCTAssertNil(
+            IRGLShaderParams.boundedGLint(
+                from: Double(GLint.max) + 1
+            )
+        )
+        XCTAssertNil(
+            IRGLShaderParams.boundedGLint(
+                from: Double(GLint.min) - 1
+            )
+        )
     }
 
     func testDefaultDimensionsAreZero() {

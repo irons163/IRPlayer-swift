@@ -1128,6 +1128,56 @@ final class IRGLRenderSessionTests: XCTestCase {
             0
         )
     }
+
+    func testPanoScrollNormalizesHugeFiniteOffsetInConstantWork()
+        throws
+    {
+        let mode = IRGLRenderMode2DFisheye2Pano()
+        let session = IRGLRenderSession(
+            surfaceDependencies: unavailableSurface
+        )
+        _ = session.prepare(
+            surfaceInput: makeInput(),
+            pixelFormat: .RGB_IRPixelFormat,
+            replacingModes: [mode]
+        )
+        let program = try XCTUnwrap(
+            mode.program as? IRGLProgram2DFisheye2Pano
+        )
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+        params.outputWidth = 100
+        params.offsetX = 0
+
+        session.scroll(
+            dx: .greatestFiniteMagnitude,
+            dy: 0
+        )
+
+        XCTAssertTrue(params.offsetX.isFinite)
+        XCTAssertLessThanOrEqual(abs(params.offsetX), 100)
+    }
+
+    func testPanoScrollRejectsNonFiniteOffsetUpdate() throws {
+        let mode = IRGLRenderMode2DFisheye2Pano()
+        let session = IRGLRenderSession(
+            surfaceDependencies: unavailableSurface
+        )
+        _ = session.prepare(
+            surfaceInput: makeInput(),
+            pixelFormat: .RGB_IRPixelFormat,
+            replacingModes: [mode]
+        )
+        let program = try XCTUnwrap(
+            mode.program as? IRGLProgram2DFisheye2Pano
+        )
+        let params = try XCTUnwrap(program.metalFish2PanoParams)
+        params.outputWidth = 100
+        params.offsetX = 25
+
+        session.scroll(dx: .nan, dy: 0)
+
+        XCTAssertEqual(params.offsetX, 25)
+    }
 }
 
 final class IRGLViewRuntimeOwnerTests: XCTestCase {

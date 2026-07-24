@@ -72,37 +72,36 @@ protocol IRGLRenderModeDelegate: AnyObject {
 
 public class IRGLRenderMode: NSObject {
 
+    private enum ConfigurationChange: Equatable {
+        case defaultScale
+        case contentMode
+        case scaleRange
+        case scopeRange
+    }
+
     weak var delegate: IRGLRenderModeDelegate?
     public var shiftController: IRePTZShiftController
-    public var wideDegreeX: Float = 0.0 {
-        didSet {
-            configurationKeySequence.append(IRGLRenderModeConfigurationKey.setWideDegreeX.rawValue)
-        }
-    }
-    public var wideDegreeY: Float = 0.0 {
-        didSet {
-            configurationKeySequence.append(IRGLRenderModeConfigurationKey.setWideDegreeY.rawValue)
-        }
-    }
+    public var wideDegreeX: Float = 0.0
+    public var wideDegreeY: Float = 0.0
     var defaultScale: Float = 1.0 {
         didSet {
-            configurationKeySequence.append(IRGLRenderModeConfigurationKey.setDefaultScale.rawValue)
+            record(.defaultScale)
         }
     }
     public var aspect: Float = 0.0
     var scaleRange: IRGLScaleRange? {
         didSet {
-            configurationKeySequence.append(IRGLRenderModeConfigurationKey.setScaleRange.rawValue)
+            record(.scaleRange)
         }
     }
     var scopeRange: IRGLScopeRange? {
         didSet {
-            configurationKeySequence.append(IRGLRenderModeConfigurationKey.setScopeRange.rawValue)
+            record(.scopeRange)
         }
     }
     public var contentMode: IRGLRenderContentMode = .scaleAspectFit {
         didSet {
-            configurationKeySequence.append(IRGLRenderModeConfigurationKey.setContentMode.rawValue)
+            record(.contentMode)
         }
     }
     public var parameter: IRMediaParameter?
@@ -112,51 +111,41 @@ public class IRGLRenderMode: NSObject {
     public var programFactory: IRGLProgram2DFactory {
         return IRGLProgram2DFactory()
     }
-    private var configurationKeySequence: [String] = []
+    private var configurationChanges: [ConfigurationChange] = []
 
     public override init() {
         shiftController = IRePTZShiftController()
         name = ""
         defaultScale = 1.0
-        configurationKeySequence = []
+        configurationChanges = []
     }
 
     func setting() {
         guard program != nil else { return }
-        for key in configurationKeySequence {
-            settingConfig(key)
+        for change in configurationChanges {
+            apply(change)
         }
     }
 
-    private func settingConfig(_ key: String) {
-        switch IRGLRenderModeSettingPolicy.action(for: key) {
+    private func record(_ change: ConfigurationChange) {
+        configurationChanges.removeAll { $0 == change }
+        configurationChanges.append(change)
+    }
+
+    private func apply(_ change: ConfigurationChange) {
+        switch change {
         case .defaultScale:
             program?.setDefaultScale(defaultScale)
-        case .wideDegreeX:
-            break
-        case .wideDegreeY:
-            break
         case .contentMode:
             program?.contentMode = contentMode
         case .scaleRange:
             program?.tramsformController?.scaleRange = scaleRange
         case .scopeRange:
             program?.tramsformController?.scopeRange = scopeRange
-        case .none:
-            break
         }
     }
 
     func update() {
         // Implement update logic here
     }
-}
-
-enum IRGLRenderModeConfigurationKey: String, Hashable, Equatable, Sendable, RawRepresentable {
-    case setDefaultScale = "setDefaultScale"
-    case setWideDegreeX = "setWideDegreeX"
-    case setWideDegreeY = "setWideDegreeY"
-    case setContentMode = "setContentMode"
-    case setScaleRange = "setScaleRange"
-    case setScopeRange = "setScopeRange"
 }

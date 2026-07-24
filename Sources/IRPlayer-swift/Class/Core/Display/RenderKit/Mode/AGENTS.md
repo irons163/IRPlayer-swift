@@ -19,5 +19,8 @@ Render mode definitions that configure the rendering strategy.
 
 - Each mode maps to a specific `IRGLProgram` and `IRGLProgramFactory`.
 - Modes are set via `IRPlayerImp.renderModes` property.
-- `IRGLRenderModeFactory` provides default mode configurations.
+- `IRGLRenderModeFactory` directly owns default mode construction and ordering.
+- `IRGLRenderMode` queues typed configuration changes; keep metadata-only
+  values out of the program mutation queue.
+- Do not introduce string-key dispatch or separate mode policy/plan layers.
 - Tests: `IRGLRenderModeBuildTests.swift`, `IRGLRenderModeFactoryTests.swift`.

@@ -74,6 +74,10 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRGLProgramDistortionTests.swift` — Distortion program
 - `IRGLProgramMulti4PTests.swift` — Multi-4P program
 - `IRGLProgramFactoryTests.swift` — Program factory
+- `IRGLTransform2DSemanticsTests.swift` — 2D transform owner decisions,
+  overflow rejection, and resize clamping
+- `IRGLFisheyeTransformSemanticsTests.swift` — Fisheye transform owner
+  decisions and constant-work angle normalization
 - `IRGLFish2PanoPixelMapGenerationTests.swift` — Immutable managed lookup maps and scoped bytes
 - `IRGLProjectionVRTests.swift` — Immutable shared VR mesh and concurrency
 - `IRGLProjectionEquirectangularTests.swift` — Mesh validation, geometry generations, snapshots, and concurrency
@@ -126,4 +130,5 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift \
 - Tests use the `IRPlayer_swift` module dependency.
 - Some decoder integration tests use generated or bundled media fixtures.
 - When adding new source files, add a corresponding test file following the naming convention: `<ClassName>Tests.swift`.
+- Test owner semantics directly; do not add wrapper-versus-policy mirror tests.
 - Run relevant tests first, then broader tests if impact is cross-cutting.

@@ -22,6 +22,17 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
 
 @objcMembers public class IRGLProgram2D: NSObject, IRGLTransformControllerDelegate {
 
+    struct ViewportSize: Equatable {
+        let width: Int
+        let height: Int
+    }
+
+    struct OutputScaleDecision: Equatable {
+        let scaleX: Float
+        let scaleY: Float
+        let shouldUpdateToDefault: Bool
+    }
+
     var pixelFormat: IRPixelFormat
     var shaderParams2D: IRGLShaderParams?
 
@@ -53,12 +64,40 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
         self.shouldUpdateToDefaultWhenOutputSizeChanged = true
     }
 
-    static func viewportSize(from viewportRange: CGRect) -> (width: Int, height: Int)? {
-        return IRGLProgram2DPolicy.viewportSize(from: viewportRange)
+    static func viewportSize(from viewportRange: CGRect) -> ViewportSize? {
+        let width = viewportRange.width
+        let height = viewportRange.height
+        guard width.isFinite,
+              height.isFinite,
+              width >= 0,
+              height >= 0,
+              width <= CGFloat(Int.max),
+              height <= CGFloat(Int.max) else {
+            return nil
+        }
+        return ViewportSize(
+            width: Int(width),
+            height: Int(height)
+        )
     }
 
     static func scrollToBounds(for status: IRGLTransformController.ScrollStatus) -> IRGLTransformController.ScrollToBounds {
-        return IRGLProgram2DPolicy.scrollToBounds(for: status)
+        let reachedHorizontal =
+            status.contains(.toMaxX) ||
+            status.contains(.toMinX)
+        let reachedVertical =
+            status.contains(.toMaxY) ||
+            status.contains(.toMinY)
+        switch (reachedHorizontal, reachedVertical) {
+        case (true, true):
+            return .both
+        case (true, false):
+            return .horizontal
+        case (false, true):
+            return .vertical
+        case (false, false):
+            return .none
+        }
     }
 
     static func outputScaleDecision(
@@ -68,14 +107,70 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
         viewportHeight: Int,
         contentMode: IRGLRenderContentMode,
         shouldUpdateToDefaultWhenOutputSizeChanged: Bool
-    ) -> (scaleX: Float, scaleY: Float, shouldUpdateToDefault: Bool)? {
-        return IRGLProgram2DPolicy.outputScaleDecision(
-            outputWidth: outputWidth,
-            outputHeight: outputHeight,
-            viewportWidth: viewportWidth,
-            viewportHeight: viewportHeight,
-            contentMode: contentMode,
-            shouldUpdateToDefaultWhenOutputSizeChanged: shouldUpdateToDefaultWhenOutputSizeChanged
+    ) -> OutputScaleDecision? {
+        guard outputWidth > 0,
+              outputHeight > 0,
+              viewportWidth > 0,
+              viewportHeight > 0 else {
+            return nil
+        }
+
+        let width = Double(outputWidth)
+        let height = Double(outputHeight)
+        let viewportWidth = Double(viewportWidth)
+        let viewportHeight = Double(viewportHeight)
+        let heightRatio = viewportHeight / height
+        let widthRatio = viewportWidth / width
+        guard heightRatio.isFinite,
+              widthRatio.isFinite,
+              heightRatio > 0,
+              widthRatio > 0 else {
+            return nil
+        }
+
+        let scaleRatio: Double
+        switch contentMode {
+        case .scaleAspectFit:
+            scaleRatio = min(heightRatio, widthRatio)
+        case .scaleAspectFill:
+            scaleRatio = max(heightRatio, widthRatio)
+        case .scaleToFill:
+            return nil
+        @unknown default:
+            return nil
+        }
+        guard scaleRatio.isFinite, scaleRatio > 0 else {
+            return nil
+        }
+
+        let scaleXValue =
+            width * scaleRatio / viewportWidth
+        let scaleYValue =
+            height * scaleRatio / viewportHeight
+        guard scaleXValue.isFinite,
+              scaleYValue.isFinite,
+              scaleXValue > 0,
+              scaleYValue > 0,
+              scaleXValue <= Double(Float.greatestFiniteMagnitude),
+              scaleYValue <= Double(Float.greatestFiniteMagnitude) else {
+            return nil
+        }
+
+        let scaleX = Float(scaleXValue)
+        let scaleY = Float(scaleYValue)
+        guard scaleX.isFinite,
+              scaleY.isFinite,
+              scaleX > 0,
+              scaleY > 0 else {
+            return nil
+        }
+
+        return OutputScaleDecision(
+            scaleX: scaleX,
+            scaleY: scaleY,
+            shouldUpdateToDefault:
+                (heightRatio != 1 || widthRatio != 1) &&
+                shouldUpdateToDefaultWhenOutputSizeChanged
         )
     }
 
@@ -137,19 +232,55 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
 
     func calculateViewport() -> CGRect {
         guard let transformController = transformController else { return .zero }
-        let vw = Float(transformController.getScope().w)
-        let vh = Float(transformController.getScope().h)
+        let scope = transformController.getScope()
+        let vw = Float(scope.w)
+        let vh = Float(scope.h)
+        guard vw.isFinite,
+              vh.isFinite,
+              vw >= 0,
+              vh >= 0,
+              scope.scaleX.isFinite,
+              scope.scaleY.isFinite,
+              scope.scaleX > 0,
+              scope.scaleY > 0,
+              viewprotRange.origin.x.isFinite,
+              viewprotRange.origin.y.isFinite,
+              viewprotRange.width.isFinite,
+              viewprotRange.height.isFinite,
+              viewprotRange.width >= 0,
+              viewprotRange.height >= 0 else {
+            return .zero
+        }
 
-        let w = vw * transformController.getScope().scaleX
-        let newX = (-1 * (vw - w)) / 2
-        let viewportX = transformController.getScope().scaleX < 1.0 ? newX : 0
-        let newY = -1 * (vh - vh * transformController.getScope().scaleY) / 2
-        let viewportY = transformController.getScope().scaleY < 1.0 ? newY : 0
+        let scaledWidth = vw * scope.scaleX
+        let scaledHeight = vh * scope.scaleY
+        guard scaledWidth.isFinite,
+              scaledHeight.isFinite else {
+            return .zero
+        }
 
-        return CGRect(x: viewprotRange.origin.x + CGFloat(viewportX),
-                      y: viewprotRange.origin.y + CGFloat(viewportY),
-                      width: viewprotRange.width,
-                      height: viewprotRange.height)
+        let viewportX =
+            scope.scaleX < 1
+            ? -(vw - scaledWidth) / 2
+            : 0
+        let viewportY =
+            scope.scaleY < 1
+            ? -(vh - scaledHeight) / 2
+            : 0
+        guard viewportX.isFinite,
+              viewportY.isFinite else {
+            return .zero
+        }
+
+        let x = viewprotRange.origin.x + CGFloat(viewportX)
+        let y = viewprotRange.origin.y + CGFloat(viewportY)
+        guard x.isFinite, y.isFinite else { return .zero }
+        return CGRect(
+            x: x,
+            y: y,
+            width: viewprotRange.width,
+            height: viewprotRange.height
+        )
     }
 
     public func didPanBydx(_ dx: Float, dy: Float) {

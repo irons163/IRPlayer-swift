@@ -15,6 +15,10 @@ Shader parameter containers for fisheye and perspective corrections.
 
 - These params are passed as uniforms to the Metal shader via the program.
 - Fish2Pano and Fish2Persp params depend on `IRFisheyeParameter` from `Config/`.
+- Parameter owners define their own defaults and checked integer conversion;
+  do not mirror those semantics in separate policy types.
+- Reject non-finite or out-of-range numeric values before narrowing to shader
+  integer types or notifying delegates.
 - Fish2pano lookup bytes must remain inside
   `IRGLFish2PanoPixelMapGeneration` and may be read only through its scoped
   immutable buffer operation. Do not reintroduce pointer consume/release
