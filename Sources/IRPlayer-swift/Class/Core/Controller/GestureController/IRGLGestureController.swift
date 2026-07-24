@@ -82,8 +82,16 @@ class IRGLGestureController: IRGestureController {
         case .endWithDeceleration:
             isTouchedInProgram = false
             let velocity = gr.velocity(in: targetView)
-            smoothScroll?.calculateSmoothScroll(velocity: velocity)
-            delegate?.glViewDidEndDragging(targetGLView, willDecelerate: velocity == .zero)
+            let willDecelerate =
+                smoothScroll?
+                    .calculateSmoothScroll(
+                        velocity: velocity
+                    )
+                ?? false
+            delegate?.glViewDidEndDragging(
+                targetGLView,
+                willDecelerate: willDecelerate
+            )
 
         case .begin:
             let touchedPoint = gr.location(in: targetView)

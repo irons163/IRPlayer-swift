@@ -326,8 +326,7 @@ final class IRPlayerPresentationSession:
             resources.1?.singleTapped = nil
             resources.1?.delegate = nil
             resources.1?.smoothScroll = nil
-            resources.2?.delegate = nil
-            resources.2?.resetSmoothScroll()
+            _ = resources.2?.close()
         }
         return true
     }
@@ -356,7 +355,9 @@ final class IRPlayerPresentationSession:
         }
     }
 
-    func glViewDidEndDecelerating(_ glView: IRGLView?) {}
+    func glViewDidEndDecelerating(_ glView: IRGLView?) {
+        _ = currentMotionController?.resetUnit()
+    }
 
     func glViewDidScroll(toBounds glView: IRGLView?) {}
 

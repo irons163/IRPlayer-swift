@@ -119,6 +119,53 @@ final class IRPlayerPresentationSessionTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(motion.stopCount, 1)
     }
 
+    func testCloseTerminatesSmoothScrollDisplayLinkOwner()
+        throws
+    {
+        let motion = PresentationMotionProbe()
+        var retainedScroll:
+            IRSmoothScrollController?
+        let session = IRPlayerPresentationSession(
+            dependencies:
+                IRPlayerPresentationDependencies(
+                    displayFactory: {
+                        IRGLView(
+                            frame: .zero,
+                            player: $0
+                        )
+                    },
+                    gestureFactory: {
+                        IRGLGestureController()
+                    },
+                    scrollFactory: {
+                        let scroll =
+                            IRSmoothScrollController(
+                                targetView: $0
+                            )
+                        retainedScroll = scroll
+                        return scroll
+                    },
+                    motionFactory: { motion }
+                )
+        )
+        let scroll = try XCTUnwrap(retainedScroll)
+        XCTAssertEqual(
+            scroll.diagnostics.displayLink.phase,
+            .idle
+        )
+
+        XCTAssertTrue(session.close())
+
+        XCTAssertTrue(scroll.diagnostics.isClosed)
+        XCTAssertEqual(
+            scroll.diagnostics.displayLink.phase,
+            .closed
+        )
+        XCTAssertFalse(
+            scroll.diagnostics.isDisplayLinkInstalled
+        )
+    }
+
     func testZoomAndDragLifecycleRestartOwnedMotion() {
         let (session, motion) = makePresentationSession()
         session.apply(videoType: .vr, displayMode: .box)
@@ -134,12 +181,15 @@ final class IRPlayerPresentationSessionTests: XCTestCase {
             session.displayView,
             willDecelerate: true
         )
+        session.glViewDidEndDecelerating(
+            session.displayView
+        )
         session.glViewDidEndDragging(
             session.displayView,
             willDecelerate: false
         )
 
-        XCTAssertEqual(motion.resetCount, 3)
+        XCTAssertEqual(motion.resetCount, 4)
         XCTAssertEqual(motion.stopCount, 2)
     }
 

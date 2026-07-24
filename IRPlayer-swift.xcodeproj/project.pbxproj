@@ -61,7 +61,8 @@
 		B5E94ED52D0B21F800149265 /* IRGLProgram2DFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DA72D0B21F800149265 /* IRGLProgram2DFactory.swift */; };
 		B5E94ED72D0B21F800149265 /* IRGLRenderMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D8E2D0B21F800149265 /* IRGLRenderMode.swift */; };
 		B5E94ED82D0B21F800149265 /* IRSmoothScrollController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D7B2D0B21F800149265 /* IRSmoothScrollController.swift */; };
-		B5E952632F6903000149265 /* IRSmoothScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952622F6903000149265 /* IRSmoothScrollPolicy.swift */; };
+		B5E97E012F8801000149265 /* IRSmoothScrollDisplayLinkDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97E002F8801000149265 /* IRSmoothScrollDisplayLinkDriver.swift */; };
+		B5E97E032F8801010149265 /* IRSmoothScrollSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97E022F8801010149265 /* IRSmoothScrollSession.swift */; };
 		B5E94EDB2D0B21F800149265 /* IRGLProgramDistortion.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DA52D0B21F800149265 /* IRGLProgramDistortion.swift */; };
 		B5E94EDC2D0B21F800149265 /* IRAudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D6B2D0B21F800149265 /* IRAudioManager.swift */; };
 		B5E952772F6903A00149265 /* IRAudioGraphSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952762F6903A00149265 /* IRAudioGraphSession.swift */; };
@@ -279,7 +280,9 @@
 		B5E97C032F8700010149265 /* IRGLFish2PanoPixelMapGenerationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97C022F8700010149265 /* IRGLFish2PanoPixelMapGenerationTests.swift */; };
 		B5E950272F68A01400149265 /* IRGLGestureControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950262F68A01400149265 /* IRGLGestureControllerTests.swift */; };
 		B5E951E12F6900400149265 /* IRGesturePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951E02F6900400149265 /* IRGesturePolicyTests.swift */; };
-		B5E951E32F6900410149265 /* IRSmoothScrollPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951E22F6900410149265 /* IRSmoothScrollPolicyTests.swift */; };
+		B5E951E32F6900410149265 /* IRSmoothScrollControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951E22F6900410149265 /* IRSmoothScrollControllerTests.swift */; };
+		B5E97E052F8801020149265 /* IRSmoothScrollDisplayLinkDriverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97E042F8801020149265 /* IRSmoothScrollDisplayLinkDriverTests.swift */; };
+		B5E97E072F8801030149265 /* IRSmoothScrollSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97E062F8801030149265 /* IRSmoothScrollSessionTests.swift */; };
 		B5E951E52F6900420149265 /* IRBounceControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E951E42F6900420149265 /* IRBounceControllerTests.swift */; };
 		B5E950292F68A01500149265 /* IRGLViewSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950282F68A01500149265 /* IRGLViewSnapshotTests.swift */; };
 		B5E960032F7107010149265 /* IRGLViewRenderStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E960022F7107010149265 /* IRGLViewRenderStateTests.swift */; };
@@ -405,7 +408,8 @@
 		B5E94D792D0B21F800149265 /* IRGLGestureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLGestureController.swift; sourceTree = "<group>"; };
 		B5E952602F6902F00149265 /* IRGLGesturePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLGesturePolicy.swift; sourceTree = "<group>"; };
 		B5E94D7B2D0B21F800149265 /* IRSmoothScrollController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSmoothScrollController.swift; sourceTree = "<group>"; };
-		B5E952622F6903000149265 /* IRSmoothScrollPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSmoothScrollPolicy.swift; sourceTree = "<group>"; };
+		B5E97E002F8801000149265 /* IRSmoothScrollDisplayLinkDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSmoothScrollDisplayLinkDriver.swift; sourceTree = "<group>"; };
+		B5E97E022F8801010149265 /* IRSmoothScrollSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSmoothScrollSession.swift; sourceTree = "<group>"; };
 		B5E94D8E2D0B21F800149265 /* IRGLRenderMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderMode.swift; sourceTree = "<group>"; };
 		B5E9525C2F6902D00149265 /* IRGLRenderModeSettingPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderModeSettingPolicy.swift; sourceTree = "<group>"; };
 		B5E94D8F2D0B21F800149265 /* IRGLRenderMode2D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderMode2D.swift; sourceTree = "<group>"; };
@@ -612,7 +616,9 @@
 		B5E97C022F8700010149265 /* IRGLFish2PanoPixelMapGenerationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLFish2PanoPixelMapGenerationTests.swift; sourceTree = "<group>"; };
 		B5E950262F68A01400149265 /* IRGLGestureControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLGestureControllerTests.swift; sourceTree = "<group>"; };
 		B5E951E02F6900400149265 /* IRGesturePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGesturePolicyTests.swift; sourceTree = "<group>"; };
-		B5E951E22F6900410149265 /* IRSmoothScrollPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSmoothScrollPolicyTests.swift; sourceTree = "<group>"; };
+		B5E951E22F6900410149265 /* IRSmoothScrollControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSmoothScrollControllerTests.swift; sourceTree = "<group>"; };
+		B5E97E042F8801020149265 /* IRSmoothScrollDisplayLinkDriverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSmoothScrollDisplayLinkDriverTests.swift; sourceTree = "<group>"; };
+		B5E97E062F8801030149265 /* IRSmoothScrollSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRSmoothScrollSessionTests.swift; sourceTree = "<group>"; };
 		B5E951E42F6900420149265 /* IRBounceControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRBounceControllerTests.swift; sourceTree = "<group>"; };
 		B5E950282F68A01500149265 /* IRGLViewSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLViewSnapshotTests.swift; sourceTree = "<group>"; };
 		B5E960022F7107010149265 /* IRGLViewRenderStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLViewRenderStateTests.swift; sourceTree = "<group>"; };
@@ -869,7 +875,8 @@
 			isa = PBXGroup;
 			children = (
 				B5E94D7B2D0B21F800149265 /* IRSmoothScrollController.swift */,
-				B5E952622F6903000149265 /* IRSmoothScrollPolicy.swift */,
+				B5E97E002F8801000149265 /* IRSmoothScrollDisplayLinkDriver.swift */,
+				B5E97E022F8801010149265 /* IRSmoothScrollSession.swift */,
 			);
 			path = ScrollController;
 			sourceTree = "<group>";
@@ -1282,7 +1289,9 @@
 				B5E951E42F6900420149265 /* IRBounceControllerTests.swift */,
 				B5E950262F68A01400149265 /* IRGLGestureControllerTests.swift */,
 				B5E951E02F6900400149265 /* IRGesturePolicyTests.swift */,
-				B5E951E22F6900410149265 /* IRSmoothScrollPolicyTests.swift */,
+				B5E951E22F6900410149265 /* IRSmoothScrollControllerTests.swift */,
+				B5E97E042F8801020149265 /* IRSmoothScrollDisplayLinkDriverTests.swift */,
+				B5E97E062F8801030149265 /* IRSmoothScrollSessionTests.swift */,
 				B5E9505C2F68A02B00149265 /* IRGLFisheyeTransformPolicyTests.swift */,
 				B5E97C022F8700010149265 /* IRGLFish2PanoPixelMapGenerationTests.swift */,
 					B5E950242F68A01300149265 /* IRGLProgram2DFisheye2PanoTests.swift */,
@@ -1506,7 +1515,8 @@
 				B5E94ED52D0B21F800149265 /* IRGLProgram2DFactory.swift in Sources */,
 				B5E94ED72D0B21F800149265 /* IRGLRenderMode.swift in Sources */,
 				B5E94ED82D0B21F800149265 /* IRSmoothScrollController.swift in Sources */,
-				B5E952632F6903000149265 /* IRSmoothScrollPolicy.swift in Sources */,
+				B5E97E012F8801000149265 /* IRSmoothScrollDisplayLinkDriver.swift in Sources */,
+				B5E97E032F8801010149265 /* IRSmoothScrollSession.swift in Sources */,
 				B5E94EDB2D0B21F800149265 /* IRGLProgramDistortion.swift in Sources */,
 				B559AA722D15C603007A9F9F /* IRFFMpeg.m in Sources */,
 				B5E974012F7E30000149265 /* IRAudioGraphDriver.swift in Sources */,
@@ -1745,7 +1755,9 @@
 				B5E951E52F6900420149265 /* IRBounceControllerTests.swift in Sources */,
 				B5E950272F68A01400149265 /* IRGLGestureControllerTests.swift in Sources */,
 				B5E951E12F6900400149265 /* IRGesturePolicyTests.swift in Sources */,
-				B5E951E32F6900410149265 /* IRSmoothScrollPolicyTests.swift in Sources */,
+				B5E951E32F6900410149265 /* IRSmoothScrollControllerTests.swift in Sources */,
+				B5E97E052F8801020149265 /* IRSmoothScrollDisplayLinkDriverTests.swift in Sources */,
+				B5E97E072F8801030149265 /* IRSmoothScrollSessionTests.swift in Sources */,
 				B5E97C032F8700010149265 /* IRGLFish2PanoPixelMapGenerationTests.swift in Sources */,
 					B5E950252F68A01300149265 /* IRGLProgram2DFisheye2PanoTests.swift in Sources */,
 					B5E950312F68A01600149265 /* IRGLProgram2DFisheye2PerspTests.swift in Sources */,

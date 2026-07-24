@@ -201,11 +201,14 @@ final class IRGLGestureControllerTests: XCTestCase {
 
     func testPanHandlerNotifiesDelegateForCancelAndEndStates() {
         let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+        let smoothScroll =
+            IRSmoothScrollController(targetView: view)
         let gestureController = IRGLGestureController()
         let delegate = RecordingGLViewDelegate()
         let pan = GLStubPanGestureRecognizer()
 
         gestureController.delegate = delegate
+        gestureController.smoothScroll = smoothScroll
         gestureController.addGesture(to: view)
 
         pan.stubState = .cancelled
@@ -215,8 +218,21 @@ final class IRGLGestureControllerTests: XCTestCase {
         pan.stubVelocity = .zero
         gestureController.handlePan(pan)
 
-        XCTAssertEqual(delegate.endDraggingWillDecelerate, [false, true])
+        pan.stubVelocity = CGPoint(x: 300, y: 400)
+        gestureController.handlePan(pan)
+
+        pan.stubVelocity = CGPoint(
+            x: CGFloat.nan,
+            y: 1
+        )
+        gestureController.handlePan(pan)
+
+        XCTAssertEqual(
+            delegate.endDraggingWillDecelerate,
+            [false, false, true, false]
+        )
         XCTAssertTrue(delegate.endDraggingViews.allSatisfy { $0 === view })
+        withExtendedLifetime(smoothScroll) {}
     }
 
     func testPanHandlerCoversBeginAndIgnoredUpdateWhenTouchIsOutsideProgram() {

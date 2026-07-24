@@ -10,7 +10,9 @@ Input and interaction controllers for the rendering viewport.
 | `DeviceShiftController/` | `IRePTZShiftController.swift`     | Electronic PTZ (pan-tilt-zoom) via device motion |
 | `GestureController/`     | `IRGLGestureController.swift`     | GL-level gesture handling for render views |
 |                          | `IRGestureController.swift`       | Base gesture controller                    |
-| `ScrollController/`      | `IRSmoothScrollController.swift`  | Smooth inertial scrolling for viewport     |
+| `ScrollController/`      | `IRSmoothScrollController.swift`  | Main-thread smooth-scroll facade            |
+|                          | `IRSmoothScrollDisplayLinkDriver.swift` | Paused/active display-link owner       |
+|                          | `IRSmoothScrollSession.swift`     | Locked animation state and calculations     |
 
 ## Purpose
 
@@ -19,6 +21,19 @@ These controllers interpret user input (touch gestures, device motion) and trans
 ## Agent Notes
 
 - Controllers feed into `Display/RenderKit/Transform/` controllers.
-- `IRePTZShiftController` uses CoreMotion — needs device permission handling.
+- `IRSensor` owns Core Motion input; `IRePTZShiftController` only translates
+  configured device-shift degrees.
 - `IRBounceController` enforces viewport boundaries with spring-like behavior.
-- Tests: `IRGLGestureControllerTests.swift`, `IRePTZShiftControllerTests.swift`.
+- Keep UIKit controller delivery on the main thread.
+- A smooth-scroll display link must remain paused while its session is idle and
+  must be closed during presentation teardown.
+- Velocity, easing, pending degree composition, timing, and one-shot bounds
+  admission belong to `IRSmoothScrollSession`; do not reintroduce a forwarding
+  policy or independently mutable controller fields.
+- Gesture `willDecelerate` must reflect whether the session actually accepted
+  work. Presentation motion restarts only after pan deceleration completion;
+  sensor degree smoothing must not emit that gesture completion.
+- Tests: `IRGLGestureControllerTests.swift`,
+  `IRSmoothScrollDisplayLinkDriverTests.swift`,
+  `IRSmoothScrollSessionTests.swift`, `IRSmoothScrollControllerTests.swift`,
+  and `IRePTZShiftControllerTests.swift`.

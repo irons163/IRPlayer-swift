@@ -7,148 +7,245 @@
 
 import UIKit
 
-private final class IRSmoothScrollDisplayLinkProxy {
-    weak var controller: IRSmoothScrollController?
+protocol IRSmoothScrollBounceDriving: AnyObject {
+    func install(on view: UIView)
+    func animate(
+        amount: CGFloat,
+        direction: IRScrollDirectionType
+    )
+}
 
-    init(controller: IRSmoothScrollController) {
-        self.controller = controller
+extension IRBounceController: IRSmoothScrollBounceDriving {
+    func install(on view: UIView) {
+        addBounceToView(view)
     }
 
-    @objc func tick(_ sender: CADisplayLink) {
-        guard let controller else {
-            sender.invalidate()
-            return
-        }
-        controller.tick(sender)
+    func animate(
+        amount: CGFloat,
+        direction: IRScrollDirectionType
+    ) {
+        removeAndAddAnimate(
+            with: amount,
+            byScrollDirection: direction
+        )
     }
+}
+
+struct IRSmoothScrollDependencies {
+    let displayLink:
+        any IRSmoothScrollDisplayLinkDriving
+    let bounce: any IRSmoothScrollBounceDriving
+    let screenScale: () -> CGFloat
+
+    static func system() -> IRSmoothScrollDependencies {
+        IRSmoothScrollDependencies(
+            displayLink:
+                IRSystemSmoothScrollDisplayLinkDriver(),
+            bounce: IRBounceController(),
+            screenScale: { UIScreen.main.scale }
+        )
+    }
+}
+
+struct IRSmoothScrollDiagnostics: Equatable {
+    let isClosed: Bool
+    let isDisplayLinkInstalled: Bool
+    let displayLink:
+        IRSmoothScrollDisplayLinkSnapshot
+    let animation: IRSmoothScrollSnapshot
+    let hasTargetView: Bool
+    let hasCurrentMode: Bool
+    let hasDelegate: Bool
 }
 
 @objcMembers public class IRSmoothScrollController: NSObject {
     weak var delegate: IRGLViewDelegate?
     var currentMode: IRGLRenderMode?
     private(set) weak var targetView: IRGLView?
-    var isPaned: Bool = false
 
-    private var finalPoint = CGPoint.zero
-    private var alreadyPoint = CGPoint.zero
-    private var slideDuration: CGFloat = 0.0
-    private var timer: CADisplayLink?
-    private var displayLinkProxy: IRSmoothScrollDisplayLinkProxy?
-    private var startTimestamp: TimeInterval = 0
-    private var lastTimestamp: TimeInterval = 0
-    private var didHorizontalBoundsBounce: Bool = false
-    private var didVerticalBoundsBounce: Bool = false
-    private var bounce: IRBounceController?
+    var isPaned: Bool {
+        get { session.snapshot.isPaned }
+        set { session.setPaned(newValue) }
+    }
 
-    init(targetView: IRGLView) {
-        super.init()
+    private let dependencies: IRSmoothScrollDependencies
+    private let session = IRSmoothScrollSession()
+    private var isDisplayLinkInstalled = false
+    private var isClosed = false
+
+    var diagnostics: IRSmoothScrollDiagnostics {
+        IRSmoothScrollDiagnostics(
+            isClosed: isClosed,
+            isDisplayLinkInstalled:
+                isDisplayLinkInstalled,
+            displayLink:
+                dependencies.displayLink.snapshot,
+            animation: session.snapshot,
+            hasTargetView: targetView != nil,
+            hasCurrentMode: currentMode != nil,
+            hasDelegate: delegate != nil
+        )
+    }
+
+    convenience init(targetView: IRGLView) {
+        self.init(
+            targetView: targetView,
+            dependencies: .system()
+        )
+    }
+
+    init(
+        targetView: IRGLView,
+        dependencies: IRSmoothScrollDependencies
+    ) {
         self.targetView = targetView
-        self.bounce = IRBounceController()
-        self.bounce?.addBounceToView(targetView)
+        self.dependencies = dependencies
+        super.init()
 
-        let proxy = IRSmoothScrollDisplayLinkProxy(controller: self)
-        self.displayLinkProxy = proxy
-        self.timer = CADisplayLink(target: proxy, selector: #selector(IRSmoothScrollDisplayLinkProxy.tick(_:)))
-        self.timer?.add(to: .main, forMode: .default)
+        dependencies.bounce.install(on: targetView)
+        isDisplayLinkInstalled =
+            dependencies.displayLink.install {
+                [weak self] timestamp in
+                self?.tick(timestamp: timestamp)
+            }
     }
 
     deinit {
-        timer?.invalidate()
+        _ = close()
     }
 
-    fileprivate func tick(_ sender: CADisplayLink) {
-        guard finalPoint != .zero else {
-            return
+    @discardableResult
+    func close() -> Bool {
+        guard !isClosed else {
+            return false
         }
-
-        if startTimestamp == 0 {
-            startTimestamp = sender.timestamp
-        }
-
-        let elapsed = CGFloat(sender.timestamp - startTimestamp)
-        guard let step = IRSmoothScrollPolicy.step(finalPoint: finalPoint,
-                                                   alreadyPoint: alreadyPoint,
-                                                   elapsed: elapsed,
-                                                   duration: slideDuration) else {
-            resetSmoothScroll()
-            return
-        }
-
-        let moveX = step.move.x
-        let moveY = step.move.y
-        alreadyPoint = step.alreadyPoint
-
-        if self.isPaned {
-            self.targetView?.scroll(byDx: Float(moveX * UIScreen.main.scale), dy: Float(-moveY * UIScreen.main.scale))
-        } else {
-            self.currentMode?.shiftController.shiftDegreeX(Float(moveX), degreeY: -Float(moveY))
-            self.targetView?.render(nil)
-        }
-
-        if step.isFinished {
-            self.resetSmoothScroll()
-            delegate?.glViewDidEndDecelerating(self.targetView)
-        }
+        isClosed = true
+        _ = session.reset()
+        _ = dependencies.displayLink.close()
+        isDisplayLinkInstalled = false
+        delegate = nil
+        currentMode = nil
+        targetView = nil
+        return true
     }
 
     func resetSmoothScroll() {
-        finalPoint = .zero
-        alreadyPoint = .zero
-        startTimestamp = 0
-        didHorizontalBoundsBounce = false
-        didVerticalBoundsBounce = false
+        _ = session.reset()
+        _ = dependencies.displayLink.setActive(false)
     }
 
-    func calculateSmoothScroll(velocity: CGPoint) {
-        self.resetSmoothScroll()
-        let target = Self.smoothScrollTarget(for: velocity)
-        finalPoint = target.point
-        slideDuration = target.duration
+    @discardableResult
+    func calculateSmoothScroll(
+        velocity: CGPoint
+    ) -> Bool {
+        guard !isClosed,
+              session.start(velocity: velocity) else {
+            _ = dependencies.displayLink.setActive(false)
+            return false
+        }
+        return activateDisplayLinkOrReset()
     }
 
     func scrollBy(dx: Float, dy: Float) {
-        self.targetView?.scroll(byDx: dx, dy: dy)
+        guard !isClosed,
+              dx.isFinite,
+              dy.isFinite else {
+            return
+        }
+        targetView?.scroll(byDx: dx, dy: dy)
     }
 
-    public func shiftDegreeX(_ degreeX: Float, degreeY: Float) {
-        var degreeX = degreeX
-        var degreeY = degreeY
-        let unmoveYetX = finalPoint.x - alreadyPoint.x
-        let unmoveYetY = finalPoint.y - alreadyPoint.y
-        degreeX += Float(unmoveYetX)
-        degreeY += Float(-unmoveYetY)
-
-        self.resetSmoothScroll()
-        self.isPaned = false
-
-        finalPoint = CGPoint(x: CGFloat(degreeX), y: CGFloat(-degreeY))
-        slideDuration = 0.5
+    public func shiftDegreeX(
+        _ degreeX: Float,
+        degreeY: Float
+    ) {
+        guard !isClosed,
+              session.startDegreeShift(
+                  degreeX: degreeX,
+                  degreeY: degreeY
+              ) else {
+            _ = dependencies.displayLink.setActive(false)
+            return
+        }
+        _ = activateDisplayLinkOrReset()
     }
 
-    static func smoothScrollTarget(for velocity: CGPoint) -> (point: CGPoint, duration: CGFloat) {
-        return IRSmoothScrollPolicy.smoothScrollTarget(for: velocity)
+    static func smoothScrollTarget(
+        for velocity: CGPoint
+    ) -> (point: CGPoint, duration: CGFloat) {
+        IRSmoothScrollSession.smoothScrollTarget(
+            for: velocity
+        )
+    }
+
+    private func tick(timestamp: TimeInterval) {
+        guard !isClosed,
+              let tick = session.advance(
+                  timestamp: timestamp
+              ) else {
+            _ = dependencies.displayLink.setActive(false)
+            return
+        }
+        if tick.isFinished {
+            _ = dependencies.displayLink.setActive(false)
+        }
+
+        if tick.isPaned {
+            let configuredScale = dependencies.screenScale()
+            let scale =
+                configuredScale.isFinite
+                    && configuredScale > 0
+                ? configuredScale
+                : 1
+            targetView?.scroll(
+                byDx: Float(tick.move.x * scale),
+                dy: Float(-tick.move.y * scale)
+            )
+        } else {
+            currentMode?.shiftController.shiftDegreeX(
+                Float(tick.move.x),
+                degreeY: -Float(tick.move.y)
+            )
+            targetView?.render(nil)
+        }
+
+        if tick.isFinished, tick.isPaned {
+            delegate?.glViewDidEndDecelerating(
+                targetView
+            )
+        }
+    }
+
+    private func activateDisplayLinkOrReset() -> Bool {
+        guard isDisplayLinkInstalled,
+              dependencies.displayLink
+                .setActive(true) else {
+            _ = session.reset()
+            return false
+        }
+        return true
     }
 }
 
 extension IRSmoothScrollController: IRGLProgramDelegate {
-
-    func didScrollToBounds(_ bounds: IRGLTransformController.ScrollToBounds, withProgram program: IRGLProgram2D) {
-        let boundsBounce = IRSmoothScrollPolicy.boundsBounce(bounds: bounds,
-                                                             finalPoint: finalPoint,
-                                                             alreadyPoint: alreadyPoint,
-                                                             didHorizontalBounce: didHorizontalBoundsBounce,
-                                                             didVerticalBounce: didVerticalBoundsBounce)
-
-        if let horizontal = boundsBounce.horizontal {
-            bounce?.removeAndAddAnimate(with: horizontal.amount, byScrollDirection: horizontal.direction)
-            didHorizontalBoundsBounce = true
+    func didScrollToBounds(
+        _ bounds:
+            IRGLTransformController.ScrollToBounds,
+        withProgram program: IRGLProgram2D
+    ) {
+        let requests = session.admitBounds(bounds)
+        if let horizontal = requests.horizontal {
+            dependencies.bounce.animate(
+                amount: horizontal.amount,
+                direction: horizontal.direction
+            )
         }
-
-        if let vertical = boundsBounce.vertical {
-            bounce?.removeAndAddAnimate(with: vertical.amount, byScrollDirection: vertical.direction)
-            didVerticalBoundsBounce = true
+        if let vertical = requests.vertical {
+            dependencies.bounce.animate(
+                amount: vertical.amount,
+                direction: vertical.direction
+            )
         }
-
-        delegate?.glViewDidScroll(toBounds: self.targetView)
+        delegate?.glViewDidScroll(toBounds: targetView)
     }
 }

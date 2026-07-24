@@ -71,6 +71,9 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRGLTransformController3DFisheyeTests.swift` — 3D fisheye transform
 - `IRGLTransformControllerVRTests.swift` — VR transform
 - `IRGLGestureControllerTests.swift` — Gesture input
+- `IRSmoothScrollDisplayLinkDriverTests.swift` — Display-link lifecycle owner
+- `IRSmoothScrollSessionTests.swift` — Locked animation state and calculations
+- `IRSmoothScrollControllerTests.swift` — UI facade, failure, and stale ticks
 - `IRePTZShiftControllerTests.swift` — Electronic PTZ
 - `IRSensorMotionDriverTests.swift` — Immutable Core Motion value boundary
 - `IRSensorMotionSessionTests.swift` — Generation-fenced motion state and math
