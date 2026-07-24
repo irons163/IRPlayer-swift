@@ -5,202 +5,467 @@
 //  Created by Codex on 2026/6/2.
 //
 
+import Foundation
 import XCTest
 @testable import IRPlayer_swift
 
 final class IRGLProjectionEquirectangularTests: XCTestCase {
-
-    func testStaticPolicyWrappersRemainSourceCompatible() {
-        let wrapperPlan = IRGLProjectionEquirectangular.bufferPlan(slices: 4, indicesPerVertex: 1)
-        let policyPlan = IRGLProjectionEquirectangularPolicy.bufferPlan(slices: 4, indicesPerVertex: 1)
-        XCTAssertEqual(wrapperPlan?.iMax, policyPlan?.iMax)
-        XCTAssertEqual(wrapperPlan?.vertexCount, policyPlan?.vertexCount)
-        XCTAssertEqual(wrapperPlan?.vertexCapacity, policyPlan?.vertexCapacity)
-        XCTAssertEqual(wrapperPlan?.vectorCapacity, policyPlan?.vectorCapacity)
-        XCTAssertEqual(wrapperPlan?.totalIndices, policyPlan?.totalIndices)
-
-        var values = [3, 7, 2]
-        let count = values.count
-        values.withUnsafeMutableBufferPointer { buffer in
-            XCTAssertEqual(
-                IRGLProjectionEquirectangular.maxItem(in: buffer.baseAddress, size: count),
-                IRGLProjectionEquirectangularPolicy.maxItem(in: buffer.baseAddress, size: count)
+    func testMeshRejectsEmptyStorage() {
+        XCTAssertNil(
+            IRGLProjectionMesh(
+                positions: [],
+                texcoords: [],
+                indices: []
             )
-        }
-        XCTAssertEqual(
-            IRGLProjectionEquirectangular.elementCount(baseCount: 4, components: 3),
-            IRGLProjectionEquirectangularPolicy.elementCount(baseCount: 4, components: 3)
-        )
-        XCTAssertEqual(
-            IRGLProjectionEquirectangular.byteCount(elementCount: 4, stride: MemoryLayout<Float>.stride),
-            IRGLProjectionEquirectangularPolicy.byteCount(elementCount: 4, stride: MemoryLayout<Float>.stride)
-        )
-        XCTAssertEqual(
-            IRGLProjectionEquirectangular.indexValue(Int(Int16.max)),
-            IRGLProjectionEquirectangularPolicy.indexValue(Int(Int16.max))
-        )
-        XCTAssertEqual(
-            IRGLProjectionEquirectangular.isValidGeometry(tw: 1440, th: 1080, cr: 520, cx: 720, cy: 540),
-            IRGLProjectionEquirectangularPolicy.isValidGeometry(tw: 1440, th: 1080, cr: 520, cx: 720, cy: 540)
         )
     }
 
-    func testElementCountRejectsInvalidOrOverflowingInputs() {
-        XCTAssertNil(IRGLProjectionEquirectangular.elementCount(baseCount: 0, components: 3))
-        XCTAssertNil(IRGLProjectionEquirectangular.elementCount(baseCount: 1, components: 0))
-        XCTAssertNil(IRGLProjectionEquirectangular.elementCount(baseCount: Int.max, components: 2))
-    }
-
-    func testElementCountCalculatesComponentStorage() {
-        XCTAssertEqual(IRGLProjectionEquirectangular.elementCount(baseCount: 4, components: 3), 12)
-    }
-
-    func testByteCountRejectsInvalidOrOverflowingInputs() {
-        XCTAssertNil(IRGLProjectionEquirectangular.byteCount(elementCount: 0, stride: MemoryLayout<Float>.stride))
-        XCTAssertNil(IRGLProjectionEquirectangular.byteCount(elementCount: 1, stride: 0))
-        XCTAssertNil(IRGLProjectionEquirectangular.byteCount(elementCount: Int.max, stride: 2))
-    }
-
-    func testByteCountCalculatesStrideStorage() {
-        XCTAssertEqual(
-            IRGLProjectionEquirectangular.byteCount(elementCount: 4, stride: MemoryLayout<Float>.stride),
-            16
+    func testMeshRejectsMismatchedVertexStorage() {
+        XCTAssertNil(
+            IRGLProjectionMesh(
+                positions: [SIMD3<Float>(0, 0, 0)],
+                texcoords: [],
+                indices: [0]
+            )
         )
     }
 
-    func testMaxItemRejectsMissingOrEmptyInputs() {
-        XCTAssertNil(IRGLProjectionEquirectangular.maxItem(in: nil, size: 1))
-
-        var values = [1, 2, 3]
-        values.withUnsafeMutableBufferPointer { buffer in
-            XCTAssertNil(IRGLProjectionEquirectangular.maxItem(in: buffer.baseAddress, size: 0))
-        }
+    func testMeshRejectsOutOfRangeIndices() {
+        XCTAssertNil(
+            IRGLProjectionMesh(
+                positions: [SIMD3<Float>(0, 0, 0)],
+                texcoords: [SIMD2<Float>(0, 0)],
+                indices: [1]
+            )
+        )
     }
 
-    func testMaxItemReturnsLargestValue() {
-        var values = [3, 7, 2]
-        let count = values.count
-        values.withUnsafeMutableBufferPointer { buffer in
-            XCTAssertEqual(IRGLProjectionEquirectangular.maxItem(in: buffer.baseAddress, size: count), 7)
-        }
+    func testMeshRejectsIncompleteTriangleIndices() {
+        XCTAssertNil(
+            IRGLProjectionMesh(
+                positions: [SIMD3<Float>(0, 0, 0)],
+                texcoords: [SIMD2<Float>(0, 0)],
+                indices: [0, 0]
+            )
+        )
     }
 
-    func testIndexValueRejectsValuesOutsideInt16Range() {
-        XCTAssertNil(IRGLProjectionEquirectangular.indexValue(Int(Int16.min) - 1))
-        XCTAssertNil(IRGLProjectionEquirectangular.indexValue(Int(Int16.max) + 1))
+    func testMeshRejectsNonFiniteAttributes() {
+        XCTAssertNil(
+            IRGLProjectionMesh(
+                positions: [SIMD3<Float>(.nan, 0, 0)],
+                texcoords: [SIMD2<Float>(0, 0)],
+                indices: [0, 0, 0]
+            )
+        )
+        XCTAssertNil(
+            IRGLProjectionMesh(
+                positions: [SIMD3<Float>(0, 0, 0)],
+                texcoords: [SIMD2<Float>(.infinity, 0)],
+                indices: [0, 0, 0]
+            )
+        )
     }
 
-    func testIndexValueConvertsInt16RepresentableValues() {
-        XCTAssertEqual(IRGLProjectionEquirectangular.indexValue(0), 0)
-        XCTAssertEqual(IRGLProjectionEquirectangular.indexValue(Int(Int16.max)), Int16.max)
+    func testMeshAcceptsOneCompleteTriangle() throws {
+        let positions = [
+            SIMD3<Float>(0, 0, 0),
+            SIMD3<Float>(1, 0, 0),
+            SIMD3<Float>(0, 1, 0)
+        ]
+        let texcoords = [
+            SIMD2<Float>(0, 0),
+            SIMD2<Float>(1, 0),
+            SIMD2<Float>(0, 1)
+        ]
+        let mesh = try XCTUnwrap(
+            IRGLProjectionMesh(
+                positions: positions,
+                texcoords: texcoords,
+                indices: [0, 1, 2]
+            )
+        )
+
+        XCTAssertEqual(mesh.positions, positions)
+        XCTAssertEqual(mesh.texcoords, texcoords)
+        XCTAssertEqual(mesh.indices, [0, 1, 2])
     }
 
-    func testInvalidProjectionParametersFallBackWithoutDebugOutput() {
-        let output = captureStandardOutput {
-            _ = IRGLProjectionEquirectangular(textureWidth: 1440,
-                                              height: 1080,
-                                              centerX: 720,
-                                              centerY: 540,
-                                              radius: 0)
-        }
-
-        XCTAssertEqual(output, "")
+    func testCheckedArithmeticRejectsInvalidAndOverflowingCounts() {
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder.checkedProduct(0, 1)
+        )
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder.checkedProduct(1, 0)
+        )
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder.checkedProduct(Int.max, 2)
+        )
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder.checkedSum(-1, 1)
+        )
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder.checkedSum(Int.max, 1)
+        )
+        XCTAssertEqual(
+            IRGLProjectionMeshBuilder.checkedProduct(4, 3),
+            12
+        )
+        XCTAssertEqual(
+            IRGLProjectionMeshBuilder.checkedSum(4, 3),
+            7
+        )
     }
 
-    func testProjectionRejectsInvalidBufferParametersWithoutDebugOutput() {
-        let output = captureStandardOutput {
-            let projection = IRGLProjectionEquirectangular(textureWidth: 0,
-                                                          height: 0,
-                                                          centerX: 1,
-                                                          centerY: 1,
-                                                          radius: 1)
+    func testEquirectangularPlanValidatesUInt16Capacity() throws {
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder.equirectangularPlan(
+                slices: 0
+            )
+        )
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder.equirectangularPlan(
+                slices: 256
+            )
+        )
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder.equirectangularPlan(
+                slices: Int.max
+            )
+        )
+        XCTAssertEqual(
+            IRGLProjectionMeshBuilder.equirectangularPlan(
+                slices: 255
+            )?.vertexCount,
+            65_536
+        )
 
-            XCTAssertNil(projection.exportMesh())
-        }
-
-        XCTAssertEqual(output, "")
+        let plan = try XCTUnwrap(
+            IRGLProjectionMeshBuilder.equirectangularPlan(
+                slices: 180
+            )
+        )
+        XCTAssertEqual(plan.rowLength, 181)
+        XCTAssertEqual(plan.vertexCount, 32_761)
+        XCTAssertEqual(plan.indexCount, 194_400)
     }
 
-    func testProjectionRejectsNonFiniteGeometryWithoutDebugOutput() {
-        let output = captureStandardOutput {
-            let projection = IRGLProjectionEquirectangular(textureWidth: .nan,
-                                                          height: 1080,
-                                                          centerX: 720,
-                                                          centerY: 540,
-                                                          radius: 520)
+    func testGeometryNormalizationPreservesValidInput() throws {
+        let geometry = try XCTUnwrap(
+            IRGLProjectionMeshBuilder
+                .normalizedEquirectangularGeometry(
+                    textureWidth: 1440,
+                    textureHeight: 1080,
+                    centerX: 720,
+                    centerY: 540,
+                    radius: 520
+                )
+        )
 
-            XCTAssertNil(projection.exportMesh())
-            XCTAssertFalse(IRGLProjectionEquirectangular.isValidGeometry(tw: 1440,
-                                                                         th: .infinity,
-                                                                         cr: 520,
-                                                                         cx: 720,
-                                                                         cy: 540))
-            XCTAssertFalse(IRGLProjectionEquirectangular.isValidGeometry(tw: 1440,
-                                                                         th: 1080,
-                                                                         cr: .nan,
-                                                                         cx: 720,
-                                                                         cy: 540))
-        }
-
-        XCTAssertEqual(output, "")
+        XCTAssertEqual(
+            geometry,
+            IRGLEquirectangularGeometry(
+                textureWidth: 1440,
+                textureHeight: 1080,
+                centerX: 720,
+                centerY: 540,
+                radius: 520
+            )
+        )
     }
 
-    func testBufferPlanRejectsOverflowWithoutDebugOutput() {
-        let output = captureStandardOutput {
-            XCTAssertNil(IRGLProjectionEquirectangular.bufferPlan(slices: Int.max, indicesPerVertex: 1))
-            XCTAssertNil(IRGLProjectionEquirectangular.bufferPlan(slices: 3_037_000_499, indicesPerVertex: 1))
-        }
+    func testGeometryNormalizationFallsBackToImageBounds() throws {
+        let geometry = try XCTUnwrap(
+            IRGLProjectionMeshBuilder
+                .normalizedEquirectangularGeometry(
+                    textureWidth: 1440,
+                    textureHeight: 1080,
+                    centerX: 1,
+                    centerY: 1,
+                    radius: 0
+                )
+        )
 
-        XCTAssertEqual(output, "")
+        XCTAssertEqual(geometry.centerX, 720)
+        XCTAssertEqual(geometry.centerY, 540)
+        XCTAssertEqual(geometry.radius, 540)
     }
 
-    func testProjectionExportMeshSurvivesParameterUpdate() throws {
-        let projection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: 720, centerY: 540, radius: 520)
+    func testGeometryNormalizationRejectsUnavailableDimensions() {
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder
+                .normalizedEquirectangularGeometry(
+                    textureWidth: 0,
+                    textureHeight: 1080,
+                    centerX: 720,
+                    centerY: 540,
+                    radius: 520
+                )
+        )
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder
+                .normalizedEquirectangularGeometry(
+                    textureWidth: .nan,
+                    textureHeight: 1080,
+                    centerX: 720,
+                    centerY: 540,
+                    radius: 520
+                )
+        )
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder
+                .normalizedEquirectangularGeometry(
+                    textureWidth: 1440,
+                    textureHeight: .infinity,
+                    centerX: 720,
+                    centerY: 540,
+                    radius: 520
+                )
+        )
+    }
+
+    func testGeometryNormalizationRejectsNegativeSentinels() {
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder
+                .normalizedEquirectangularGeometry(
+                    textureWidth: 1440,
+                    textureHeight: 1080,
+                    centerX: 720,
+                    centerY: 540,
+                    radius: -1
+                )
+        )
+        XCTAssertNil(
+            IRGLProjectionMeshBuilder
+                .normalizedEquirectangularGeometry(
+                    textureWidth: 1440,
+                    textureHeight: 1080,
+                    centerX: -1,
+                    centerY: 540,
+                    radius: 520
+                )
+        )
+    }
+
+    func testProjectionExportsCompatibleGeometryAndWinding() throws {
+        let projection = makeProjection()
+        let mesh = try XCTUnwrap(projection.exportMesh())
+
+        XCTAssertEqual(mesh.positions.count, 32_761)
+        XCTAssertEqual(mesh.texcoords.count, 32_761)
+        XCTAssertEqual(mesh.indices.count, 194_400)
+        XCTAssertEqual(mesh.positions[0].x, 0, accuracy: 0.0001)
+        XCTAssertEqual(mesh.positions[0].y, 0, accuracy: 0.0001)
+        XCTAssertEqual(mesh.positions[0].z, 800, accuracy: 0.0001)
+        XCTAssertEqual(mesh.texcoords[0].x, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(
+            mesh.texcoords[0].y,
+            -20.0 / 1080.0,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            mesh.indices.prefix(6).map(Int.init),
+            [0, 181, 182, 0, 182, 1]
+        )
+        XCTAssertEqual(mesh.indices.last, 32_579)
+    }
+
+    func testInvalidInitialGeometryPublishesNoGeneration() {
+        let projection = IRGLProjectionEquirectangular(
+            textureWidth: 0,
+            height: 0,
+            centerX: 1,
+            centerY: 1,
+            radius: 1
+        )
+
+        XCTAssertNil(projection.exportMesh())
+        XCTAssertEqual(
+            projection.diagnostics,
+            .init(
+                generation: 0,
+                hasMesh: false,
+                vertexCount: 0,
+                indexCount: 0
+            )
+        )
+    }
+
+    func testFisheyeUpdatePublishesNewGenerationAndKeepsSnapshot() throws {
+        let projection = makeProjection()
+        let firstDiagnostics = projection.diagnostics
+        let firstMesh = try XCTUnwrap(projection.exportMesh())
+        let retainedTexcoords = firstMesh.texcoords
+
+        projection.update(
+            with: makeFisheyeParameter(radius: 480)
+        )
+
+        let secondDiagnostics = projection.diagnostics
+        let secondMesh = try XCTUnwrap(projection.exportMesh())
+        XCTAssertEqual(firstDiagnostics.generation, 1)
+        XCTAssertEqual(secondDiagnostics.generation, 2)
+        XCTAssertEqual(firstMesh.positions, secondMesh.positions)
+        XCTAssertNotEqual(firstMesh.texcoords, secondMesh.texcoords)
+        XCTAssertEqual(firstMesh.texcoords, retainedTexcoords)
+        XCTAssertEqual(firstMesh.indices, secondMesh.indices)
+    }
+
+    func testInvalidUpdatePreservesPublishedGeneration() throws {
+        let projection = makeProjection()
+        let diagnostics = projection.diagnostics
         let firstMesh = try XCTUnwrap(projection.exportMesh())
 
-        projection.update(with: IRFisheyeParameter(width: 1440,
-                                                   height: 1080,
-                                                   up: false,
-                                                   rx: 500,
-                                                   ry: 500,
-                                                   cx: 720,
-                                                   cy: 540,
-                                                   latmax: 80))
-        let updatedMesh = try XCTUnwrap(projection.exportMesh())
+        projection.update(
+            with: makeFisheyeParameter(
+                width: .nan,
+                radius: 480
+            )
+        )
 
-        XCTAssertEqual(firstMesh.positions.count, updatedMesh.positions.count)
-        XCTAssertEqual(firstMesh.texcoords.count, updatedMesh.texcoords.count)
-        XCTAssertEqual(firstMesh.indices.count, updatedMesh.indices.count)
-        XCTAssertFalse(updatedMesh.positions.isEmpty)
-        XCTAssertFalse(updatedMesh.texcoords.isEmpty)
-        XCTAssertFalse(updatedMesh.indices.isEmpty)
+        let secondMesh = try XCTUnwrap(projection.exportMesh())
+        XCTAssertEqual(projection.diagnostics, diagnostics)
+        XCTAssertEqual(secondMesh.positions, firstMesh.positions)
+        XCTAssertEqual(secondMesh.texcoords, firstMesh.texcoords)
+        XCTAssertEqual(secondMesh.indices, firstMesh.indices)
     }
 
-    func testProjectionUpdateIgnoresNonFisheyeParameter() throws {
-        let projection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: 720, centerY: 540, radius: 520)
+    func testNonFisheyeUpdatePreservesPublishedGeneration() throws {
+        let projection = makeProjection()
+        let diagnostics = projection.diagnostics
         let firstMesh = try XCTUnwrap(projection.exportMesh())
 
-        projection.update(with: IRMediaParameter(width: 320, height: 180))
-        let updatedMesh = try XCTUnwrap(projection.exportMesh())
+        projection.update(
+            with: IRMediaParameter(width: 320, height: 180)
+        )
 
-        XCTAssertEqual(firstMesh.positions.count, updatedMesh.positions.count)
-        XCTAssertEqual(firstMesh.texcoords.count, updatedMesh.texcoords.count)
-        XCTAssertEqual(firstMesh.indices.count, updatedMesh.indices.count)
+        let secondMesh = try XCTUnwrap(projection.exportMesh())
+        XCTAssertEqual(projection.diagnostics, diagnostics)
+        XCTAssertEqual(secondMesh.positions, firstMesh.positions)
+        XCTAssertEqual(secondMesh.texcoords, firstMesh.texcoords)
+        XCTAssertEqual(secondMesh.indices, firstMesh.indices)
     }
 
-    func testProjectionNoOpUpdateAndDrawKeepMeshAvailable() throws {
-        let projection = IRGLProjectionEquirectangular(textureWidth: 1440,
-                                                      height: 1080,
-                                                      centerX: 720,
-                                                      centerY: 540,
-                                                      radius: 520)
+    func testNoOpRendererHooksPreservePublishedGeneration() throws {
+        let projection = makeProjection()
+        let diagnostics = projection.diagnostics
 
         projection.updateVertex()
         projection.draw()
 
-        let mesh = try XCTUnwrap(projection.exportMesh())
-        XCTAssertFalse(mesh.positions.isEmpty)
-        XCTAssertFalse(mesh.texcoords.isEmpty)
-        XCTAssertFalse(mesh.indices.isEmpty)
+        XCTAssertEqual(projection.diagnostics, diagnostics)
+        XCTAssertNotNil(projection.exportMesh())
+    }
+
+    func testIndependentProjectionsDoNotShareMutableGeneration() {
+        let first = makeProjection()
+        let second = makeProjection()
+
+        first.update(with: makeFisheyeParameter(radius: 480))
+
+        XCTAssertEqual(first.diagnostics.generation, 2)
+        XCTAssertEqual(second.diagnostics.generation, 1)
+    }
+
+    func testConcurrentUpdateAndExportRemainGenerationCoherent() {
+        let projection = makeProjection()
+        let invalidExports =
+            LockedEquirectangularProjectionTestValue(0)
+
+        DispatchQueue.concurrentPerform(iterations: 24) { index in
+            if index.isMultiple(of: 4) {
+                projection.update(
+                    with: IRFisheyeParameter(
+                        width: 1440,
+                        height: 1080,
+                        up: false,
+                        rx: index.isMultiple(of: 8)
+                            ? 480
+                            : 500,
+                        ry: index.isMultiple(of: 8)
+                            ? 480
+                            : 500,
+                        cx: 720,
+                        cy: 540,
+                        latmax: 80
+                    )
+                )
+                return
+            }
+
+            guard let mesh = projection.exportMesh(),
+                  mesh.positions.count == 32_761,
+                  mesh.texcoords.count == 32_761,
+                  mesh.indices.count == 194_400,
+                  mesh.indices.prefix(6).map(Int.init)
+                    == [0, 181, 182, 0, 182, 1],
+                  mesh.indices.last == 32_579 else {
+                invalidExports.withValue { $0 += 1 }
+                return
+            }
+        }
+
+        XCTAssertEqual(invalidExports.value, 0)
+        XCTAssertEqual(projection.diagnostics.generation, 7)
+    }
+
+    func testProjectionConstructionProducesNoDebugOutput() {
+        let output = captureStandardOutput {
+            _ = makeProjection()
+        }
+
+        XCTAssertEqual(output, "")
+    }
+
+    private func makeProjection()
+        -> IRGLProjectionEquirectangular
+    {
+        IRGLProjectionEquirectangular(
+            textureWidth: 1440,
+            height: 1080,
+            centerX: 720,
+            centerY: 540,
+            radius: 520
+        )
+    }
+
+    private func makeFisheyeParameter(
+        width: Float = 1440,
+        height: Float = 1080,
+        radius: Float
+    ) -> IRFisheyeParameter {
+        IRFisheyeParameter(
+            width: width,
+            height: height,
+            up: false,
+            rx: radius,
+            ry: radius,
+            cx: 720,
+            cy: 540,
+            latmax: 80
+        )
+    }
+}
+
+private final class LockedEquirectangularProjectionTestValue<Value>:
+    @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var storage: Value
+
+    init(_ value: Value) {
+        storage = value
+    }
+
+    var value: Value {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+
+    func withValue(_ body: (inout Value) -> Void) {
+        lock.lock()
+        body(&storage)
+        lock.unlock()
     }
 }

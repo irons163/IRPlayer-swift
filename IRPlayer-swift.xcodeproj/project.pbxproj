@@ -47,7 +47,7 @@
 		B5E94D672D0950EF00149265 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E94D642D09509F00149265 /* libz.tbd */; };
 		B5E94D682D0950FD00149265 /* liblzma.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E94D622D09506E00149265 /* liblzma.tbd */; };
 		B5E94EC82D0B21F800149265 /* IRGLProjectionVR.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DC72D0B21F800149265 /* IRGLProjectionVR.swift */; };
-		B5E952452F6902100149265 /* IRGLProjectionVRPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952442F6902100149265 /* IRGLProjectionVRPolicy.swift */; };
+		B5E9780F2F8300070149265 /* IRGLProjectionMesh.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9780E2F8300070149265 /* IRGLProjectionMesh.swift */; };
 		B5E94ECC2D0B21F800149265 /* IRPlayer_swift.docc in Sources */ = {isa = PBXBuildFile; fileRef = B5E94EC12D0B21F800149265 /* IRPlayer_swift.docc */; };
 		B5E94ECD2D0B21F800149265 /* IRGLRenderModeVR.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D972D0B21F800149265 /* IRGLRenderModeVR.swift */; };
 		B5E94ECE2D0B21F800149265 /* IRFFTrack.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E002D0B21F800149265 /* IRFFTrack.swift */; };
@@ -91,7 +91,6 @@
 		B5E94EEF2D0B21F800149265 /* IRBounceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D722D0B21F800149265 /* IRBounceController.swift */; };
 		B5E952652F6903100149265 /* IRBouncePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952642F6903100149265 /* IRBouncePolicy.swift */; };
 		B5E94EF02D0B21F800149265 /* IRGLProjectionEquirectangular.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DC12D0B21F800149265 /* IRGLProjectionEquirectangular.swift */; };
-		B5E9523D2F6901D00149265 /* IRGLProjectionEquirectangularPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9523C2F6901D00149265 /* IRGLProjectionEquirectangularPolicy.swift */; };
 		B5E94EF22D0B21F800149265 /* IRGLScope2D.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DCE2D0B21F800149265 /* IRGLScope2D.swift */; };
 		B5E94EF32D0B21F800149265 /* IRGLProjectionOrthographic.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DC42D0B21F800149265 /* IRGLProjectionOrthographic.swift */; };
 		B5E94EF52D0B21F800149265 /* IRFFFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF02D0B21F800149265 /* IRFFFrame.swift */; };
@@ -430,10 +429,9 @@
 		B5E952422F6902000149265 /* IRGLProgramMulti4PPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProgramMulti4PPolicy.swift; sourceTree = "<group>"; };
 		B5E94DBB2D0B21F800149265 /* IRGLProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjection.swift; sourceTree = "<group>"; };
 		B5E94DC12D0B21F800149265 /* IRGLProjectionEquirectangular.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionEquirectangular.swift; sourceTree = "<group>"; };
-		B5E9523C2F6901D00149265 /* IRGLProjectionEquirectangularPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionEquirectangularPolicy.swift; sourceTree = "<group>"; };
+		B5E9780E2F8300070149265 /* IRGLProjectionMesh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionMesh.swift; sourceTree = "<group>"; };
 		B5E94DC42D0B21F800149265 /* IRGLProjectionOrthographic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionOrthographic.swift; sourceTree = "<group>"; };
 		B5E94DC72D0B21F800149265 /* IRGLProjectionVR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionVR.swift; sourceTree = "<group>"; };
-		B5E952442F6902100149265 /* IRGLProjectionVRPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLProjectionVRPolicy.swift; sourceTree = "<group>"; };
 		B5E94DCE2D0B21F800149265 /* IRGLScope2D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLScope2D.swift; sourceTree = "<group>"; };
 		B5E94DCF2D0B21F800149265 /* IRGLScope3D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLScope3D.swift; sourceTree = "<group>"; };
 		B5E94DD32D0B21F800149265 /* IRGLTransformController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLTransformController.swift; sourceTree = "<group>"; };
@@ -946,10 +944,9 @@
 			children = (
 				B5E94DBB2D0B21F800149265 /* IRGLProjection.swift */,
 				B5E94DC12D0B21F800149265 /* IRGLProjectionEquirectangular.swift */,
-				B5E9523C2F6901D00149265 /* IRGLProjectionEquirectangularPolicy.swift */,
+				B5E9780E2F8300070149265 /* IRGLProjectionMesh.swift */,
 				B5E94DC42D0B21F800149265 /* IRGLProjectionOrthographic.swift */,
 				B5E94DC72D0B21F800149265 /* IRGLProjectionVR.swift */,
-				B5E952442F6902100149265 /* IRGLProjectionVRPolicy.swift */,
 			);
 			path = Projection;
 			sourceTree = "<group>";
@@ -1461,7 +1458,7 @@
 				4A9CA7EA2F63848500B90A0E /* IRMetalDistortionMesh.swift in Sources */,
 				4A9D78A52F658FD300CDB43B /* IRGLRenderAdapters.swift in Sources */,
 				B5E94EC82D0B21F800149265 /* IRGLProjectionVR.swift in Sources */,
-				B5E952452F6902100149265 /* IRGLProjectionVRPolicy.swift in Sources */,
+				B5E9780F2F8300070149265 /* IRGLProjectionMesh.swift in Sources */,
 				B5E94ECC2D0B21F800149265 /* IRPlayer_swift.docc in Sources */,
 				B5E94ECD2D0B21F800149265 /* IRGLRenderModeVR.swift in Sources */,
 				B5E94ECE2D0B21F800149265 /* IRFFTrack.swift in Sources */,
@@ -1504,7 +1501,6 @@
 				B5E94EEF2D0B21F800149265 /* IRBounceController.swift in Sources */,
 				B5E952652F6903100149265 /* IRBouncePolicy.swift in Sources */,
 				B5E94EF02D0B21F800149265 /* IRGLProjectionEquirectangular.swift in Sources */,
-				B5E9523D2F6901D00149265 /* IRGLProjectionEquirectangularPolicy.swift in Sources */,
 				4A51709A2F5DB6C6009F8BBA /* IRMetalRenderer.swift in Sources */,
 				B5E9526F2F6903600149265 /* IRMetalRuntimeDebugOutputPolicy.swift in Sources */,
 				B5E952512F6902700149265 /* IRMetalRendererScalePolicy.swift in Sources */,

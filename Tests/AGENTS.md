@@ -48,6 +48,8 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRGLProgramDistortionTests.swift` — Distortion program
 - `IRGLProgramMulti4PTests.swift` — Multi-4P program
 - `IRGLProgramFactoryTests.swift` — Program factory
+- `IRGLProjectionVRTests.swift` — Immutable shared VR mesh and concurrency
+- `IRGLProjectionEquirectangularTests.swift` — Mesh validation, geometry generations, snapshots, and concurrency
 - `IRGLRenderModeBuildTests.swift` — Render mode construction
 - `IRGLRenderModeFactoryTests.swift` — Render mode factory
 - `IRGLRenderStrategyFactoryTests.swift` — Render strategy factory
