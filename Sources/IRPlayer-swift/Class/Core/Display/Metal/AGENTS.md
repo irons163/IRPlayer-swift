@@ -25,4 +25,8 @@ Low-level Metal GPU rendering implementation.
 - Mesh files generate vertex/index buffers for non-planar projections.
 - Verify drawable size assumptions and texture layout when editing.
 - Pixel format handling must support NV12 (hardware decode), YUV420P (software decode), and RGB.
+- Upload software I420 textures from one `IRFFYUVPlaneSnapshot`; never read
+  frame width/height separately from plane bytes or retain pointers beyond
+  `withUnsafePlaneBytes`.
+- Respect snapshot-provided chroma dimensions, including odd-sized I420 input.
 - Tests: `IRGLViewSnapshotTests.swift` (visual), plus per-program tests in `Tests/`.

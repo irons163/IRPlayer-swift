@@ -284,6 +284,83 @@ final class IRFFDecoderOperationTests: XCTestCase {
         XCTAssertTrue(delegate.errors.isEmpty)
     }
 
+    func testSoftwareDecodePublishesCoherentManagedPlaneGeneration() throws {
+        let url = try makeTinyVideoFile()
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: url)
+        }
+        let delegate = DecoderDelegateSpy()
+        let output = DecoderVideoOutputSpy()
+        let prepared = expectation(description: "decoder prepared")
+        let displayed = expectation(description: "software frame displayed")
+        let endOfFile = expectation(description: "decoder reached EOF")
+        delegate.onPrepared = { prepared.fulfill() }
+        delegate.onEndOfFile = { endOfFile.fulfill() }
+        output.onFirstFrame = { displayed.fulfill() }
+
+        let decoder = IRFFDecoder(
+            contentURL: url,
+            videoFormat: .mpeg4,
+            videoOutput: output,
+            audioOutput: nil
+        )
+        decoder.delegate = delegate
+        decoder.hardwareDecoderEnable = false
+        addTeardownBlock {
+            decoder.closeFile()
+        }
+
+        decoder.open()
+
+        wait(
+            for: [prepared, displayed, endOfFile],
+            timeout: 5
+        )
+
+        let frame = try XCTUnwrap(
+            output.receivedFrames.compactMap {
+                $0 as? IRFFAVYUVVideoFrame
+            }.first
+        )
+        let snapshot = try XCTUnwrap(
+            frame.planeSnapshot()
+        )
+        let expectedLumaBytes =
+            snapshot.width * snapshot.height
+        let expectedChromaBytes =
+            snapshot.chromaWidth * snapshot.chromaHeight
+
+        XCTAssertEqual(snapshot.width, frame.width)
+        XCTAssertEqual(snapshot.height, frame.height)
+        XCTAssertEqual(
+            snapshot.byteCount(for: .luma),
+            expectedLumaBytes
+        )
+        XCTAssertEqual(
+            snapshot.byteCount(for: .chromaB),
+            expectedChromaBytes
+        )
+        XCTAssertEqual(
+            snapshot.byteCount(for: .chromaR),
+            expectedChromaBytes
+        )
+        XCTAssertEqual(snapshot.totalByteCount, frame.size)
+        XCTAssertEqual(
+            snapshot.bytes(for: .luma)?.count,
+            expectedLumaBytes
+        )
+        XCTAssertEqual(
+            snapshot.bytes(for: .chromaB)?.count,
+            expectedChromaBytes
+        )
+        XCTAssertEqual(
+            snapshot.bytes(for: .chromaR)?.count,
+            expectedChromaBytes
+        )
+        XCTAssertNil(decoder.error)
+        XCTAssertTrue(delegate.errors.isEmpty)
+    }
+
     func testOpenGeneratedVideoFileDisplaysSourceDecodedFrame() throws {
         let url = try makeTinyVideoFile()
         addTeardownBlock {

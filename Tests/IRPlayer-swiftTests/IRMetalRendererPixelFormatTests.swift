@@ -7,6 +7,7 @@
 
 import Metal
 import CoreVideo
+import IRFFMpeg
 import simd
 import XCTest
 @testable import IRPlayer_swift
@@ -176,23 +177,44 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         height: Int = 2,
         _ body: (IRFFAVYUVVideoFrame) throws -> Void
     ) rethrows {
-        var y = [UInt8](repeating: 0x10, count: max(1, width * height))
-        var u = [UInt8](repeating: 0x80, count: max(1, (width / 2) * (height / 2)))
-        var v = [UInt8](repeating: 0x80, count: max(1, (width / 2) * (height / 2)))
+        let chromaWidth = max(1, (width + 1) / 2)
+        let chromaHeight = max(1, (height + 1) / 2)
+        var y = [UInt8](
+            repeating: 0x10,
+            count: max(1, width * height)
+        )
+        var u = [UInt8](
+            repeating: 0x80,
+            count: chromaWidth * chromaHeight
+        )
+        var v = [UInt8](
+            repeating: 0x80,
+            count: chromaWidth * chromaHeight
+        )
+        var avFrame = AVFrame()
+        avFrame.format = AV_PIX_FMT_YUV420P.rawValue
+        avFrame.linesize.0 = Int32(max(1, width))
+        avFrame.linesize.1 = Int32(chromaWidth)
+        avFrame.linesize.2 = Int32(chromaWidth)
         let frame = IRFFAVYUVVideoFrame()
-        frame.width = width
-        frame.height = height
 
-        try y.withUnsafeMutableBufferPointer { yBuffer in
-            try u.withUnsafeMutableBufferPointer { uBuffer in
-                try v.withUnsafeMutableBufferPointer { vBuffer in
-                    frame.channelPixels[IRYUVChannel.luma.rawValue] = yBuffer.baseAddress
-                    frame.channelPixels[IRYUVChannel.chromaB.rawValue] = uBuffer.baseAddress
-                    frame.channelPixels[IRYUVChannel.chromaR.rawValue] = vBuffer.baseAddress
-                    try body(frame)
+        y.withUnsafeMutableBufferPointer { yBuffer in
+            u.withUnsafeMutableBufferPointer { uBuffer in
+                v.withUnsafeMutableBufferPointer { vBuffer in
+                    avFrame.data.0 = yBuffer.baseAddress
+                    avFrame.data.1 = uBuffer.baseAddress
+                    avFrame.data.2 = vBuffer.baseAddress
+                    withUnsafePointer(to: &avFrame) { pointer in
+                        frame.setFrameData(
+                            pointer,
+                            width: width,
+                            height: height
+                        )
+                    }
                 }
             }
         }
+        try body(frame)
     }
 
     func testRendererBuildsAllShaderPipelines() throws {

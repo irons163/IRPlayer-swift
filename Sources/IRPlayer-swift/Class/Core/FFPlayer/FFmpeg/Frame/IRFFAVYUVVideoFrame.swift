@@ -10,183 +10,173 @@ import CoreVideo
 import IRFFMpeg
 
 @objcMembers public class IRFFAVYUVVideoFrame: IRFFVideoFrame {
-    var channelPixels = [UnsafeMutablePointer<UInt8>?](repeating: nil, count: IRYUVChannel.count.rawValue)
-    private var pixelFormat: AVPixelFormat?
-    private var channelPixelsBufferSize = [Int](repeating: 0, count: IRYUVChannel.count.rawValue)
-    private var channelLengths = [Int](repeating: 0, count: IRYUVChannel.count.rawValue)
-    private var channelLinesize = [Int32](repeating: 0, count: IRYUVChannel.count.rawValue)
-    private let lock = NSLock()
-    private var cachedImage: IRPLFImage?
-    private var isImageDirty = true
+    private let planeLock = NSLock()
+    private var planeStorage = IRFFYUVPlaneStorage()
+    private var planeGeneration: UInt64 = 0
+    private var activePixelFormat: AVPixelFormat?
+    private var activeWidth = 0
+    private var activeHeight = 0
+    private var activeChromaWidth = 0
+    private var activeChromaHeight = 0
+    private var cachedImage: (
+        generation: UInt64,
+        image: IRPLFImage
+    )?
 
     override var type: IRFFFrameType {
         return .avyuvVideo
     }
 
-    static func shouldAcceptFrameData(width: Int,
-                                      height: Int,
-                                      hasLuma: Bool,
-                                      hasChromaB: Bool,
-                                      hasChromaR: Bool,
-                                      linesizeY: Int32,
-                                      linesizeU: Int32,
-                                      linesizeV: Int32) -> Bool {
-        return IRFFAVYUVVideoFramePolicy.shouldAcceptFrameData(
+    var planeCapacities: [Int] {
+        planeLock.lock()
+        defer { planeLock.unlock() }
+        return planeStorage.capacities
+    }
+
+    static func shouldAcceptFrameData(
+        width: Int,
+        height: Int,
+        hasLuma: Bool,
+        hasChromaB: Bool,
+        hasChromaR: Bool,
+        linesizeY: Int32,
+        linesizeU: Int32,
+        linesizeV: Int32
+    ) -> Bool {
+        guard hasLuma,
+              hasChromaB,
+              hasChromaR else {
+            return false
+        }
+        return IRYUVPlaneLayout.i420(
             width: width,
             height: height,
-            hasLuma: hasLuma,
-            hasChromaB: hasChromaB,
-            hasChromaR: hasChromaR,
             linesizeY: linesizeY,
             linesizeU: linesizeU,
             linesizeV: linesizeV
-        )
+        ) != nil
     }
 
-    static func channelBufferSize(for channel: IRYUVChannel, capacities: [Int]) -> Int? {
-        return IRFFAVYUVVideoFramePolicy.channelBufferSize(for: channel, capacities: capacities)
-    }
-
-    func setFrameData(_ frame: UnsafePointer<AVFrame>, width: Int, height: Int) {
+    func setFrameData(
+        _ frame: UnsafePointer<AVFrame>,
+        width: Int,
+        height: Int
+    ) {
         let linesizeY = frame.pointee.linesize.0
         let linesizeU = frame.pointee.linesize.1
         let linesizeV = frame.pointee.linesize.2
-        guard Self.shouldAcceptFrameData(
-            width: width,
-            height: height,
-            hasLuma: frame.pointee.data.0 != nil,
-            hasChromaB: frame.pointee.data.1 != nil,
-            hasChromaR: frame.pointee.data.2 != nil,
-            linesizeY: linesizeY,
-            linesizeU: linesizeU,
-            linesizeV: linesizeV
-        ), let luma = frame.pointee.data.0,
-           let chromaB = frame.pointee.data.1,
-           let chromaR = frame.pointee.data.2 else {
+        guard let luma = frame.pointee.data.0,
+              let chromaB = frame.pointee.data.1,
+              let chromaR = frame.pointee.data.2,
+              let layouts = IRYUVPlaneLayout.i420(
+                  width: width,
+                  height: height,
+                  linesizeY: linesizeY,
+                  linesizeU: linesizeU,
+                  linesizeV: linesizeV
+              ) else {
             flush()
             return
         }
 
-        self.pixelFormat = AVPixelFormat(rawValue: frame.pointee.format)
+        planeLock.lock()
+        defer { planeLock.unlock() }
+        guard planeStorage.update(
+            lumaSource: luma,
+            chromaBSource: chromaB,
+            chromaRSource: chromaR,
+            layouts: layouts
+        ) else {
+            deactivateLocked()
+            return
+        }
 
+        planeGeneration &+= 1
+        activePixelFormat = AVPixelFormat(
+            rawValue: frame.pointee.format
+        )
+        activeWidth = width
+        activeHeight = height
+        activeChromaWidth = layouts.chromaB.width
+        activeChromaHeight = layouts.chromaB.height
         self.width = width
         self.height = height
-
-        channelLinesize[IRYUVChannel.luma.rawValue] = Int32(linesizeY)
-        channelLinesize[IRYUVChannel.chromaB.rawValue] = Int32(linesizeU)
-        channelLinesize[IRYUVChannel.chromaR.rawValue] = Int32(linesizeV)
-
-        updateChannelBuffer(for: .luma, width: width, height: height, linesize: linesizeY)
-        updateChannelBuffer(for: .chromaB, width: width / 2, height: height / 2, linesize: linesizeU)
-        updateChannelBuffer(for: .chromaR, width: width / 2, height: height / 2, linesize: linesizeV)
-
-        copyFrameData(luma, to: &channelPixels[IRYUVChannel.luma.rawValue], channel: .luma, linesize: linesizeY, width: width, height: height)
-        copyFrameData(chromaB, to: &channelPixels[IRYUVChannel.chromaB.rawValue], channel: .chromaB, linesize: linesizeU, width: width / 2, height: height / 2)
-        copyFrameData(chromaR, to: &channelPixels[IRYUVChannel.chromaR.rawValue], channel: .chromaR, linesize: linesizeV, width: width / 2, height: height / 2)
-        isImageDirty = true
+        size = planeStorage.totalByteCount
+        cachedImage = nil
     }
 
-    public var luma: UnsafeMutablePointer<UInt8>? {
-        return channelPixels[IRYUVChannel.luma.rawValue]
-    }
-
-    public var chromaB: UnsafeMutablePointer<UInt8>? {
-        return channelPixels[IRYUVChannel.chromaB.rawValue]
-    }
-
-    public var chromaR: UnsafeMutablePointer<UInt8>? {
-        return channelPixels[IRYUVChannel.chromaR.rawValue]
+    func planeSnapshot() -> IRFFYUVPlaneSnapshot? {
+        planeLock.lock()
+        defer { planeLock.unlock() }
+        return snapshotLocked()
     }
 
     func flush() {
-        width = 0
-        height = 0
-        for i in 0..<IRYUVChannel.count.rawValue {
-            channelLengths[i] = 0
-            channelLinesize[i] = 0
-            if let pixels = channelPixels[i], channelPixelsBufferSize[i] > 0 {
-                memset(pixels, 0, channelPixelsBufferSize[i])
-            }
-        }
-        size = channelLengths.reduce(0, +)
-        cachedImage = nil
-        isImageDirty = true
-    }
-
-    override func stopPlaying() {
-        lock.lock()
-        super.stopPlaying()
-        lock.unlock()
+        planeLock.lock()
+        deactivateLocked()
+        planeLock.unlock()
     }
 
     func image() -> IRPLFImage? {
-        lock.lock()
-        defer { lock.unlock() }
-        if !isImageDirty, let cachedImage {
-            return cachedImage
+        planeLock.lock()
+        if let cachedImage,
+           cachedImage.generation == planeGeneration {
+            planeLock.unlock()
+            return cachedImage.image
         }
-        guard width > 0, height > 0, let pixelFormat else { return nil }
-        let sourcePlanes: [UnsafePointer<UInt8>?] = channelPixels.map { pointer in
-            pointer.map { UnsafePointer($0) }
+        guard let snapshot = snapshotLocked() else {
+            planeLock.unlock()
+            return nil
         }
-        guard let image = IRYUVConvertToImage(srcData: sourcePlanes, srcLinesize: channelLinesize, width: width, height: height, pixelFormat: pixelFormat) else { return nil }
-        cachedImage = image
-        isImageDirty = false
+        planeLock.unlock()
+
+        guard let image = snapshot.image() else {
+            return nil
+        }
+
+        planeLock.lock()
+        defer { planeLock.unlock() }
+        guard planeGeneration == snapshot.generation,
+              snapshotLocked() != nil else {
+            return nil
+        }
+        cachedImage = (
+            generation: snapshot.generation,
+            image: image
+        )
         return image
     }
 
-    deinit {
-        for i in 0..<IRYUVChannel.count.rawValue {
-            if let pixels = channelPixels[i], channelPixelsBufferSize[i] > 0 {
-                free(pixels)
-            }
+    private func snapshotLocked() -> IRFFYUVPlaneSnapshot? {
+        guard let activePixelFormat,
+              activeWidth > 0,
+              activeHeight > 0,
+              activeChromaWidth > 0,
+              activeChromaHeight > 0,
+              planeStorage.totalByteCount > 0 else {
+            return nil
         }
+        return planeStorage.snapshot(
+            generation: planeGeneration,
+            width: activeWidth,
+            height: activeHeight,
+            chromaWidth: activeChromaWidth,
+            chromaHeight: activeChromaHeight,
+            pixelFormat: activePixelFormat
+        )
     }
 
-    private func updateChannelBuffer(for channel: IRYUVChannel, width: Int, height: Int, linesize: Int32) {
-        let needSize = IRYUVChannelFilterNeedSize(linesize, width, height, 1)
-        channelLengths[channel.rawValue] = needSize
-        size = channelLengths.reduce(0, +)
-        if channelPixelsBufferSize[channel.rawValue] < needSize {
-            if channelPixelsBufferSize[channel.rawValue] > 0, let buffer = channelPixels[channel.rawValue] {
-                free(buffer)
-            }
-            channelPixelsBufferSize[channel.rawValue] = needSize
-            channelPixels[channel.rawValue] = malloc(needSize)?.assumingMemoryBound(to: UInt8.self)
-        }
-    }
-
-    private func copyFrameData(_ source: UnsafePointer<UInt8>, to destination: inout UnsafeMutablePointer<UInt8>?, channel: IRYUVChannel, linesize: Int32, width: Int, height: Int) {
-        let bufferSize = Self.channelBufferSize(for: channel, capacities: channelPixelsBufferSize) ?? 0
-        IRYUVChannelFilter(source, linesize, width, height, destination, bufferSize, 1)
+    private func deactivateLocked() {
+        planeStorage.deactivate()
+        planeGeneration &+= 1
+        activePixelFormat = nil
+        activeWidth = 0
+        activeHeight = 0
+        activeChromaWidth = 0
+        activeChromaHeight = 0
+        width = 0
+        height = 0
+        size = 0
+        cachedImage = nil
     }
 }
-
-// Mocking external functions and types for completeness
-//struct IRPLFImage {}
-
-func IRYUVChannelFilterNeedSize(_ linesize: Int32, _ width: Int, _ height: Int, _ a: Int) -> Int {
-    return IRYUVChannelFilterPolicy.needSize(linesize: linesize, width: width, height: height, channelCount: a)
-}
-
-func IRYUVChannelFilter(_ source: UnsafePointer<UInt8>, _ linesize: Int32, _ width: Int, _ height: Int, _ destination: UnsafeMutablePointer<UInt8>?, _ bufferSize: Int, _ a: Int) {
-    IRYUVChannelFilterPolicy.copy(
-        source,
-        linesize: linesize,
-        width: width,
-        height: height,
-        destination: destination,
-        bufferSize: bufferSize,
-        channelCount: a
-    )
-}
-
-//func IRYUVConvertToImage(_ channelPixels: [UnsafeMutablePointer<UInt8>?], _ channelLinesize: [Int], _ width: Int, _ height: Int, _ pixelFormat: AVPixelFormat?) -> IRPLFImage {
-//    return IRPLFImage()
-//}
-
-//struct AVFrame {
-//    var format: Int32
-//    var linesize: [Int32]
-//    var data: [UnsafePointer<UInt8>?]
-//}

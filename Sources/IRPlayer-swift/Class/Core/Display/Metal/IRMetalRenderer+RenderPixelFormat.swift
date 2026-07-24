@@ -57,21 +57,16 @@ extension IRMetalRenderer {
 
     func renderI420(yuvFrame: IRFFAVYUVVideoFrame, encoder: MTLRenderCommandEncoder) -> Bool {
         guard let pipeline = pipelineI420 else { return false }
-        guard let yPtr = yuvFrame.luma, let uPtr = yuvFrame.chromaB, let vPtr = yuvFrame.chromaR else { return false }
-
-        let width = yuvFrame.width
-        let height = yuvFrame.height
-        guard width > 0, height > 0 else { return false }
-
-        let yTexture = makeTexture(width: width, height: height, pixelFormat: .r8Unorm, bytes: yPtr)
-        let uTexture = makeTexture(width: width / 2, height: height / 2, pixelFormat: .r8Unorm, bytes: uPtr)
-        let vTexture = makeTexture(width: width / 2, height: height / 2, pixelFormat: .r8Unorm, bytes: vPtr)
-        guard let yTexture, let uTexture, let vTexture else { return false }
+        guard let textures = makeI420Textures(
+            from: yuvFrame
+        ) else {
+            return false
+        }
 
         encoder.setRenderPipelineState(pipeline)
-        encoder.setFragmentTexture(yTexture, index: 0)
-        encoder.setFragmentTexture(uTexture, index: 1)
-        encoder.setFragmentTexture(vTexture, index: 2)
+        encoder.setFragmentTexture(textures.y, index: 0)
+        encoder.setFragmentTexture(textures.u, index: 1)
+        encoder.setFragmentTexture(textures.v, index: 2)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         return true
     }
@@ -120,15 +115,43 @@ extension IRMetalRenderer {
     }
 
     func makeI420Textures(from yuvFrame: IRFFAVYUVVideoFrame) -> (y: MTLTexture, u: MTLTexture, v: MTLTexture)? {
-        guard let yPtr = yuvFrame.luma, let uPtr = yuvFrame.chromaB, let vPtr = yuvFrame.chromaR else { return nil }
-        let width = yuvFrame.width
-        let height = yuvFrame.height
-        guard width > 0, height > 0 else { return nil }
+        guard let snapshot = yuvFrame.planeSnapshot() else {
+            return nil
+        }
 
-        guard let yTexture = makeTexture(width: width, height: height, pixelFormat: .r8Unorm, bytes: yPtr) else { return nil }
-        guard let uTexture = makeTexture(width: width / 2, height: height / 2, pixelFormat: .r8Unorm, bytes: uPtr) else { return nil }
-        guard let vTexture = makeTexture(width: width / 2, height: height / 2, pixelFormat: .r8Unorm, bytes: vPtr) else { return nil }
-        return (y: yTexture, u: uTexture, v: vTexture)
+        var textures: (
+            y: MTLTexture,
+            u: MTLTexture,
+            v: MTLTexture
+        )?
+        let madeTextures = snapshot.withUnsafePlaneBytes {
+            luma,
+            chromaB,
+            chromaR in
+            guard let y = makeTexture(
+                width: snapshot.width,
+                height: snapshot.height,
+                pixelFormat: .r8Unorm,
+                bytes: luma
+            ),
+            let u = makeTexture(
+                width: snapshot.chromaWidth,
+                height: snapshot.chromaHeight,
+                pixelFormat: .r8Unorm,
+                bytes: chromaB
+            ),
+            let v = makeTexture(
+                width: snapshot.chromaWidth,
+                height: snapshot.chromaHeight,
+                pixelFormat: .r8Unorm,
+                bytes: chromaR
+            ) else {
+                return false
+            }
+            textures = (y, u, v)
+            return true
+        }
+        return madeTextures ? textures : nil
     }
 
     func makeRGBTexture(from rgbFrame: IRVideoFrameRGB) -> MTLTexture? {
