@@ -21,7 +21,9 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRPlayerNotificationTests.swift` — Notification dispatch tests
 - `IRPlayerLifecycleDecisionTests.swift` — Lifecycle decision boundaries
 - `IRPlayerLifecycleControllerTests.swift` — Stateful lifecycle transitions
-- `IRAVPlayerTests.swift` — AVPlayer backend tests
+- `IRAVPlayerSemanticsTests.swift` — AVPlayer state, time, track, redirect,
+  asset-load, and error-mapping semantics
+- `IRAVPlayerTests.swift` — AVPlayer backend integration tests
 - `IRAVPlayerPresentationLoopTests.swift` — VR display-link generation and
   lifecycle ownership
 - `IRFFPlayerTests.swift` — FFmpeg player backend tests

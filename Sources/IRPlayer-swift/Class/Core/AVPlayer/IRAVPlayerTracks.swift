@@ -101,25 +101,39 @@ extension IRAVPlayer {
         languageCode: String?,
         trackID: CMPersistentTrackID
     ) -> String {
-        IRAVPlayerTrackPolicy.trackName(
-            languageCode: languageCode,
-            trackID: trackID
-        )
+        guard let languageCode,
+              !languageCode.trimmingCharacters(
+                in: .whitespacesAndNewlines
+              ).isEmpty else {
+            return "Track \(trackID)"
+        }
+        return languageCode
     }
 
     static func mediaSelectionTrackID(from propertyList: Any?) -> Int? {
-        IRAVPlayerTrackPolicy.mediaSelectionTrackID(
-            from: propertyList
-        )
+        guard let propertyList =
+            propertyList as? [String: Any],
+              let value = propertyList[
+                avMediaSelectionOptionTrackIDKey
+              ] else {
+            return nil
+        }
+        if let value = value as? NSNumber {
+            return IRPayloadNumber.integerRawValue(from: value)
+        }
+        return value as? Int
     }
 
     static func defaultTrack(
         from tracks: [IRPlayerTrack],
         propertyList: Any?
     ) -> IRPlayerTrack? {
-        IRAVPlayerTrackPolicy.defaultTrack(
-            from: tracks,
-            propertyList: propertyList
-        )
+        guard let trackID =
+            mediaSelectionTrackID(from: propertyList) else {
+            return tracks.first
+        }
+        return tracks.first {
+            $0.index == trackID
+        } ?? tracks.first
     }
 }

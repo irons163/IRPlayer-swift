@@ -4,6 +4,16 @@ import Foundation
 // MARK: - Session events and failures
 
 extension IRAVPlayer {
+    struct ErrorLogEventSnapshot {
+        let date: Date?
+        let URI: String?
+        let serverAddress: String?
+        let playbackSessionID: String?
+        let errorStatusCode: Int
+        let errorDomain: String
+        let errorComment: String?
+    }
+
     private func handleItemEvent(
         token: IRAVPlayerSession.Token,
         item: AVPlayerItem,
@@ -117,10 +127,106 @@ extension IRAVPlayer {
         playerItem: AVPlayerItem?,
         player: AVPlayer?
     ) -> IRError {
-        IRAVPlayerErrorPolicy.playbackErrorInfo(
-            playerItem: playerItem,
-            player: player
+        let errorLog =
+            playerItem?.error == nil
+                ? nil
+                : playerItem?.errorLog()
+        return errorInfo(
+            playerItemError: playerItem?.error as NSError?,
+            playerError: player?.error as NSError?,
+            extendedLogData: errorLog?.extendedLogData(),
+            extendedLogDataStringEncoding:
+                String.Encoding(
+                    rawValue:
+                        errorLog?
+                            .extendedLogDataStringEncoding ?? 0
+                ).rawValue,
+            errorEvents: errorLog?.events.map {
+                ErrorLogEventSnapshot(
+                    date: $0.date,
+                    URI: $0.uri,
+                    serverAddress: $0.serverAddress,
+                    playbackSessionID: $0.playbackSessionID,
+                    errorStatusCode: $0.errorStatusCode,
+                    errorDomain: $0.errorDomain,
+                    errorComment: $0.errorComment
+                )
+            }
         )
+    }
+
+    static func errorInfo(
+        playerItemError: NSError?,
+        playerError: NSError?,
+        extendedLogData: Data?,
+        extendedLogDataStringEncoding: UInt,
+        errorEvents: [ErrorLogEventSnapshot]?
+    ) -> IRError {
+        let errorInfo = IRError()
+
+        if let playerItemError {
+            errorInfo.error = playerItemError
+            applyExtendedLogData(
+                extendedLogData,
+                stringEncoding:
+                    extendedLogDataStringEncoding,
+                to: errorInfo
+            )
+            errorInfo.errorEvents = errorEvents?.map {
+                errorEvent(
+                    date: $0.date,
+                    URI: $0.URI,
+                    serverAddress: $0.serverAddress,
+                    playbackSessionID:
+                        $0.playbackSessionID,
+                    errorStatusCode:
+                        $0.errorStatusCode,
+                    errorDomain: $0.errorDomain,
+                    errorComment: $0.errorComment
+                )
+            }
+        } else if let playerError {
+            errorInfo.error = playerError
+        } else {
+            errorInfo.error = NSError(
+                domain: "AVPlayer playback error",
+                code: -1,
+                userInfo: nil
+            )
+        }
+
+        return errorInfo
+    }
+
+    static func applyExtendedLogData(
+        _ data: Data?,
+        stringEncoding: UInt,
+        to errorInfo: IRError
+    ) {
+        guard let data, !data.isEmpty else { return }
+        errorInfo.extendedLogData = data
+        errorInfo.extendedLogDataStringEncoding =
+            stringEncoding
+    }
+
+    static func errorEvent(
+        date: Date?,
+        URI: String?,
+        serverAddress: String?,
+        playbackSessionID: String?,
+        errorStatusCode: Int,
+        errorDomain: String,
+        errorComment: String?
+    ) -> IRErrorEvent {
+        let event = IRErrorEvent()
+        event.date = date
+        event.URI = URI
+        event.serverAddress = serverAddress
+        event.playbackSessionID = playbackSessionID
+        event.errorStatusCode = errorStatusCode
+        event.errorDomain = errorDomain
+        event.errorComment = errorComment
+        return event
     }
 
     private func failPlayback(with errorInfo: IRError) {

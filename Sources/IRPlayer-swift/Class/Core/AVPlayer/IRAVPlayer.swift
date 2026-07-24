@@ -159,40 +159,94 @@ extension IRAVPlayer {
         status: AVPlayerItem.Status,
         currentState: IRPlayerState
     ) -> ItemStatusDecision {
-        IRAVPlayerPlaybackPolicy.itemStatusDecision(
-            status: status,
-            currentState: currentState
-        )
+        switch status {
+        case .unknown:
+            return .buffer
+
+        case .readyToPlay:
+            switch currentState {
+            case .buffering, .playing:
+                return .playIfNeeded
+            case .suspend, .finished, .failed:
+                return .ignore
+            case .none, .readyToPlay:
+                return .markReady
+            @unknown default:
+                return .failUnknown
+            }
+
+        case .failed:
+            return .fail
+
+        @unknown default:
+            return .failUnknown
+        }
     }
 
     static func nextStateAfterPlay(
         from state: IRPlayerState
     ) -> IRPlayerState? {
-        IRAVPlayerPlaybackPolicy.nextStateAfterPlay(from: state)
+        switch state {
+        case .none:
+            return .buffering
+        case .suspend, .readyToPlay:
+            return .playing
+        case .buffering, .playing, .finished, .failed:
+            return nil
+        @unknown default:
+            return nil
+        }
     }
 
     static func nextStateAfterPause(
         from state: IRPlayerState
     ) -> IRPlayerState? {
-        IRAVPlayerPlaybackPolicy.nextStateAfterPause(from: state)
+        guard state != .failed else { return nil }
+        return .suspend
     }
 
     static func shouldRetryPlayAfterDelay(
         for state: IRPlayerState
     ) -> Bool {
-        IRAVPlayerPlaybackPolicy.shouldRetryPlayAfterDelay(for: state)
+        switch state {
+        case .buffering, .playing, .readyToPlay:
+            return true
+        case .none, .suspend, .finished, .failed:
+            return false
+        @unknown default:
+            return false
+        }
     }
 
     static func isActivePlaybackState(_ state: IRPlayerState) -> Bool {
-        IRAVPlayerPlaybackPolicy.isActivePlaybackState(state)
+        switch state {
+        case .buffering, .playing:
+            return true
+        case .none, .readyToPlay, .suspend, .finished, .failed:
+            return false
+        @unknown default:
+            return false
+        }
     }
 
     static func seekTime(for time: TimeInterval) -> CMTime? {
-        IRAVPlayerTimePolicy.seekTime(for: time)
+        guard time.isFinite, time >= 0 else { return nil }
+        let timescale = Int32(NSEC_PER_SEC)
+        guard time <=
+            Double(Int64.max) / Double(timescale) else {
+            return nil
+        }
+        let seekTime = CMTimeMakeWithSeconds(
+            time,
+            preferredTimescale: timescale
+        )
+        guard seekTime.isValid else { return nil }
+        return seekTime
     }
 
     static func finiteSeconds(from time: CMTime) -> TimeInterval {
-        IRAVPlayerTimePolicy.finiteSeconds(from: time)
+        let seconds = CMTimeGetSeconds(time)
+        return seconds.isFinite ? seconds : 0
     }
 
     static func playableEndTime(
@@ -200,10 +254,15 @@ extension IRAVPlayer {
         duration: TimeInterval,
         totalDuration: TimeInterval
     ) -> TimeInterval {
-        IRAVPlayerTimePolicy.playableEndTime(
-            start: start,
-            duration: duration,
-            totalDuration: totalDuration
+        let end = start + duration
+        guard start.isFinite,
+              duration.isFinite,
+              end.isFinite else {
+            return 0
+        }
+        return IRPlaybackTimePolicy.clampedPlayableTime(
+            end,
+            duration: totalDuration
         )
     }
 

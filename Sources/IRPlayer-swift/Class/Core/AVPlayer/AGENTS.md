@@ -2,14 +2,16 @@
 
 ## Contents
 
-- `IRAVPlayer.swift` — Playback commands and facade state.
+- `IRAVPlayer.swift` — Playback commands, facade state, state-transition
+  semantics, and time normalization.
 - `IRAVPlayerLifecycle.swift` — Session activation, replacement, reset, and
-  event translation.
+  item-status/error event translation.
 - `IRAVPlayerPresentation.swift` — Time, snapshot, pixel-buffer, and
   generation-fenced tick consumption.
 - `IRAVPlayerPresentationLoop.swift` — VR display-link activation, AVPlayer
   session-token binding, stale-tick rejection, and terminal teardown.
-- `IRAVPlayerTracks.swift` — Track discovery, selection, and metadata access.
+- `IRAVPlayerTracks.swift` — Track discovery, selection, metadata parsing,
+  and fallback semantics.
 - `IRAVPlayerSession.swift` — Generation-scoped AVFoundation resources,
   observations, leases, and teardown.
 
@@ -31,6 +33,8 @@ Provides the native system player backend. Used when `IRPlayerDecoder` is config
   VR presentation generations in `IRAVPlayerPresentationLoop`. Deactivate
   before session reset or display detachment.
 - Do not invoke backend-host callbacks while a session lock or lease is held.
-- Tests: `IRAVPlayerTests.swift`,
+- Keep AVPlayer-only semantics with their owning facade/lifecycle/tracks
+  extension. Do not introduce forwarding-only policy mirrors.
+- Tests: `IRAVPlayerSemanticsTests.swift`, `IRAVPlayerTests.swift`,
   `IRAVPlayerPresentationLoopTests.swift`, and
   `IRAVPlayerSessionTests.swift`.
