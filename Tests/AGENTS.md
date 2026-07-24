@@ -28,6 +28,7 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFAudioDecoderTests.swift` — Audio decoding
 - `IRFFVideoDecoderTests.swift` — Video decoding
 - `IRFFVideoToolBoxTests.swift` — Hardware decode via VideoToolBox
+- `IRFFVideoToolBoxSessionTests.swift` — VideoToolbox generation/callback ownership
 - `IRFFDecoderOperationTests.swift` — Decoder operation lifecycle
 - `IRFFToolsTests.swift` — FFmpeg utility functions
 - `IRFFTrackTests.swift` — Track metadata
