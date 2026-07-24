@@ -225,21 +225,140 @@ final class IRMetalRenderer {
     }
 
     static func computeScale(contentMode: IRGLRenderContentMode, frameSize: CGSize, drawableSize: CGSize) -> CGSize {
-        IRMetalRendererScalePolicy.computeScale(contentMode: contentMode,
-                                                frameSize: frameSize,
-                                                drawableSize: drawableSize)
+        let identity = CGSize(width: 1, height: 1)
+        guard frameSize.width.isFinite,
+              frameSize.height.isFinite,
+              drawableSize.width.isFinite,
+              drawableSize.height.isFinite,
+              frameSize.width > 0,
+              frameSize.height > 0,
+              drawableSize.width > 0,
+              drawableSize.height > 0 else {
+            return identity
+        }
+
+        let sx = drawableSize.width / frameSize.width
+        let sy = drawableSize.height / frameSize.height
+        guard sx.isFinite, sy.isFinite, sx > 0, sy > 0 else {
+            return identity
+        }
+
+        let scale: CGSize
+        switch contentMode {
+        case .scaleAspectFit:
+            let value = min(sx, sy)
+            scale = CGSize(
+                width: value / sx,
+                height: value / sy
+            )
+        case .scaleAspectFill:
+            let value = max(sx, sy)
+            scale = CGSize(
+                width: value / sx,
+                height: value / sy
+            )
+        case .scaleToFill:
+            return identity
+        @unknown default:
+            return identity
+        }
+
+        guard scale.width.isFinite,
+              scale.height.isFinite,
+              scale.width > 0,
+              scale.height > 0 else {
+            return identity
+        }
+        return scale
     }
 
     static func quadVertices(textureRange: QuadTextureRange) -> [QuadVertex] {
-        IRMetalRendererGeometryPolicy.quadVertices(textureRange: textureRange)
+        let minU: Float
+        let maxU: Float
+        switch textureRange {
+        case .full:
+            minU = 0
+            maxU = 1
+        case .left:
+            minU = 0
+            maxU = 0.5
+        case .right:
+            minU = 0.5
+            maxU = 1
+        }
+
+        return [
+            QuadVertex(
+                position: SIMD2<Float>(-1, -1),
+                texCoord: SIMD2<Float>(minU, 1)
+            ),
+            QuadVertex(
+                position: SIMD2<Float>(1, -1),
+                texCoord: SIMD2<Float>(maxU, 1)
+            ),
+            QuadVertex(
+                position: SIMD2<Float>(-1, 1),
+                texCoord: SIMD2<Float>(minU, 0)
+            ),
+            QuadVertex(
+                position: SIMD2<Float>(1, 1),
+                texCoord: SIMD2<Float>(maxU, 0)
+            )
+        ]
     }
 
-    static func metalViewport(drawableSize: CGSize,
-                              viewport: CGRect,
-                              orientation: MetalViewportOrientation) -> MTLViewport {
-        IRMetalRendererGeometryPolicy.metalViewport(drawableSize: drawableSize,
-                                                    viewport: viewport,
-                                                    orientation: orientation)
+    static func metalViewport(
+        drawableSize: CGSize,
+        viewport: CGRect,
+        orientation: MetalViewportOrientation
+    ) -> MTLViewport {
+        let empty = MTLViewport(
+            originX: 0,
+            originY: 0,
+            width: 0,
+            height: 0,
+            znear: 0,
+            zfar: 1
+        )
+        guard drawableSize.width.isFinite,
+              drawableSize.height.isFinite,
+              viewport.origin.x.isFinite,
+              viewport.origin.y.isFinite,
+              viewport.size.width.isFinite,
+              viewport.size.height.isFinite,
+              drawableSize.width > 0,
+              drawableSize.height > 0,
+              viewport.size.width > 0,
+              viewport.size.height > 0 else {
+            return empty
+        }
+
+        let originY: CGFloat
+        let height: CGFloat
+        switch orientation {
+        case .topLeftFlipped:
+            originY =
+                drawableSize.height - viewport.origin.y
+            height = -viewport.size.height
+        case .bottomLeft:
+            originY =
+                drawableSize.height -
+                viewport.origin.y -
+                viewport.size.height
+            height = viewport.size.height
+        }
+        guard originY.isFinite, height.isFinite else {
+            return empty
+        }
+
+        return MTLViewport(
+            originX: Double(viewport.origin.x),
+            originY: Double(originY),
+            width: Double(viewport.size.width),
+            height: Double(height),
+            znear: 0,
+            zfar: 1
+        )
     }
 }
 

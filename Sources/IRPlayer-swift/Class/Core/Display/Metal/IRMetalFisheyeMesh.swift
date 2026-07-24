@@ -15,6 +15,22 @@ final class IRMetalFisheyeMesh {
         let texCoord: SIMD2<Float>
     }
 
+    struct Parameters: Equatable, Sendable {
+        static let zero = Parameters(
+            textureWidth: 0,
+            textureHeight: 0,
+            centerX: 0,
+            centerY: 0,
+            radius: 0
+        )
+
+        let textureWidth: Float
+        let textureHeight: Float
+        let centerX: Float
+        let centerY: Float
+        let radius: Float
+    }
+
     let vertexBuffer: MTLBuffer
     let indexBuffer: MTLBuffer
     let indexCount: Int
@@ -28,8 +44,16 @@ final class IRMetalFisheyeMesh {
             vertices.append(Vertex(position: positions[i], texCoord: texcoords[i]))
         }
 
-        guard let vertexLength = Self.bufferByteLength(elementCount: vertices.count, stride: MemoryLayout<Vertex>.stride),
-              let indexLength = Self.bufferByteLength(elementCount: indices.count, stride: MemoryLayout<UInt16>.stride) else { return nil }
+        guard let vertexLength = IRMetalMeshStorage.byteLength(
+            elementCount: vertices.count,
+            stride: MemoryLayout<Vertex>.stride
+        ),
+              let indexLength = IRMetalMeshStorage.byteLength(
+                  elementCount: indices.count,
+                  stride: MemoryLayout<UInt16>.stride
+              ) else {
+            return nil
+        }
 
         guard let vBuffer = device.makeBuffer(bytes: vertices, length: vertexLength, options: .storageModeShared) else { return nil }
         guard let iBuffer = device.makeBuffer(bytes: indices, length: indexLength, options: .storageModeShared) else { return nil }
@@ -40,8 +64,23 @@ final class IRMetalFisheyeMesh {
     }
 
     init?(device: MTLDevice, textureWidth: Float, textureHeight: Float, centerX: Float, centerY: Float, radius: Float) {
-        let (tw, th, cx, cy, cr) = IRMetalFisheyeMesh.resolveParams(textureWidth: textureWidth, textureHeight: textureHeight, centerX: centerX, centerY: centerY, radius: radius)
-        guard tw > 0, th > 0, cr > 0 else { return nil }
+        let parameters = Self.resolveParameters(
+            textureWidth: textureWidth,
+            textureHeight: textureHeight,
+            centerX: centerX,
+            centerY: centerY,
+            radius: radius
+        )
+        guard parameters.textureWidth > 0,
+              parameters.textureHeight > 0,
+              parameters.radius > 0 else {
+            return nil
+        }
+        let tw = parameters.textureWidth
+        let th = parameters.textureHeight
+        let cx = parameters.centerX
+        let cy = parameters.centerY
+        let cr = parameters.radius
 
         let slices = 180
         let iMax = slices + 1
@@ -88,10 +127,20 @@ final class IRMetalFisheyeMesh {
             let i1 = i + 1
             for j in 0..<slices {
                 let j1 = j + 1
-                guard let first = Self.indexValue(i * iMax + j),
-                      let second = Self.indexValue(i1 * iMax + j),
-                      let third = Self.indexValue(i1 * iMax + j1),
-                      let fourth = Self.indexValue(i * iMax + j1) else { return nil }
+                guard let first = IRMetalMeshStorage.index(
+                    i * iMax + j
+                ),
+                      let second = IRMetalMeshStorage.index(
+                          i1 * iMax + j
+                      ),
+                      let third = IRMetalMeshStorage.index(
+                          i1 * iMax + j1
+                      ),
+                      let fourth = IRMetalMeshStorage.index(
+                          i * iMax + j1
+                      ) else {
+                    return nil
+                }
                 indices.append(first)
                 indices.append(second)
                 indices.append(third)
@@ -101,8 +150,16 @@ final class IRMetalFisheyeMesh {
             }
         }
 
-        guard let vertexLength = Self.bufferByteLength(elementCount: vertices.count, stride: MemoryLayout<Vertex>.stride),
-              let indexLength = Self.bufferByteLength(elementCount: indices.count, stride: MemoryLayout<UInt16>.stride) else { return nil }
+        guard let vertexLength = IRMetalMeshStorage.byteLength(
+            elementCount: vertices.count,
+            stride: MemoryLayout<Vertex>.stride
+        ),
+              let indexLength = IRMetalMeshStorage.byteLength(
+                  elementCount: indices.count,
+                  stride: MemoryLayout<UInt16>.stride
+              ) else {
+            return nil
+        }
 
         guard let vBuffer = device.makeBuffer(bytes: vertices, length: vertexLength, options: .storageModeShared) else { return nil }
         guard let iBuffer = device.makeBuffer(bytes: indices, length: indexLength, options: .storageModeShared) else { return nil }
@@ -112,19 +169,52 @@ final class IRMetalFisheyeMesh {
         indexCount = indices.count
     }
 
-    static func resolveParams(textureWidth: Float, textureHeight: Float, centerX: Float, centerY: Float, radius: Float) -> (textureWidth: Float, textureHeight: Float, centerX: Float, centerY: Float, radius: Float) {
-        IRMetalFisheyeMeshPolicy.resolveParams(textureWidth: textureWidth,
-                                                textureHeight: textureHeight,
-                                                centerX: centerX,
-                                                centerY: centerY,
-                                                radius: radius)
-    }
+    static func resolveParameters(
+        textureWidth: Float,
+        textureHeight: Float,
+        centerX: Float,
+        centerY: Float,
+        radius: Float
+    ) -> Parameters {
+        guard textureWidth.isFinite,
+              textureHeight.isFinite,
+              centerX.isFinite,
+              centerY.isFinite,
+              radius.isFinite,
+              textureWidth > 0,
+              textureHeight > 0 else {
+            return .zero
+        }
 
-    static func bufferByteLength(elementCount: Int, stride: Int) -> Int? {
-        IRMetalFisheyeMeshPolicy.bufferByteLength(elementCount: elementCount, stride: stride)
-    }
+        let remainingX = textureWidth - centerX
+        let remainingY = textureHeight - centerY
+        let circleFits =
+            centerX > 0 &&
+            centerY > 0 &&
+            centerX <= textureWidth &&
+            centerY <= textureHeight &&
+            radius > 0 &&
+            radius <= centerX &&
+            radius <= centerY &&
+            radius <= remainingX &&
+            radius <= remainingY
 
-    static func indexValue(_ value: Int) -> UInt16? {
-        IRMetalFisheyeMeshPolicy.indexValue(value)
+        if circleFits {
+            return Parameters(
+                textureWidth: textureWidth,
+                textureHeight: textureHeight,
+                centerX: centerX,
+                centerY: centerY,
+                radius: radius
+            )
+        }
+
+        return Parameters(
+            textureWidth: textureWidth,
+            textureHeight: textureHeight,
+            centerX: textureWidth / 2,
+            centerY: textureHeight / 2,
+            radius: min(textureWidth, textureHeight) / 2
+        )
     }
 }

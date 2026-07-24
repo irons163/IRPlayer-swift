@@ -72,6 +72,7 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRMetalCommandResourcesTests.swift` — GPU-completion resource lifetime and command caching
 - `IRMetalDistortionTargetSessionTests.swift` — Distortion target generation, failure, close, and concurrency ownership
 - `IRMetalFrameTextureGenerationTests.swift` — Complete Core Video and managed texture generations
+- `IRMetalMeshStorageTests.swift` — Checked shared mesh storage and index arithmetic
 - `IRMetalRendererResourcesTests.swift` — Complete renderer bootstrap and typed resource failures
 - `IRGLRenderModeBuildTests.swift` — Render mode construction
 - `IRGLRenderModeFactoryTests.swift` — Render mode factory

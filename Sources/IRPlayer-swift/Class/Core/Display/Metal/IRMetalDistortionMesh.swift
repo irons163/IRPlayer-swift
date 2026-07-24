@@ -34,8 +34,14 @@ final class IRMetalDistortionMesh {
         guard !mesh.vertices.isEmpty, !mesh.indices.isEmpty else {
             return nil
         }
-        guard let vertexLength = Self.bufferByteLength(elementCount: mesh.vertices.count, stride: MemoryLayout<IRMetalDistortionVertex>.stride),
-              let indexLength = Self.bufferByteLength(elementCount: mesh.indices.count, stride: MemoryLayout<UInt16>.stride) else {
+        guard let vertexLength = IRMetalMeshStorage.byteLength(
+            elementCount: mesh.vertices.count,
+            stride: MemoryLayout<IRMetalDistortionVertex>.stride
+        ),
+              let indexLength = IRMetalMeshStorage.byteLength(
+                  elementCount: mesh.indices.count,
+                  stride: MemoryLayout<UInt16>.stride
+              ) else {
             return nil
         }
         guard let vbuf = device.makeBuffer(bytes: mesh.vertices, length: vertexLength, options: .storageModeShared),
@@ -135,8 +141,13 @@ final class IRMetalDistortionMesh {
                         vertexOffset -= 1
                     }
                 }
-                guard let first = Self.indexValue(vertexOffset),
-                      let second = Self.indexValue(vertexOffset + cols) else { return nil }
+                guard let first =
+                    IRMetalMeshStorage.index(vertexOffset),
+                      let second = IRMetalMeshStorage.index(
+                          vertexOffset + cols
+                      ) else {
+                    return nil
+                }
                 indices.append(first)
                 indices.append(second)
             }
@@ -178,13 +189,5 @@ final class IRMetalDistortionMesh {
 
     private static func clamp(value: Float, min: Float, max: Float) -> Float {
         return Swift.max(min, Swift.min(max, value))
-    }
-
-    static func bufferByteLength(elementCount: Int, stride: Int) -> Int? {
-        IRMetalDistortionMeshPolicy.bufferByteLength(elementCount: elementCount, stride: stride)
-    }
-
-    static func indexValue(_ value: Int) -> UInt16? {
-        IRMetalDistortionMeshPolicy.indexValue(value)
     }
 }

@@ -9,6 +9,7 @@ Low-level Metal GPU rendering implementation.
 | `IRMetalCommandResources.swift`             | Per-command resource cache and GPU-completion lifetime |
 | `IRMetalDistortionTargetSession.swift`      | Synchronized coherent distortion render-target generations |
 | `IRMetalFrameTextureGeneration.swift`       | Immutable NV12/BGRA/I420/RGB texture generations |
+| `IRMetalMeshStorage.swift`                  | Shared checked mesh byte lengths and UInt16 indices |
 | `IRMetalRenderer.swift`                     | Core Metal renderer — device, command queue, pipeline setup |
 | `IRMetalRendererResources.swift`            | Complete immutable cache, pipeline, and quad-buffer bootstrap |
 | `IRMetalRenderer+Render2D.swift`            | 2D flat rendering extension                   |
@@ -39,6 +40,10 @@ Low-level Metal GPU rendering implementation.
   `IRMetalDistortionTargetSession`; failed replacements preserve the previous
   complete target and close is terminal.
 - Mesh files generate vertex/index buffers for non-planar projections.
+- Both mesh builders must use `IRMetalMeshStorage` for checked storage and
+  index conversion. Fisheye circle normalization belongs to
+  `IRMetalFisheyeMesh`; quad, viewport, and scale semantics belong to
+  `IRMetalRenderer`. Do not reintroduce forwarding policy mirrors.
 - Verify drawable size assumptions and texture layout when editing.
 - Pixel format handling must support NV12 (hardware decode), YUV420P (software decode), and RGB.
 - Keep every `CVMetalTexture` and its source pixel buffer inside one
@@ -57,5 +62,6 @@ Low-level Metal GPU rendering implementation.
 - Respect snapshot-provided chroma dimensions, including odd-sized I420 input.
 - Tests: `IRMetalCommandResourcesTests.swift`,
   `IRMetalFrameTextureGenerationTests.swift`,
+  `IRMetalMeshStorageTests.swift`,
   `IRMetalRendererPixelFormatTests.swift`, `IRGLViewSnapshotTests.swift`
   (visual), plus per-program tests in `Tests/`.
