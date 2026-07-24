@@ -7,39 +7,68 @@
 
 import Foundation
 
-struct AVDictionary {
-    var rawPointer: OpaquePointer?
+struct IRFFMetadata: Equatable {
+    let language: String
+    let BPS: Int64
+    let duration: String
+    let numberOfBytes: Int64
+    let numberOfFrames: Int64
 
-    init(rawPointer: OpaquePointer?) {
-        self.rawPointer = rawPointer
-    }
-}
-
-class IRFFMetadata {
-    var language: String
-    var BPS: Int64
-    var duration: String
-    var numberOfBytes: Int64
-    var numberOfFrames: Int64
-
-    convenience init(avDictionary: AVDictionary) {
-        let dic = IRFFFoundationBrigeOfAVDictionary(avDictionary.rawPointer)
-        self.init(dictionary: dic ?? [:])
+    init(avDictionary: OpaquePointer?) {
+        self.init(
+            dictionary:
+                IRFFDictionary.values(
+                    from: avDictionary
+                ) ?? [:]
+        )
     }
 
     init(dictionary: [String: Any]) {
-        self.language = dictionary["language"] as? String ?? ""
-        self.BPS = Self.int64Value(dictionary["BPS"])
-        self.duration = dictionary["DURATION"] as? String ?? ""
-        self.numberOfBytes = Self.int64Value(dictionary["NUMBER_OF_BYTES"])
-        self.numberOfFrames = Self.int64Value(dictionary["NUMBER_OF_FRAMES"])
-    }
-
-    static func metadata(with avDictionary: AVDictionary) -> IRFFMetadata {
-        return IRFFMetadata(avDictionary: avDictionary)
+        language = dictionary["language"] as? String ?? ""
+        BPS = Self.int64Value(dictionary["BPS"])
+        duration = dictionary["DURATION"] as? String ?? ""
+        numberOfBytes = Self.int64Value(
+            dictionary["NUMBER_OF_BYTES"]
+        )
+        numberOfFrames = Self.int64Value(
+            dictionary["NUMBER_OF_FRAMES"]
+        )
     }
 
     static func int64Value(_ value: Any?) -> Int64 {
-        return IRFFMetadataPolicy.int64Value(value)
+        if let value = value as? NSNumber {
+            guard CFGetTypeID(value)
+                    != CFBooleanGetTypeID() else {
+                return 0
+            }
+
+            let objectType = String(
+                cString: value.objCType
+            )
+            guard objectType == "f"
+                    || objectType == "d" else {
+                return Int64(value.stringValue) ?? 0
+            }
+
+            let doubleValue = value.doubleValue
+            guard doubleValue.isFinite,
+                  doubleValue.rounded(.towardZero)
+                    == doubleValue,
+                  doubleValue
+                    >= -9_223_372_036_854_775_808,
+                  doubleValue
+                    < 9_223_372_036_854_775_808 else {
+                return 0
+            }
+            return Int64(doubleValue)
+        }
+        if let value = value as? String {
+            return Int64(
+                value.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+            ) ?? 0
+        }
+        return 0
     }
 }

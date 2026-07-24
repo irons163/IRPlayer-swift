@@ -33,9 +33,10 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFVideoToolBoxTests.swift` — Hardware decode via VideoToolBox
 - `IRFFVideoToolBoxSessionTests.swift` — VideoToolbox generation/callback ownership
 - `IRFFDecoderOperationTests.swift` — Decoder operation lifecycle
+- `IRFFDictionaryTests.swift` — Owned options and borrowed dictionary values
 - `IRFFToolsTests.swift` — FFmpeg utility functions
 - `IRFFTrackTests.swift` — Track metadata
-- `IRFFMetadataTests.swift` — Stream metadata
+- `IRFFMetadataTests.swift` — Immutable stream metadata and numeric parsing
 
 ### Frame Management Tests
 - `IRFFAudioFrameTests.swift` — Managed PCM storage, reuse, and active bounds

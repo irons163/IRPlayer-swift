@@ -20,12 +20,12 @@ final class IRFFTrackTests: XCTestCase {
         let videoTrack = try XCTUnwrap(IRFFFormatContext.track(index: 2, codecType: AVMEDIA_TYPE_VIDEO, metadata: metadata))
         XCTAssertEqual(videoTrack.index, 2)
         XCTAssertEqual(videoTrack.type, .video)
-        XCTAssertTrue(videoTrack.metadata === metadata)
+        XCTAssertEqual(videoTrack.metadata, metadata)
 
         let audioTrack = try XCTUnwrap(IRFFFormatContext.track(index: 3, codecType: AVMEDIA_TYPE_AUDIO, metadata: metadata))
         XCTAssertEqual(audioTrack.index, 3)
         XCTAssertEqual(audioTrack.type, .audio)
-        XCTAssertTrue(audioTrack.metadata === metadata)
+        XCTAssertEqual(audioTrack.metadata, metadata)
     }
 
     func testTrackBuilderIgnoresUnsupportedMediaStreams() {

@@ -26,28 +26,25 @@ enum IRFFFormatContextBuilder {
         allocatedFormatContext.pointee.interrupt_callback.opaque =
             callbackReference
 
-        var options = AVDictionary(rawPointer: nil)
+        let options = IRFFDictionary()
         if videoFormat == .rtsp {
-            let optionResult = av_dict_set(
-                &options.rawPointer,
-                "rtsp_transport",
-                "tcp",
-                0
-            )
-            if !IRFFFormatContext.dictionaryOptionWasApplied(
-                optionResult
+            if !options.set(
+                key: "rtsp_transport",
+                value: "tcp"
             ) {
                 // FFmpeg will return a fatal stream error if this matters.
             }
         }
 
-        let openResult = avformat_open_input(
-            &formatContext,
-            contentURL.absoluteString,
-            nil,
-            &options.rawPointer
-        )
-        av_dict_free(&options.rawPointer)
+        let openResult = options.withMutableRawPointer {
+            optionsPointer in
+            avformat_open_input(
+                &formatContext,
+                contentURL.absoluteString,
+                nil,
+                &optionsPointer
+            )
+        }
         let openError = IRFFCheckErrorCode(
             openResult,
             errorCode: IRFFDecoderErrorCode.formatOpenInput.rawValue
@@ -84,8 +81,9 @@ enum IRFFFormatContextBuilder {
             return .failure(streamInfoError)
         }
 
-        generation.metadata = openedFormatContext.pointee.metadata
-            .flatMap(IRFFFoundationBrigeOfAVDictionary) ?? [:]
+        generation.metadata = IRFFDictionary.values(
+            from: openedFormatContext.pointee.metadata
+        ) ?? [:]
         let discoveredTracks = discoverTracks(
             in: openedFormatContext
         )
@@ -190,8 +188,8 @@ enum IRFFFormatContextBuilder {
                   let codecParameters = stream.pointee.codecpar else {
                 continue
             }
-            let metadata = IRFFFoundationBrigeOfAVDictionary(
-                stream.pointee.metadata
+            let metadata = IRFFDictionary.values(
+                from: stream.pointee.metadata
             ).map(IRFFMetadata.init(dictionary:))
             guard let track = IRFFFormatContext.track(
                 index: index,

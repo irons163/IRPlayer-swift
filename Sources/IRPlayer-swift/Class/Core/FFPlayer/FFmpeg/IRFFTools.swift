@@ -68,7 +68,3 @@ func IRFFStreamGetTimebase(_ stream: UnsafePointer<AVStream>, defaultTimebase: D
 func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Double {
     return IRFFStreamTimingPolicy.fps(stream, timebase: timebase)
 }
-
-func IRFFFoundationBrigeOfAVDictionary(_ avDictionary: OpaquePointer?) -> [String: String]? {
-    return IRFFDictionaryPolicy.foundationDictionary(from: avDictionary)
-}

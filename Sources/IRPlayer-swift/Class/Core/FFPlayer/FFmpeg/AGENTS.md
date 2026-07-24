@@ -18,7 +18,8 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 | `IRFFVideoToolBoxH264.swift` | AVCC, NAL, and Core Media payload construction        |
 | `IRFFVideoInput.swift`       | Custom video input for direct frame injection        |
 | `IRFFTrack.swift`            | Audio/video track metadata                           |
-| `IRFFMetadata.swift`         | Stream metadata extraction                           |
+| `IRFFDictionary.swift`       | Owned options and borrowed metadata conversion       |
+| `IRFFMetadata.swift`         | Immutable parsed stream metadata                     |
 | `IRFFTools.swift`            | FFmpeg utility functions                             |
 
 ## Subdirectory
@@ -42,6 +43,10 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
   `avcodec_free_context`. Do not replace it with `avcodec_close`, which leaves
   the `AVCodecContext` allocation alive.
 - Close the input context before releasing its retained callback reference.
+- Mutable FFmpeg option dictionaries must have one `IRFFDictionary` owner;
+  pass its pointer only through the fixed-result scoped borrow.
+- Format and stream metadata dictionaries are borrowed. Convert them to Swift
+  values without freeing or retaining their FFmpeg pointers.
 - `IRFFDecoder` coordinates the decode loop across audio and video.
 - `IRFFVideoToolBox` wraps Apple's VideoToolBox for hardware H.264 decoding.
 - Keep VideoToolbox setup, decode, reset, and close serialized through the
@@ -64,5 +69,6 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
   `IRFFFormatContextResourcesTests.swift`, `IRFFAudioDecoderTests.swift`,
   `IRFFVideoDecoderTests.swift`, `IRFFVideoToolBoxTests.swift`,
   `IRFFVideoToolBoxSessionTests.swift`, `IRFFToolsTests.swift`,
-  `IRFFTrackTests.swift`, `IRFFMetadataTests.swift`, and
+  `IRFFDictionaryTests.swift`, `IRFFTrackTests.swift`,
+  `IRFFMetadataTests.swift`, and
   `IRFFDecoderOperationTests.swift`.

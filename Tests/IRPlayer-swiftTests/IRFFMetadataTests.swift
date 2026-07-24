@@ -11,7 +11,7 @@ import XCTest
 final class IRFFMetadataTests: XCTestCase {
 
     func testMetadataWithNilAVDictionaryUsesEmptyDefaults() {
-        let metadata = IRFFMetadata.metadata(with: AVDictionary(rawPointer: nil))
+        let metadata = IRFFMetadata(avDictionary: nil)
 
         XCTAssertEqual(metadata.language, "")
         XCTAssertEqual(metadata.BPS, 0)
@@ -65,10 +65,65 @@ final class IRFFMetadataTests: XCTestCase {
         XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: Double.infinity)), 0)
     }
 
-    func testStaticPolicyWrappersRemainSourceCompatible() {
-        XCTAssertEqual(IRFFMetadata.int64Value(NSNumber(value: 42)), IRFFMetadataPolicy.int64Value(NSNumber(value: 42)))
-        XCTAssertEqual(IRFFMetadata.int64Value(" 42 "), IRFFMetadataPolicy.int64Value(" 42 "))
-        XCTAssertEqual(IRFFMetadata.int64Value("not-a-number"), IRFFMetadataPolicy.int64Value("not-a-number"))
-        XCTAssertEqual(IRFFMetadata.int64Value(nil), IRFFMetadataPolicy.int64Value(nil))
+    func testMetadataIsAnEquatableImmutableValue() {
+        let first = IRFFMetadata(
+            dictionary: [
+                "language": "eng",
+                "BPS": "192000"
+            ]
+        )
+        let second = IRFFMetadata(
+            dictionary: [
+                "language": "eng",
+                "BPS": "192000"
+            ]
+        )
+
+        XCTAssertEqual(first, second)
+    }
+
+    func testInt64ValueAcceptsIntegralBoundsAndRejectsOverflow() {
+        XCTAssertEqual(
+            IRFFMetadata.int64Value("\(Int64.min)"),
+            Int64.min
+        )
+        XCTAssertEqual(
+            IRFFMetadata.int64Value("\(Int64.max)"),
+            Int64.max
+        )
+        XCTAssertEqual(
+            IRFFMetadata.int64Value(
+                "9223372036854775808"
+            ),
+            0
+        )
+        XCTAssertEqual(
+            IRFFMetadata.int64Value(
+                NSNumber(value: Int64.min)
+            ),
+            Int64.min
+        )
+        XCTAssertEqual(
+            IRFFMetadata.int64Value(
+                NSNumber(value: Int64.max)
+            ),
+            Int64.max
+        )
+        XCTAssertEqual(
+            IRFFMetadata.int64Value(
+                NSNumber(value: UInt64.max)
+            ),
+            0
+        )
+        XCTAssertEqual(
+            IRFFMetadata.int64Value(
+                NSNumber(
+                    value:
+                        9_223_372_036_854_775_808.0
+                )
+            ),
+            0
+        )
+        XCTAssertEqual(IRFFMetadata.int64Value(nil), 0)
     }
 }
