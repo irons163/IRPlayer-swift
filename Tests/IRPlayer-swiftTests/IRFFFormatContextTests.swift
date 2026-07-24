@@ -7,63 +7,6 @@ import XCTest
 
 final class IRFFFormatContextTests: XCTestCase {
 
-    func testStaticPolicyWrappersRemainSourceCompatible() {
-        let videoError = NSError(
-            domain: "video",
-            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
-        )
-        let audioError = NSError(
-            domain: "audio",
-            code: Int(IRFFDecoderErrorCode.codecOpen2.rawValue)
-        )
-        let metadata = IRFFMetadata(dictionary: ["language": "eng"])
-
-        XCTAssertEqual(
-            IRFFFormatContext.dictionaryOptionWasApplied(0),
-            IRFFFormatContextPolicy.dictionaryOptionWasApplied(0)
-        )
-        XCTAssertEqual(
-            IRFFFormatContext.durationSeconds(from: 1_500_000),
-            IRFFFormatContextPolicy.durationSeconds(from: 1_500_000)
-        )
-        XCTAssertEqual(
-            IRFFFormatContext.bitrateKbps(from: 1_500),
-            IRFFFormatContextPolicy.bitrateKbps(from: 1_500)
-        )
-        XCTAssertEqual(
-            IRFFFormatContext.presentationSize(width: 1920, height: 1080),
-            IRFFFormatContextPolicy.presentationSize(width: 1920, height: 1080)
-        )
-        XCTAssertEqual(
-            IRFFFormatContext.selectedSetupError(videoError: videoError, audioError: audioError),
-            IRFFFormatContextPolicy.selectedSetupError(videoError: videoError, audioError: audioError)
-        )
-        XCTAssertEqual(
-            IRFFFormatContext.seekTimestamp(for: 1.5),
-            IRFFFormatContextPolicy.seekTimestamp(for: 1.5)
-        )
-        XCTAssertEqual(
-            IRFFFormatContext.track(index: 3, codecType: AVMEDIA_TYPE_AUDIO, metadata: metadata)?.type,
-            IRFFFormatContextPolicy.track(index: 3, codecType: AVMEDIA_TYPE_AUDIO, metadata: metadata)?.type
-        )
-        XCTAssertEqual(
-            IRFFFormatContext.videoAspect(width: 1920, height: 1080),
-            IRFFFormatContextPolicy.videoAspect(width: 1920, height: 1080)
-        )
-        XCTAssertEqual(
-            IRFFFormatContext.audioTrackSelectionAction(
-                requestedIndex: 2,
-                currentIndex: 1,
-                containsRequestedTrack: true
-            ),
-            IRFFFormatContextPolicy.audioTrackSelectionAction(
-                requestedIndex: 2,
-                currentIndex: 1,
-                containsRequestedTrack: true
-            )
-        )
-    }
-
     func testStreamLookupRejectsMissingContextStreamsAndOutOfRangeIndex() {
         XCTAssertNil(IRFFFormatContext.stream(at: 0, in: nil))
 
@@ -242,6 +185,10 @@ final class IRFFFormatContextTests: XCTestCase {
         context.setupSync()
 
         XCTAssertNil(context.error)
+        XCTAssertEqual(context.diagnostics.phase, .active)
+        XCTAssertTrue(context.diagnostics.hasGeneration)
+        XCTAssertTrue(context.diagnostics.hasFormatContext)
+        XCTAssertTrue(context.diagnostics.hasVideoCodecContext)
         XCTAssertTrue(context.videoEnable)
         XCTAssertFalse(context.audioEnable)
         XCTAssertEqual(context.videoTrack?.type, .video)
@@ -257,8 +204,14 @@ final class IRFFFormatContextTests: XCTestCase {
 
         var packet = AVPacket()
         XCTAssertGreaterThanOrEqual(context.readFrame(&packet), 0)
+        IRFFFormatContext.releasePacket(&packet)
 
         context.seekFile(withFFTimebase: 0)
+
+        let originalCodecContext = context.videoCodecContext
+        context.setupSync()
+        XCTAssertEqual(context.videoCodecContext, originalCodecContext)
+        XCTAssertEqual(context.diagnostics.phase, .active)
     }
 
     func testContentURLStringUsesFilePathOrAbsoluteURL() {
@@ -311,13 +264,113 @@ final class IRFFFormatContextTests: XCTestCase {
 
         let context = IRFFFormatContext(contentURL: URL(fileURLWithPath: "/tmp/missing.mp4"), videoFormat: .mpeg4)
         let delegate = FormatContextInterruptDelegate(shouldInterrupt: true)
-        context.delegate = delegate
-        let refCon = IRFFFormatContext.interruptOpaquePointer(for: context)
+        let interruptState = IRFFFormatContextInterruptState()
+        interruptState.bind(context: context)
+        interruptState.setDelegate(delegate)
+        let refCon = interruptState.makeRetainedCallbackReference()
+        defer {
+            IRFFFormatContextInterruptState
+                .releaseRetainedCallbackReference(refCon)
+        }
 
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 1)
 
         delegate.shouldInterrupt = false
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 0)
+    }
+
+    func testFailedSetupPublishesNoPartialGenerationAndIsNotRetried() {
+        let context = IRFFFormatContext(
+            contentURL: URL(
+                fileURLWithPath:
+                    "/tmp/irplayer-definitely-missing-\(UUID()).mp4"
+            ),
+            videoFormat: .mpeg4
+        )
+
+        context.setupSync()
+
+        XCTAssertNotNil(context.error)
+        XCTAssertEqual(context.diagnostics.phase, .failed)
+        XCTAssertFalse(context.diagnostics.hasGeneration)
+        XCTAssertFalse(context.diagnostics.hasFormatContext)
+        XCTAssertNil(context.videoCodecContext)
+        XCTAssertNil(context.audioCodecContext)
+
+        let originalError = context.error
+        context.setupSync()
+        XCTAssertEqual(context.error, originalError)
+        XCTAssertEqual(context.diagnostics.phase, .failed)
+    }
+
+    func testDestroyIsIdempotentTerminalAndClearsPublishedGeneration()
+        throws
+    {
+        let url = try makeTinyVideoFile()
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: url)
+        }
+        let context = IRFFFormatContext(
+            contentURL: url,
+            videoFormat: .mpeg4
+        )
+        context.setupSync()
+        XCTAssertEqual(context.diagnostics.phase, .active)
+
+        context.destroy()
+        context.destroy()
+        context.setupSync()
+
+        XCTAssertEqual(context.diagnostics.phase, .closed)
+        XCTAssertFalse(context.diagnostics.hasGeneration)
+        XCTAssertFalse(context.diagnostics.hasFormatContext)
+        XCTAssertTrue(context.diagnostics.interruptCloseRequested)
+        XCTAssertFalse(context.videoEnable)
+        XCTAssertFalse(context.audioEnable)
+        XCTAssertNil(context.videoCodecContext)
+        XCTAssertNil(context.audioCodecContext)
+        XCTAssertEqual(context.duration, 0)
+        XCTAssertEqual(context.bitrate, 0)
+        var packet = AVPacket()
+        XCTAssertLessThan(context.readFrame(&packet), 0)
+    }
+
+    func testConcurrentReadGettersSeekAndDestroyRemainSafe() throws {
+        let url = try makeTinyVideoFile()
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: url)
+        }
+        let context = IRFFFormatContext(
+            contentURL: url,
+            videoFormat: .mpeg4
+        )
+        context.setupSync()
+        try XCTSkipIf(
+            context.error != nil,
+            "Generated fixture could not be opened."
+        )
+
+        DispatchQueue.concurrentPerform(iterations: 500) { index in
+            switch index % 6 {
+            case 0:
+                var packet = AVPacket()
+                _ = context.readFrame(&packet)
+                IRFFFormatContext.releasePacket(&packet)
+            case 1:
+                _ = context.duration
+            case 2:
+                _ = context.videoTracks
+            case 3:
+                context.seekFile(withFFTimebase: 0)
+            case 4:
+                _ = context.diagnostics
+            default:
+                context.destroy()
+            }
+        }
+
+        XCTAssertEqual(context.diagnostics.phase, .closed)
+        XCTAssertFalse(context.diagnostics.hasGeneration)
     }
 
     func testReleaseDoesNotPrintDebugOutput() {

@@ -5,8 +5,8 @@
 //  Created by irons on 2024/7/12.
 //
 
-import Foundation
 import CoreGraphics
+import Foundation
 import IRFFMpeg
 import IRPlayerObjc
 
@@ -14,7 +14,16 @@ public protocol IRFFFormatContextDelegate: AnyObject {
     func formatContextNeedInterrupt(_ formatContext: IRFFFormatContext) -> Bool
 }
 
-public class IRFFFormatContext {
+public final class IRFFFormatContext: @unchecked Sendable {
+    enum Phase: Equatable {
+        case idle
+        case opening
+        case active
+        case failed
+        case closing
+        case closed
+    }
+
     enum AudioTrackSelectionAction: Equatable {
         case noChange
         case select
@@ -25,381 +34,321 @@ public class IRFFFormatContext {
         let didChangeTrack: Bool
     }
 
-    weak var delegate: IRFFFormatContextDelegate?
+    struct Diagnostics: Equatable {
+        let phase: Phase
+        let hasGeneration: Bool
+        let hasFormatContext: Bool
+        let hasVideoCodecContext: Bool
+        let hasAudioCodecContext: Bool
+        let interruptCloseRequested: Bool
+    }
 
-    private var formatContext: UnsafeMutablePointer<AVFormatContext>?
-    private(set) var videoCodecContext: UnsafeMutablePointer<AVCodecContext>?
-    private(set) var audioCodecContext: UnsafeMutablePointer<AVCodecContext>?
+    private let contentURL: URL
+    private let videoFormat: IRVideoFormat
+    private let operationLock = NSLock()
+    private let interruptState = IRFFFormatContextInterruptState()
 
-    private var contentURL: URL
-    private var videoFormat: IRVideoFormat
-    private(set) var error: NSError?
-    private(set) var metadata: [AnyHashable: Any] = [:]
+    private var phase: Phase = .idle
+    private var generation: IRFFFormatContextGeneration?
+    private var storedError: NSError?
+
+    var delegate: IRFFFormatContextDelegate? {
+        get { interruptState.currentDelegate }
+        set { interruptState.setDelegate(newValue) }
+    }
+
+    var diagnostics: Diagnostics {
+        withOperation {
+            let resourceDiagnostics = generation?.diagnostics
+            return Diagnostics(
+                phase: phase,
+                hasGeneration: generation != nil,
+                hasFormatContext:
+                    resourceDiagnostics?.hasFormatContext == true,
+                hasVideoCodecContext:
+                    resourceDiagnostics?.hasVideoCodecContext == true,
+                hasAudioCodecContext:
+                    resourceDiagnostics?.hasAudioCodecContext == true,
+                interruptCloseRequested:
+                    interruptState.diagnostics.closeRequested
+            )
+        }
+    }
+
+    var error: NSError? {
+        withOperation { storedError }
+    }
+
+    var metadata: [AnyHashable: Any] {
+        withGeneration(default: [:]) { $0.metadata }
+    }
+
     var bitrate: TimeInterval {
-        guard let formatContext = formatContext else {
-            return 0
+        withGeneration(default: 0) { generation in
+            guard let formatContext = generation.formatContext else {
+                return 0
+            }
+            return Self.bitrateKbps(
+                from: formatContext.pointee.bit_rate
+            )
         }
-        return Self.bitrateKbps(from: formatContext.pointee.bit_rate)
     }
+
     var duration: TimeInterval {
-        guard let formatContext = formatContext else {
-            return 0
+        withGeneration(default: 0) { generation in
+            guard let formatContext = generation.formatContext else {
+                return 0
+            }
+            return Self.durationSeconds(
+                from: formatContext.pointee.duration
+            )
         }
-        return Self.durationSeconds(from: formatContext.pointee.duration)
     }
-    private(set) var videoEnable: Bool = false
-    private(set) var audioEnable: Bool = false
-    private(set) var videoTrack: IRFFTrack?
-    private(set) var audioTrack: IRFFTrack?
-    private(set) var videoTracks: [IRFFTrack] = []
-    private(set) var audioTracks: [IRFFTrack] = []
-    private(set) var videoTimebase: TimeInterval = 0
-    private(set) var videoFPS: TimeInterval = 0
-    private(set) var videoPresentationSize: CGSize = .zero
-    private(set) var videoAspect: CGFloat = 0
-    private(set) var audioTimebase: TimeInterval = 0
+
+    var videoEnable: Bool {
+        withGeneration(default: false) {
+            $0.videoCodecContext != nil
+        }
+    }
+
+    var audioEnable: Bool {
+        withGeneration(default: false) {
+            $0.audioCodecContext != nil
+        }
+    }
+
+    var videoTrack: IRFFTrack? {
+        withGeneration(default: nil) { $0.videoTrack }
+    }
+
+    var audioTrack: IRFFTrack? {
+        withGeneration(default: nil) { $0.audioTrack }
+    }
+
+    var videoTracks: [IRFFTrack] {
+        withGeneration(default: []) { $0.videoTracks }
+    }
+
+    var audioTracks: [IRFFTrack] {
+        withGeneration(default: []) { $0.audioTracks }
+    }
+
+    var videoTimebase: TimeInterval {
+        withGeneration(default: 0) { $0.videoTimebase }
+    }
+
+    var videoFPS: TimeInterval {
+        withGeneration(default: 0) { $0.videoFPS }
+    }
+
+    var videoPresentationSize: CGSize {
+        withGeneration(default: .zero) {
+            $0.videoPresentationSize
+        }
+    }
+
+    var videoAspect: CGFloat {
+        withGeneration(default: 0) { $0.videoAspect }
+    }
+
+    var audioTimebase: TimeInterval {
+        withGeneration(default: 0) { $0.audioTimebase }
+    }
+
+    var videoCodecContext: UnsafeMutablePointer<AVCodecContext>? {
+        withGeneration(default: nil) { $0.videoCodecContext }
+    }
+
+    var audioCodecContext: UnsafeMutablePointer<AVCodecContext>? {
+        withGeneration(default: nil) { $0.audioCodecContext }
+    }
 
     init(contentURL: URL, videoFormat: IRVideoFormat) {
         self.contentURL = contentURL
         self.videoFormat = videoFormat
-    }
-
-    static func stream(at index: Int, in formatContext: UnsafeMutablePointer<AVFormatContext>?) -> UnsafeMutablePointer<AVStream>? {
-        guard let formatContext,
-              index >= 0,
-              index < Int(formatContext.pointee.nb_streams),
-              let streams = formatContext.pointee.streams else {
-            return nil
-        }
-
-        return streams[index]
-    }
-
-    static func decoder(for codecContext: UnsafeMutablePointer<AVCodecContext>?) -> UnsafePointer<AVCodec>? {
-        guard let codecContext else { return nil }
-        return avcodec_find_decoder(codecContext.pointee.codec_id)
-    }
-
-    static func dictionaryOptionWasApplied(_ result: Int32) -> Bool {
-        return IRFFFormatContextPolicy.dictionaryOptionWasApplied(result)
-    }
-
-    static func durationSeconds(from duration: Int64) -> TimeInterval {
-        return IRFFFormatContextPolicy.durationSeconds(from: duration)
-    }
-
-    static func bitrateKbps(from bitRate: Int64) -> TimeInterval {
-        return IRFFFormatContextPolicy.bitrateKbps(from: bitRate)
-    }
-
-    static func presentationSize(width: Int32, height: Int32) -> CGSize {
-        return IRFFFormatContextPolicy.presentationSize(width: width, height: height)
-    }
-
-    static func interruptOpaquePointer(for context: IRFFFormatContext) -> UnsafeMutableRawPointer {
-        return UnsafeMutableRawPointer(Unmanaged.passUnretained(context).toOpaque())
-    }
-
-    static func selectedSetupError(videoError: NSError?, audioError: NSError?) -> NSError? {
-        return IRFFFormatContextPolicy.selectedSetupError(videoError: videoError, audioError: audioError)
+        interruptState.bind(context: self)
     }
 
     func setupSync() {
-        self.error = openStream()
-        if error != nil { return }
-
-        openTracks()
-        let videoError = openVideoTrack()
-        let audioError = openAudioTrack()
-        self.error = Self.selectedSetupError(videoError: videoError, audioError: audioError)
-    }
-
-    private func openStream() -> NSError? {
-        var result: Int32 = 0
-        var error: NSError?
-
-        self.formatContext = avformat_alloc_context()
-        if formatContext == nil {
-            result = -1
-            error = NSError(domain: "IRFFDecoderErrorCodeFormatCreate error", code: Int(IRFFDecoderErrorCode.formatCreate.rawValue), userInfo: nil)
-            return error
-        }
-
-        formatContext?.pointee.interrupt_callback.callback = ffmpeg_interrupt_callback
-        formatContext?.pointee.interrupt_callback.opaque = Self.interruptOpaquePointer(for: self)
-
-        var opts = AVDictionary(rawPointer: nil)
-        if videoFormat == .rtsp {
-            let ret = av_dict_set(&opts.rawPointer, "rtsp_transport", "tcp", 0)
-            if !Self.dictionaryOptionWasApplied(ret) {
-                // Continue opening input; FFmpeg will surface fatal stream errors.
-            }
-        }
-        result = avformat_open_input(&formatContext, contentURL.absoluteString, nil, &opts.rawPointer)
-        av_dict_free(&opts.rawPointer)
-        error = IRFFCheckErrorCode(result, errorCode: IRFFDecoderErrorCode.formatOpenInput.rawValue)
-        if error != nil || formatContext == nil {
-            if formatContext != nil {
-                avformat_free_context(formatContext)
-            }
-            return error
-        }
-
-        result = avformat_find_stream_info(formatContext, nil)
-        error = IRFFCheckErrorCode(result, errorCode: IRFFDecoderErrorCode.formatFindStreamInfo.rawValue)
-        if error != nil || formatContext == nil {
-            if formatContext != nil {
-                avformat_close_input(&formatContext)
-            }
-            return error
-        }
-        if let avDict = formatContext?.pointee.metadata {
-            self.metadata = IRFFFoundationBrigeOfAVDictionary(avDict) ?? [:]
-        } else {
-            self.metadata = [:]
-        }
-
-        return error
-    }
-
-    private func openTracks() {
-        var videoTracks: [IRFFTrack] = []
-        var audioTracks: [IRFFTrack] = []
-
-        for i in 0..<Int((formatContext?.pointee.nb_streams ?? 0)) {
-            guard let stream = Self.stream(at: i, in: formatContext),
-                  let codecParameters = stream.pointee.codecpar else { continue }
-
-            let metadata = IRFFFoundationBrigeOfAVDictionary(stream.pointee.metadata).map(IRFFMetadata.init(dictionary:))
-            guard let track = Self.track(index: i, codecType: codecParameters.pointee.codec_type, metadata: metadata) else {
-                continue
+        withOperation {
+            guard phase == .idle,
+                  interruptState.prepareForSetup() else {
+                return
             }
 
-            switch track.type {
-            case .video:
-                videoTracks.append(track)
-            case .audio:
-                audioTracks.append(track)
-            case .subtitle:
-                break
+            phase = .opening
+            storedError = nil
+            switch IRFFFormatContextBuilder.makeGeneration(
+                contentURL: contentURL,
+                videoFormat: videoFormat,
+                interruptState: interruptState
+            ) {
+            case let .success(generation):
+                self.generation = generation
+                phase = .active
+            case let .failure(error):
+                storedError = error
+                phase = .failed
             }
         }
-
-        if !videoTracks.isEmpty {
-            self.videoTracks = videoTracks
-        }
-        if !audioTracks.isEmpty {
-            self.audioTracks = audioTracks
-        }
-    }
-
-    private func openVideoTrack() -> NSError? {
-        var error: NSError?
-
-        if !videoTracks.isEmpty {
-            for track in videoTracks {
-                let index = track.index
-                guard let stream = Self.stream(at: Int(index), in: formatContext) else { continue }
-
-                if (stream.pointee.disposition & AV_DISPOSITION_ATTACHED_PIC) == 0 {
-                    var codecContext: UnsafeMutablePointer<AVCodecContext>?
-                    error = openStream(with: Int(index), codecContext: &codecContext, domain: "video")
-                    if error == nil {
-                        self.videoTrack = track
-                        self.videoEnable = true
-                        self.videoTimebase = IRFFStreamGetTimebase(stream, defaultTimebase: 0.00004)
-                        self.videoFPS = IRFFStreamGetFPS(stream, timebase: self.videoTimebase)
-                        self.videoPresentationSize = Self.presentationSize(width: codecContext?.pointee.width ?? 0, height: codecContext?.pointee.height ?? 0)
-                        self.videoAspect = Self.videoAspect(width: codecContext?.pointee.width ?? 0, height: codecContext?.pointee.height ?? 0)
-                        self.videoCodecContext = codecContext
-                        break
-                    }
-                }
-            }
-        } else {
-            error = NSError(domain: "video stream not found", code: Int(IRFFDecoderErrorCode.streamNotFound.rawValue), userInfo: nil)
-        }
-
-        return error
-    }
-
-    private func openAudioTrack() -> NSError? {
-        var error: NSError?
-
-        if !audioTracks.isEmpty {
-            for track in audioTracks {
-                let index = track.index
-                var codecContext: UnsafeMutablePointer<AVCodecContext>?
-                error = openStream(with: Int(index), codecContext: &codecContext, domain: "audio")
-                if error == nil {
-                    self.audioTrack = track
-                    self.audioEnable = true
-                    if let stream = Self.stream(at: Int(index), in: formatContext) {
-                        self.audioTimebase = IRFFStreamGetTimebase(stream, defaultTimebase: 0.000025)
-                    }
-                    self.audioCodecContext = codecContext
-                    break
-                }
-            }
-        } else {
-            error = NSError(domain: "audio stream not found", code: Int(IRFFDecoderErrorCode.streamNotFound.rawValue), userInfo: nil)
-        }
-
-        return error
-    }
-
-    private func openStream(with trackIndex: Int, codecContext: inout UnsafeMutablePointer<AVCodecContext>?, domain: String) -> NSError? {
-        var result: Int32 = 0
-        var error: NSError?
-
-        guard let stream = Self.stream(at: trackIndex, in: formatContext),
-              let codecParameters = stream.pointee.codecpar else {
-            error = NSError(domain: "\(domain) stream not found", code: Int(IRFFDecoderErrorCode.streamNotFound.rawValue), userInfo: nil)
-            return error
-        }
-
-        codecContext = avcodec_alloc_context3(nil)
-        if codecContext == nil {
-            error = NSError(domain: "\(domain) codec context create error", code: Int(IRFFDecoderErrorCode.codecContextCreate.rawValue), userInfo: nil)
-            return error
-        }
-        guard let openedCodecContext = codecContext else {
-            error = NSError(domain: "\(domain) codec context create error", code: Int(IRFFDecoderErrorCode.codecContextCreate.rawValue), userInfo: nil)
-            return error
-        }
-
-        result = avcodec_parameters_to_context(codecContext, codecParameters)
-        error = IRFFCheckErrorCode(result, errorCode: IRFFDecoderErrorCode.codecContextSetParam.rawValue)
-        if error != nil {
-            avcodec_free_context(&codecContext)
-            return error
-        }
-        openedCodecContext.pointee.pkt_timebase = stream.pointee.time_base
-
-        guard let codec = Self.decoder(for: openedCodecContext) else {
-            avcodec_free_context(&codecContext)
-            error = NSError(domain: "\(domain) codec not found decoder", code: Int(IRFFDecoderErrorCode.codecFindDecoder.rawValue), userInfo: nil)
-            return error
-        }
-        openedCodecContext.pointee.codec_id = codec.pointee.id
-
-        result = avcodec_open2(codecContext, codec, nil)
-        error = IRFFCheckErrorCode(result, errorCode: IRFFDecoderErrorCode.codecOpen2.rawValue)
-        if error != nil {
-            avcodec_free_context(&codecContext)
-            return error
-        }
-
-        return error
-    }
-
-    static func seekTimestamp(for time: TimeInterval) -> Int64? {
-        return IRFFFormatContextPolicy.seekTimestamp(for: time)
     }
 
     func seekFile(withFFTimebase time: TimeInterval) {
-        guard let ts = Self.seekTimestamp(for: time),
-              let formatContext else { return }
-        av_seek_frame(formatContext, -1, ts, AVSEEK_FLAG_BACKWARD)
+        guard let timestamp = Self.seekTimestamp(for: time) else {
+            return
+        }
+        withOperation {
+            guard phase == .active,
+                  let formatContext = generation?.formatContext else {
+                return
+            }
+            av_seek_frame(
+                formatContext,
+                -1,
+                timestamp,
+                AVSEEK_FLAG_BACKWARD
+            )
+        }
     }
 
     func readFrame(_ packet: UnsafeMutablePointer<AVPacket>) -> Int32 {
-        guard let formatContext else { return -1 }
-        return av_read_frame(formatContext, packet)
+        withOperation {
+            guard phase == .active,
+                  let formatContext = generation?.formatContext else {
+                return -1
+            }
+            return av_read_frame(formatContext, packet)
+        }
     }
 
     func containAudioTrack(_ audioTrackIndex: Int) -> Bool {
-        return audioTracks.contains { $0.index == audioTrackIndex }
-    }
-
-    static func track(index: Int, codecType: AVMediaType, metadata: IRFFMetadata?) -> IRFFTrack? {
-        return IRFFFormatContextPolicy.track(index: index, codecType: codecType, metadata: metadata)
-    }
-
-    static func videoAspect(width: Int32, height: Int32) -> CGFloat {
-        return IRFFFormatContextPolicy.videoAspect(width: width, height: height)
-    }
-
-    static func audioTrackSelectionAction(requestedIndex: Int,
-                                          currentIndex: Int?,
-                                          containsRequestedTrack: Bool) -> AudioTrackSelectionAction {
-        return IRFFFormatContextPolicy.audioTrackSelectionAction(
-            requestedIndex: requestedIndex,
-            currentIndex: currentIndex,
-            containsRequestedTrack: containsRequestedTrack
-        )
-    }
-
-    func selectAudioTrackIndexResult(_ audioTrackIndex: Int) -> AudioTrackSelectionResult {
-        guard Self.audioTrackSelectionAction(
-            requestedIndex: audioTrackIndex,
-            currentIndex: audioTrack?.index,
-            containsRequestedTrack: containAudioTrack(audioTrackIndex)
-        ) == .select else {
-            return AudioTrackSelectionResult(error: nil, didChangeTrack: false)
-        }
-
-        var codecContext: UnsafeMutablePointer<AVCodecContext>?
-        let error = openStream(with: audioTrackIndex, codecContext: &codecContext, domain: "audio select")
-        if error == nil {
-            if audioCodecContext != nil {
-                avcodec_close(audioCodecContext)
-                audioCodecContext = nil
+        withGeneration(default: false) { generation in
+            generation.audioTracks.contains {
+                $0.index == audioTrackIndex
             }
-            audioTrack = audioTracks.first { $0.index == audioTrackIndex }
-            audioEnable = true
-            if let stream = Self.stream(at: audioTrackIndex, in: formatContext) {
-                audioTimebase = IRFFStreamGetTimebase(stream, defaultTimebase: 0.000025)
-            }
-            audioCodecContext = codecContext
-            return AudioTrackSelectionResult(error: nil, didChangeTrack: true)
-        } else {
-            IRFFRuntimeDebugOutput.write("select audio track error: \(String(describing: error))")
         }
-        return AudioTrackSelectionResult(error: error, didChangeTrack: false)
+    }
+
+    func selectAudioTrackIndexResult(
+        _ audioTrackIndex: Int
+    ) -> AudioTrackSelectionResult {
+        withOperation {
+            guard phase == .active, let generation else {
+                return AudioTrackSelectionResult(
+                    error: nil,
+                    didChangeTrack: false
+                )
+            }
+
+            let containsRequestedTrack = generation.audioTracks.contains {
+                $0.index == audioTrackIndex
+            }
+            guard Self.audioTrackSelectionAction(
+                requestedIndex: audioTrackIndex,
+                currentIndex: generation.audioTrack?.index,
+                containsRequestedTrack: containsRequestedTrack
+            ) == .select else {
+                return AudioTrackSelectionResult(
+                    error: nil,
+                    didChangeTrack: false
+                )
+            }
+
+            let candidate = IRFFFormatContextBuilder.makeCodecContext(
+                trackIndex: audioTrackIndex,
+                in: generation.formatContext,
+                domain: "audio select"
+            )
+            switch candidate {
+            case let .success(codecContext):
+                generation.replaceAudioCodecContext(
+                    with: codecContext
+                )
+                generation.audioTrack = generation.audioTracks.first {
+                    $0.index == audioTrackIndex
+                }
+                if let stream = Self.stream(
+                    at: audioTrackIndex,
+                    in: generation.formatContext
+                ) {
+                    generation.audioTimebase = IRFFStreamGetTimebase(
+                        stream,
+                        defaultTimebase: 0.000025
+                    )
+                }
+                return AudioTrackSelectionResult(
+                    error: nil,
+                    didChangeTrack: true
+                )
+            case let .failure(error):
+                IRFFRuntimeDebugOutput.write(
+                    "select audio track error: \(error)"
+                )
+                return AudioTrackSelectionResult(
+                    error: error,
+                    didChangeTrack: false
+                )
+            }
+        }
     }
 
     func selectAudioTrackIndex(_ audioTrackIndex: Int) -> NSError? {
-        return selectAudioTrackIndexResult(audioTrackIndex).error
+        selectAudioTrackIndexResult(audioTrackIndex).error
     }
 
     var contentURLString: String {
-        if contentURL.isFileURL {
-            return contentURL.path
-        } else {
-            return contentURL.absoluteString
-        }
+        contentURL.isFileURL
+            ? contentURL.path
+            : contentURL.absoluteString
     }
 
     func destroyAudioTrack() {
-        audioEnable = false
-        audioTrack = nil
-        audioTracks = []
-
-        if audioCodecContext != nil {
-            avcodec_close(audioCodecContext)
-            audioCodecContext = nil
+        withOperation {
+            guard phase == .active else { return }
+            generation?.destroyAudioTrack()
         }
     }
 
     func destroyVideoTrack() {
-        videoEnable = false
-        videoTrack = nil
-        videoTracks = []
-
-        if videoCodecContext != nil {
-            avcodec_close(videoCodecContext)
-            videoCodecContext = nil
+        withOperation {
+            guard phase == .active else { return }
+            generation?.destroyVideoTrack()
         }
     }
 
     func destroy() {
-        destroyVideoTrack()
-        destroyAudioTrack()
-        if formatContext != nil {
-            avformat_close_input(&formatContext)
-            formatContext = nil
+        interruptState.requestClose()
+        withOperation {
+            guard phase != .closing, phase != .closed else {
+                return
+            }
+
+            phase = .closing
+            let generation = generation
+            self.generation = nil
+            generation?.close()
+            phase = .closed
         }
+    }
+
+    private func withGeneration<Result>(
+        default defaultValue: Result,
+        _ body: (IRFFFormatContextGeneration) -> Result
+    ) -> Result {
+        withOperation {
+            guard phase == .active, let generation else {
+                return defaultValue
+            }
+            return body(generation)
+        }
+    }
+
+    private func withOperation<Result>(
+        _ body: () throws -> Result
+    ) rethrows -> Result {
+        operationLock.lock()
+        defer { operationLock.unlock() }
+        return try body()
     }
 
     deinit {
@@ -407,8 +356,13 @@ public class IRFFFormatContext {
     }
 }
 
-func ffmpeg_interrupt_callback(ctx: UnsafeMutableRawPointer?) -> Int32 {
+func ffmpeg_interrupt_callback(
+    ctx: UnsafeMutableRawPointer?
+) -> Int32 {
     guard let ctx else { return 0 }
-    let obj = Unmanaged<IRFFFormatContext>.fromOpaque(ctx).takeUnretainedValue()
-    return obj.delegate?.formatContextNeedInterrupt(obj) == true ? 1 : 0
+    let interruptState =
+        Unmanaged<IRFFFormatContextInterruptState>
+            .fromOpaque(ctx)
+            .takeUnretainedValue()
+    return interruptState.shouldInterrupt() ? 1 : 0
 }

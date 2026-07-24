@@ -1,12 +1,34 @@
 import CoreGraphics
 import Foundation
 import IRFFMpeg
-import IRPlayerObjc
 
-enum IRFFFormatContextPolicy {
+extension IRFFFormatContext {
+    static func stream(
+        at index: Int,
+        in formatContext: UnsafeMutablePointer<AVFormatContext>?
+    ) -> UnsafeMutablePointer<AVStream>? {
+        guard let formatContext,
+              index >= 0,
+              index < Int(formatContext.pointee.nb_streams),
+              let streams = formatContext.pointee.streams else {
+            return nil
+        }
+        return streams[index]
+    }
+
+    static func decoder(
+        for codecContext: UnsafeMutablePointer<AVCodecContext>?
+    ) -> UnsafePointer<AVCodec>? {
+        guard let codecContext else { return nil }
+        return avcodec_find_decoder(codecContext.pointee.codec_id)
+    }
+
+    static func releasePacket(_ packet: inout AVPacket) {
+        av_packet_unref(&packet)
+    }
 
     static func dictionaryOptionWasApplied(_ result: Int32) -> Bool {
-        return result >= 0
+        result >= 0
     }
 
     static func durationSeconds(from duration: Int64) -> TimeInterval {
@@ -20,7 +42,7 @@ enum IRFFFormatContextPolicy {
 
     static func bitrateKbps(from bitRate: Int64) -> TimeInterval {
         guard bitRate >= 0 else { return 0 }
-        let bitrate = TimeInterval(bitRate) / 1000.0
+        let bitrate = TimeInterval(bitRate) / 1_000
         return bitrate.isFinite ? bitrate : 0
     }
 
@@ -29,12 +51,15 @@ enum IRFFFormatContextPolicy {
         return CGSize(width: CGFloat(width), height: CGFloat(height))
     }
 
-    static func selectedSetupError(videoError: NSError?, audioError: NSError?) -> NSError? {
+    static func selectedSetupError(
+        videoError: NSError?,
+        audioError: NSError?
+    ) -> NSError? {
         guard let videoError, let audioError else {
             return nil
         }
-
-        if videoError.code == IRFFDecoderErrorCode.streamNotFound.rawValue && audioError.code != IRFFDecoderErrorCode.streamNotFound.rawValue {
+        if videoError.code == IRFFDecoderErrorCode.streamNotFound.rawValue,
+           audioError.code != IRFFDecoderErrorCode.streamNotFound.rawValue {
             return audioError
         }
         return videoError
@@ -51,14 +76,25 @@ enum IRFFFormatContextPolicy {
         return Int64(timestamp)
     }
 
-    static func track(index: Int, codecType: AVMediaType, metadata: IRFFMetadata?) -> IRFFTrack? {
+    static func track(
+        index: Int,
+        codecType: AVMediaType,
+        metadata: IRFFMetadata?
+    ) -> IRFFTrack? {
         guard index >= 0 else { return nil }
-
         switch codecType {
         case AVMEDIA_TYPE_VIDEO:
-            return IRFFTrack(index: index, type: .video, metadata: metadata)
+            return IRFFTrack(
+                index: index,
+                type: .video,
+                metadata: metadata
+            )
         case AVMEDIA_TYPE_AUDIO:
-            return IRFFTrack(index: index, type: .audio, metadata: metadata)
+            return IRFFTrack(
+                index: index,
+                type: .audio,
+                metadata: metadata
+            )
         default:
             return nil
         }
@@ -70,9 +106,11 @@ enum IRFFFormatContextPolicy {
         return aspect.isFinite ? aspect : 0
     }
 
-    static func audioTrackSelectionAction(requestedIndex: Int,
-                                          currentIndex: Int?,
-                                          containsRequestedTrack: Bool) -> IRFFFormatContext.AudioTrackSelectionAction {
+    static func audioTrackSelectionAction(
+        requestedIndex: Int,
+        currentIndex: Int?,
+        containsRequestedTrack: Bool
+    ) -> AudioTrackSelectionAction {
         guard requestedIndex >= 0,
               requestedIndex != (currentIndex ?? -1),
               containsRequestedTrack else {

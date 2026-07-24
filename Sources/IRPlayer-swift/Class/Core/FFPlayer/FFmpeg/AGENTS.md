@@ -6,7 +6,10 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 
 | File                         | Purpose                                              |
 |------------------------------|------------------------------------------------------|
-| `IRFFFormatContext.swift`    | FFmpeg format context wrapper (open, read, seek)     |
+| `IRFFFormatContext.swift`    | Serialized input-generation lifecycle facade         |
+| `IRFFFormatContextBuilder.swift` | FFmpeg input/codec generation construction       |
+| `IRFFFormatContextResources.swift` | C-resource and interrupt-callback ownership     |
+| `IRFFFormatContextSemantics.swift` | Pure timing, track, and selection semantics      |
 | `IRFFDecoder.swift`          | Decoder orchestration (coordinates audio + video)    |
 | `IRFFAudioDecoder.swift`     | Audio packet → audio frame decoding                  |
 | `IRFFVideoDecoder.swift`     | Video packet → video frame decoding                  |
@@ -25,8 +28,22 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 ## Agent Notes
 
 - `IRFFFormatContext` opens media and provides packet streams.
+- Publish one complete format/codec generation only after at least one usable
+  audio or video track opens. Do not expose partially initialized FFmpeg
+  pointers.
+- Keep format setup, packet reads, seeks, track replacement, and destruction
+  serialized through the format-context operation gate.
+- `destroy()` requests interruption before waiting for the operation gate,
+  then transitions terminally to closed.
+- FFmpeg interrupt callbacks use a separately retained
+  `IRFFFormatContextInterruptState`; never point `opaque` at an unretained
+  facade.
+- Every context returned by `avcodec_alloc_context3` must be destroyed with
+  `avcodec_free_context`. Do not replace it with `avcodec_close`, which leaves
+  the `AVCodecContext` allocation alive.
+- Close the input context before releasing its retained callback reference.
 - `IRFFDecoder` coordinates the decode loop across audio and video.
-- `IRFFVideoToolBox` wraps Apple's VideoToolBox for hardware H.264/H.265 decoding.
+- `IRFFVideoToolBox` wraps Apple's VideoToolBox for hardware H.264 decoding.
 - Keep VideoToolbox setup, decode, reset, and close serialized through the
   facade operation gate.
 - Publish a complete `VTDecompressionSession` generation through
@@ -43,7 +60,8 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
   synchronous callback-before-return contract. If async or temporal flags are
   introduced, redesign result correlation before enabling them.
 - `IRFFVideoInput` allows bypassing the decode pipeline entirely for custom frame sources.
-- Tests: `IRFFFormatContextTests.swift`, `IRFFAudioDecoderTests.swift`,
+- Tests: `IRFFFormatContextTests.swift`,
+  `IRFFFormatContextResourcesTests.swift`, `IRFFAudioDecoderTests.swift`,
   `IRFFVideoDecoderTests.swift`, `IRFFVideoToolBoxTests.swift`,
   `IRFFVideoToolBoxSessionTests.swift`, `IRFFToolsTests.swift`,
   `IRFFTrackTests.swift`, `IRFFMetadataTests.swift`, and

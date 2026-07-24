@@ -25,6 +25,7 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 
 ### FFmpeg Decode Pipeline Tests
 - `IRFFFormatContextTests.swift` — Format context open/read
+- `IRFFFormatContextResourcesTests.swift` — FFmpeg generation/callback ownership
 - `IRFFAudioDecoderTests.swift` — Audio decoding
 - `IRFFVideoDecoderTests.swift` — Video decoding
 - `IRFFVideoToolBoxTests.swift` — Hardware decode via VideoToolBox
