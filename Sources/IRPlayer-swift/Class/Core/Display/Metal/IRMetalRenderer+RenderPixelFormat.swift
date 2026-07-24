@@ -139,34 +139,46 @@ extension IRMetalRenderer {
     }
 
     func makeRGBTexture(from rgbFrame: IRVideoFrameRGB) -> MTLTexture? {
-        let width = rgbFrame.width
-        let height = rgbFrame.height
-        guard let bytesPerRow = IRVideoFrameRGB.bytesPerRow(from: rgbFrame.linesize) else { return nil }
-        guard let layout = Self.rgbTextureLayout(
-            width: width,
-            height: height,
-            linesize: bytesPerRow,
-            byteCount: rgbFrame.rgb.count
-        ) else { return nil }
-
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false)
+        let snapshot = rgbFrame.contentSnapshot()
+        let pixelFormat: MTLPixelFormat
+        switch snapshot.metalUploadFormat {
+        case .rgba8:
+            pixelFormat = .rgba8Unorm
+        case .bgra8:
+            pixelFormat = .bgra8Unorm
+        }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: pixelFormat,
+            width: snapshot.width,
+            height: snapshot.height,
+            mipmapped: false
+        )
         descriptor.usage = .shaderRead
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-
-        rgbFrame.rgb.withUnsafeBytes { rawBuffer in
-            if let base = rawBuffer.baseAddress {
-                texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: base, bytesPerRow: layout.bytesPerRow)
-            }
+        guard let texture = device.makeTexture(
+            descriptor: descriptor
+        ) else {
+            return nil
         }
 
-        return texture
-    }
-
-    static func rgbTextureLayout(width: Int, height: Int, linesize: Int, byteCount: Int) -> (bytesPerRow: Int, totalByteCount: Int)? {
-        IRMetalRendererPixelFormatPolicy.rgbTextureLayout(width: width,
-                                                          height: height,
-                                                          linesize: linesize,
-                                                          byteCount: byteCount)
+        let uploaded = snapshot.withUnsafeMetalUploadBytes {
+            rawBuffer -> Bool in
+            guard let base = rawBuffer.baseAddress else {
+                return false
+            }
+            texture.replace(
+                region: MTLRegionMake2D(
+                    0,
+                    0,
+                    snapshot.width,
+                    snapshot.height
+                ),
+                mipmapLevel: 0,
+                withBytes: base,
+                bytesPerRow: snapshot.metalUploadBytesPerRow
+            )
+            return true
+        }
+        return uploaded ? texture : nil
     }
 
     func makeTexture(width: Int, height: Int, pixelFormat: MTLPixelFormat, bytes: UnsafeRawPointer) -> MTLTexture? {

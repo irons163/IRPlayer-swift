@@ -43,11 +43,16 @@ final class IRMetalRendererDistortionTests: XCTestCase {
 
     private func makeRGBFrame(width: Int = 2, height: Int = 2) -> IRVideoFrameRGB {
         let bytesPerRow = width * 4
-        let frame = IRVideoFrameRGB(linesize: UInt(bytesPerRow),
-                                    rgb: Data(repeating: 0xff, count: bytesPerRow * height))
-        frame.width = width
-        frame.height = height
-        return frame
+        return IRVideoFrameRGB(
+            width: width,
+            height: height,
+            pixelFormat: .bgra32,
+            bytesPerRow: bytesPerRow,
+            data: Data(
+                repeating: 0xff,
+                count: bytesPerRow * height
+            )
+        )!
     }
 
     private func makePixelBuffer(

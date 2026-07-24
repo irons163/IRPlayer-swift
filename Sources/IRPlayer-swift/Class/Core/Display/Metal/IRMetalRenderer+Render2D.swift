@@ -24,7 +24,15 @@ extension IRMetalRenderer {
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
 
-        let scale = computeScale(contentMode: contentMode, frameSize: CGSize(width: frame.width, height: frame.height), drawableSize: drawableSize)
+        let dimensions = frame.dimensionSnapshot()
+        let scale = computeScale(
+            contentMode: contentMode,
+            frameSize: CGSize(
+                width: dimensions.width,
+                height: dimensions.height
+            ),
+            drawableSize: drawableSize
+        )
         var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height)) * zoomScale
 
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
@@ -70,6 +78,7 @@ extension IRMetalRenderer {
         let commandResources = IRMetalCommandResources()
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
+        let dimensions = frame.dimensionSnapshot()
 
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
 
@@ -82,7 +91,10 @@ extension IRMetalRenderer {
 
             let targetSize = viewport.size
             let scale = computeScale(contentMode: contentModes[index],
-                                     frameSize: CGSize(width: frame.width, height: frame.height),
+                                     frameSize: CGSize(
+                                        width: dimensions.width,
+                                        height: dimensions.height
+                                     ),
                                      drawableSize: targetSize)
             let zoomScale = index < zoomScales.count ? zoomScales[index] : 1
             var scaleVector = SIMD2<Float>(Float(scale.width), Float(scale.height)) * zoomScale

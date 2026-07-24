@@ -106,13 +106,16 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
 
     private func makeRGBFrame(width: Int = 2, height: Int = 2) -> IRVideoFrameRGB {
         let bytesPerRow = width * 4
-        let frame = IRVideoFrameRGB(
-            linesize: UInt(bytesPerRow),
-            rgb: Data(repeating: 0xff, count: bytesPerRow * height)
-        )
-        frame.width = width
-        frame.height = height
-        return frame
+        return IRVideoFrameRGB(
+            width: width,
+            height: height,
+            pixelFormat: .bgra32,
+            bytesPerRow: bytesPerRow,
+            data: Data(
+                repeating: 0xff,
+                count: bytesPerRow * height
+            )
+        )!
     }
 
     private func makeIndexBuffer(renderer: IRMetalRenderer) throws -> MTLBuffer {
@@ -300,18 +303,19 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         XCTAssertFalse(IRMetalRenderer.fish2PanoInputsAreValid(params: invalidParams, texUVTextureCount: 16))
 
         XCTAssertFalse(IRMetalRenderer.fish2PanoInputsAreValid(params: validParams, texUVTextureCount: 0))
-    }
-
-    func testFish2PanoInputValidationWrapperMatchesPolicy() {
-        let params = IRMetalRenderer.Fish2PanoParams(fishwidth: 2,
-                                                     fishheight: 2,
-                                                     panowidth: 4,
-                                                     panoheight: 2,
-                                                     antialias: 3,
-                                                     offsetX: 0)
-        XCTAssertEqual(
-            IRMetalRenderer.fish2PanoInputsAreValid(params: params, texUVTextureCount: 9),
-            IRMetalRendererFish2PanoPolicy.inputsAreValid(params: params, texUVTextureCount: 9)
+        invalidParams = validParams
+        invalidParams.antialias = 3
+        XCTAssertTrue(
+            IRMetalRenderer.fish2PanoInputsAreValid(
+                params: invalidParams,
+                texUVTextureCount: 9
+            )
+        )
+        XCTAssertFalse(
+            IRMetalRenderer.fish2PanoInputsAreValid(
+                params: invalidParams,
+                texUVTextureCount: 8
+            )
         )
     }
 
@@ -458,39 +462,6 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         XCTAssertEqual(wrapper.zfar, policy.zfar)
     }
 
-    func testRGBTextureLayoutRejectsInvalidOrOverflowingInputs() {
-        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 0, height: 1, linesize: 4, byteCount: 4))
-        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 1, height: 0, linesize: 4, byteCount: 4))
-        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: Int.max, height: 2, linesize: Int.max, byteCount: Int.max))
-    }
-
-    func testRGBTextureLayoutRequiresExpectedBGRABytesPerRowAndBufferSize() {
-        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 2, height: 2, linesize: 7, byteCount: 16))
-        XCTAssertNil(IRMetalRenderer.rgbTextureLayout(width: 2, height: 2, linesize: 8, byteCount: 15))
-        XCTAssertEqual(
-            IRMetalRenderer.rgbTextureLayout(width: 2, height: 2, linesize: 8, byteCount: 16)?.bytesPerRow,
-            8
-        )
-    }
-
-    func testRGBTextureLayoutWrapperMatchesPixelFormatPolicy() {
-        let wrapper = IRMetalRenderer.rgbTextureLayout(width: 2, height: 2, linesize: 8, byteCount: 16)
-        let policy = IRMetalRendererPixelFormatPolicy.rgbTextureLayout(width: 2, height: 2, linesize: 8, byteCount: 16)
-
-        XCTAssertEqual(wrapper?.bytesPerRow, policy?.bytesPerRow)
-        XCTAssertEqual(wrapper?.totalByteCount, policy?.totalByteCount)
-        XCTAssertNil(IRMetalRendererPixelFormatPolicy.rgbTextureLayout(width: 2, height: 2, linesize: 7, byteCount: 16))
-    }
-
-    func testMakeRGBTextureRejectsLinesizeThatCannotFitBytesPerRow() throws {
-        let renderer = try makeRenderer()
-        let frame = IRVideoFrameRGB(linesize: UInt(Int.max) + 1, rgb: Data([0, 0, 0, 0]))
-        frame.width = 1
-        frame.height = 1
-
-        XCTAssertNil(renderer.makeRGBTexture(from: frame))
-    }
-
     func testMakeRGBTextureCreatesBGRATextureForValidFrame() throws {
         let renderer = try makeRenderer()
         let texture = renderer.makeRGBTexture(from: makeRGBFrame())
@@ -498,6 +469,71 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         XCTAssertEqual(texture?.width, 2)
         XCTAssertEqual(texture?.height, 2)
         XCTAssertEqual(texture?.pixelFormat, .bgra8Unorm)
+    }
+
+    func testMakeRGBTextureConvertsRGB24ToExactRGBA8Bytes()
+        throws {
+        let renderer = try makeRenderer()
+        let frame = try XCTUnwrap(
+            IRVideoFrameRGB(
+                width: 2,
+                height: 1,
+                pixelFormat: .rgb24,
+                bytesPerRow: 6,
+                data: Data([
+                    255, 0, 0,
+                    0, 255, 0
+                ])
+            )
+        )
+        let texture = try XCTUnwrap(
+            renderer.makeRGBTexture(from: frame)
+        )
+        var bytes = [UInt8](repeating: 0, count: 8)
+
+        texture.getBytes(
+            &bytes,
+            bytesPerRow: 8,
+            from: MTLRegionMake2D(0, 0, 2, 1),
+            mipmapLevel: 0
+        )
+
+        XCTAssertEqual(texture.pixelFormat, .rgba8Unorm)
+        XCTAssertEqual(
+            bytes,
+            [
+                255, 0, 0, 255,
+                0, 255, 0, 255
+            ]
+        )
+    }
+
+    func testMakeRGBTexturePreservesExactBGRA32Bytes() throws {
+        let renderer = try makeRenderer()
+        let source: [UInt8] = [1, 2, 3, 255]
+        let frame = try XCTUnwrap(
+            IRVideoFrameRGB(
+                width: 1,
+                height: 1,
+                pixelFormat: .bgra32,
+                bytesPerRow: 4,
+                data: Data(source)
+            )
+        )
+        let texture = try XCTUnwrap(
+            renderer.makeRGBTexture(from: frame)
+        )
+        var bytes = [UInt8](repeating: 0, count: 4)
+
+        texture.getBytes(
+            &bytes,
+            bytesPerRow: 4,
+            from: MTLRegionMake2D(0, 0, 1, 1),
+            mipmapLevel: 0
+        )
+
+        XCTAssertEqual(texture.pixelFormat, .bgra8Unorm)
+        XCTAssertEqual(bytes, source)
     }
 
     func testMakeTextureRejectsInvalidSizeAndCreatesValidTexture() throws {
@@ -579,8 +615,6 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
     func testMakeI420TexturesRejectsMissingPlanesAndInvalidSize() throws {
         let renderer = try makeRenderer()
         let missingPlanes = IRFFAVYUVVideoFrame()
-        missingPlanes.width = 2
-        missingPlanes.height = 2
         XCTAssertNil(renderer.makeI420Textures(from: missingPlanes))
 
         withI420Frame(width: 0, height: 2) { frame in
@@ -671,8 +705,7 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let renderer = try makeRenderer()
         let drawable = try makeOffscreenDrawable(renderer: renderer)
         let frame = IRFFVideoFrame()
-        frame.width = 2
-        frame.height = 2
+        XCTAssertTrue(frame.setDimensions(width: 2, height: 2))
 
         XCTAssertFalse(renderer.renderMulti(frame: frame,
                                             to: drawable,
@@ -727,8 +760,7 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         let drawable = try makeOffscreenDrawable(renderer: renderer)
         let lookupTexture = try makeFish2PanoLookupTexture(renderer: renderer)
         let frame = IRFFVideoFrame()
-        frame.width = 2
-        frame.height = 2
+        XCTAssertTrue(frame.setDimensions(width: 2, height: 2))
 
         XCTAssertFalse(renderer.renderFish2Pano(frame: frame,
                                                 params: makeFish2PanoParams(),

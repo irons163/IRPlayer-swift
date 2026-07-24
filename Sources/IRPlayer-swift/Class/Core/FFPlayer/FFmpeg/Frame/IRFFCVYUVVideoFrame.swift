@@ -14,19 +14,31 @@ import CoreVideo
     public init(pixelBuffer: CVPixelBuffer) {
         self.pixelBuffer = pixelBuffer
         super.init()
-        width = CVPixelBufferGetWidth(pixelBuffer)
-        height = CVPixelBufferGetHeight(pixelBuffer)
     }
 
     override var type: IRFFFrameType {
         return .cvyuvVideo
     }
 
-//    override var width: Int {
-//        return CVPixelBufferGetWidth(pixelBuffer)
-//    }
-//
-//    override var height: Int {
-//        return CVPixelBufferGetHeight(pixelBuffer)
-//    }
+    @nonobjc
+    override func dimensionSnapshot() -> IRFFVideoDimensions {
+        IRFFVideoDimensions.make(
+            width: CVPixelBufferGetWidth(pixelBuffer),
+            height: CVPixelBufferGetHeight(pixelBuffer)
+        ) ?? .zero
+    }
+
+    @discardableResult
+    public override func setDimensions(
+        width: Int,
+        height: Int
+    ) -> Bool {
+        guard let dimensions = IRFFVideoDimensions.make(
+            width: width,
+            height: height
+        ) else {
+            return false
+        }
+        return dimensions == dimensionSnapshot()
+    }
 }

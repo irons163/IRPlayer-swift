@@ -281,10 +281,11 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         )
     }
 
-    func testPlaneSnapshotDoesNotTrustMutableCompatibilityMetadata() throws {
+    func testPlaneSnapshotRejectsIndependentDimensionReplacement() throws {
         let frame = makeValidAVYUVVideoFrame()
-        frame.width = 1
-        frame.height = 1
+        XCTAssertFalse(
+            frame.setDimensions(width: 1, height: 1)
+        )
         frame.size = 1
 
         let snapshot = try XCTUnwrap(
@@ -296,6 +297,39 @@ final class IRFFAVYUVVideoFrameTests: XCTestCase {
         XCTAssertEqual(snapshot.chromaWidth, 2)
         XCTAssertEqual(snapshot.chromaHeight, 2)
         XCTAssertEqual(snapshot.totalByteCount, 24)
+    }
+
+    func testPoolReuseRevokesActivePlaneGenerationAndKeepsCapacity()
+        throws {
+        let pool = IRFFFramePool(
+            capacity: 1,
+            frameClassName: IRFFAVYUVVideoFrame.self
+        ) {
+            IRFFAVYUVVideoFrame()
+        }
+        let frame = try XCTUnwrap(
+            pool.leaseFrame() as? IRFFAVYUVVideoFrame
+        )
+        setYUV420FrameData(
+            on: frame,
+            width: 4,
+            height: 4,
+            format: AV_PIX_FMT_YUV420P.rawValue,
+            lumaStart: 1,
+            chromaBStart: 21,
+            chromaRStart: 31
+        )
+        let capacities = frame.planeCapacities
+
+        frame.cancel()
+
+        XCTAssertNil(frame.planeSnapshot())
+        XCTAssertEqual(frame.dimensionSnapshot(), .zero)
+        XCTAssertEqual(frame.planeCapacities, capacities)
+        let reused = try XCTUnwrap(
+            pool.leaseFrame() as? IRFFAVYUVVideoFrame
+        )
+        XCTAssertTrue(reused === frame)
     }
 
     func testOddI420FramePublishesCeilingChromaPlanes() throws {

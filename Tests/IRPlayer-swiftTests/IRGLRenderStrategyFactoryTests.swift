@@ -65,8 +65,7 @@ final class IRGLRenderStrategyFactoryTests: XCTestCase {
         let (renderer, drawable) = try makeRendererAndDrawable()
         let strategy = IRGLRenderStrategyFactory.make(for: IRGLRenderMode2D(), renderer: renderer)
         let frame = IRFFVideoFrame()
-        frame.width = 2
-        frame.height = 2
+        XCTAssertTrue(frame.setDimensions(width: 2, height: 2))
         let drawableSize = CGSize(width: 2, height: 2)
         let viewport = CGRect(origin: .zero, size: drawableSize)
         let params = IRMetalRenderer.Fish2PanoParams(fishwidth: 2,

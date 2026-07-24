@@ -9,8 +9,9 @@ final class IRGLProgramMultiTests: XCTestCase {
         let program = IRGLProgramMulti(programs: children,
                                        viewprotRange: CGRect(x: 0, y: 0, width: 100, height: 50))
         let frame = IRFFVideoFrame()
-        frame.width = 640
-        frame.height = 360
+        XCTAssertTrue(
+            frame.setDimensions(width: 640, height: 360)
+        )
 
         program.contentMode = .scaleAspectFill
         program.setViewportRange(CGRect(x: 10, y: 20, width: 300, height: 150), resetTransform: false)

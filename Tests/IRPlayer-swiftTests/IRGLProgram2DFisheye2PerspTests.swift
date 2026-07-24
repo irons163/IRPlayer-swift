@@ -98,8 +98,9 @@ final class IRGLProgram2DFisheye2PerspTests: XCTestCase {
             return XCTFail("Expected fisheye-to-perspective params")
         }
         let frame = IRFFVideoFrame()
-        frame.width = 1920
-        frame.height = 960
+        XCTAssertTrue(
+            frame.setDimensions(width: 1920, height: 960)
+        )
 
         program.setRenderFrame(frame)
 
@@ -117,8 +118,9 @@ final class IRGLProgram2DFisheye2PerspTests: XCTestCase {
     func testMissingPerspShaderParamsKeepFrameAndBoundsHandlingNoOp() {
         let program = MissingPerspParamsProgram()
         let frame = IRFFVideoFrame()
-        frame.width = 1920
-        frame.height = 960
+        XCTAssertTrue(
+            frame.setDimensions(width: 1920, height: 960)
+        )
 
         program.setRenderFrame(frame)
         program.willScroll(dx: 20, dy: -20, transformController: IRGLTransformController())

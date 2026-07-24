@@ -48,6 +48,9 @@ Low-level Metal GPU rendering implementation.
 - Upload software I420 textures from one `IRFFYUVPlaneSnapshot`; never read
   frame width/height separately from plane bytes or retain pointers beyond
   `withUnsafePlaneBytes`.
+- Upload custom RGB textures from one `IRRGBFrameSnapshot`. RGB24 uses its
+  precomputed RGBA8 bytes and BGRA32 preserves its validated byte order and
+  row stride.
 - Respect snapshot-provided chroma dimensions, including odd-sized I420 input.
 - Tests: `IRMetalCommandResourcesTests.swift`,
   `IRMetalFrameTextureGenerationTests.swift`,

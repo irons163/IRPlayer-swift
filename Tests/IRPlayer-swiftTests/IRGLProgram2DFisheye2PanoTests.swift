@@ -101,8 +101,9 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
                                                 parameter: nil)
         let params = try XCTUnwrap(program.metalFish2PanoParams)
         let frame = IRFFVideoFrame()
-        frame.width = 32
-        frame.height = 24
+        XCTAssertTrue(
+            frame.setDimensions(width: 32, height: 24)
+        )
 
         program.setRenderFrame(frame)
 
@@ -120,8 +121,9 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         params.outputWidth = 123
         params.outputHeight = 45
         let frame = IRFFVideoFrame()
-        frame.width = 32
-        frame.height = 24
+        XCTAssertTrue(
+            frame.setDimensions(width: 32, height: 24)
+        )
 
         program.setRenderFrame(frame)
 

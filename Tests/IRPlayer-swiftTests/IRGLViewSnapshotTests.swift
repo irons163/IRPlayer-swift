@@ -78,8 +78,9 @@ final class IRGLViewSnapshotTests: XCTestCase {
     func testSendVideoFrameStoresCurrentFrameDimensions() {
         let view = IRGLView(frame: .zero)
         let frame = IRFFVideoFrame()
-        frame.width = 123
-        frame.height = 45
+        XCTAssertTrue(
+            frame.setDimensions(width: 123, height: 45)
+        )
 
         view.send(videoFrame: frame)
 
@@ -89,13 +90,20 @@ final class IRGLViewSnapshotTests: XCTestCase {
 
     func testRenderImageFallbackHandlesRGBCVAndUnsupportedFrames() throws {
         let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 12, height: 8))
-        let rgbFrame = IRVideoFrameRGB(linesize: 3, rgb: Data([0xff, 0, 0]))
-        rgbFrame.width = 1
-        rgbFrame.height = 1
+        let rgbFrame = try XCTUnwrap(
+            IRVideoFrameRGB(
+                width: 1,
+                height: 1,
+                pixelFormat: .rgb24,
+                bytesPerRow: 3,
+                data: Data([0xff, 0, 0])
+            )
+        )
         let cvFrame = IRFFCVYUVVideoFrame(pixelBuffer: try makePixelBuffer(width: 2, height: 3))
         let unsupportedFrame = IRFFVideoFrame()
-        unsupportedFrame.width = 4
-        unsupportedFrame.height = 5
+        XCTAssertTrue(
+            unsupportedFrame.setDimensions(width: 4, height: 5)
+        )
 
         view.send(videoFrame: rgbFrame)
         XCTAssertEqual(view.lastFrameWidth, 1)
@@ -684,11 +692,16 @@ final class IRGLViewSnapshotTests: XCTestCase {
 
     private func makeRGBFrame(width: Int = 2, height: Int = 2) -> IRVideoFrameRGB {
         let bytesPerRow = width * 4
-        let frame = IRVideoFrameRGB(linesize: UInt(bytesPerRow),
-                                    rgb: Data(repeating: 0xff, count: bytesPerRow * height))
-        frame.width = width
-        frame.height = height
-        return frame
+        return IRVideoFrameRGB(
+            width: width,
+            height: height,
+            pixelFormat: .bgra32,
+            bytesPerRow: bytesPerRow,
+            data: Data(
+                repeating: 0xff,
+                count: bytesPerRow * height
+            )
+        )!
     }
 
     private func makeFisheyeParameter() -> IRFisheyeParameter {

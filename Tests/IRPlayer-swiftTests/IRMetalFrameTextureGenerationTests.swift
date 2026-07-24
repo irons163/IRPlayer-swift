@@ -96,12 +96,15 @@ final class IRMetalFrameTextureGenerationTests:
 
     func testRGBGenerationPublishesManagedTexture() throws {
         let renderer = try makeRenderer()
-        let frame = IRVideoFrameRGB(
-            linesize: 8,
-            rgb: Data(repeating: 0xff, count: 16)
+        let frame = try XCTUnwrap(
+            IRVideoFrameRGB(
+                width: 2,
+                height: 2,
+                pixelFormat: .bgra32,
+                bytesPerRow: 8,
+                data: Data(repeating: 0xff, count: 16)
+            )
         )
-        frame.width = 2
-        frame.height = 2
         let generation = try XCTUnwrap(
             renderer.makeFrameTextureGeneration(from: frame)
         )

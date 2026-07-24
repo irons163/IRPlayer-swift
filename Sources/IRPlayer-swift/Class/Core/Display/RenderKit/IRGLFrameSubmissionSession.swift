@@ -115,8 +115,9 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
 
             if let frame {
                 submissionCount += 1
-                lastFrameWidth = Int(frame.width)
-                lastFrameHeight = Int(frame.height)
+                let dimensions = frame.dimensionSnapshot()
+                lastFrameWidth = dimensions.width
+                lastFrameHeight = dimensions.height
                 currentFrame = frame
                 currentImage = nil
             } else {

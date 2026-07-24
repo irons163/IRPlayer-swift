@@ -119,8 +119,15 @@ typealias IRGLProgram2DResetScaleBlock = (_ program: IRGLProgram2D) -> Bool
     }
 
     func setRenderFrame(_ frame: IRFFVideoFrame) {
-        if frame.width != (shaderParams2D?.textureWidth ?? 0) || frame.height != (shaderParams2D?.textureHeight ?? 0) {
-            updateTextureWidth(frame.width, height: frame.height)
+        let dimensions = frame.dimensionSnapshot()
+        if dimensions.width !=
+            (shaderParams2D?.textureWidth ?? 0)
+            || dimensions.height !=
+            (shaderParams2D?.textureHeight ?? 0) {
+            updateTextureWidth(
+                dimensions.width,
+                height: dimensions.height
+            )
         }
     }
 

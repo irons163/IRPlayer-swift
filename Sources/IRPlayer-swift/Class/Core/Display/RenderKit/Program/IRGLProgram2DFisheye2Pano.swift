@@ -48,8 +48,13 @@ import Foundation
 
     override func setRenderFrame(_ frame: IRFFVideoFrame) {
         guard let fish2Pano else { return }
-        if frame.width != fish2Pano.textureWidth || frame.height != fish2Pano.textureHeight {
-            fish2Pano.updateTextureWidth(frame.width, height: frame.height)
+        let dimensions = frame.dimensionSnapshot()
+        if dimensions.width != fish2Pano.textureWidth
+            || dimensions.height != fish2Pano.textureHeight {
+            fish2Pano.updateTextureWidth(
+                dimensions.width,
+                height: dimensions.height
+            )
         }
     }
 

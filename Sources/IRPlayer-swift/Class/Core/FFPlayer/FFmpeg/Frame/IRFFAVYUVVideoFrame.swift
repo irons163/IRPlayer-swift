@@ -99,8 +99,6 @@ import IRFFMpeg
         activeHeight = height
         activeChromaWidth = layouts.chromaB.width
         activeChromaHeight = layouts.chromaB.height
-        self.width = width
-        self.height = height
         size = planeStorage.totalByteCount
         cachedImage = nil
     }
@@ -115,6 +113,35 @@ import IRFFMpeg
         planeLock.lock()
         deactivateLocked()
         planeLock.unlock()
+    }
+
+    @nonobjc
+    override func dimensionSnapshot() -> IRFFVideoDimensions {
+        planeLock.lock()
+        defer { planeLock.unlock() }
+        return IRFFVideoDimensions.make(
+            width: activeWidth,
+            height: activeHeight
+        ) ?? .zero
+    }
+
+    @discardableResult
+    public override func setDimensions(
+        width: Int,
+        height: Int
+    ) -> Bool {
+        guard let dimensions = IRFFVideoDimensions.make(
+            width: width,
+            height: height
+        ) else {
+            return false
+        }
+        return dimensions == dimensionSnapshot()
+    }
+
+    override func prepareForReuse() {
+        flush()
+        super.prepareForReuse()
     }
 
     func image() -> IRPLFImage? {
@@ -174,8 +201,6 @@ import IRFFMpeg
         activeHeight = 0
         activeChromaWidth = 0
         activeChromaHeight = 0
-        width = 0
-        height = 0
         size = 0
         cachedImage = nil
     }

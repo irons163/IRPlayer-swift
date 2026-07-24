@@ -483,8 +483,9 @@ final class IRGLFrameSubmissionSessionTests: XCTestCase {
             completed.increment()
         }
         let frame = IRFFVideoFrame()
-        frame.width = 320
-        frame.height = 180
+        XCTAssertTrue(
+            frame.setDimensions(width: 320, height: 180)
+        )
 
         XCTAssertTrue(session.submit(frame, context: makeContext()))
         XCTAssertTrue(session.submit(nil, context: makeContext()))
@@ -578,8 +579,9 @@ final class IRGLFrameSubmissionSessionTests: XCTestCase {
             }
         )
         let frame = IRFFVideoFrame()
-        frame.width = 640
-        frame.height = 360
+        XCTAssertTrue(
+            frame.setDimensions(width: 640, height: 360)
+        )
         XCTAssertTrue(session.submit(frame, context: makeContext()))
 
         session.reset()
@@ -1016,8 +1018,9 @@ final class IRGLRenderSessionTests: XCTestCase {
         XCTAssertEqual(session.currentViewportRange.height, 100)
 
         let frame = IRFFVideoFrame()
-        frame.width = 640
-        frame.height = 360
+        XCTAssertTrue(
+            frame.setDimensions(width: 640, height: 360)
+        )
         XCTAssertTrue(session.submit(frame))
         XCTAssertTrue(
             session.resize(

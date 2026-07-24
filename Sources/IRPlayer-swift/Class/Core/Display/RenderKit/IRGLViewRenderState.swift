@@ -170,8 +170,13 @@ final class IRGLViewRenderState {
         guard let program = mode?.program as? IRGLProgramMulti4P else { return nil }
         if program.programs.first is IRGLProgram3DFisheye {
             let parameter = (mode?.parameter as? IRFisheyeParameter) ?? Self.defaultFisheyeParameter()
-            let textureWidth = parameter.width > 0 ? parameter.width : Float(frame.width)
-            let textureHeight = parameter.height > 0 ? parameter.height : Float(frame.height)
+            let dimensions = frame.dimensionSnapshot()
+            let textureWidth = parameter.width > 0
+                ? parameter.width
+                : Float(dimensions.width)
+            let textureHeight = parameter.height > 0
+                ? parameter.height
+                : Float(dimensions.height)
             let meshSize = CGSize(width: CGFloat(textureWidth), height: CGFloat(textureHeight))
 
             if fisheyeMesh == nil || fisheyeLastSize != meshSize {
@@ -332,8 +337,13 @@ final class IRGLViewRenderState {
         guard let controller = fisheyeController else { return false }
         guard let parameter = fisheyeParameter else { return false }
 
-        let textureWidth = parameter.width > 0 ? parameter.width : Float(frame.width)
-        let textureHeight = parameter.height > 0 ? parameter.height : Float(frame.height)
+        let dimensions = frame.dimensionSnapshot()
+        let textureWidth = parameter.width > 0
+            ? parameter.width
+            : Float(dimensions.width)
+        let textureHeight = parameter.height > 0
+            ? parameter.height
+            : Float(dimensions.height)
         let meshSize = CGSize(width: CGFloat(textureWidth), height: CGFloat(textureHeight))
         if fisheyeMesh == nil || fisheyeLastSize != meshSize {
             let device = device ?? MTLCreateSystemDefaultDevice()

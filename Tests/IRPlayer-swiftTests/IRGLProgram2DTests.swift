@@ -335,8 +335,9 @@ final class IRGLProgram2DTests: XCTestCase {
     func testSetRenderFrameUpdatesTextureOnlyWhenSizeChanges() {
         let program = IRGLProgram2D()
         let frame = IRFFVideoFrame()
-        frame.width = 320
-        frame.height = 180
+        XCTAssertTrue(
+            frame.setDimensions(width: 320, height: 180)
+        )
 
         program.setRenderFrame(frame)
         XCTAssertEqual(program.shaderParams2D?.textureWidth, 320)
@@ -350,8 +351,9 @@ final class IRGLProgram2DTests: XCTestCase {
     func testSetRenderFrameIgnoresMissingShaderParams() {
         let program = IRGLProgram2D()
         let frame = IRFFVideoFrame()
-        frame.width = 320
-        frame.height = 180
+        XCTAssertTrue(
+            frame.setDimensions(width: 320, height: 180)
+        )
 
         program.shaderParams2D = nil
         program.setRenderFrame(frame)

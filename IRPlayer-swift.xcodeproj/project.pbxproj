@@ -11,7 +11,6 @@
 		B5E9526F2F6903600149265 /* IRMetalRuntimeDebugOutputPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9526E2F6903600149265 /* IRMetalRuntimeDebugOutputPolicy.swift */; };
 		B5E952512F6902700149265 /* IRMetalRendererScalePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952502F6902700149265 /* IRMetalRendererScalePolicy.swift */; };
 		B5E952532F6902800149265 /* IRMetalRendererGeometryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952522F6902800149265 /* IRMetalRendererGeometryPolicy.swift */; };
-		B5E952572F6902A00149265 /* IRMetalRendererPixelFormatPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952562F6902A00149265 /* IRMetalRendererPixelFormatPolicy.swift */; };
 		4A51709C2F5DB6D3009F8BBA /* IRMetalShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4A51709B2F5DB6D3009F8BBA /* IRMetalShaders.metal */; };
 		4A5170FE2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5170FD2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift */; };
 		B5E952592F6902B00149265 /* IRMetalFisheyeMeshPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952582F6902B00149265 /* IRMetalFisheyeMeshPolicy.swift */; };
@@ -155,7 +154,6 @@
 		B5E94F1F2D0B21F800149265 /* IRGLFish2PerspShaderParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D9E2D0B21F800149265 /* IRGLFish2PerspShaderParams.swift */; };
 		B5E9524B2F6902400149265 /* IRGLFish2PerspShaderParamsPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9524A2F6902400149265 /* IRGLFish2PerspShaderParamsPolicy.swift */; };
 		B5E94F202D0B21F800149265 /* IRVideoFrameRGB.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF52D0B21F800149265 /* IRVideoFrameRGB.swift */; };
-		B5E952752F6903900149265 /* IRVideoFrameRGBPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E952742F6903900149265 /* IRVideoFrameRGBPolicy.swift */; };
 		B5E94F222D0B21F800149265 /* IRFFDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF82D0B21F800149265 /* IRFFDecoder.swift */; };
 		B5E9521F2F6900E00149265 /* IRFFDecoderAudioPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9521E2F6900E00149265 /* IRFFDecoderAudioPolicy.swift */; };
 		B5E9521D2F6900D00149265 /* IRFFDecoderCodecContextPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9521C2F6900D00149265 /* IRFFDecoderCodecContextPolicy.swift */; };
@@ -346,7 +344,6 @@
 		B5E9526E2F6903600149265 /* IRMetalRuntimeDebugOutputPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalRuntimeDebugOutputPolicy.swift; sourceTree = "<group>"; };
 		B5E952502F6902700149265 /* IRMetalRendererScalePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalRendererScalePolicy.swift; sourceTree = "<group>"; };
 		B5E952522F6902800149265 /* IRMetalRendererGeometryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalRendererGeometryPolicy.swift; sourceTree = "<group>"; };
-		B5E952562F6902A00149265 /* IRMetalRendererPixelFormatPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalRendererPixelFormatPolicy.swift; sourceTree = "<group>"; };
 		4A51709B2F5DB6D3009F8BBA /* IRMetalShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = IRMetalShaders.metal; sourceTree = "<group>"; };
 		4A5170FD2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalFisheyeMesh.swift; sourceTree = "<group>"; };
 		B5E952582F6902B00149265 /* IRMetalFisheyeMeshPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRMetalFisheyeMeshPolicy.swift; sourceTree = "<group>"; };
@@ -487,7 +484,6 @@
 		B5E9527A2F6903C00149265 /* IRFFPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPacket.swift; sourceTree = "<group>"; };
 		B5E94DF42D0B21F800149265 /* IRFFVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoFrame.swift; sourceTree = "<group>"; };
 		B5E94DF52D0B21F800149265 /* IRVideoFrameRGB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRVideoFrameRGB.swift; sourceTree = "<group>"; };
-		B5E952742F6903900149265 /* IRVideoFrameRGBPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRVideoFrameRGBPolicy.swift; sourceTree = "<group>"; };
 		B5E94DF72D0B21F800149265 /* IRFFAudioDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioDecoder.swift; sourceTree = "<group>"; };
 		B5E979022F8400010149265 /* IRFFDecodeFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecodeFrame.swift; sourceTree = "<group>"; };
 		B5E979042F8400010149265 /* IRFFAudioResampleSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioResampleSession.swift; sourceTree = "<group>"; };
@@ -717,7 +713,6 @@
 				B5E9526E2F6903600149265 /* IRMetalRuntimeDebugOutputPolicy.swift */,
 				B5E952502F6902700149265 /* IRMetalRendererScalePolicy.swift */,
 				B5E952522F6902800149265 /* IRMetalRendererGeometryPolicy.swift */,
-				B5E952562F6902A00149265 /* IRMetalRendererPixelFormatPolicy.swift */,
 				4A51709B2F5DB6D3009F8BBA /* IRMetalShaders.metal */,
 				4A5170FD2F5DC859009F8BBA /* IRMetalFisheyeMesh.swift */,
 				B5E952582F6902B00149265 /* IRMetalFisheyeMeshPolicy.swift */,
@@ -1064,7 +1059,6 @@
 				B5E9527A2F6903C00149265 /* IRFFPacket.swift */,
 				B5E94DF42D0B21F800149265 /* IRFFVideoFrame.swift */,
 				B5E94DF52D0B21F800149265 /* IRVideoFrameRGB.swift */,
-				B5E952742F6903900149265 /* IRVideoFrameRGBPolicy.swift */,
 			);
 			path = Frame;
 			sourceTree = "<group>";
@@ -1558,7 +1552,6 @@
 				B5E9526F2F6903600149265 /* IRMetalRuntimeDebugOutputPolicy.swift in Sources */,
 				B5E952512F6902700149265 /* IRMetalRendererScalePolicy.swift in Sources */,
 				B5E952532F6902800149265 /* IRMetalRendererGeometryPolicy.swift in Sources */,
-				B5E952572F6902A00149265 /* IRMetalRendererPixelFormatPolicy.swift in Sources */,
 				B5E94EF22D0B21F800149265 /* IRGLScope2D.swift in Sources */,
 				B5E94EF32D0B21F800149265 /* IRGLProjectionOrthographic.swift in Sources */,
 				4A51709C2F5DB6D3009F8BBA /* IRMetalShaders.metal in Sources */,
@@ -1623,7 +1616,6 @@
 				B5E94F1F2D0B21F800149265 /* IRGLFish2PerspShaderParams.swift in Sources */,
 				B5E9524B2F6902400149265 /* IRGLFish2PerspShaderParamsPolicy.swift in Sources */,
 				B5E94F202D0B21F800149265 /* IRVideoFrameRGB.swift in Sources */,
-				B5E952752F6903900149265 /* IRVideoFrameRGBPolicy.swift in Sources */,
 				B5E94F222D0B21F800149265 /* IRFFDecoder.swift in Sources */,
 				B5E9521F2F6900E00149265 /* IRFFDecoderAudioPolicy.swift in Sources */,
 				B5E9521D2F6900D00149265 /* IRFFDecoderCodecContextPolicy.swift in Sources */,

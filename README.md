@@ -140,6 +140,21 @@ let yuvFrame = IRFFAVYUVVideoFrame()
 input.send(videoFrame: yuvFrame)
 ```
 
+Custom RGB frames declare their byte layout explicitly and are validated as
+one immutable generation:
+
+```swift
+if let frame = IRVideoFrameRGB(
+    width: width,
+    height: height,
+    pixelFormat: .bgra32,
+    bytesPerRow: bytesPerRow,
+    data: bytes
+) {
+    input.send(videoFrame: frame)
+}
+```
+
 For custom packet decoding, subclass `IRFFVideoInput` and override
 `videoDecoder(_:decodeFrame:)`. See
 [IRIPCamera-swift](https://github.com/irons163/IRIPCamera-swift) for a complete

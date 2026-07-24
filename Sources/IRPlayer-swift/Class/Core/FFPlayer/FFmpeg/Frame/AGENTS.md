@@ -7,11 +7,11 @@ Frame data models and queue management for the FFmpeg decode pipeline.
 | File                          | Purpose                                             |
 |-------------------------------|-----------------------------------------------------|
 | `IRFFFrame.swift`             | Synchronized lifecycle and transport metadata value |
-| `IRFFVideoFrame.swift`        | Base video frame                                    |
+| `IRFFVideoFrame.swift`        | Atomic video-dimension value and base frame          |
 | `IRFFAVYUVVideoFrame.swift`   | Software-decoded YUV frame generation owner         |
 | `IRFFYUVPlaneStorage.swift`   | Managed I420 layouts, storage, and COW snapshots    |
 | `IRFFCVYUVVideoFrame.swift`   | Hardware-decoded YUV video frame (CVPixelBuffer)    |
-| `IRVideoFrameRGB.swift`       | RGB video frame                                     |
+| `IRVideoFrameRGB.swift`       | Immutable checked RGB24/BGRA32 frame generation      |
 | `IRFFAudioFrame.swift`        | Decoded audio frame                                 |
 | `IRFFFramePool.swift`         | Explicit frame lease/reuse/close owner               |
 | `IRFFFrameQueue.swift`        | Immutable-entry decoded-frame transfer owner         |
@@ -32,6 +32,14 @@ Frame data models and queue management for the FFmpeg decode pipeline.
 - Flush revokes active data but retains reusable managed capacity. Existing
   snapshots remain immutable through Swift copy-on-write.
 - `IRFFCVYUVVideoFrame` is used with VideoToolBox hardware decoding (CVPixelBuffer).
+- Video dimensions are published as one `IRFFVideoDimensions` value. Generic
+  custom frames use `setDimensions(width:height:)`; first-party consumers must
+  use `dimensionSnapshot()` rather than assembling a size from separate reads.
+- `IRVideoFrameRGB` requires width, height, explicit `IRRGBPixelFormat`,
+  row stride, and data at construction. Keep its source and Metal upload bytes
+  immutable and validated; never infer RGB24 versus BGRA32 from stride.
+- Preparing a software-YUV frame for pool reuse must revoke its active plane
+  generation while preserving managed capacity.
 - `IRFFFrame` synchronizes delegate, playing state, position, duration, and
   size. Queue admission must use its coherent transport snapshot.
 - `IRFFFramePool` reduces allocation churn with one exact partition of owned
@@ -60,5 +68,6 @@ Frame data models and queue management for the FFmpeg decode pipeline.
 - Grow audio sample storage on the decoder side. The real-time render callback
   may copy active bytes but must not resize frame storage.
 - Tests: `IRFFAudioFrameTests.swift`, `IRFFAVYUVVideoFrameTests.swift`,
-  `IRFFFramePoolTests.swift`, `IRFFFrameQueueTests.swift`,
+  `IRVideoFrameRGBTests.swift`, `IRFFFramePoolTests.swift`,
+  `IRFFFrameQueueTests.swift`,
   `IRFFPacketTests.swift`, and `IRFFPacketQueueTests.swift`.
