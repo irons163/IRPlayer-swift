@@ -258,23 +258,17 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
 
     func testRuntimeDebugOutputIsSilentByDefault() {
         XCTAssertFalse(IRMetalRuntimeDebugOutput.isEnabled)
+        var evaluationCount = 0
 
         let output = captureStandardOutput {
-            IRMetalRuntimeDebugOutput.write("metal trace")
+            IRMetalRuntimeDebugOutput.write({
+                evaluationCount += 1
+                return "metal trace"
+            }())
         }
 
         XCTAssertEqual(output, "")
-    }
-
-    func testRuntimeDebugOutputWrapperMatchesPolicy() {
-        XCTAssertEqual(IRMetalRuntimeDebugOutput.isEnabled, IRMetalRuntimeDebugOutputPolicy.isEnabled)
-        XCTAssertFalse(IRMetalRuntimeDebugOutputPolicy.isEnabled)
-
-        let output = captureStandardOutput {
-            IRMetalRuntimeDebugOutputPolicy.write("metal trace")
-        }
-
-        XCTAssertEqual(output, "")
+        XCTAssertEqual(evaluationCount, 0)
     }
 
     func testFish2PanoInputValidationRejectsInvalidParameters() {

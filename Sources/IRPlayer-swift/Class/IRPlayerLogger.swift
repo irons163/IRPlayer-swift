@@ -19,24 +19,73 @@ public protocol IRPlayerLoggerDelegate: AnyObject {
 public extension IRPlayerImp { enum Logger {} }
 
 public extension IRPlayerImp.Logger {
-    static var subsystem = Bundle.main.bundleIdentifier ?? "IRPlayerImp"
+    static var subsystem: String {
+        get {
+            IRPlayerLoggingRuntime.systemSession.subsystem
+        }
+        set {
+            IRPlayerLoggingRuntime.systemSession
+                .replaceSubsystem(newValue)
+        }
+    }
 
     /// Set this delegate to receive all IRPlayer log messages in your own
     /// logging system. Setting it to `nil` restores OSLog output.
-    nonisolated(unsafe) static weak var delegate: (any IRPlayerLoggerDelegate)?
+    static var delegate: (any IRPlayerLoggerDelegate)? {
+        get {
+            IRPlayerLoggingRuntime.systemSession.delegate
+        }
+        set {
+            IRPlayerLoggingRuntime.systemSession.delegate =
+                newValue
+        }
+    }
 
-    static var libraryLogger = IRPlayerLogger(subsystem: subsystem, category: "library")
+    static var libraryLogger: IRPlayerLogger {
+        get {
+            IRPlayerLoggingRuntime.systemSession
+                .libraryLogger
+        }
+        set {
+            IRPlayerLoggingRuntime.systemSession
+                .libraryLogger = newValue
+        }
+    }
 }
 
 /// Forwards messages to `IRPlayerImp.Logger.delegate` when one is set and falls
 /// back to OSLog otherwise.
-public struct IRPlayerLogger {
+public struct IRPlayerLogger: @unchecked Sendable {
+    struct Configuration: Equatable, Sendable {
+        let subsystem: String
+        let category: String
+    }
+
     private let osLogger: Logger
-    private let category: String
+    let configuration: Configuration
+    private let sessionReference:
+        IRPlayerLoggingSessionReference
 
     public init(subsystem: String, category: String) {
+        self.init(
+            subsystem: subsystem,
+            category: category,
+            session: IRPlayerLoggingRuntime.systemSession
+        )
+    }
+
+    init(
+        subsystem: String,
+        category: String,
+        session: IRPlayerLoggingSession
+    ) {
         self.osLogger = Logger(subsystem: subsystem, category: category)
-        self.category = category
+        configuration = Configuration(
+            subsystem: subsystem,
+            category: category
+        )
+        sessionReference =
+            IRPlayerLoggingSessionReference(session)
     }
 
     public func debug(_ message: @autoclosure () -> String) {
@@ -56,11 +105,34 @@ public struct IRPlayerLogger {
     }
 
     private func emit(_ message: String, level: IRPlayerLogLevel) {
-        if let delegate = IRPlayerImp.Logger.delegate {
-            delegate.irPlayer(didLog: message, level: level, category: category)
+        guard let session = sessionReference.session else {
+            writeToOSLog(message, level: level)
             return
         }
 
+        _ = session.emit(
+            message,
+            level: level,
+            category: configuration.category
+        ) {
+            writeToOSLog(message, level: level)
+        }
+    }
+
+    func bound(
+        to session: IRPlayerLoggingSession
+    ) -> IRPlayerLogger {
+        IRPlayerLogger(
+            subsystem: configuration.subsystem,
+            category: configuration.category,
+            session: session
+        )
+    }
+
+    private func writeToOSLog(
+        _ message: String,
+        level: IRPlayerLogLevel
+    ) {
         switch level {
         case .debug:
             osLogger.debug("\(message)")
@@ -71,5 +143,15 @@ public struct IRPlayerLogger {
         case .error:
             osLogger.error("\(message)")
         }
+    }
+}
+
+private final class IRPlayerLoggingSessionReference:
+    @unchecked Sendable
+{
+    weak var session: IRPlayerLoggingSession?
+
+    init(_ session: IRPlayerLoggingSession) {
+        self.session = session
     }
 }

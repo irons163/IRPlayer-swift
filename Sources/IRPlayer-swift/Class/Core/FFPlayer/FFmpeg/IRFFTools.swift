@@ -33,20 +33,57 @@ func IRPlayerLog(_ text: String) {
 }
 
 enum IRFFRuntimeDebugOutput {
-    static var isEnabled: Bool {
-        IRFFRuntimeDebugOutputPolicy.isEnabled
-    }
+    #if IRFFFFmpegRuntimeDebugOutputEnable
+    static let isEnabled = true
+    #else
+    static let isEnabled = false
+    #endif
 
     static func write(_ message: @autoclosure () -> String) {
         guard isEnabled else { return }
-        IRFFRuntimeDebugOutputPolicy.write(message())
+        IRPlayerImp.Logger.libraryLogger.debug(message())
     }
 }
 
 // MARK: - Utility Functions
 
-func IRFFLog(context: UnsafeMutableRawPointer?, level: Int32, format: UnsafePointer<CChar>, args: CVaListPointer) {
-    IRFFLogPolicy.write(context: context, level: level, format: format, args: args)
+enum IRFFLogFormatting {
+    static func message(
+        format: UnsafePointer<CChar>,
+        args: CVaListPointer
+    ) -> String? {
+        guard let formatString =
+            String(validatingUTF8: format) else {
+            return nil
+        }
+        return NSString(
+            format: formatString,
+            arguments: args
+        ) as String
+    }
+
+    static func logLine(for message: String) -> String {
+        "IRFFLog: \(message)"
+    }
+}
+
+func IRFFLog(
+    context: UnsafeMutableRawPointer?,
+    level: Int32,
+    format: UnsafePointer<CChar>,
+    args: CVaListPointer
+) {
+    #if IRFFFFmpegLogEnable
+    guard let message = IRFFLogFormatting.message(
+        format: format,
+        args: args
+    ) else {
+        return
+    }
+    IRPlayerImp.Logger.libraryLogger.debug(
+        IRFFLogFormatting.logLine(for: message)
+    )
+    #endif
 }
 
 func IRFFCheckError(_ result: Int32) -> NSError? {

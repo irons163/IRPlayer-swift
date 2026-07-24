@@ -14,6 +14,8 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRPlayerFacadeStateTests.swift` — Settings and media-session state ownership
 - `IRPlayerEnvironmentSessionTests.swift` — App/audio lifecycle ownership
 - `IRPlayerPresentationSessionTests.swift` — Display and interaction ownership
+- `IRPlayerLoggerTests.swift` — Logging owner lifecycle, weak delegate,
+  reentrancy, configuration coherence, and concurrency
 - `IRPlaybackBackendEventRouterTests.swift` — Active-backend event admission
 - `IRPlayerDecoderTests.swift` — Decoder configuration tests
 - `IRPlayerNotificationTests.swift` — Notification dispatch tests

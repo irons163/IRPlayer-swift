@@ -25,6 +25,9 @@ Low-level Metal GPU rendering implementation.
 ## Agent Notes
 
 - `IRMetalShaders.metal` is compiled as a Metal shader resource — it's a `.process()` SPM resource.
+- `IRMetalRuntimeDebugOutput` owns its compile-time gate in
+  `IRMetalRenderer.swift`; enabled diagnostics use the public library logger
+  and disabled diagnostics must remain lazy.
 - Renderer extensions map 1:1 to rendering modes — each mode has its own render path.
 - Publish an `IRMetalRenderer` only from one complete
   `IRMetalRendererResources` generation. Texture caches, pipelines, and quad

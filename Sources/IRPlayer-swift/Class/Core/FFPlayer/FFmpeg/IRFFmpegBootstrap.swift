@@ -5,15 +5,15 @@ enum IRFFmpegBootstrap {
     private static let initialization: Void = {
         av_log_set_callback { _, _, format, arguments in
             guard let format,
-                  let formatString = String(utf8String: format),
-                  let arguments else {
+                  let arguments,
+                  let message =
+                    IRFFLogFormatting.message(
+                        format: format,
+                        args: arguments
+                    ) else {
                 return
             }
 
-            let message = NSString(
-                format: formatString,
-                arguments: arguments
-            ) as String
             IRFFRuntimeDebugOutput.write(
                 message.trimmingCharacters(in: .newlines)
             )

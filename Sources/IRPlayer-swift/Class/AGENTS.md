@@ -12,6 +12,7 @@ This directory contains all the main Swift source code for the IRPlayer framewor
 | `IRPlayerImp+Presentation.swift`  | Public presentation forwarding API                         |
 | `IRPlayerAction.swift`            | Player action/event definitions                            |
 | `IRPlayerDecoder.swift`           | Decoder configuration (AVPlayer vs FFmpeg, hardware flags) |
+| `IRPlayerLogger.swift`            | Public logging value and synchronized-owner accessors      |
 | `IRPlayerTrack.swift`             | Audio/video track model                                    |
 
 ## Subdirectories
@@ -28,3 +29,5 @@ This directory contains all the main Swift source code for the IRPlayer framewor
 - When modifying public API in these files, ensure backward compatibility or document breakage.
 - Lifecycle decisions live in `IRPlayerLifecycleController`, owned and
   synchronized by `IRPlayerEnvironmentSession`.
+- Keep `IRPlayerImp.Logger` as compatibility accessors over
+  `IRPlayerLoggingSession`; do not add mutable static logger state.

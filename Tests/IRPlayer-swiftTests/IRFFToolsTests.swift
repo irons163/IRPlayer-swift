@@ -6,23 +6,17 @@ final class IRFFToolsTests: XCTestCase {
 
     func testRuntimeDebugOutputIsSilentByDefault() {
         XCTAssertFalse(IRFFRuntimeDebugOutput.isEnabled)
+        var evaluationCount = 0
 
         let output = captureStandardOutput {
-            IRFFRuntimeDebugOutput.write("runtime trace")
+            IRFFRuntimeDebugOutput.write({
+                evaluationCount += 1
+                return "runtime trace"
+            }())
         }
 
         XCTAssertEqual(output, "")
-    }
-
-    func testRuntimeDebugOutputWrapperMatchesPolicy() {
-        XCTAssertEqual(IRFFRuntimeDebugOutput.isEnabled, IRFFRuntimeDebugOutputPolicy.isEnabled)
-        XCTAssertFalse(IRFFRuntimeDebugOutputPolicy.isEnabled)
-
-        let output = captureStandardOutput {
-            IRFFRuntimeDebugOutputPolicy.write("runtime trace")
-        }
-
-        XCTAssertEqual(output, "")
+        XCTAssertEqual(evaluationCount, 0)
     }
 
     func testLegacyLogFunctionsAreSilentByDefault() {
@@ -45,10 +39,16 @@ final class IRFFToolsTests: XCTestCase {
         }
     }
 
-    func testFFLogPolicyFormatsValidMessagesAndRejectsInvalidUTF8() throws {
+    func testFFLogFormattingAcceptsValidMessagesAndRejectsInvalidUTF8() throws {
         "codec %@ %d".withCString { format in
             withVaList(["ok", 7]) { args in
-                XCTAssertEqual(IRFFLogPolicy.message(format: format, args: args), "codec ok 7")
+                XCTAssertEqual(
+                    IRFFLogFormatting.message(
+                        format: format,
+                        args: args
+                    ),
+                    "codec ok 7"
+                )
             }
         }
 
@@ -57,20 +57,33 @@ final class IRFFToolsTests: XCTestCase {
         try invalidFormat.withUnsafeBufferPointer { formatBuffer in
             let format = try XCTUnwrap(formatBuffer.baseAddress)
             withVaList([]) { args in
-                XCTAssertNil(IRFFLogPolicy.message(format: format, args: args))
+                XCTAssertNil(
+                    IRFFLogFormatting.message(
+                        format: format,
+                        args: args
+                    )
+                )
             }
         }
     }
 
-    func testFFLogPolicyBuildsPrefixedLogLines() {
-        XCTAssertEqual(IRFFLogPolicy.logLine(for: "codec ok"), "IRFFLog: codec ok")
+    func testFFLogFormattingBuildsPrefixedLogLines() {
+        XCTAssertEqual(
+            IRFFLogFormatting.logLine(for: "codec ok"),
+            "IRFFLog: codec ok"
+        )
     }
 
-    func testFFLogPolicyIsSilentByDefault() {
+    func testFFLogIsSilentByDefault() {
         let output = captureStandardOutput {
             "codec %@".withCString { format in
                 withVaList(["ok"]) { args in
-                    IRFFLogPolicy.write(context: nil, level: 0, format: format, args: args)
+                    IRFFLog(
+                        context: nil,
+                        level: 0,
+                        format: format,
+                        args: args
+                    )
                 }
             }
         }

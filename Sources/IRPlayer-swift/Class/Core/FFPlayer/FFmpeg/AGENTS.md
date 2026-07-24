@@ -23,7 +23,7 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 | `IRFFTrack.swift`            | Audio/video track metadata                           |
 | `IRFFDictionary.swift`       | Owned options and borrowed metadata conversion       |
 | `IRFFMetadata.swift`         | Immutable parsed stream metadata                     |
-| `IRFFTools.swift`            | FFmpeg utility functions                             |
+| `IRFFTools.swift`            | FFmpeg utilities, log formatting, and gated diagnostics |
 
 ## Subdirectory
 
@@ -32,6 +32,9 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 ## Agent Notes
 
 - `IRFFFormatContext` opens media and provides packet streams.
+- Keep FFmpeg variadic log formatting and its compile-time diagnostic gate in
+  `IRFFTools`; enabled output must use the public library logger, while
+  disabled output must not evaluate message autoclosures.
 - Publish one complete format/codec generation only after at least one usable
   audio or video track opens. Do not expose partially initialized FFmpeg
   pointers.
