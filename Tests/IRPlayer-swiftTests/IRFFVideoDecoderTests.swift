@@ -1,45 +1,9 @@
 import IRFFMpeg
+import IRPlayerObjc
 import XCTest
 @testable import IRPlayer_swift
 
 final class IRFFVideoDecoderTests: XCTestCase {
-
-    func testStaticPolicyWrappersRemainSourceCompatible() {
-        XCTAssertEqual(
-            IRFFVideoDecoder.frameDuration(ticks: 4, repeatPicture: 2, timebase: 0.25, fps: 30),
-            IRFFVideoDecoderPolicy.frameDuration(ticks: 4, repeatPicture: 2, timebase: 0.25, fps: 30)
-        )
-        XCTAssertEqual(
-            IRFFVideoDecoder.decodeBackpressureSleepInterval(frameDuration: 2.0, maxDecodeDuration: 2.0, paused: true),
-            IRFFVideoDecoderPolicy.decodeBackpressureSleepInterval(frameDuration: 2.0, maxDecodeDuration: 2.0, paused: true)
-        )
-        XCTAssertEqual(
-            IRFFVideoDecoder.packetDecodeResultIsFailure(-1),
-            IRFFVideoDecoderPolicy.packetDecodeResultIsFailure(-1)
-        )
-        XCTAssertEqual(
-            IRFFVideoDecoder.shouldFinishDecode(endOfFile: true, packetEmpty: true),
-            IRFFVideoDecoderPolicy.shouldFinishDecode(endOfFile: true, packetEmpty: true)
-        )
-        XCTAssertEqual(
-            IRFFVideoDecoder.decodeIdleSleepInterval(paused: true),
-            IRFFVideoDecoderPolicy.decodeIdleSleepInterval(paused: true)
-        )
-        XCTAssertEqual(
-            IRFFVideoDecoder.shouldCreateYUVFrame(hasFrame: true, hasLuma: true, hasChromaB: true, hasChromaR: true),
-            IRFFVideoDecoderPolicy.shouldCreateYUVFrame(hasFrame: true, hasLuma: true, hasChromaB: true, hasChromaR: true)
-        )
-        XCTAssertEqual(
-            IRFFVideoDecoder.packetQueueFallbackDuration(packetDuration: 0,
-                                                         packetSize: 1,
-                                                         timebase: 0.25,
-                                                         fps: 30),
-            IRFFVideoDecoderPolicy.packetQueueFallbackDuration(packetDuration: 0,
-                                                               packetSize: 1,
-                                                               timebase: 0.25,
-                                                               fps: 30)
-        )
-    }
 
     func testFrameDurationUsesTicksAndRepeatPictureWhenAvailable() {
         let duration = IRFFVideoDecoder.frameDuration(ticks: 4, repeatPicture: 2, timebase: 0.25, fps: 30)
@@ -64,6 +28,18 @@ final class IRFFVideoDecoderTests: XCTestCase {
         XCTAssertEqual(IRFFVideoDecoder.frameDuration(ticks: 4, repeatPicture: 0, timebase: -1, fps: 30), 0)
         XCTAssertEqual(IRFFVideoDecoder.frameDuration(ticks: 0, repeatPicture: 0, timebase: 0.25, fps: 0), 0)
         XCTAssertEqual(IRFFVideoDecoder.frameDuration(ticks: 0, repeatPicture: 0, timebase: 0.25, fps: .nan), 0)
+    }
+
+    func testFrameDurationRejectsDerivedOverflow() {
+        XCTAssertEqual(
+            IRFFVideoDecoder.frameDuration(
+                ticks: .max,
+                repeatPicture: .max,
+                timebase: .greatestFiniteMagnitude,
+                fps: 30
+            ),
+            0
+        )
     }
 
     func testDecodeBackpressureSleepIntervalUsesConfiguredThresholdAndPauseState() {
@@ -123,9 +99,14 @@ final class IRFFVideoDecoderTests: XCTestCase {
         )
     }
 
-    func testPacketDecodeResultPolicyTreatsRecoverableFFmpegResultsAsNonFailures() {
+    func testPacketDecodeResultTreatsRecoverableFFmpegResultsAsNonFailures() {
         XCTAssertFalse(IRFFVideoDecoder.packetDecodeResultIsFailure(0))
         XCTAssertFalse(IRFFVideoDecoder.packetDecodeResultIsFailure(AVERROR(EAGAIN)))
+        XCTAssertFalse(
+            IRFFVideoDecoder.packetDecodeResultIsFailure(
+                IR_AVERROR_EOF
+            )
+        )
         XCTAssertTrue(IRFFVideoDecoder.packetDecodeResultIsFailure(-1))
     }
 

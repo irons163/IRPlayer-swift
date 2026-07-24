@@ -397,23 +397,53 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func audioPacketError(fromPacketResult packetResult: Int) -> NSError? {
-        return IRFFDecoderAudioPolicy.audioPacketError(fromPacketResult: packetResult)
+        guard packetResult < 0 else { return nil }
+        guard let result = Int32(exactly: packetResult) else {
+            return NSError(
+                domain:
+                    "ffmpeg code outside Int32: \(packetResult)",
+                code:
+                    IRFFDecoderErrorCode
+                        .codecAudioSendPacket.rawValue,
+                userInfo: nil
+            )
+        }
+        return IRFFCheckErrorCode(
+            result,
+            errorCode:
+                IRFFDecoderErrorCode
+                    .codecAudioSendPacket.rawValue
+        )
     }
 
     static func bufferedDurationTransition(bufferedDuration: TimeInterval, endOfFile: Bool) -> BufferedDurationTransition {
-        return IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: bufferedDuration, endOfFile: endOfFile)
+        let normalizedDuration =
+            bufferedDuration.isFinite &&
+            bufferedDuration > 0.000001
+            ? bufferedDuration
+            : 0
+        return BufferedDurationTransition(
+            bufferedDuration: normalizedDuration,
+            shouldFinishPlayback:
+                normalizedDuration <= 0 && endOfFile
+        )
     }
 
     static func packetBufferBackpressureSleepInterval(audioSize: Int,
                                                       videoPacketSize: Int,
                                                       maxBufferSize: Int = 20 * 1024 * 1024,
                                                       paused: Bool) -> TimeInterval? {
-        return IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
-            audioSize: audioSize,
-            videoPacketSize: videoPacketSize,
-            maxBufferSize: maxBufferSize,
-            paused: paused
-        )
+        guard audioSize >= 0,
+              videoPacketSize >= 0,
+              maxBufferSize > 0 else {
+            return nil
+        }
+        if audioSize >= maxBufferSize ||
+            videoPacketSize >= maxBufferSize ||
+            videoPacketSize >= maxBufferSize - audioSize {
+            return paused ? 0.5 : 0.1
+        }
+        return nil
     }
 
     static func seekPreparation(requestedTime: TimeInterval,
@@ -455,27 +485,59 @@ protocol IRFFDecoderDelegate: AnyObject {
                                               frameDuration: TimeInterval,
                                               audioTimeClock: TimeInterval,
                                               fps: TimeInterval) -> TimeInterval? {
-        return IRFFDecoderDisplayPolicy.audioSyncedVideoSleepDuration(
-            framePosition: framePosition,
-            frameDuration: frameDuration,
-            audioTimeClock: audioTimeClock,
-            fps: fps
-        )
+        guard framePosition.isFinite,
+              audioTimeClock.isFinite else {
+            return nil
+        }
+
+        let sleepTime: TimeInterval
+        if framePosition >= audioTimeClock {
+            guard let frameInterval =
+                    frameInterval(forFPS: fps) else {
+                return nil
+            }
+            sleepTime = frameInterval / 2
+        } else {
+            guard frameDuration.isFinite,
+                  frameDuration > 0 else {
+                return nil
+            }
+            let frameEnd = framePosition + frameDuration
+            guard frameEnd.isFinite,
+                  frameEnd >= audioTimeClock else {
+                return nil
+            }
+            sleepTime = frameDuration / 2
+        }
+        guard sleepTime.isFinite, sleepTime > 0 else {
+            return nil
+        }
+        return max(0.015, sleepTime)
     }
 
     static func standaloneVideoSleepDuration(frameDuration: TimeInterval, fps: TimeInterval) -> TimeInterval? {
-        return IRFFDecoderDisplayPolicy.standaloneVideoSleepDuration(frameDuration: frameDuration, fps: fps)
+        if frameDuration.isFinite,
+           frameDuration >= 0.0001 {
+            return frameDuration
+        }
+        return frameInterval(forFPS: fps)
     }
 
     static func videoFrameOrderingPosition(_ position: TimeInterval?) -> TimeInterval? {
-        return IRFFDecoderDisplayPolicy.videoFrameOrderingPosition(position)
+        guard let position else { return 0 }
+        return position.isFinite ? position : nil
     }
 
     static func shouldAcceptVideoFrame(currentPosition: TimeInterval?, nextPosition: TimeInterval?) -> Bool {
-        return IRFFDecoderDisplayPolicy.shouldAcceptVideoFrame(
-            currentPosition: currentPosition,
-            nextPosition: nextPosition
-        )
+        guard let nextPosition =
+                videoFrameOrderingPosition(nextPosition) else {
+            return false
+        }
+        guard let currentPosition =
+                videoFrameOrderingPosition(currentPosition) else {
+            return true
+        }
+        return currentPosition <= nextPosition
     }
 
     static func shouldFetchAudioFrame(closed: Bool,
@@ -484,14 +546,12 @@ protocol IRFFDecoderDelegate: AnyObject {
                                       paused: Bool,
                                       playbackFinished: Bool,
                                       audioEnabled: Bool) -> Bool {
-        return IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
-            closed: closed,
-            seeking: seeking,
-            buffering: buffering,
-            paused: paused,
-            playbackFinished: playbackFinished,
-            audioEnabled: audioEnabled
-        )
+        return !closed &&
+            !seeking &&
+            !buffering &&
+            !paused &&
+            !playbackFinished &&
+            audioEnabled
     }
 
     static func resumeSeekTarget(playbackFinished: Bool) -> TimeInterval? {
@@ -513,31 +573,117 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func readPacketEOFTransition(readFrameResult: Int32?) -> ReadPacketEOFTransition? {
-        return IRFFDecoderPacketPolicy.readPacketEOFTransition(readFrameResult: readFrameResult)
+        guard (readFrameResult ?? -1) < 0 else {
+            return nil
+        }
+        return ReadPacketEOFTransition(
+            endOfFile: true,
+            videoEndOfFile: true,
+            shouldFinishReadLoop: true,
+            shouldNotifyDelegate: true
+        )
     }
 
     static func packetRoute(streamIndex: Int32, videoTrackIndex: Int?, audioTrackIndex: Int?) -> PacketRoute {
-        return IRFFDecoderPacketPolicy.packetRoute(
-            streamIndex: streamIndex,
-            videoTrackIndex: videoTrackIndex,
-            audioTrackIndex: audioTrackIndex
-        )
+        if let videoTrackIndex,
+           let videoStreamIndex =
+                Int32(exactly: videoTrackIndex),
+           streamIndex == videoStreamIndex {
+            return .video
+        }
+        if let audioTrackIndex,
+           let audioStreamIndex =
+                Int32(exactly: audioTrackIndex),
+           streamIndex == audioStreamIndex {
+            return .audio
+        }
+        return .ignored
     }
 
     static func displayIdleSleepInterval(seeking: Bool,
                                          buffering: Bool,
                                          paused: Bool,
                                          hasCurrentFrame: Bool) -> TimeInterval? {
-        return IRFFDecoderDisplayPolicy.displayIdleSleepInterval(
-            seeking: seeking,
-            buffering: buffering,
-            paused: paused,
-            hasCurrentFrame: hasCurrentFrame
-        )
+        if seeking || buffering {
+            return 0.01
+        }
+        if paused, hasCurrentFrame {
+            return 0.03
+        }
+        return nil
     }
 
     static func shouldFinishDisplay(endOfFile: Bool, videoDecoderEmpty: Bool) -> Bool {
-        return IRFFDecoderDisplayPolicy.shouldFinishDisplay(endOfFile: endOfFile, videoDecoderEmpty: videoDecoderEmpty)
+        return endOfFile && videoDecoderEmpty
+    }
+
+    static func bufferingStatusTransition(
+        buffering: Bool,
+        bufferedDuration: TimeInterval,
+        endOfFile: Bool,
+        isLiveStream: Bool,
+        minBufferedDuration: TimeInterval,
+        bufferingStartTime: TimeInterval,
+        currentTime: TimeInterval
+    ) -> BufferingStatusTransition {
+        let unchanged = BufferingStatusTransition(
+            buffering: buffering,
+            bufferingStartTime: bufferingStartTime
+        )
+        guard bufferedDuration.isFinite,
+              minBufferedDuration.isFinite,
+              bufferingStartTime.isFinite,
+              currentTime.isFinite,
+              bufferedDuration >= 0,
+              minBufferedDuration >= 0 else {
+            return unchanged
+        }
+
+        if buffering {
+            let elapsed =
+                currentTime - bufferingStartTime
+            guard elapsed.isFinite else {
+                return unchanged
+            }
+            let maxDuration: TimeInterval =
+                isLiveStream ? 1 : 2
+            let minimumThreshold: TimeInterval =
+                isLiveStream ? 0.2 : 0.3
+            let requiredDuration =
+                isLiveStream ? 0 : minBufferedDuration
+            if bufferedDuration >= requiredDuration ||
+                endOfFile ||
+                (
+                    elapsed > maxDuration &&
+                    bufferedDuration >= minimumThreshold
+                ) {
+                return BufferingStatusTransition(
+                    buffering: false,
+                    bufferingStartTime: 0
+                )
+            }
+        } else {
+            let entryThreshold: TimeInterval =
+                isLiveStream ? 0.05 : 0.2
+            if bufferedDuration <= entryThreshold,
+               !endOfFile {
+                return BufferingStatusTransition(
+                    buffering: true,
+                    bufferingStartTime: currentTime
+                )
+            }
+        }
+        return unchanged
+    }
+
+    private static func frameInterval(
+        forFPS fps: TimeInterval
+    ) -> TimeInterval? {
+        guard fps.isFinite, fps > 0 else { return nil }
+        let interval = 1 / fps
+        return interval.isFinite && interval > 0
+            ? interval
+            : nil
     }
 
     static func readLoopExitAction(closed: Bool, hasError: Bool) -> IRFFDecoderReadLoopState.Action? {
@@ -1021,7 +1167,7 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     private func checkBufferingStatus() {
         let runtimeSnapshot = runtimeState.snapshot
-        let transition = IRFFDecoderBufferingPolicy.statusTransition(
+        let transition = Self.bufferingStatusTransition(
             buffering: runtimeSnapshot.buffering,
             bufferedDuration: runtimeSnapshot.bufferedDuration,
             endOfFile: runtimeSnapshot.endOfFile,

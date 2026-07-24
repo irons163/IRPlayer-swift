@@ -25,7 +25,7 @@ enum IRFFDecoderDisplayLoopState {
                            buffering: Bool,
                            paused: Bool,
                            hasCurrentFrame: Bool) -> Action? {
-        guard let interval = IRFFDecoderDisplayPolicy.displayIdleSleepInterval(
+        guard let interval = IRFFDecoder.displayIdleSleepInterval(
             seeking: seeking,
             buffering: buffering,
             paused: paused,
@@ -40,7 +40,7 @@ enum IRFFDecoderDisplayLoopState {
     }
 
     static func finishAction(endOfFile: Bool, videoDecoderEmpty: Bool) -> Action? {
-        return IRFFDecoderDisplayPolicy.shouldFinishDisplay(
+        return IRFFDecoder.shouldFinishDisplay(
             endOfFile: endOfFile,
             videoDecoderEmpty: videoDecoderEmpty
         ) ? .finish : nil
@@ -52,7 +52,7 @@ enum IRFFDecoderDisplayLoopState {
                                 fps: TimeInterval) -> Action? {
         guard let currentFramePosition,
               let currentFrameDuration,
-              let interval = IRFFDecoderDisplayPolicy.audioSyncedVideoSleepDuration(
+              let interval = IRFFDecoder.audioSyncedVideoSleepDuration(
                   framePosition: currentFramePosition,
                   frameDuration: currentFrameDuration,
                   audioTimeClock: audioTimeClock,
@@ -65,14 +65,14 @@ enum IRFFDecoderDisplayLoopState {
 
     static func shouldAcceptFrame(currentPosition: TimeInterval?,
                                   nextPosition: TimeInterval?) -> Bool {
-        return IRFFDecoderDisplayPolicy.shouldAcceptVideoFrame(
+        return IRFFDecoder.shouldAcceptVideoFrame(
             currentPosition: currentPosition,
             nextPosition: nextPosition
         )
     }
 
     static func standaloneSleepAction(frameDuration: TimeInterval, fps: TimeInterval) -> Action? {
-        guard let interval = IRFFDecoderDisplayPolicy.standaloneVideoSleepDuration(
+        guard let interval = IRFFDecoder.standaloneVideoSleepDuration(
             frameDuration: frameDuration,
             fps: fps
         ) else {

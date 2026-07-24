@@ -462,7 +462,7 @@ func makeTinyVideoFile() throws -> URL {
     writer.finishWriting {
         semaphore.signal()
     }
-    guard semaphore.wait(timeout: .now() + 5) == .success else {
+    guard semaphore.wait(timeout: .now() + 30) == .success else {
         throw XCTSkip("Timed out while writing tiny video fixture.")
     }
     guard writer.status == .completed else {

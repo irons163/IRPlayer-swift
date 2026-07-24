@@ -44,6 +44,12 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFDecoderOperationTests.swift` — Decoder operation lifecycle
 - `IRFFDecoderSeekSemanticsTests.swift` — Decoder-owned seek bounds, resume,
   completion, and malformed arithmetic
+- `IRFFDecoderAudioSemanticsTests.swift` — Decoder-owned audio admission,
+  buffering, malformed clocks, and transitions
+- `IRFFDecoderDisplaySemanticsTests.swift` — Decoder-owned display timing,
+  ordering, idle, and overflow behavior
+- `IRFFDecoderPacketSemanticsTests.swift` — Decoder-owned backpressure, EOF,
+  and exact packet routing
 - `IRFFDecoderCollaboratorSessionTests.swift` — Atomic weak collaborator
   generations, terminal revoke, delivery ordering, and concurrency
 - `IRFFDictionaryTests.swift` — Owned options and borrowed dictionary values

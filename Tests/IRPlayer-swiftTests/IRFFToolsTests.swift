@@ -100,14 +100,12 @@ final class IRFFToolsTests: XCTestCase {
         XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
     }
 
-    func testCheckErrorWrappersRemainSourceCompatible() throws {
+    func testCheckErrorConvenienceUsesDefaultCode() throws {
         XCTAssertNil(IRFFCheckError(0))
-        XCTAssertNil(IRFFErrorPolicy.error(result: 0, errorCode: -1))
 
-        let wrapperError = try XCTUnwrap(IRFFCheckErrorCode(-1, errorCode: 42))
-        let policyError = try XCTUnwrap(IRFFErrorPolicy.error(result: -1, errorCode: 42))
-        XCTAssertEqual(wrapperError.code, policyError.code)
-        XCTAssertEqual(wrapperError.domain, policyError.domain)
+        let error = try XCTUnwrap(IRFFCheckError(-1))
+        XCTAssertEqual(error.code, -1)
+        XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
     }
 
     func testFinitePositiveValueUsesFallbackForInvalidValues() {
@@ -125,24 +123,26 @@ final class IRFFToolsTests: XCTestCase {
         XCTAssertEqual(IRFFFinitePositiveValueOrDefault(.nan, defaultValue: -1), 1)
     }
 
-    func testStreamTimingWrappersRemainSourceCompatible() {
+    func testStreamTimingUsesValidatedRationals() {
         var stream = AVStream()
         stream.time_base = AVRational(num: 1, den: 1_000)
         stream.avg_frame_rate = AVRational(num: 30, den: 1)
 
         withUnsafePointer(to: &stream) { streamPointer in
             XCTAssertEqual(
-                IRFFFinitePositiveValueOrDefault(.nan, defaultValue: 1),
-                IRFFStreamTimingPolicy.finitePositiveValueOrDefault(.nan, defaultValue: 1)
-            )
-            XCTAssertEqual(
-                IRFFStreamGetTimebase(streamPointer, defaultTimebase: 1),
-                IRFFStreamTimingPolicy.timebase(streamPointer, defaultTimebase: 1),
+                IRFFStreamGetTimebase(
+                    streamPointer,
+                    defaultTimebase: 1
+                ),
+                0.001,
                 accuracy: 0.0001
             )
             XCTAssertEqual(
-                IRFFStreamGetFPS(streamPointer, timebase: 0.001),
-                IRFFStreamTimingPolicy.fps(streamPointer, timebase: 0.001),
+                IRFFStreamGetFPS(
+                    streamPointer,
+                    timebase: 0.001
+                ),
+                30,
                 accuracy: 0.0001
             )
         }
@@ -195,5 +195,21 @@ final class IRFFToolsTests: XCTestCase {
 
         XCTAssertEqual(fps, 1)
         XCTAssertTrue(fps.isFinite)
+    }
+
+    func testStreamFPSRejectsDerivedReciprocalOverflow() {
+        var stream = AVStream()
+        stream.avg_frame_rate = AVRational(num: 0, den: 0)
+        stream.r_frame_rate = AVRational(num: 0, den: 0)
+
+        let fps = withUnsafePointer(to: &stream) {
+            streamPointer in
+            IRFFStreamGetFPS(
+                streamPointer,
+                timebase: .leastNonzeroMagnitude
+            )
+        }
+
+        XCTAssertEqual(fps, 1)
     }
 }

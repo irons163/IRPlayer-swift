@@ -1,45 +1,66 @@
 import XCTest
 @testable import IRPlayer_swift
 
-final class IRFFDecoderAudioPolicyTests: XCTestCase {
+final class IRFFDecoderAudioSemanticsTests: XCTestCase {
 
     func testAudioPacketErrorUsesPacketResult() throws {
-        XCTAssertNil(IRFFDecoderAudioPolicy.audioPacketError(fromPacketResult: 0))
+        XCTAssertNil(IRFFDecoder.audioPacketError(fromPacketResult: 0))
 
-        let error = try XCTUnwrap(IRFFDecoderAudioPolicy.audioPacketError(fromPacketResult: -1))
+        let error = try XCTUnwrap(
+            IRFFDecoder.audioPacketError(fromPacketResult: -1)
+        )
         XCTAssertEqual(error.code, IRFFDecoderErrorCode.codecAudioSendPacket.rawValue)
         XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
     }
 
+    func testAudioPacketErrorRejectsUnrepresentableResultWithoutTrap() throws {
+        XCTAssertNil(
+            IRFFDecoder.audioPacketError(
+                fromPacketResult: Int.max
+            )
+        )
+        let error = try XCTUnwrap(
+            IRFFDecoder.audioPacketError(
+                fromPacketResult: Int.min
+            )
+        )
+        XCTAssertEqual(
+            error.code,
+            IRFFDecoderErrorCode
+                .codecAudioSendPacket.rawValue
+        )
+        XCTAssertTrue(error.domain.contains("outside Int32"))
+    }
+
     func testBufferedDurationTransitionNormalizesTinyDurationsAndMarksFinishedAtEndOfFile() {
         XCTAssertEqual(
-            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: 0.0000001, endOfFile: false),
+            IRFFDecoder.bufferedDurationTransition(bufferedDuration: 0.0000001, endOfFile: false),
             IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: false)
         )
         XCTAssertEqual(
-            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: 0, endOfFile: true),
+            IRFFDecoder.bufferedDurationTransition(bufferedDuration: 0, endOfFile: true),
             IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: true)
         )
         XCTAssertEqual(
-            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: 0.5, endOfFile: true),
+            IRFFDecoder.bufferedDurationTransition(bufferedDuration: 0.5, endOfFile: true),
             IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0.5, shouldFinishPlayback: false)
         )
     }
 
     func testBufferedDurationTransitionNormalizesNonFiniteDurations() {
         XCTAssertEqual(
-            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: .nan, endOfFile: true),
+            IRFFDecoder.bufferedDurationTransition(bufferedDuration: .nan, endOfFile: true),
             IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: true)
         )
         XCTAssertEqual(
-            IRFFDecoderAudioPolicy.bufferedDurationTransition(bufferedDuration: .infinity, endOfFile: false),
+            IRFFDecoder.bufferedDurationTransition(bufferedDuration: .infinity, endOfFile: false),
             IRFFDecoder.BufferedDurationTransition(bufferedDuration: 0, shouldFinishPlayback: false)
         )
     }
 
     func testShouldFetchAudioFrameRequiresActiveAudioPlaybackState() {
         XCTAssertTrue(
-            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
+            IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: false,
@@ -49,7 +70,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
+            IRFFDecoder.shouldFetchAudioFrame(
                 closed: true,
                 seeking: false,
                 buffering: false,
@@ -59,7 +80,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
+            IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
                 seeking: true,
                 buffering: false,
@@ -69,7 +90,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
+            IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: true,
@@ -79,7 +100,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
+            IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: false,
@@ -89,7 +110,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
+            IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: false,
@@ -99,7 +120,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             )
         )
         XCTAssertFalse(
-            IRFFDecoderAudioPolicy.shouldFetchAudioFrame(
+            IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
                 seeking: false,
                 buffering: false,
@@ -112,7 +133,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
 
     func testBufferingStatusTransitionEntersRegularBufferingAtLowDuration() {
         XCTAssertEqual(
-            IRFFDecoderBufferingPolicy.statusTransition(
+            IRFFDecoder.bufferingStatusTransition(
                 buffering: false,
                 bufferedDuration: 0.2,
                 endOfFile: false,
@@ -127,7 +148,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
 
     func testBufferingStatusTransitionEntersLiveBufferingAtCriticalDuration() {
         XCTAssertEqual(
-            IRFFDecoderBufferingPolicy.statusTransition(
+            IRFFDecoder.bufferingStatusTransition(
                 buffering: false,
                 bufferedDuration: 0.05,
                 endOfFile: false,
@@ -139,7 +160,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
             IRFFDecoder.BufferingStatusTransition(buffering: true, bufferingStartTime: 42)
         )
         XCTAssertEqual(
-            IRFFDecoderBufferingPolicy.statusTransition(
+            IRFFDecoder.bufferingStatusTransition(
                 buffering: false,
                 bufferedDuration: 0.1,
                 endOfFile: false,
@@ -154,7 +175,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
 
     func testBufferingStatusTransitionExitsWhenBufferedDurationMeetsThreshold() {
         XCTAssertEqual(
-            IRFFDecoderBufferingPolicy.statusTransition(
+            IRFFDecoder.bufferingStatusTransition(
                 buffering: true,
                 bufferedDuration: 1.5,
                 endOfFile: false,
@@ -169,7 +190,7 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
 
     func testBufferingStatusTransitionExitsAfterRegularTimeout() {
         XCTAssertEqual(
-            IRFFDecoderBufferingPolicy.statusTransition(
+            IRFFDecoder.bufferingStatusTransition(
                 buffering: true,
                 bufferedDuration: 0.3,
                 endOfFile: false,
@@ -179,6 +200,68 @@ final class IRFFDecoderAudioPolicyTests: XCTestCase {
                 currentTime: 12.1
             ),
             IRFFDecoder.BufferingStatusTransition(buffering: false, bufferingStartTime: 0)
+        )
+    }
+
+    func testBufferingStatusTransitionRejectsMalformedValues() {
+        let cases: [
+            (
+                buffered: TimeInterval,
+                minimum: TimeInterval,
+                start: TimeInterval,
+                now: TimeInterval
+            )
+        ] = [
+            (.nan, 1.5, 10, 12),
+            (-1, 1.5, 10, 12),
+            (0.3, .infinity, 10, 12),
+            (0.3, -1, 10, 12),
+            (0.3, 1.5, .nan, 12),
+            (0.3, 1.5, 10, .infinity)
+        ]
+
+        for item in cases {
+            let transition =
+                IRFFDecoder.bufferingStatusTransition(
+                    buffering: true,
+                    bufferedDuration: item.buffered,
+                    endOfFile: false,
+                    isLiveStream: false,
+                    minBufferedDuration: item.minimum,
+                    bufferingStartTime: item.start,
+                    currentTime: item.now
+                )
+            XCTAssertTrue(transition.buffering)
+            if item.start.isNaN {
+                XCTAssertTrue(
+                    transition.bufferingStartTime.isNaN
+                )
+            } else {
+                XCTAssertEqual(
+                    transition.bufferingStartTime,
+                    item.start
+                )
+            }
+        }
+    }
+
+    func testBufferingStatusTransitionRejectsElapsedOverflow() {
+        XCTAssertEqual(
+            IRFFDecoder.bufferingStatusTransition(
+                buffering: true,
+                bufferedDuration: 0.3,
+                endOfFile: false,
+                isLiveStream: false,
+                minBufferedDuration: 1.5,
+                bufferingStartTime:
+                    -.greatestFiniteMagnitude,
+                currentTime: .greatestFiniteMagnitude
+            ),
+            .init(
+                buffering: true,
+                bufferingStartTime:
+                    -.greatestFiniteMagnitude
+            )
         )
     }
 }

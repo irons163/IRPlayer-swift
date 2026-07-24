@@ -171,55 +171,76 @@ class IRFFVideoDecoder {
     }
 
     static func frameDuration(ticks: Int64, repeatPicture: Int32, timebase: TimeInterval, fps: TimeInterval) -> TimeInterval {
-        return IRFFVideoDecoderPolicy.frameDuration(
-            ticks: ticks,
-            repeatPicture: repeatPicture,
-            timebase: timebase,
-            fps: fps
-        )
+        if ticks != 0 {
+            guard timebase.isFinite, timebase > 0 else {
+                return 0
+            }
+            let baseDuration =
+                TimeInterval(ticks) * timebase
+            let repeatDuration =
+                TimeInterval(max(0, repeatPicture)) *
+                timebase *
+                0.5
+            let duration = baseDuration + repeatDuration
+            return baseDuration.isFinite &&
+                repeatDuration.isFinite &&
+                duration.isFinite &&
+                duration > 0
+                ? duration
+                : 0
+        }
+
+        guard fps.isFinite, fps > 0 else { return 0 }
+        let duration = 1 / fps
+        return duration.isFinite && duration > 0
+            ? duration
+            : 0
     }
 
     static func decodeBackpressureSleepInterval(frameDuration: TimeInterval,
                                                 maxDecodeDuration: TimeInterval,
                                                 paused: Bool) -> TimeInterval? {
-        return IRFFVideoDecoderPolicy.decodeBackpressureSleepInterval(
-            frameDuration: frameDuration,
-            maxDecodeDuration: maxDecodeDuration,
-            paused: paused
-        )
+        guard frameDuration.isFinite,
+              maxDecodeDuration.isFinite,
+              maxDecodeDuration > 0,
+              frameDuration >= maxDecodeDuration else {
+            return nil
+        }
+        return paused ? 0.5 : 0.1
     }
 
     static func packetDecodeResultIsFailure(_ result: Int32) -> Bool {
-        return IRFFVideoDecoderPolicy.packetDecodeResultIsFailure(result)
+        return IRFFDecodeResult.isFailure(result)
     }
 
     static func shouldFinishDecode(endOfFile: Bool, packetEmpty: Bool) -> Bool {
-        return IRFFVideoDecoderPolicy.shouldFinishDecode(endOfFile: endOfFile, packetEmpty: packetEmpty)
+        return endOfFile && packetEmpty
     }
 
     static func decodeIdleSleepInterval(paused: Bool) -> TimeInterval? {
-        return IRFFVideoDecoderPolicy.decodeIdleSleepInterval(paused: paused)
+        return paused ? 0.01 : nil
     }
 
     static func shouldCreateYUVFrame(hasFrame: Bool,
                                      hasLuma: Bool,
                                      hasChromaB: Bool,
                                      hasChromaR: Bool) -> Bool {
-        return IRFFVideoDecoderPolicy.shouldCreateYUVFrame(
-            hasFrame: hasFrame,
-            hasLuma: hasLuma,
-            hasChromaB: hasChromaB,
-            hasChromaR: hasChromaR
-        )
+        return hasFrame &&
+            hasLuma &&
+            hasChromaB &&
+            hasChromaR
     }
 
     static func packetQueueFallbackDuration(packetDuration: Int64,
                                             packetSize: Int32,
                                             timebase: TimeInterval,
                                             fps: TimeInterval) -> TimeInterval {
-        return IRFFVideoDecoderPolicy.packetQueueFallbackDuration(
-            packetDuration: packetDuration,
-            packetSize: packetSize,
+        guard packetDuration <= 0, packetSize > 0 else {
+            return 0
+        }
+        return frameDuration(
+            ticks: 0,
+            repeatPicture: 0,
             timebase: timebase,
             fps: fps
         )

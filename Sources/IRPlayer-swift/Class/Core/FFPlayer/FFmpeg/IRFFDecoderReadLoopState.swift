@@ -35,7 +35,8 @@ enum IRFFDecoderReadLoopState {
                                    videoPacketSize: Int,
                                    maxBufferSize: Int = 20 * 1024 * 1024,
                                    paused: Bool) -> Action? {
-        guard let interval = IRFFDecoderPacketPolicy.packetBufferBackpressureSleepInterval(
+        guard let interval =
+                IRFFDecoder.packetBufferBackpressureSleepInterval(
             audioSize: audioSize,
             videoPacketSize: videoPacketSize,
             maxBufferSize: maxBufferSize,
@@ -47,7 +48,8 @@ enum IRFFDecoderReadLoopState {
     }
 
     static func eofAction(readFrameResult: Int32?) -> Action? {
-        guard let transition = IRFFDecoderPacketPolicy.readPacketEOFTransition(
+        guard let transition =
+                IRFFDecoder.readPacketEOFTransition(
             readFrameResult: readFrameResult
         ) else {
             return nil
@@ -58,7 +60,7 @@ enum IRFFDecoderReadLoopState {
     static func packetAction(streamIndex: Int32,
                              videoTrackIndex: Int?,
                              audioTrackIndex: Int?) -> Action {
-        let route = IRFFDecoderPacketPolicy.packetRoute(
+        let route = IRFFDecoder.packetRoute(
             streamIndex: streamIndex,
             videoTrackIndex: videoTrackIndex,
             audioTrackIndex: audioTrackIndex

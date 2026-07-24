@@ -7,6 +7,7 @@
 
 import Foundation
 import IRFFMpeg
+import IRPlayerObjc
 
 enum IRFFDecoderErrorCode: Int {
     case formatCreate = 0
@@ -67,6 +68,14 @@ enum IRFFLogFormatting {
     }
 }
 
+enum IRFFDecodeResult {
+    static func isFailure(_ result: Int32) -> Bool {
+        guard result < 0 else { return false }
+        return result != AVERROR(EAGAIN) &&
+            result != IR_AVERROR_EOF
+    }
+}
+
 func IRFFLog(
     context: UnsafeMutableRawPointer?,
     level: Int32,
@@ -91,17 +100,59 @@ func IRFFCheckError(_ result: Int32) -> NSError? {
 }
 
 func IRFFCheckErrorCode(_ result: Int32, errorCode: Int) -> NSError? {
-    return IRFFErrorPolicy.error(result: result, errorCode: errorCode)
+    guard result < 0 else { return nil }
+
+    var errorBuffer = [CChar](repeating: 0, count: 256)
+    av_strerror(result, &errorBuffer, errorBuffer.count)
+
+    let errorString = String(cString: errorBuffer)
+    let errorDescription =
+        "ffmpeg code: \(result), ffmpeg msg: \(errorString)"
+    return NSError(
+        domain: errorDescription,
+        code: errorCode,
+        userInfo: nil
+    )
 }
 
 func IRFFFinitePositiveValueOrDefault(_ value: Double, defaultValue: Double) -> Double {
-    return IRFFStreamTimingPolicy.finitePositiveValueOrDefault(value, defaultValue: defaultValue)
+    guard value.isFinite, value > 0 else {
+        return defaultValue.isFinite && defaultValue > 0
+            ? defaultValue
+            : 1
+    }
+    return value
 }
 
 func IRFFStreamGetTimebase(_ stream: UnsafePointer<AVStream>, defaultTimebase: Double) -> Double {
-    return IRFFStreamTimingPolicy.timebase(stream, defaultTimebase: defaultTimebase)
+    let timebase: Double
+    if stream.pointee.time_base.den > 0,
+       stream.pointee.time_base.num > 0 {
+        timebase = av_q2d(stream.pointee.time_base)
+    } else {
+        timebase = defaultTimebase
+    }
+    return IRFFFinitePositiveValueOrDefault(
+        timebase,
+        defaultValue: 1
+    )
 }
 
 func IRFFStreamGetFPS(_ stream: UnsafePointer<AVStream>, timebase: Double) -> Double {
-    return IRFFStreamTimingPolicy.fps(stream, timebase: timebase)
+    let fps: Double
+    if stream.pointee.avg_frame_rate.den > 0,
+       stream.pointee.avg_frame_rate.num > 0 {
+        fps = av_q2d(stream.pointee.avg_frame_rate)
+    } else if stream.pointee.r_frame_rate.den > 0,
+              stream.pointee.r_frame_rate.num > 0 {
+        fps = av_q2d(stream.pointee.r_frame_rate)
+    } else if timebase.isFinite, timebase > 0 {
+        fps = 1 / timebase
+    } else {
+        fps = 1
+    }
+    return IRFFFinitePositiveValueOrDefault(
+        fps,
+        defaultValue: 1
+    )
 }

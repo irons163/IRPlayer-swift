@@ -65,6 +65,14 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 - Keep seek range validation, resume targeting, and seek-completion transitions
   on `IRFFDecoder`; read-loop states may consume those owner semantics but must
   not recreate them.
+- Keep audio, buffering, packet-routing, and display timing transitions on
+  `IRFFDecoder`; read/display loop states translate those decisions into
+  actions but do not own a parallel policy layer.
+- Keep sample/resample arithmetic on `IRFFAudioDecoder` and frame/decode timing
+  on `IRFFVideoDecoder`. Both use `IRFFDecodeResult` for shared FFmpeg
+  send/receive result classification.
+- Keep error translation and stream rational fallback semantics directly in
+  `IRFFTools`; all numeric narrowing from Swift values must be exact.
 - Delegate, custom source, video output, and audio output belong to one
   `IRFFDecoderCollaboratorSession` generation. Install a complete generation
   before opening, and use one terminal revoke before resource teardown.
