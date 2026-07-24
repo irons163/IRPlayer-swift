@@ -40,11 +40,12 @@ class IRFFVideoDecoder {
         let maxDecodeDuration: TimeInterval
     }
 
-    private var codecContext: UnsafeMutablePointer<AVCodecContext>
-    private var tempFrame: UnsafeMutablePointer<AVFrame>?
-    private var packetQueue: IRFFPacketQueue
-    private var frameQueue: IRFFFrameQueue
-    private var framePool: IRFFFramePool?
+    private let codecContext:
+        UnsafeMutablePointer<AVCodecContext>
+    private let decodeFrame: IRFFDecodeFrame?
+    private let packetQueue: IRFFPacketQueue
+    private let frameQueue: IRFFFrameQueue
+    private let framePool: IRFFFramePool
     private lazy var videoToolBox: IRFFVideoToolBox = {
         return IRFFVideoToolBox(codecContext: codecContext)
     }()
@@ -130,9 +131,10 @@ class IRFFVideoDecoder {
         self.timebase = timebase
         self.fps = fps
         self.delegate = delegate
-        self.tempFrame = av_frame_alloc()
+        self.decodeFrame = IRFFDecodeFrame()
         self.packetQueue = IRFFPacketQueue(timebase: timebase)
         self.frameQueue = IRFFFrameQueue()
+        self.framePool = IRFFFramePool.videoPool()
     }
 
     func packetSize() -> Int {
@@ -243,7 +245,7 @@ class IRFFVideoDecoder {
     func flush() {
         packetQueue.flush()
         frameQueue.flush()
-        framePool?.flush()
+        framePool.flush()
         packetQueue.putFlush()
     }
 
@@ -251,7 +253,7 @@ class IRFFVideoDecoder {
         canceled = true
         frameQueue.destroy()
         packetQueue.destroy()
-        framePool?.flush()
+        framePool.flush()
     }
 
     func decodeFrameThread() {
@@ -363,7 +365,26 @@ class IRFFVideoDecoder {
             return nil
         }
         while result >= 0 {
-            result = avcodec_receive_frame(codecContext, tempFrame)
+            guard let decodeFrame else { return nil }
+            var receivedFrame:
+                IRFFAVYUVVideoFrame?
+            var receiveResult: Int32 = -1
+            let didBorrow = decodeFrame.withFrame {
+                frame in
+                receiveResult = avcodec_receive_frame(
+                    codecContext,
+                    frame
+                )
+                if receiveResult >= 0 {
+                    receivedFrame =
+                        videoFrame(
+                            fromDecodedFrame: frame
+                        )
+                }
+                return true
+            }
+            guard didBorrow else { return nil }
+            result = receiveResult
             if result < 0 {
                 if Self.packetDecodeResultIsFailure(result) {
                     handleDecodingError(IRFFCheckError(result))
@@ -371,22 +392,28 @@ class IRFFVideoDecoder {
                 }
                 break
             }
-            return videoFrameFromTempFrame()
+            return receivedFrame
         }
         return nil
     }
 
-    private func videoFrameFromTempFrame() -> IRFFAVYUVVideoFrame? {
+    private func videoFrame(
+        fromDecodedFrame frame:
+            UnsafeMutablePointer<AVFrame>
+    ) -> IRFFAVYUVVideoFrame? {
         guard Self.shouldCreateYUVFrame(
-            hasFrame: tempFrame != nil,
-            hasLuma: tempFrame?.pointee.data.0 != nil,
-            hasChromaB: tempFrame?.pointee.data.1 != nil,
-            hasChromaR: tempFrame?.pointee.data.2 != nil
-        ), let frame = tempFrame else {
+            hasFrame: true,
+            hasLuma: frame.pointee.data.0 != nil,
+            hasChromaB: frame.pointee.data.1 != nil,
+            hasChromaR: frame.pointee.data.2 != nil
+        ) else {
             return nil
         }
 
-        let videoFrame = framePool?.getUnuseFrame() as? IRFFAVYUVVideoFrame ?? IRFFAVYUVVideoFrame()
+        let videoFrame =
+            framePool.getUnuseFrame()
+                as? IRFFAVYUVVideoFrame
+            ?? IRFFAVYUVVideoFrame()
         videoFrame.setFrameData(frame, width: Int(codecContext.pointee.width), height: Int(codecContext.pointee.height))
         videoFrame.position = IRFFFrameTime.position(timestamp: frame.pointee.best_effort_timestamp, timebase: timebase)
 
@@ -437,11 +464,6 @@ class IRFFVideoDecoder {
         )
     }
 
-    deinit {
-        if let frame = tempFrame {
-            av_free(frame)
-        }
-    }
 }
 
 extension IRFFVideoDecoder: IRFFDecoderVideoOutput {

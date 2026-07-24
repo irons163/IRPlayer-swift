@@ -12,7 +12,9 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 | `IRFFFormatContextSemantics.swift` | Pure timing, track, and selection semantics      |
 | `IRFFDecoder.swift`          | Decoder orchestration (coordinates audio + video)    |
 | `IRFFAudioDecoder.swift`     | Audio packet → audio frame decoding                  |
+| `IRFFAudioResampleSession.swift` | Owned resampler and managed sample scratch       |
 | `IRFFVideoDecoder.swift`     | Video packet → video frame decoding                  |
+| `IRFFDecodeFrame.swift`      | Shared owned AVFrame scratch resource                |
 | `IRFFVideoToolBox.swift`     | Hardware-accelerated decoding via VideoToolBox        |
 | `IRFFVideoToolBoxSession.swift` | VideoToolbox generations, leases, and callbacks    |
 | `IRFFVideoToolBoxH264.swift` | AVCC, NAL, and Core Media payload construction        |
@@ -50,6 +52,11 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 - Each successful format read publishes one `IRFFPacket` owner. Audio consumes
   and closes it synchronously; video transfers it through the typed packet
   queue and closes it after scoped decode.
+- Audio and video decoder scratch frames must use `IRFFDecodeFrame`; pair
+  `av_frame_alloc` only with `av_frame_free` inside that owner.
+- Audio resampling must use `IRFFAudioResampleSession`. Keep `SwrContext`,
+  `extended_data`, and managed Int16 scratch access inside its scoped
+  conversion operation.
 - `IRFFDecoder` coordinates the decode loop across audio and video.
 - `IRFFVideoToolBox` wraps Apple's VideoToolBox for hardware H.264 decoding.
 - Keep VideoToolbox setup, decode, reset, and close serialized through the
@@ -70,6 +77,7 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 - `IRFFVideoInput` allows bypassing the decode pipeline entirely for custom frame sources.
 - Tests: `IRFFFormatContextTests.swift`,
   `IRFFFormatContextResourcesTests.swift`, `IRFFAudioDecoderTests.swift`,
+  `IRFFAudioResampleSessionTests.swift`, `IRFFDecodeFrameTests.swift`,
   `IRFFVideoDecoderTests.swift`, `IRFFVideoToolBoxTests.swift`,
   `IRFFVideoToolBoxSessionTests.swift`, `IRFFToolsTests.swift`,
   `IRFFDictionaryTests.swift`, `IRFFTrackTests.swift`,

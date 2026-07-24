@@ -111,21 +111,6 @@ enum IRFFAudioDecoderPolicy {
         return Int32(capacity)
     }
 
-    static func inputChannelCapacity(from codecContext: UnsafeMutablePointer<AVCodecContext>?) -> Int? {
-        guard let channels = codecContext?.pointee.ch_layout.nb_channels, channels > 0 else { return nil }
-        return Int(channels)
-    }
-
-    static func audioDataBuffer(fromSwrBuffer swrBuffer: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-        guard let swrBuffer else { return nil }
-        return swrBuffer
-    }
-
-    static func audioDataBuffer(fromDecodedData decodedData: UnsafeMutablePointer<UInt8>?) -> UnsafeMutableRawPointer? {
-        guard let decodedData else { return nil }
-        return UnsafeMutableRawPointer(decodedData)
-    }
-
     static func packetDecodeResultIsFailure(_ result: Int32) -> Bool {
         guard result < 0 else { return false }
         return result != AVERROR(EAGAIN) && result != IR_AVERROR_EOF

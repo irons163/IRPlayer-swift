@@ -18,17 +18,16 @@ protocol IRFFAudioDecoderDelegate: AnyObject {
 class IRFFAudioDecoder {
 
     weak var delegate: IRFFAudioDecoderDelegate?
-    private var codecContext: UnsafeMutablePointer<AVCodecContext>?
-    private var tempFrame: UnsafeMutablePointer<AVFrame>?
-    private var timebase: TimeInterval
+    private let codecContext:
+        UnsafeMutablePointer<AVCodecContext>
+    private let decodeFrame: IRFFDecodeFrame?
+    private let timebase: TimeInterval
     private var samplingRate: Float64 = 0
     private var channelCount: UInt32 = 0
-    private var audioSwrContext: OpaquePointer?
-    private var audioSwrBuffer: UnsafeMutableRawPointer?
-    private var audioSwrBufferSize: Int = 0
+    private var resampleSession: IRFFAudioResampleSession?
 
-    private var frameQueue: IRFFFrameQueue
-    private var framePool: IRFFFramePool
+    private let frameQueue: IRFFFrameQueue
+    private let framePool: IRFFFramePool
 
     static func decoder(codecContext: UnsafeMutablePointer<AVCodecContext>, timebase: TimeInterval, delegate: IRFFAudioDecoderDelegate) -> IRFFAudioDecoder {
         return IRFFAudioDecoder(codecContext: codecContext, timebase: timebase, delegate: delegate)
@@ -36,51 +35,45 @@ class IRFFAudioDecoder {
 
     private init(codecContext: UnsafeMutablePointer<AVCodecContext>, timebase: TimeInterval, delegate: IRFFAudioDecoderDelegate) {
         self.codecContext = codecContext
-        self.tempFrame = av_frame_alloc()
+        self.decodeFrame = IRFFDecodeFrame()
         self.timebase = timebase
         self.delegate = delegate
         self.frameQueue = IRFFFrameQueue()
         self.framePool = IRFFFramePool.audioPool()
-        setup()
+        setupResampler()
     }
 
-    private func setup() {
-        setupSwsContext()
-    }
-
-    private func setupSwsContext() {
+    private func setupResampler() {
         reloadAudioOutputInfo()
+        updateResampler()
+    }
+
+    private func updateResampler() {
         guard let outputInfo = Self.swrOutputInfo(samplingRate: samplingRate, channelCount: channelCount),
               let inputInfo = Self.swrInputInfo(from: codecContext),
-              let codecContext else { return }
-
-        var outputLayout = AVChannelLayout()
-        av_channel_layout_default(&outputLayout, outputInfo.channelCount)
-        defer { av_channel_layout_uninit(&outputLayout) }
-
-        var inputLayout = codecContext.pointee.ch_layout
-        var context: OpaquePointer?
-        let allocationResult = swr_alloc_set_opts2(
-            &context,
-            &outputLayout,
-            AV_SAMPLE_FMT_S16,
-            outputInfo.samplingRate,
-            &inputLayout,
-            inputInfo.sampleFormat,
-            inputInfo.samplingRate,
-            0,
-            nil
-        )
-        guard allocationResult >= 0, let context else { return }
-        audioSwrContext = context
-
-        let result = swr_init(audioSwrContext)
-        let error: Error? = IRFFCheckError(result)
-        if error != nil || audioSwrContext == nil {
-            if audioSwrContext != nil {
-                swr_free(&audioSwrContext)
-            }
+              codecContext.pointee.ch_layout.nb_channels > 0 else {
+            resampleSession = nil
+            return
         }
+
+        let setup = IRFFAudioResampleSetup(
+            outputSamplingRate:
+                outputInfo.samplingRate,
+            outputChannelCount:
+                outputInfo.channelCount,
+            inputSamplingRate:
+                inputInfo.samplingRate,
+            inputChannelLayout:
+                codecContext.pointee.ch_layout,
+            inputSampleFormat:
+                inputInfo.sampleFormat
+        )
+        guard resampleSession?.matches(setup)
+                != true else {
+            return
+        }
+        resampleSession =
+            IRFFAudioResampleSession(setup: setup)
     }
 
     func size() -> Int {
@@ -136,18 +129,6 @@ class IRFFAudioDecoder {
         return IRFFAudioDecoderPolicy.resampleFrameCapacity(inputFrameCount: inputFrameCount, ratio: ratio)
     }
 
-    static func inputChannelCapacity(from codecContext: UnsafeMutablePointer<AVCodecContext>?) -> Int? {
-        return IRFFAudioDecoderPolicy.inputChannelCapacity(from: codecContext)
-    }
-
-    static func audioDataBuffer(fromSwrBuffer swrBuffer: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-        return IRFFAudioDecoderPolicy.audioDataBuffer(fromSwrBuffer: swrBuffer)
-    }
-
-    static func audioDataBuffer(fromDecodedData decodedData: UnsafeMutablePointer<UInt8>?) -> UnsafeMutableRawPointer? {
-        return IRFFAudioDecoderPolicy.audioDataBuffer(fromDecodedData: decodedData)
-    }
-
     static func packetDecodeResultIsFailure(_ result: Int32) -> Bool {
         return IRFFAudioDecoderPolicy.packetDecodeResultIsFailure(result)
     }
@@ -171,9 +152,7 @@ class IRFFAudioDecoder {
     func flush() {
         frameQueue.flush()
         framePool.flush()
-        if let codecContext = codecContext {
-            avcodec_flush_buffers(codecContext)
-        }
+        avcodec_flush_buffers(codecContext)
     }
 
     func destroy() {
@@ -220,103 +199,183 @@ class IRFFAudioDecoder {
         }
 
         while result >= 0 {
-            result = avcodec_receive_frame(codecContext, tempFrame)
+            guard let decodeFrame else { return -1 }
+            var receivedFrame:
+                IRFFAudioFrame?
+            var receiveResult: Int32 = -1
+            let didBorrow = decodeFrame.withFrame {
+                frame in
+                receiveResult = avcodec_receive_frame(
+                    codecContext,
+                    frame
+                )
+                if receiveResult >= 0 {
+                    receivedFrame = autoreleasepool {
+                        decode(frame: frame)
+                    }
+                }
+                return true
+            }
+            guard didBorrow else { return -1 }
+            result = receiveResult
             if result < 0 {
                 if Self.packetDecodeResultIsFailure(result) {
                     return -1
                 }
                 break
             }
-            autoreleasepool {
-                if let frame = decode() {
-                    frameQueue.putFrame(frame)
-                }
+            if let receivedFrame {
+                frameQueue.putFrame(receivedFrame)
             }
         }
         return 0
     }
 
-    private func decode() -> IRFFAudioFrame? {
-        guard Self.shouldDecodeFrame(hasFrame: tempFrame != nil, hasPrimaryData: tempFrame?.pointee.data.0 != nil),
-              let tempFrame else {
+    private func decode(
+        frame decodedFrame:
+            UnsafeMutablePointer<AVFrame>
+    ) -> IRFFAudioFrame? {
+        guard Self.shouldDecodeFrame(
+            hasFrame: true,
+            hasPrimaryData:
+                decodedFrame.pointee.data.0 != nil
+        ) else {
             return nil
         }
 
         reloadAudioOutputInfo()
+        updateResampler()
+        guard let audioFrame =
+                framePool.getUnuseFrame()
+                    as? IRFFAudioFrame else {
+            return nil
+        }
+        var didPopulateFrame = false
+        defer {
+            if !didPopulateFrame {
+                audioFrame.cancel()
+            }
+        }
 
-        var numberOfFrames: Int
-        var audioDataBuffer: UnsafeMutableRawPointer
-
-        if let audioSwrContext = audioSwrContext {
-            guard let outputInfo = Self.swrOutputInfo(samplingRate: samplingRate, channelCount: channelCount),
+        if let resampleSession {
+            guard Self.swrOutputInfo(
+                samplingRate: samplingRate,
+                channelCount: channelCount
+            ) != nil,
                   let ratio = Self.resampleRatio(outputSamplingRate: samplingRate,
-                                                 inputSamplingRate: codecContext?.pointee.sample_rate ?? 0,
+                                                 inputSamplingRate: codecContext.pointee.sample_rate,
                                                  outputChannelCount: channelCount,
-                                                 inputChannelCount: codecContext?.pointee.ch_layout.nb_channels ?? 0),
-                  let frameCapacity = Self.resampleFrameCapacity(inputFrameCount: tempFrame.pointee.nb_samples, ratio: ratio) else {
+                                                 inputChannelCount: codecContext.pointee.ch_layout.nb_channels),
+                  let frameCapacity = Self.resampleFrameCapacity(inputFrameCount: decodedFrame.pointee.nb_samples, ratio: ratio) else {
                 return nil
             }
-            let bufferSize = av_samples_get_buffer_size(nil, outputInfo.channelCount, frameCapacity, AV_SAMPLE_FMT_S16, 1)
-            guard bufferSize > 0 else { return nil }
-
-            if audioSwrBuffer == nil || audioSwrBufferSize < bufferSize {
-                let requestedBufferSize = Int(bufferSize)
-                guard let newBuffer = realloc(audioSwrBuffer, requestedBufferSize) else { return nil }
-                audioSwrBuffer = newBuffer
-                audioSwrBufferSize = requestedBufferSize
-            }
-
-            var outputBuffer: [UnsafeMutablePointer<UInt8>?] = [audioSwrBuffer?.assumingMemoryBound(to: UInt8.self), nil]
-            guard let inputChannelCapacity = Self.inputChannelCapacity(from: codecContext) else { return nil }
-            let inputPointer: UnsafeMutablePointer<UnsafePointer<UInt8>?> = withUnsafeMutablePointer(to: &tempFrame.pointee.data) {
-                $0.withMemoryRebound(to: UnsafePointer<UInt8>?.self, capacity: inputChannelCapacity) {
-                    $0
+            let outcome =
+                resampleSession.withConvertedSamples(
+                    from: decodedFrame,
+                    outputFrameCapacity:
+                        frameCapacity
+                ) { samples, numberOfFrames in
+                    populate(
+                        audioFrame,
+                        from: samples,
+                        numberOfFrames:
+                            numberOfFrames,
+                        decodedFrame:
+                            decodedFrame
+                    )
                 }
+            if case let .ffmpegError(code) = outcome {
+                let error: Error? =
+                    IRFFCheckError(code)
+                IRFFErrorLog(
+                    "audio codec error : "
+                        + "\(String(describing: error))"
+                )
             }
-
-            numberOfFrames = Int(swr_convert(audioSwrContext, &outputBuffer, frameCapacity, inputPointer, tempFrame.pointee.nb_samples))
-            let error: Error? = IRFFCheckError(Int32(numberOfFrames))
-            if error != nil {
-                IRFFErrorLog("audio codec error : \(String(describing: error))")
+            guard case .converted = outcome else {
                 return nil
             }
-            guard let swrBuffer = Self.audioDataBuffer(fromSwrBuffer: audioSwrBuffer) else { return nil }
-            audioDataBuffer = swrBuffer
         } else {
-            if !Self.canUseDirectOutput(sampleFormat: codecContext?.pointee.sample_fmt ?? AV_SAMPLE_FMT_NONE) {
+            if !Self.canUseDirectOutput(sampleFormat: codecContext.pointee.sample_fmt) {
                 IRFFErrorLog("audio format error")
                 return nil
             }
-            guard let decodedDataBuffer = Self.audioDataBuffer(fromDecodedData: tempFrame.pointee.data.0) else { return nil }
-            audioDataBuffer = decodedDataBuffer
-            numberOfFrames = Int(tempFrame.pointee.nb_samples)
+            guard let decodedData =
+                    decodedFrame.pointee.data.0,
+                  let numberOfElements =
+                    Self.sampleElementCount(
+                        numberOfFrames:
+                            Int(
+                                decodedFrame
+                                    .pointee.nb_samples
+                            ),
+                        channelCount: channelCount
+                    ) else {
+                return nil
+            }
+            let samples = UnsafeBufferPointer(
+                start: UnsafeRawPointer(decodedData)
+                    .assumingMemoryBound(
+                        to: Int16.self
+                    ),
+                count: numberOfElements
+            )
+            guard populate(
+                audioFrame,
+                from: samples,
+                numberOfFrames:
+                    Int(
+                        decodedFrame
+                            .pointee.nb_samples
+                    ),
+                decodedFrame: decodedFrame
+            ) else {
+                return nil
+            }
         }
 
-        guard let audioFrame = framePool.getUnuseFrame() as? IRFFAudioFrame else {
-            return nil
-        }
-        
-        audioFrame.position = IRFFFrameTime.position(timestamp: tempFrame.pointee.best_effort_timestamp, timebase: timebase)
+        didPopulateFrame = true
+        return audioFrame
+    }
 
-        guard let numberOfElements = Self.sampleElementCount(numberOfFrames: numberOfFrames, channelCount: channelCount) else {
-            return nil
+    private func populate(
+        _ audioFrame: IRFFAudioFrame,
+        from inputSamples:
+            UnsafeBufferPointer<Int16>,
+        numberOfFrames: Int,
+        decodedFrame:
+            UnsafeMutablePointer<AVFrame>
+    ) -> Bool {
+        guard let numberOfElements =
+                Self.sampleElementCount(
+                    numberOfFrames: numberOfFrames,
+                    channelCount: channelCount
+                ),
+              numberOfElements
+                == inputSamples.count,
+              let sampleByteCount =
+                Self.sampleByteCount(
+                    numberOfElements:
+                        numberOfElements
+                ),
+              let inputBaseAddress =
+                inputSamples.baseAddress else {
+            return false
         }
-        guard let sampleByteCount = Self.sampleByteCount(numberOfElements: numberOfElements) else {
-            return nil
-        }
+
         audioFrame.setSamplesLength(sampleByteCount)
-        let fallbackDuration = Self.fallbackDuration(sampleByteCount: sampleByteCount, channelCount: channelCount, samplingRate: samplingRate)
-        audioFrame.duration = Self.decodedFrameDuration(ticks: tempFrame.pointee.duration, timebase: timebase, fallbackDuration: fallbackDuration)
-
-        var scale: Float32 = 1.0 / Float32(Int16.max)
-        let audioDataPointer = audioDataBuffer.bindMemory(to: Int16.self, capacity: numberOfElements)
-        guard audioFrame.activeSampleCount == numberOfElements,
-              audioFrame.withMutableSamples({ samples in
-                  guard let baseAddress = samples.baseAddress else {
+        var scale:
+            Float32 = 1.0 / Float32(Int16.max)
+        guard audioFrame.activeSampleCount
+                == numberOfElements,
+              audioFrame.withMutableSamples({
+                  samples in
+                  guard let baseAddress =
+                          samples.baseAddress else {
                       return false
                   }
                   vDSP_vflt16(
-                      audioDataPointer,
+                      inputBaseAddress,
                       1,
                       baseAddress,
                       1,
@@ -332,10 +391,27 @@ class IRFFAudioDecoder {
                   )
                   return true
               }) else {
-            return nil
+            return false
         }
 
-        return audioFrame
+        audioFrame.position = IRFFFrameTime.position(
+            timestamp:
+                decodedFrame
+                    .pointee.best_effort_timestamp,
+            timebase: timebase
+        )
+        let fallbackDuration = Self.fallbackDuration(
+            sampleByteCount: sampleByteCount,
+            channelCount: channelCount,
+            samplingRate: samplingRate
+        )
+        audioFrame.duration =
+            Self.decodedFrameDuration(
+                ticks: decodedFrame.pointee.duration,
+                timebase: timebase,
+                fallbackDuration: fallbackDuration
+            )
+        return true
     }
 
     private func reloadAudioOutputInfo() {
@@ -344,17 +420,6 @@ class IRFFAudioDecoder {
     }
 
     deinit {
-        if audioSwrBuffer != nil {
-            free(audioSwrBuffer)
-            audioSwrBuffer = nil
-            audioSwrBufferSize = 0
-        }
-        if audioSwrContext != nil {
-            swr_free(&audioSwrContext)
-        }
-        if tempFrame != nil {
-            av_frame_free(&tempFrame)
-        }
         IRPlayerLog("IRFFAudioDecoder release")
     }
 }

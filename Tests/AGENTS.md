@@ -27,6 +27,8 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFFormatContextTests.swift` — Format context open/read
 - `IRFFFormatContextResourcesTests.swift` — FFmpeg generation/callback ownership
 - `IRFFAudioDecoderTests.swift` — Audio decoding
+- `IRFFAudioResampleSessionTests.swift` — Resampler/context/scratch ownership
+- `IRFFDecodeFrameTests.swift` — Shared AVFrame scratch ownership
 - `IRFFAudioFrameTests.swift` — Managed decoded-audio storage and checked copy
 - `IRFFAudioRendererTests.swift` — Real-time decoded-audio consumption
 - `IRFFVideoDecoderTests.swift` — Video decoding
