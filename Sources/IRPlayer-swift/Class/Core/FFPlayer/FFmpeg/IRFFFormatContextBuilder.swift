@@ -1,13 +1,73 @@
 import Foundation
-import IRFFMpeg
-import IRPlayerObjc
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+internal import IRPlayerObjc
+#else
+@_implementationOnly import IRFFMpeg
+@_implementationOnly import IRPlayerObjc
+#endif
 
 enum IRFFFormatContextBuilder {
+    static let maximumSerializedHTTPHeaderByteCount =
+        64 * 1024
+
+    enum HTTPHeaderValidationFailure:
+        Equatable
+    {
+        case invalidName
+        case duplicateName
+        case invalidValue
+        case sizeLimitExceeded
+    }
+
+    enum HTTPHeaderSerializationResult:
+        Equatable
+    {
+        case empty
+        case serialized(String)
+        case invalid(
+            HTTPHeaderValidationFailure
+        )
+    }
+
     static func makeGeneration(
         contentURL: URL,
         videoFormat: IRVideoFormat,
+        contentHeaders: [String: String],
         interruptState: IRFFFormatContextInterruptState
     ) -> Result<IRFFFormatContextGeneration, NSError> {
+        let serializedHeaders: String?
+        switch serializeHTTPHeaders(
+            contentHeaders
+        ) {
+        case .empty:
+            serializedHeaders = nil
+        case let .serialized(value):
+            serializedHeaders = value
+        case .invalid:
+            return .failure(
+                makeError(
+                    domain:
+                        "Invalid HTTP header configuration",
+                    code: .formatInvalidHeaders
+                )
+            )
+        }
+
+        guard let options = makeInputOptions(
+            videoFormat: videoFormat,
+            serializedHTTPHeaders:
+                serializedHeaders
+        ) else {
+            return .failure(
+                makeError(
+                    domain:
+                        "Could not create input options",
+                    code: .formatOpenInput
+                )
+            )
+        }
+
         var formatContext: UnsafeMutablePointer<AVFormatContext>? =
             avformat_alloc_context()
         guard let allocatedFormatContext = formatContext else {
@@ -25,16 +85,6 @@ enum IRFFFormatContextBuilder {
             ffmpeg_interrupt_callback
         allocatedFormatContext.pointee.interrupt_callback.opaque =
             callbackReference
-
-        let options = IRFFDictionary()
-        if videoFormat == .rtsp {
-            if !options.set(
-                key: "rtsp_transport",
-                value: "tcp"
-            ) {
-                // FFmpeg will return a fatal stream error if this matters.
-            }
-        }
 
         let openResult = options.withMutableRawPointer {
             optionsPointer in
@@ -100,6 +150,204 @@ enum IRFFFormatContextBuilder {
             return .failure(setupError)
         }
         return .success(generation)
+    }
+
+    static func serializeHTTPHeaders(
+        _ headers: [String: String]
+    ) -> HTTPHeaderSerializationResult {
+        guard !headers.isEmpty else {
+            return .empty
+        }
+
+        var normalized: [(
+            canonicalName: String,
+            name: String,
+            value: String
+        )] = []
+        normalized.reserveCapacity(
+            headers.count
+        )
+        var canonicalNames = Set<String>()
+        canonicalNames.reserveCapacity(
+            headers.count
+        )
+
+        for (name, rawValue) in headers {
+            guard !name.isEmpty,
+                  name.unicodeScalars.allSatisfy({
+                      isHTTPTokenScalar($0.value)
+                  }) else {
+                return .invalid(.invalidName)
+            }
+            let canonicalName =
+                name.lowercased()
+            guard canonicalNames
+                    .insert(canonicalName)
+                    .inserted else {
+                return .invalid(
+                    .duplicateName
+                )
+            }
+            guard rawValue.unicodeScalars
+                    .allSatisfy({
+                        isAllowedHTTPFieldValueScalar(
+                            $0.value
+                        )
+                    }) else {
+                return .invalid(
+                    .invalidValue
+                )
+            }
+            normalized.append(
+                (
+                    canonicalName,
+                    name,
+                    trimHTTPOptionalWhitespace(
+                        rawValue
+                    )
+                )
+            )
+        }
+
+        normalized.sort {
+            if $0.canonicalName !=
+                $1.canonicalName {
+                return $0.canonicalName <
+                    $1.canonicalName
+            }
+            return $0.name < $1.name
+        }
+
+        var totalByteCount = 0
+        for header in normalized {
+            let separatorByteCount =
+                header.value.isEmpty ? 1 : 2
+            let components = [
+                header.name.utf8.count,
+                separatorByteCount,
+                header.value.utf8.count,
+                2
+            ]
+            for component in components {
+                let (nextTotal, overflow) =
+                    totalByteCount
+                        .addingReportingOverflow(
+                            component
+                        )
+                guard !overflow,
+                      nextTotal <=
+                        maximumSerializedHTTPHeaderByteCount else {
+                    return .invalid(
+                        .sizeLimitExceeded
+                    )
+                }
+                totalByteCount = nextTotal
+            }
+        }
+
+        var serialized = ""
+        serialized.reserveCapacity(
+            totalByteCount
+        )
+        for header in normalized {
+            serialized += header.name
+            serialized += ":"
+            if !header.value.isEmpty {
+                serialized += " "
+                serialized += header.value
+            }
+            serialized += "\r\n"
+        }
+        return .serialized(serialized)
+    }
+
+    static func makeInputOptions(
+        videoFormat: IRVideoFormat,
+        serializedHTTPHeaders: String?
+    ) -> IRFFDictionary? {
+        let options = IRFFDictionary()
+        if videoFormat == .rtsp,
+           !options.set(
+               key: "rtsp_transport",
+               value: "tcp"
+           ) {
+            return nil
+        }
+        if let serializedHTTPHeaders,
+           !options.set(
+               key: "headers",
+               value:
+                    serializedHTTPHeaders
+           ) {
+            return nil
+        }
+        return options
+    }
+
+    private static func isHTTPTokenScalar(
+        _ scalar: UInt32
+    ) -> Bool {
+        switch scalar {
+        case 48...57,
+             65...90,
+             97...122,
+             33,
+             35...39,
+             42...43,
+             45...46,
+             94...96,
+             124,
+             126:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func isAllowedHTTPFieldValueScalar(
+        _ scalar: UInt32
+    ) -> Bool {
+        if scalar == 9 {
+            return true
+        }
+        return scalar >= 32 &&
+            scalar != 127
+    }
+
+    private static func trimHTTPOptionalWhitespace(
+        _ value: String
+    ) -> String {
+        var lowerBound =
+            value.startIndex
+        var upperBound =
+            value.endIndex
+        while lowerBound < upperBound {
+            let character =
+                value[lowerBound]
+            guard character == " " ||
+                    character == "\t" else {
+                break
+            }
+            lowerBound =
+                value.index(
+                    after: lowerBound
+                )
+        }
+        while lowerBound < upperBound {
+            let previous =
+                value.index(
+                    before: upperBound
+                )
+            let character = value[previous]
+            guard character == " " ||
+                    character == "\t" else {
+                break
+            }
+            upperBound = previous
+        }
+        return String(
+            value[lowerBound..<upperBound]
+        )
     }
 
     static func makeCodecContext(

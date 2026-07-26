@@ -48,6 +48,52 @@ final class IRPlayerEventTests: XCTestCase {
         withExtendedLifetime(observation) {}
     }
 
+    func testTypedAndLegacyTimeEventsShareSanitizedValues() {
+        let player = IRPlayer()
+        player.manager = nil
+        let legacyExpectation = expectation(
+            forNotification: Notification.Name(
+                IRPlayerProgressChangeNotificationName
+            ),
+            object: player
+        ) { notification in
+            let progress = IRModel.progress(
+                fromUserInfo: notification.userInfo ?? [:]
+            )
+            XCTAssertEqual(progress.percent, 1)
+            XCTAssertEqual(progress.current, 0)
+            XCTAssertEqual(progress.total, 0)
+            return true
+        }
+        var typedSnapshot: IRPlayerTimeSnapshot?
+        let observation = player.observeEvents { event in
+            guard case let .progress(snapshot) = event else {
+                return
+            }
+            typedSnapshot = snapshot
+        }
+
+        IRPlayerNotification.postPlayer(
+            player,
+            progressPercent: 2,
+            current: -1,
+            total: NSNumber(
+                value: TimeInterval.greatestFiniteMagnitude
+            )
+        )
+
+        wait(for: [legacyExpectation], timeout: 1)
+        XCTAssertEqual(
+            typedSnapshot,
+            IRPlayerTimeSnapshot(
+                current: 0,
+                total: 0,
+                fraction: 1
+            )
+        )
+        withExtendedLifetime(observation) {}
+    }
+
     func testFailureEventPreservesUnderlyingErrorModel() {
         let player = IRPlayer()
         player.manager = nil

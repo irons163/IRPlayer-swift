@@ -403,16 +403,19 @@ private final class CollaboratorDataSourceProbe:
 {
     func shouldHandle(
         _ videoDecoder: IRFFVideoDecoderInfo,
-        decodeFrame packet: IRFFCompressedVideoPacket
+        packet: IRFFVideoPacketDescriptor
     ) -> Bool {
         false
     }
 
     func videoDecoder(
         _ videoDecoder: IRFFVideoDecoderInfo,
-        decodeFrame packet: IRFFCompressedVideoPacket
-    ) -> IRFFVideoFrame? {
-        nil
+        decodeFrame packet:
+            IRFFCompressedVideoPacket,
+        completion:
+            IRFFCustomVideoDecodeCompletion
+    ) -> IRFFCustomVideoDecodeOutcome {
+        .dropped
     }
 }
 

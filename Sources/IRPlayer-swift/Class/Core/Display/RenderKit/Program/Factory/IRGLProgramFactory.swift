@@ -147,11 +147,22 @@ import Foundation
               parameter.ry.isFinite,
               parameter.cx.isFinite,
               parameter.cy.isFinite,
-              parameter.latmax.isFinite,
-              parameter.width > 0,
-              parameter.height > 0,
-              parameter.rx > 0,
-              parameter.ry > 0 else {
+              parameter.latmax.isFinite else {
+            return nil
+        }
+
+        let geometry = [
+            parameter.width,
+            parameter.height,
+            parameter.rx,
+            parameter.ry,
+            parameter.cx,
+            parameter.cy
+        ]
+        if geometry.allSatisfy({ $0 == 0 }) {
+            return parameter
+        }
+        guard geometry.allSatisfy({ $0 > 0 }) else {
             return nil
         }
         return parameter
@@ -275,7 +286,13 @@ import Foundation
             program.tramsformController?.delegate = program
         }
 
-        let mapProjection = IRGLProjectionEquirectangular(textureWidth: 1440, height: 1080, centerX: fisheyeParameter.cx, centerY: fisheyeParameter.cy, radius: fisheyeParameter.ry)
+        let mapProjection = IRGLProjectionEquirectangular(
+            textureWidth: fisheyeParameter.width,
+            height: fisheyeParameter.height,
+            centerX: fisheyeParameter.cx,
+            centerY: fisheyeParameter.cy,
+            radius: fisheyeParameter.ry
+        )
 
         for (index, program) in programs_4p.enumerated() {
             if program.tramsformController == nil {

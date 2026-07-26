@@ -217,8 +217,16 @@ final class IRMetalPixelRendererRGB: IRMetalPixelRenderer {
                     indexCount: Int,
                     indexBuffer: MTLBuffer,
                     resources: IRMetalCommandResources) -> Bool {
-        // RGB mesh rendering is unsupported.
-        return false
+        guard let rgbFrame = frame as? IRVideoFrameRGB else {
+            return false
+        }
+        return renderer.renderRGBMesh(
+            rgbFrame: rgbFrame,
+            encoder: encoder,
+            indexCount: indexCount,
+            indexBuffer: indexBuffer,
+            resources: resources
+        )
     }
 
     func renderFish2Pano(renderer: IRMetalRenderer,

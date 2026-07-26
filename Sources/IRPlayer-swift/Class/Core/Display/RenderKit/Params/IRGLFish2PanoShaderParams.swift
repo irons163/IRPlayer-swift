@@ -58,6 +58,8 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
     private var pixelMapGeneration = 0
     private var publishedPixelMap:
         IRGLFish2PanoPixelMapGeneration?
+    private var pixelMapReadyHandler:
+        (@Sendable () -> Void)?
 
     var publishedPixelMapDiagnostics:
         IRGLFish2PanoPixelMapDiagnostics?
@@ -67,13 +69,44 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         return publishedPixelMap?.diagnostics
     }
 
-    func takePixelMapIfReady()
+    func pixelMapIfReady()
         -> IRGLFish2PanoPixelMapGeneration?
     {
         pixelMapStateLock.lock()
         defer { pixelMapStateLock.unlock() }
-        let pixelMap = publishedPixelMap
+        return publishedPixelMap
+    }
+
+    func acknowledgePixelMap(
+        _ pixelMap: IRGLFish2PanoPixelMapGeneration
+    ) {
+        pixelMapStateLock.lock()
+        defer { pixelMapStateLock.unlock() }
+        guard publishedPixelMap === pixelMap else {
+            return
+        }
         publishedPixelMap = nil
+    }
+
+    func setPixelMapReadyHandler(
+        _ handler: (@Sendable () -> Void)?
+    ) {
+        pixelMapStateLock.lock()
+        pixelMapReadyHandler = handler
+        let shouldNotify = publishedPixelMap != nil
+        pixelMapStateLock.unlock()
+        if shouldNotify {
+            handler?()
+        }
+    }
+
+    func takePixelMapIfReady()
+        -> IRGLFish2PanoPixelMapGeneration?
+    {
+        guard let pixelMap = pixelMapIfReady() else {
+            return nil
+        }
+        acknowledgePixelMap(pixelMap)
         return pixelMap
     }
 
@@ -95,12 +128,15 @@ class IRGLFish2PanoShaderParams: IRGLShaderParams {
         _ pixelMap: IRGLFish2PanoPixelMapGeneration
     ) {
         pixelMapStateLock.lock()
-        defer { pixelMapStateLock.unlock() }
         guard pixelMap.requestGeneration
                 == pixelMapGeneration else {
+            pixelMapStateLock.unlock()
             return
         }
         publishedPixelMap = pixelMap
+        let readyHandler = pixelMapReadyHandler
+        pixelMapStateLock.unlock()
+        readyHandler?()
     }
 
     private func isCurrentPixelMapGeneration(

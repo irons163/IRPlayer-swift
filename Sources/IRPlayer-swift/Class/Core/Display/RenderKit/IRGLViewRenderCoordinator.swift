@@ -24,20 +24,21 @@ final class IRGLViewRenderCoordinator {
         let ciContext: CIContext?
         let colorSpace: CGColorSpace
         let renderState: IRGLViewRenderState
+        let renderDidComplete: IRGLRenderCompletion
         let makeImage: (IRFFVideoFrame) -> CIImage?
         let fitImage: (CIImage, CGRect) -> CIImage
     }
 
     struct Result {
         let currentImage: CIImage?
-        let didCompleteRender: Bool
+        let didSubmitRender: Bool
     }
 
     func render(context: Context) -> Result {
         let metalLayer = context.metalLayer
         let drawableSize = metalLayer.drawableSize
         guard drawableSize.width > 0, drawableSize.height > 0 else {
-            return Result(currentImage: context.currentImage, didCompleteRender: false)
+            return Result(currentImage: context.currentImage, didSubmitRender: false)
         }
 
         if let frame = context.currentFrame,
@@ -49,9 +50,12 @@ final class IRGLViewRenderCoordinator {
                                                                       renderer: renderer,
                                                                       drawable: drawable,
                                                                       drawableSize: drawableSize,
-                                                                      device: context.device),
-               result {
-                return Result(currentImage: context.currentImage, didCompleteRender: true)
+                                                                      device: context.device,
+                                                                      completion: context.renderDidComplete) {
+                return Result(
+                    currentImage: context.currentImage,
+                    didSubmitRender: result
+                )
             }
             if let result = context.renderState.renderFish2PanoIfNeeded(frame: frame,
                                                                        mode: context.mode,
@@ -59,9 +63,12 @@ final class IRGLViewRenderCoordinator {
                                                                        drawable: drawable,
                                                                        drawableSize: drawableSize,
                                                                        renderContentMode: context.renderContentMode,
-                                                                       device: context.device),
-               result {
-                return Result(currentImage: context.currentImage, didCompleteRender: true)
+                                                                       device: context.device,
+                                                                       completion: context.renderDidComplete) {
+                return Result(
+                    currentImage: context.currentImage,
+                    didSubmitRender: result
+                )
             }
             if let result = context.renderState.renderDistortionIfNeeded(frame: frame,
                                                                         mode: context.mode,
@@ -69,27 +76,36 @@ final class IRGLViewRenderCoordinator {
                                                                         drawable: drawable,
                                                                         drawableSize: drawableSize,
                                                                         renderContentMode: context.renderContentMode,
-                                                                        device: context.device),
-               result {
-                return Result(currentImage: context.currentImage, didCompleteRender: true)
+                                                                        device: context.device,
+                                                                        completion: context.renderDidComplete) {
+                return Result(
+                    currentImage: context.currentImage,
+                    didSubmitRender: result
+                )
             }
             if let result = context.renderState.renderFisheyeIfNeeded(frame: frame,
                                                                      mode: context.mode,
                                                                      renderer: renderer,
                                                                      drawable: drawable,
                                                                      drawableSize: drawableSize,
-                                                                     device: context.device),
-               result {
-                return Result(currentImage: context.currentImage, didCompleteRender: true)
+                                                                     device: context.device,
+                                                                     completion: context.renderDidComplete) {
+                return Result(
+                    currentImage: context.currentImage,
+                    didSubmitRender: result
+                )
             }
             if let result = context.renderState.renderVRIfNeeded(frame: frame,
                                                                 mode: context.mode,
                                                                 renderer: renderer,
                                                                 drawable: drawable,
                                                                 drawableSize: drawableSize,
-                                                                device: context.device),
-               result {
-                return Result(currentImage: context.currentImage, didCompleteRender: true)
+                                                                device: context.device,
+                                                                completion: context.renderDidComplete) {
+                return Result(
+                    currentImage: context.currentImage,
+                    didSubmitRender: result
+                )
             }
 
             let zoomScale = Float((context.mode?.program?.getCurrentScale().x) ?? 1)
@@ -103,11 +119,12 @@ final class IRGLViewRenderCoordinator {
                                contentMode: context.renderContentMode,
                                drawableSize: drawableSize,
                                zoomScale: zoomScale,
-                               translation: translation) {
-                return Result(currentImage: context.currentImage, didCompleteRender: true)
+                               translation: translation,
+                               completion: context.renderDidComplete) {
+                return Result(currentImage: context.currentImage, didSubmitRender: true)
             }
             if frame is IRFFCVYUVVideoFrame || frame is IRFFAVYUVVideoFrame {
-                return Result(currentImage: context.currentImage, didCompleteRender: false)
+                return Result(currentImage: context.currentImage, didSubmitRender: false)
             }
         }
 
@@ -116,20 +133,20 @@ final class IRGLViewRenderCoordinator {
             image = context.makeImage(frame)
         }
         guard let currentImage = image else {
-            return Result(currentImage: image, didCompleteRender: false)
+            return Result(currentImage: image, didSubmitRender: false)
         }
         guard let drawable = metalLayer.nextDrawable() else {
-            return Result(currentImage: image, didCompleteRender: false)
+            return Result(currentImage: image, didSubmitRender: false)
         }
         guard let commandQueue = context.commandQueue,
               let commandBuffer = commandQueue.makeCommandBuffer(),
               let ciContext = context.ciContext else {
-            return Result(currentImage: image, didCompleteRender: false)
+            return Result(currentImage: image, didSubmitRender: false)
         }
 
         let targetRect = CGRect(origin: .zero, size: metalLayer.drawableSize)
         guard targetRect.width > 0, targetRect.height > 0 else {
-            return Result(currentImage: image, didCompleteRender: false)
+            return Result(currentImage: image, didSubmitRender: false)
         }
         let fittedImage = context.fitImage(currentImage, targetRect)
 
@@ -138,8 +155,11 @@ final class IRGLViewRenderCoordinator {
                          commandBuffer: commandBuffer,
                          bounds: targetRect,
                          colorSpace: context.colorSpace)
+        commandBuffer.addCompletedHandler { _ in
+            context.renderDidComplete()
+        }
         commandBuffer.present(drawable)
         commandBuffer.commit()
-        return Result(currentImage: image, didCompleteRender: true)
+        return Result(currentImage: image, didSubmitRender: true)
     }
 }

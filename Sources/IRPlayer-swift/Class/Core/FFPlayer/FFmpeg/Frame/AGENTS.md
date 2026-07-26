@@ -51,8 +51,11 @@ Frame data models and queue management for the FFmpeg decode pipeline.
 - Every ready `AVPacket` reference must be owned by one `IRFFPacket`. Borrow
   raw packet state only through its scoped operation and close it exactly once.
 - The video packet queue transfers `IRFFPacket` owners across threads. Keep
-  packet, flush, and closed as typed items; never encode control state in
-  `AVPacket.data` or `stream_index`.
+  packet, flush, end-of-stream, generation interruption, and closed as typed
+  items; never encode control state in `AVPacket.data` or `stream_index`.
+- A generation interruption must close queued packet ownership, reject new
+  work for that generation, and wake an empty-queue consumer without requiring
+  allocation. Only reset or generation advance clears the persistent token.
 - `IRFFFrameQueue` captures immutable position/duration/size entries when
   ownership transfers. Never recalculate accounting from a mutable frame.
 - Synchronous frame dequeue waits on the condition and close broadcasts to all

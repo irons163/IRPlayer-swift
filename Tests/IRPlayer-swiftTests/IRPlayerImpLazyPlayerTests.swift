@@ -89,6 +89,35 @@ final class IRPlayerImpLazyPlayerTests: XCTestCase {
         withExtendedLifetime(player) {}
     }
 
+    func testLegacyHeaderReplacementRoutesToFFmpeg() {
+        let player = IRPlayerImp.player()
+        player.manager = nil
+        player.decoder = IRPlayerDecoder.AVPlayerDecoder()
+        defer { player.stop() }
+
+        player.setRequestHeaderFields(
+            ["Authorization": "token"]
+        )
+        player.replaceVideoWithURL(
+            contentURL: NSURL(
+                fileURLWithPath: "/tmp/missing-header-video.mp4"
+            )
+        )
+
+        XCTAssertEqual(player.activeBackend, .ffmpeg)
+        XCTAssertEqual(
+            player.contentHeaders,
+            ["Authorization": "token"]
+        )
+        XCTAssertNotNil(
+            player.existingPlaybackBackend(for: .ffmpeg)
+        )
+        XCTAssertNil(
+            player.existingPlaybackBackend(for: .avFoundation)
+        )
+        withExtendedLifetime(player) {}
+    }
+
     func testViewConfigurationForwardsToDisplayView() throws {
         let player = IRPlayerImp.player()
         player.manager = nil

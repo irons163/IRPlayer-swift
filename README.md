@@ -137,7 +137,8 @@ player.load(IRMediaSource(
 
 let yuvFrame = IRFFAVYUVVideoFrame()
 // Configure the frame planes, dimensions, position, and duration.
-input.send(videoFrame: yuvFrame)
+let admitted = input.trySend(videoFrame: yuvFrame)
+// A false result means IRPlayer already rejected and reclaimed the frame.
 ```
 
 Custom RGB frames declare their byte layout explicitly and are validated as
@@ -151,45 +152,50 @@ if let frame = IRVideoFrameRGB(
     bytesPerRow: bytesPerRow,
     data: bytes
 ) {
-    input.send(videoFrame: frame)
+    _ = input.trySend(videoFrame: frame)
 }
 ```
 
 For custom packet decoding, subclass `IRFFVideoInput` and override
-`videoDecoder(_:decodeFrame:)`. See
+the routing and typed decode callbacks. See
 [IRIPCamera-swift](https://github.com/irons163/IRIPCamera-swift) for a complete
 integration.
 
 ```swift
 class MyIRFFVideoInput: IRFFVideoInput {
 
-    override func videoDecoder(
+    override func shouldHandle(
         _ videoDecoder: IRFFVideoDecoderInfo,
-        decodeFrame packet: IRFFCompressedVideoPacket
-    ) -> IRFFVideoFrame? {
-        asyncHWDecode(
-            packet: packet,
-            codec: videoDecoder.codec
-        )
-
-        return nil // if it is sync decode instead, return videoFrame from here.
+        packet: IRFFVideoPacketDescriptor
+    ) -> Bool {
+        true
     }
 
-    func asyncHWDecode(
-        packet: IRFFCompressedVideoPacket,
-        codec: IRFFVideoCodecDescriptor
-    ) {
-        Task {
+    override func videoDecoder(
+        _ videoDecoder: IRFFVideoDecoderInfo,
+        decodeFrame packet: IRFFCompressedVideoPacket,
+        completion: IRFFCustomVideoDecodeCompletion
+    ) -> IRFFCustomVideoDecodeOutcome {
+        Task { [completion] in
             // packet and codec own all bytes and are safe to retain here.
             let videoFrame = await decode(
                 packet.data,
-                codec: codec
+                codec: videoDecoder.codec
             )
-            self.videoOutput?.send?(videoFrame: videoFrame)
+            completion.send(videoFrame: videoFrame)
         }
+        return .deferred
     }
 }
 ```
+
+Return `.frame(frame)` for synchronous output, `.dropped` for an intentional
+no-output packet, or `.failed(error)` for a terminal custom-decode failure.
+For `.deferred`, retain the supplied one-shot completion until calling
+`send(videoFrame:)`, `drop()`, or `fail(_:)`. Releasing an unresolved completion
+auto-drops its reservation; seek and stop invalidate it, and a late frame is
+reclaimed. `videoDecoder.maximumDecodeDuration` controls built-in buffered
+output backpressure; it is not a deferred-completion timeout.
 
 ### Migrating from 1.x
 

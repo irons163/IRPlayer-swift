@@ -17,11 +17,37 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
         let context: RenderContext
         let renderState: IRGLViewRenderState
         let colorSpace: CGColorSpace
+        let renderDidComplete: IRGLRenderCompletion
     }
 
     struct RenderResult {
+        enum CompletionMode {
+            case immediate
+            case deferred
+        }
+
         let currentImage: CIImage?
-        let didCompleteRender: Bool
+        let didSubmitRender: Bool
+        let completionMode: CompletionMode
+
+        init(
+            currentImage: CIImage?,
+            didCompleteRender: Bool
+        ) {
+            self.currentImage = currentImage
+            didSubmitRender = didCompleteRender
+            completionMode = .immediate
+        }
+
+        init(
+            currentImage: CIImage?,
+            didSubmitRender: Bool,
+            completionMode: CompletionMode
+        ) {
+            self.currentImage = currentImage
+            self.didSubmitRender = didSubmitRender
+            self.completionMode = completionMode
+        }
     }
 
     struct Diagnostics: Equatable {
@@ -37,6 +63,8 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
         let hasCurrentImage: Bool
         let lastFrameWidth: Int
         let lastFrameHeight: Int
+        let inFlightRenderCount: Int
+        let presentationLeaseCount: Int
     }
 
     struct FittedImageTransform: Equatable {
@@ -53,8 +81,27 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
     private let renderState: IRGLViewRenderState
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
 
+    private enum PresentationReleaseAction: Equatable {
+        case stop
+        case cancel
+    }
+
+    private struct PresentationLease {
+        let frame: IRFFAVYUVVideoFrame
+        var inFlightRenderCount: Int
+        var releaseAction: PresentationReleaseAction?
+    }
+
     private var currentFrame: IRFFVideoFrame?
     private var currentImage: CIImage?
+    private var lastRenderContext: RenderContext?
+    private var currentPresentationID: ObjectIdentifier?
+    private var presentationLeases:
+        [ObjectIdentifier: PresentationLease] = [:]
+    private var nextRenderSubmissionID: UInt64 = 0
+    private var activeRenderSubmissions: Set<UInt64> = []
+    private var presentationIDBySubmission:
+        [UInt64: ObjectIdentifier] = [:]
     private var completionHandler: (() -> Void)?
     private var closed = false
     private var submissionCount = 0
@@ -75,6 +122,10 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
         self.executor = executor
         self.renderState = renderState
         self.renderOperation = renderOperation ?? Self.systemRender
+        self.renderState.setFish2PanoPixelMapReadyHandler {
+            [weak self] in
+            self?.scheduleFish2PanoRedraw()
+        }
     }
 
     var diagnostics: Diagnostics {
@@ -91,7 +142,11 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
                 hasCurrentFrame: currentFrame != nil,
                 hasCurrentImage: currentImage != nil,
                 lastFrameWidth: lastFrameWidth,
-                lastFrameHeight: lastFrameHeight
+                lastFrameHeight: lastFrameHeight,
+                inFlightRenderCount:
+                    activeRenderSubmissions.count,
+                presentationLeaseCount:
+                    presentationLeases.count
             )
         }
     }
@@ -112,13 +167,14 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
                 rejectedSubmissionCount += 1
                 return false
             }
+            lastRenderContext = context
 
             if let frame {
                 submissionCount += 1
                 let dimensions = frame.dimensionSnapshot()
                 lastFrameWidth = dimensions.width
                 lastFrameHeight = dimensions.height
-                currentFrame = frame
+                replaceCurrentFrame(with: frame)
                 currentImage = nil
             } else {
                 redrawCount += 1
@@ -134,7 +190,11 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
                 rejectedSubmissionCount += 1
                 return false
             }
+            lastRenderContext = context
             clearCount += 1
+            retireAllPresentationLeases(
+                action: .cancel
+            )
             currentFrame = nil
 
             let drawableSize = context.surface?.layer.drawableSize ?? .zero
@@ -156,8 +216,12 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
         executor.sync {
             guard !closed else { return }
             resetCount += 1
+            retireAllPresentationLeases(
+                action: .cancel
+            )
             currentFrame = nil
             currentImage = nil
+            lastRenderContext = nil
             lastFrameWidth = 0
             lastFrameHeight = 0
             renderState.reset()
@@ -169,9 +233,14 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
         executor.sync {
             guard !closed else { return false }
             closed = true
+            retireAllPresentationLeases(
+                action: .cancel
+            )
             currentFrame = nil
             currentImage = nil
+            lastRenderContext = nil
             completionHandler = nil
+            renderState.setFish2PanoPixelMapReadyHandler(nil)
             renderState.reset()
             return true
         }
@@ -187,6 +256,7 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
                 renderMode: mode,
                 viewportSize: viewportSize
             )
+            renderState.configureVR(renderMode: mode)
             renderState.configureFish2Pano(renderMode: mode)
         }
     }
@@ -320,23 +390,212 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
     }
 
     private func renderCurrent(context: RenderContext) -> Bool {
+        let renderSubmissionID =
+            allocateRenderSubmissionID()
+        let submittedFrame = currentFrame
         let result = renderOperation(
             RenderInput(
                 currentFrame: currentFrame,
                 currentImage: currentImage,
                 context: context,
                 renderState: renderState,
-                colorSpace: colorSpace
+                colorSpace: colorSpace,
+                renderDidComplete: { [self] in
+                    executor.async { [self] in
+                        completeRenderSubmission(
+                            renderSubmissionID
+                        )
+                    }
+                }
             )
         )
         currentImage = result.currentImage
-        if result.didCompleteRender {
-            completedRenderCount += 1
-            completionHandler?()
-        } else {
+        guard result.didSubmitRender else {
             incompleteRenderCount += 1
+            return false
         }
-        return result.didCompleteRender
+
+        activeRenderSubmissions.insert(
+            renderSubmissionID
+        )
+        if let presentationID =
+                presentationID(for: submittedFrame),
+           var lease =
+                presentationLeases[presentationID] {
+            lease.inFlightRenderCount += 1
+            presentationLeases[presentationID] = lease
+            presentationIDBySubmission[
+                renderSubmissionID
+            ] = presentationID
+        }
+        if result.completionMode == .immediate {
+            completeRenderSubmission(
+                renderSubmissionID
+            )
+        }
+        return true
+    }
+
+    private func scheduleFish2PanoRedraw() {
+        executor.async { [weak self] in
+            guard let self,
+                  !self.closed,
+                  self.currentFrame != nil,
+                  let context = self.lastRenderContext,
+                  context.mode is IRGLRenderMode2DFisheye2Pano else {
+                return
+            }
+            self.redrawCount += 1
+            _ = self.renderCurrent(context: context)
+        }
+    }
+
+    private func replaceCurrentFrame(
+        with frame: IRFFVideoFrame
+    ) {
+        if currentFrame === frame {
+            return
+        }
+        retireCurrentPresentationLease(
+            action: .stop
+        )
+        currentFrame = frame
+        guard let softwareFrame =
+                frame as? IRFFAVYUVVideoFrame else {
+            currentPresentationID = nil
+            return
+        }
+
+        let presentationID =
+            ObjectIdentifier(softwareFrame)
+        if var existingLease =
+                presentationLeases[presentationID] {
+            existingLease.releaseAction = nil
+            presentationLeases[presentationID] =
+                existingLease
+        } else {
+            presentationLeases[presentationID] =
+                PresentationLease(
+                    frame: softwareFrame,
+                    inFlightRenderCount: 0,
+                    releaseAction: nil
+                )
+        }
+        currentPresentationID = presentationID
+        if !softwareFrame.playing {
+            softwareFrame.startPlaying()
+        }
+    }
+
+    private func presentationID(
+        for frame: IRFFVideoFrame?
+    ) -> ObjectIdentifier? {
+        guard let softwareFrame =
+                frame as? IRFFAVYUVVideoFrame else {
+            return nil
+        }
+        return ObjectIdentifier(softwareFrame)
+    }
+
+    private func retireCurrentPresentationLease(
+        action: PresentationReleaseAction
+    ) {
+        guard let currentPresentationID else {
+            return
+        }
+        self.currentPresentationID = nil
+        retirePresentationLease(
+            currentPresentationID,
+            action: action
+        )
+    }
+
+    private func retireAllPresentationLeases(
+        action: PresentationReleaseAction
+    ) {
+        currentPresentationID = nil
+        for presentationID
+            in Array(presentationLeases.keys) {
+            retirePresentationLease(
+                presentationID,
+                action: action
+            )
+        }
+    }
+
+    private func retirePresentationLease(
+        _ presentationID: ObjectIdentifier,
+        action: PresentationReleaseAction
+    ) {
+        guard var lease =
+                presentationLeases[presentationID] else {
+            return
+        }
+        if action == .cancel
+            || lease.releaseAction == nil {
+            lease.releaseAction = action
+        }
+        presentationLeases[presentationID] = lease
+        releasePresentationLeaseIfPossible(
+            presentationID
+        )
+    }
+
+    private func releasePresentationLeaseIfPossible(
+        _ presentationID: ObjectIdentifier
+    ) {
+        guard let lease =
+                presentationLeases[presentationID],
+              lease.inFlightRenderCount == 0,
+              let releaseAction =
+                lease.releaseAction else {
+            return
+        }
+        presentationLeases.removeValue(
+            forKey: presentationID
+        )
+        switch releaseAction {
+        case .stop:
+            lease.frame.stopPlaying()
+        case .cancel:
+            lease.frame.cancel()
+        }
+    }
+
+    private func allocateRenderSubmissionID() -> UInt64 {
+        repeat {
+            nextRenderSubmissionID &+= 1
+        } while activeRenderSubmissions.contains(
+            nextRenderSubmissionID
+        )
+        return nextRenderSubmissionID
+    }
+
+    private func completeRenderSubmission(
+        _ renderSubmissionID: UInt64
+    ) {
+        guard activeRenderSubmissions.remove(
+            renderSubmissionID
+        ) != nil else {
+            return
+        }
+
+        if let presentationID =
+                presentationIDBySubmission.removeValue(
+                    forKey: renderSubmissionID
+                ),
+           var lease =
+                presentationLeases[presentationID] {
+            lease.inFlightRenderCount =
+                max(lease.inFlightRenderCount - 1, 0)
+            presentationLeases[presentationID] = lease
+            releasePresentationLeaseIfPossible(
+                presentationID
+            )
+        }
+
+        completedRenderCount += 1
+        completionHandler?()
     }
 
     private static func systemRender(_ input: RenderInput) -> RenderResult {
@@ -361,6 +620,8 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
                 ciContext: surface.ciContext,
                 colorSpace: input.colorSpace,
                 renderState: input.renderState,
+                renderDidComplete:
+                    input.renderDidComplete,
                 makeImage: makeImage,
                 fitImage: { image, rect in
                     fitImage(
@@ -373,7 +634,8 @@ final class IRGLFrameSubmissionSession: @unchecked Sendable {
         )
         return RenderResult(
             currentImage: result.currentImage,
-            didCompleteRender: result.didCompleteRender
+            didSubmitRender: result.didSubmitRender,
+            completionMode: .deferred
         )
     }
 

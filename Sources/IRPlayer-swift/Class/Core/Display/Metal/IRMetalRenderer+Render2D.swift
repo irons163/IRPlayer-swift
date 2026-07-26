@@ -19,6 +19,24 @@ extension IRMetalRenderer {
                 drawableSize: CGSize,
                 zoomScale: Float,
                 translation: SIMD2<Float>) -> Bool {
+        render(
+            frame: frame,
+            to: drawable,
+            contentMode: contentMode,
+            drawableSize: drawableSize,
+            zoomScale: zoomScale,
+            translation: translation,
+            completion: {}
+        )
+    }
+
+    func render(frame: IRFFVideoFrame,
+                to drawable: CAMetalDrawable,
+                contentMode: IRGLRenderContentMode,
+                drawableSize: CGSize,
+                zoomScale: Float,
+                translation: SIMD2<Float>,
+                completion: @escaping IRGLRenderCompletion) -> Bool {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         let commandResources = IRMetalCommandResources()
         guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
@@ -52,7 +70,8 @@ extension IRMetalRenderer {
             ) {
                 encoder.endEncoding()
                 guard commandResources.submit(
-                    to: commandBuffer
+                    to: commandBuffer,
+                    completion: completion
                 ) else {
                     return false
                 }
@@ -73,6 +92,26 @@ extension IRMetalRenderer {
                      contentModes: [IRGLRenderContentMode],
                      zoomScales: [Float],
                      translations: [SIMD2<Float>]) -> Bool {
+        renderMulti(
+            frame: frame,
+            to: drawable,
+            drawableSize: drawableSize,
+            viewports: viewports,
+            contentModes: contentModes,
+            zoomScales: zoomScales,
+            translations: translations,
+            completion: {}
+        )
+    }
+
+    func renderMulti(frame: IRFFVideoFrame,
+                     to drawable: CAMetalDrawable,
+                     drawableSize: CGSize,
+                     viewports: [CGRect],
+                     contentModes: [IRGLRenderContentMode],
+                     zoomScales: [Float],
+                     translations: [SIMD2<Float>],
+                     completion: @escaping IRGLRenderCompletion) -> Bool {
         guard !viewports.isEmpty, viewports.count == contentModes.count else { return false }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         let commandResources = IRMetalCommandResources()
@@ -115,7 +154,8 @@ extension IRMetalRenderer {
         encoder.endEncoding()
         if didRender {
             guard commandResources.submit(
-                to: commandBuffer
+                to: commandBuffer,
+                completion: completion
             ) else {
                 return false
             }
@@ -126,16 +166,27 @@ extension IRMetalRenderer {
     }
 
     func renderClear(to drawable: CAMetalDrawable) {
-        guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+        _ = renderClear(to: drawable, completion: {})
+    }
+
+    func renderClear(
+        to drawable: CAMetalDrawable,
+        completion: @escaping IRGLRenderCompletion
+    ) -> Bool {
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         let commandResources = IRMetalCommandResources()
-        guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return }
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return }
+        guard let renderPass = currentRenderPassDescriptor(drawable: drawable) else { return false }
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPass) else { return false }
         encoder.endEncoding()
-        guard commandResources.submit(to: commandBuffer) else {
-            return
+        guard commandResources.submit(
+            to: commandBuffer,
+            completion: completion
+        ) else {
+            return false
         }
         commandBuffer.present(drawable)
         commandBuffer.commit()
+        return true
     }
 
 }

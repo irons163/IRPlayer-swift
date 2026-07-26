@@ -197,6 +197,28 @@ final class IRFFAudioFrameTests: XCTestCase {
         XCTAssertEqual(output, [3, 4])
     }
 
+    func testCopySamplesCanUseFrozenRenderByteCount() {
+        let frame = makeAudioFrame(
+            values: [1, 2, 3, 4]
+        )
+        let admittedByteCount = frame.size
+        frame.size = Int.max
+        var output = [Float](repeating: 0, count: 4)
+
+        let copied = output.withUnsafeMutableBufferPointer {
+            buffer in
+            frame.copySamples(
+                to: buffer.baseAddress!,
+                byteOffset: 0,
+                byteCount: admittedByteCount,
+                availableByteCount: admittedByteCount
+            )
+        }
+
+        XCTAssertTrue(copied)
+        XCTAssertEqual(output, [1, 2, 3, 4])
+    }
+
     func testCopySamplesRejectsMisalignedAndEmptyRanges() {
         let frame = makeAudioFrame(values: [1, 2])
         var output = [Float](repeating: 9, count: 2)

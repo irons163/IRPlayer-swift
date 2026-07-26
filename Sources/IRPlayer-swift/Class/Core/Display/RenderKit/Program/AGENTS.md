@@ -17,9 +17,9 @@ Render programs that configure geometry, projection, and transform for each rend
 
 | Directory      | Contents                                              |
 |----------------|-------------------------------------------------------|
-| `Distortion/`  | `IRGLProgramDistortion.swift/.h` — distortion correction program |
+| `Distortion/`  | `IRGLProgramDistortion.swift` — distortion correction program |
 | `Factory/`     | Program factories — one per mode, creating configured program instances |
-| `VR/`          | `IRGLProgramVR.swift/.h` — VR stereoscopic program   |
+| `VR/`          | `IRGLProgramVR.swift` — VR stereoscopic program   |
 
 ## Factory Files (`Factory/`)
 
@@ -36,7 +36,9 @@ Render programs that configure geometry, projection, and transform for each rend
 ## Agent Notes
 
 - Programs are the core abstraction — they wire together projection, transform, scope, and shader params.
-- `Distortion/` and `VR/` have `.h` headers because they bridge to Objective-C for legacy compatibility.
+- Objective-C exposure for public Swift program classes comes from the
+  generated `IRPlayer_swift-Swift.h`; do not maintain parallel handwritten
+  declarations.
 - Each factory corresponds to a render mode in `Mode/`.
 - Program and factory owners contain their viewport, scale, parameter, and
   layout semantics; do not add parallel `*Policy` forwarding layers.

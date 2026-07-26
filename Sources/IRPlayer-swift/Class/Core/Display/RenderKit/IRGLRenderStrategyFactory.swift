@@ -134,6 +134,150 @@ private class IRGLRenderStrategyBase: IRGLRenderInternal {
             viewports: viewports
         )
     }
+
+    func render(
+        frame: IRFFVideoFrame,
+        to drawable: CAMetalDrawable,
+        contentMode: IRGLRenderContentMode,
+        drawableSize: CGSize,
+        zoomScale: Float,
+        translation: SIMD2<Float>,
+        completion: @escaping IRGLRenderCompletion
+    ) -> Bool {
+        renderer.render(
+            frame: frame,
+            to: drawable,
+            contentMode: contentMode,
+            drawableSize: drawableSize,
+            zoomScale: zoomScale,
+            translation: translation,
+            completion: completion
+        )
+    }
+
+    func renderMulti(
+        frame: IRFFVideoFrame,
+        to drawable: CAMetalDrawable,
+        drawableSize: CGSize,
+        viewports: [CGRect],
+        contentModes: [IRGLRenderContentMode],
+        zoomScales: [Float],
+        translations: [SIMD2<Float>],
+        completion: @escaping IRGLRenderCompletion
+    ) -> Bool {
+        renderer.renderMulti(
+            frame: frame,
+            to: drawable,
+            drawableSize: drawableSize,
+            viewports: viewports,
+            contentModes: contentModes,
+            zoomScales: zoomScales,
+            translations: translations,
+            completion: completion
+        )
+    }
+
+    func renderClear(
+        to drawable: CAMetalDrawable,
+        completion: @escaping IRGLRenderCompletion
+    ) -> Bool {
+        renderer.renderClear(
+            to: drawable,
+            completion: completion
+        )
+    }
+
+    func renderFish2Pano(
+        frame: IRFFVideoFrame,
+        params: IRMetalRenderer.Fish2PanoParams,
+        texUVTextures: [MTLTexture],
+        to drawable: CAMetalDrawable,
+        drawableSize: CGSize,
+        viewport: CGRect,
+        contentMode: IRGLRenderContentMode,
+        outputSize: CGSize,
+        zoomScale: Float,
+        translation: SIMD2<Float>,
+        completion: @escaping IRGLRenderCompletion
+    ) -> Bool {
+        renderer.renderFish2Pano(
+            frame: frame,
+            params: params,
+            texUVTextures: texUVTextures,
+            to: drawable,
+            drawableSize: drawableSize,
+            viewport: viewport,
+            contentMode: contentMode,
+            outputSize: outputSize,
+            zoomScale: zoomScale,
+            translation: translation,
+            completion: completion
+        )
+    }
+
+    func renderDistortion(
+        frame: IRFFVideoFrame,
+        leftMesh: IRMetalDistortionMesh,
+        rightMesh: IRMetalDistortionMesh,
+        to drawable: CAMetalDrawable,
+        drawableSize: CGSize,
+        contentMode: IRGLRenderContentMode,
+        completion: @escaping IRGLRenderCompletion
+    ) -> Bool {
+        renderer.renderDistortion(
+            frame: frame,
+            leftMesh: leftMesh,
+            rightMesh: rightMesh,
+            to: drawable,
+            drawableSize: drawableSize,
+            contentMode: contentMode,
+            completion: completion
+        )
+    }
+
+    func renderFisheye(
+        frame: IRFFVideoFrame,
+        mesh: IRMetalFisheyeMesh,
+        mvp: simd_float4x4,
+        textureMatrix: simd_float4x4,
+        to drawable: CAMetalDrawable,
+        drawableSize: CGSize,
+        viewport: CGRect,
+        completion: @escaping IRGLRenderCompletion
+    ) -> Bool {
+        renderer.renderFisheye(
+            frame: frame,
+            mesh: mesh,
+            mvp: mvp,
+            textureMatrix: textureMatrix,
+            to: drawable,
+            drawableSize: drawableSize,
+            viewport: viewport,
+            completion: completion
+        )
+    }
+
+    func renderFisheyeMulti(
+        frame: IRFFVideoFrame,
+        mesh: IRMetalFisheyeMesh,
+        mvpList: [simd_float4x4],
+        textureMatrix: simd_float4x4,
+        to drawable: CAMetalDrawable,
+        drawableSize: CGSize,
+        viewports: [CGRect],
+        completion: @escaping IRGLRenderCompletion
+    ) -> Bool {
+        renderer.renderFisheyeMulti(
+            frame: frame,
+            mesh: mesh,
+            mvpList: mvpList,
+            textureMatrix: textureMatrix,
+            to: drawable,
+            drawableSize: drawableSize,
+            viewports: viewports,
+            completion: completion
+        )
+    }
 }
 
 private final class IRGLRenderStrategy2D: IRGLRenderStrategyBase {}

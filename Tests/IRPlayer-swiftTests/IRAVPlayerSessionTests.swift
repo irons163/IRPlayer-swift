@@ -17,7 +17,6 @@ final class IRAVPlayerSessionTests: XCTestCase {
         let token = session.activate(
             asset: asset,
             automaticallyLoadedAssetKeys: nil,
-            contentHeaders: nil,
             itemEventHandler: { _, _, _ in },
             periodicTimeHandler: { _, _ in }
         )
@@ -230,7 +229,6 @@ final class IRAVPlayerSessionTests: XCTestCase {
             session.activate(
                 asset: makeAsset(named: "ended-first.mp4"),
                 automaticallyLoadedAssetKeys: nil,
-                contentHeaders: nil,
                 itemEventHandler: handler,
                 periodicTimeHandler: { _, _ in }
             )
@@ -240,7 +238,6 @@ final class IRAVPlayerSessionTests: XCTestCase {
             session.activate(
                 asset: makeAsset(named: "ended-second.mp4"),
                 automaticallyLoadedAssetKeys: nil,
-                contentHeaders: nil,
                 itemEventHandler: handler,
                 periodicTimeHandler: { _, _ in }
             )
@@ -291,7 +288,7 @@ final class IRAVPlayerSessionTests: XCTestCase {
         XCTAssertTrue(session.close())
     }
 
-    func testAssetAndRedirectDecisionsLiveWithSessionOwner() throws {
+    func testAssetLoadDecisionsLiveWithSessionOwner() {
         XCTAssertEqual(
             IRAVPlayerSession.assetLoadDecision(
                 keyStatuses: [.loaded, .failed],
@@ -313,28 +310,6 @@ final class IRAVPlayerSessionTests: XCTestCase {
             ),
             .ignore
         )
-
-        let request = URLRequest(
-            url: try XCTUnwrap(URL(string: "https://example.com/video.m3u8"))
-        )
-        let redirected = try XCTUnwrap(
-            IRAVPlayerSession.resourceLoaderRedirectRequest(
-                for: request,
-                headers: ["Authorization": "Bearer token"]
-            )
-        )
-        XCTAssertEqual(
-            redirected.value(forHTTPHeaderField: "Authorization"),
-            "Bearer token"
-        )
-        XCTAssertNil(
-            IRAVPlayerSession.resourceLoaderRedirectRequest(
-                for: URLRequest(
-                    url: URL(string: "http://example.com/video.m3u8")!
-                ),
-                headers: ["Authorization": "Bearer token"]
-            )
-        )
     }
 
     private func activate(
@@ -344,7 +319,6 @@ final class IRAVPlayerSessionTests: XCTestCase {
         session.activate(
             asset: asset,
             automaticallyLoadedAssetKeys: nil,
-            contentHeaders: nil,
             itemEventHandler: { _, _, _ in },
             periodicTimeHandler: { _, _ in }
         )

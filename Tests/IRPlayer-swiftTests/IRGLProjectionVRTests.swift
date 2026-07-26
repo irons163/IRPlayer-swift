@@ -138,6 +138,25 @@ final class IRGLProjectionVRTests: XCTestCase {
         XCTAssertEqual(first.positions.count, 20_301)
     }
 
+    func testMeshGenerationRemainsStableAcrossNoOpMediaUpdate() {
+        let projection = IRGLProjectionVR(
+            textureWidth: 1920,
+            height: 1080
+        )
+        let first = projection.meshSnapshot()
+
+        projection.update(
+            with: IRMediaParameter(
+                width: 3840,
+                height: 2160
+            )
+        )
+        let second = projection.meshSnapshot()
+
+        XCTAssertEqual(first.generation, second.generation)
+        XCTAssertEqual(first.mesh, second.mesh)
+    }
+
     func testProjectionNoOpUpdateDrawMethodsRemainCallable() {
         let mediaParameter = IRMediaParameter(width: 640, height: 480)
         let vrProjection = IRGLProjectionVR(

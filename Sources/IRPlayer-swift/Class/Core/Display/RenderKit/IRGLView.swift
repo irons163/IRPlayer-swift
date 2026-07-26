@@ -416,7 +416,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             return UIImage()
         }
         return IRMainThreadExecutor.sync {
-            captureFramebufferOnMain()
+            captureFramebufferOnMain() ?? UIImage()
         }
     }
 
@@ -571,13 +571,13 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         }
     }
 
-    private func captureFramebufferOnMain() -> UIImage {
+    private func captureFramebufferOnMain() -> UIImage? {
         let size = layer.bounds.size
         guard size.width.isFinite,
               size.height.isFinite,
               size.width > 0,
               size.height > 0 else {
-            return UIImage()
+            return nil
         }
         UIGraphicsBeginImageContextWithOptions(size, false, 0)
         defer { UIGraphicsEndImageContext() }
@@ -585,7 +585,7 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             in: layer.bounds,
             afterScreenUpdates: false
         )
-        return UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
+        return UIGraphicsGetImageFromCurrentImageContext()
     }
 
     private func reloadViewOnMain() {

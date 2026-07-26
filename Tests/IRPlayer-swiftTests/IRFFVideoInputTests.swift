@@ -65,7 +65,65 @@ final class IRFFVideoInputTests: XCTestCase {
         XCTAssertTrue(input.videoOutput === outputs[0])
     }
 
-    func testDefaultDataSourceHandlesOwnedPacketAndProducesNoFrame()
+    func testBoundedForwardingPrefersTrySendAndDoesNotDoubleReclaim() {
+        let output =
+            BoundedFFDecoderVideoOutput(
+                accepts: false
+            )
+        let input = IRFFVideoInput(
+            videoOutput: output,
+            outputType: .decoder
+        )
+        let frame = IRFFVideoFrame()
+        let probe =
+            VideoInputFrameLifecycleProbe()
+        frame.delegate = probe
+
+        XCTAssertFalse(
+            input.trySend(
+                videoFrame: frame
+            )
+        )
+        XCTAssertEqual(output.callCount, 1)
+        XCTAssertEqual(probe.cancelCount, 1)
+    }
+
+    func testBoundedForwardingFallsBackToLegacySend() {
+        let output =
+            RecordingFFDecoderVideoOutput()
+        let input = IRFFVideoInput(
+            videoOutput: output,
+            outputType: .decoder
+        )
+        let frame = IRFFVideoFrame()
+
+        XCTAssertTrue(
+            input.send(
+                videoFrame: frame
+            )
+        )
+        XCTAssertTrue(
+            output.receivedFrames
+                .first === frame
+        )
+    }
+
+    func testBoundedForwardingReclaimsFrameWithoutCallableTarget() {
+        let input = IRFFVideoInput()
+        let frame = IRFFVideoFrame()
+        let probe =
+            VideoInputFrameLifecycleProbe()
+        frame.delegate = probe
+
+        XCTAssertFalse(
+            input.trySend(
+                videoFrame: frame
+            )
+        )
+        XCTAssertEqual(probe.cancelCount, 1)
+    }
+
+    func testDefaultDataSourceDeclinesDescriptorForBuiltInFallback()
         throws {
         let input = IRFFVideoInput()
         let codec = try makeCodecDescriptor()
@@ -85,19 +143,110 @@ final class IRFFVideoInputTests: XCTestCase {
             flags: 0,
             sourcePosition: 8
         )
+        let descriptor = try XCTUnwrap(
+            IRFFVideoPacketDescriptor(
+                payloadByteCount: packet.data.count,
+                sideDataCount: packet.sideData.count,
+                presentationTimestamp:
+                    packet.presentationTimestamp,
+                decodeTimestamp: packet.decodeTimestamp,
+                durationTicks: packet.durationTicks,
+                streamIndex: packet.streamIndex,
+                flags: packet.flags,
+                sourcePosition: packet.sourcePosition
+            )
+        )
 
-        XCTAssertTrue(
+        XCTAssertFalse(
             input.shouldHandle(
                 info,
-                decodeFrame: packet
+                packet: descriptor
             )
         )
-        XCTAssertNil(
-            input.videoDecoder(
-                info,
-                decodeFrame: packet
+        let completion =
+            IRFFCustomVideoDecodeCompletion {
+                _ in true
+            }
+        guard case .dropped =
+                input.videoDecoder(
+                    info,
+                    decodeFrame: packet,
+                    completion: completion
+                ) else {
+            return XCTFail(
+                "Base input must explicitly drop only after opt-in"
+            )
+        }
+    }
+
+    func testCustomCompletionIsExactlyOnceAndReclaimsDistinctDuplicateFrame() {
+        var handledCount = 0
+        let completion =
+            IRFFCustomVideoDecodeCompletion {
+                _ in
+                handledCount += 1
+                return true
+            }
+        let firstFrame = IRFFVideoFrame()
+        let duplicateFrame = IRFFVideoFrame()
+        let probe =
+            VideoInputFrameLifecycleProbe()
+        duplicateFrame.delegate = probe
+
+        XCTAssertTrue(
+            completion.send(
+                videoFrame: firstFrame
             )
         )
+        XCTAssertFalse(
+            completion.send(
+                videoFrame: duplicateFrame
+            )
+        )
+        XCTAssertEqual(handledCount, 1)
+        XCTAssertEqual(probe.cancelCount, 1)
+    }
+
+    func testCustomCompletionDeinitAutoDropsUnresolvedReservation() {
+        var droppedCount = 0
+        autoreleasepool {
+            var completion:
+                IRFFCustomVideoDecodeCompletion? =
+                IRFFCustomVideoDecodeCompletion {
+                    result in
+                    if case .dropped = result {
+                        droppedCount += 1
+                    }
+                    return true
+                }
+            XCTAssertNotNil(completion)
+            completion = nil
+        }
+
+        XCTAssertEqual(droppedCount, 1)
+    }
+
+    func testInvalidatedCustomCompletionRejectsAndReclaimsLateFrame() {
+        let completion =
+            IRFFCustomVideoDecodeCompletion {
+                _ in
+                XCTFail(
+                    "Invalidated completion must not call its handler"
+                )
+                return true
+            }
+        completion.invalidate()
+        let frame = IRFFVideoFrame()
+        let probe =
+            VideoInputFrameLifecycleProbe()
+        frame.delegate = probe
+
+        XCTAssertFalse(
+            completion.send(
+                videoFrame: frame
+            )
+        )
+        XCTAssertEqual(probe.cancelCount, 1)
     }
 
     func testCodecIdentifiersPreserveKnownAndUnknownRawValues() {
@@ -133,6 +282,36 @@ final class IRFFVideoInputTests: XCTestCase {
             IRFFVideoCodecIdentifier(rawValue: 91_337).rawValue,
             91_337
         )
+    }
+
+    func testPacketDescriptorValidatesCountsAndDerivesKeyFrame() throws {
+        XCTAssertNil(
+            IRFFVideoPacketDescriptor(
+                payloadByteCount: -1,
+                sideDataCount: 0,
+                presentationTimestamp: nil,
+                decodeTimestamp: nil,
+                durationTicks: 0,
+                streamIndex: 0,
+                flags: 0,
+                sourcePosition: 0
+            )
+        )
+        let descriptor = try XCTUnwrap(
+            IRFFVideoPacketDescriptor(
+                payloadByteCount: 128,
+                sideDataCount: 2,
+                presentationTimestamp: 4,
+                decodeTimestamp: 3,
+                durationTicks: 1,
+                streamIndex: 0,
+                flags: 1,
+                sourcePosition: 8
+            )
+        )
+        XCTAssertEqual(descriptor.payloadByteCount, 128)
+        XCTAssertEqual(descriptor.sideDataCount, 2)
+        XCTAssertTrue(descriptor.isKeyFrame)
     }
 
     func testCodecDescriptorRejectsInvalidGeometry() throws {
@@ -468,5 +647,48 @@ private final class RecordingFFDecoderVideoOutput:
 
     func send(videoFrame frame: IRFFVideoFrame) {
         receivedFrames.append(frame)
+    }
+}
+
+private final class BoundedFFDecoderVideoOutput:
+    NSObject,
+    IRFFDecoderVideoOutput
+{
+    private let accepts: Bool
+    private(set) var callCount = 0
+
+    init(accepts: Bool) {
+        self.accepts = accepts
+    }
+
+    func trySend(
+        videoFrame frame: IRFFVideoFrame
+    ) -> Bool {
+        callCount += 1
+        if !accepts {
+            frame.cancel()
+        }
+        return accepts
+    }
+}
+
+private final class VideoInputFrameLifecycleProbe:
+    NSObject,
+    IRFFFrameDelegate
+{
+    private(set) var cancelCount = 0
+
+    func frameDidStartPlaying(
+        _ frame: IRFFFrame
+    ) {}
+
+    func frameDidStopPlaying(
+        _ frame: IRFFFrame
+    ) {}
+
+    func frameDidCancel(
+        _ frame: IRFFFrame
+    ) {
+        cancelCount += 1
     }
 }

@@ -8,7 +8,13 @@
 import Foundation
 import CoreGraphics
 import AVFoundation
-import IRFFMpeg
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+internal import IRPlayerObjc
+#else
+@_implementationOnly import IRFFMpeg
+@_implementationOnly import IRPlayerObjc
+#endif
 
 protocol IRFFDecoderDelegate: AnyObject {
     func decoderWillOpenInputStream(_ decoder: IRFFDecoder)
@@ -23,6 +29,11 @@ protocol IRFFDecoderDelegate: AnyObject {
 
 @objc public protocol IRFFDecoderVideoOutput: AnyObject {
     @objc optional func send(videoFrame frame: IRFFVideoFrame)
+    /// Attempts a bounded, non-blocking frame delivery. A `false` result means
+    /// the output rejected and reclaimed the frame.
+    @objc optional func trySend(
+        videoFrame frame: IRFFVideoFrame
+    ) -> Bool
 }
 
 @objc protocol IRFFDecoderAudioOutput: AnyObject {
@@ -99,16 +110,27 @@ protocol IRFFDecoderDelegate: AnyObject {
     private let session = IRFFDecoderSession()
     private let runtimeState = IRFFDecoderRuntimeState()
 
-    private(set) var error: Error? {
-        get { runtimeState.error }
-        set { runtimeState.error = newValue }
+    var error: Error? {
+        runtimeState.error
     }
     private(set) var contentURL: URL
     private(set) var videoFormat: IRVideoFormat
+    private(set) var contentHeaders:
+        [String: String]
     private(set) var progress: TimeInterval {
         get { runtimeState.snapshot.progress }
         set {
-            guard let change = runtimeState.setProgress(newValue) else { return }
+            guard let normalizedProgress =
+                    Self.normalizedProgress(
+                        newValue,
+                        duration: duration
+                    ),
+                  let change =
+                    runtimeState.setProgress(
+                        normalizedProgress
+                    ) else {
+                return
+            }
             notifyDelegate {
                 $0.decoder(
                     self,
@@ -182,12 +204,7 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     private var currentVideoFrame: IRFFVideoFrame? {
-        get { runtimeState.currentVideoFrame }
-        set { runtimeState.currentVideoFrame = newValue }
-    }
-    private var currentAudioFrame: IRFFAudioFrame? {
-        get { runtimeState.currentAudioFrame }
-        set { runtimeState.currentAudioFrame = newValue }
+        runtimeState.currentVideoFrame
     }
 
     private(set) var audioTimeClock: TimeInterval {
@@ -287,9 +304,18 @@ protocol IRFFDecoderDelegate: AnyObject {
         return duration > 0
     }
 
-    init(contentURL: URL, videoFormat: IRVideoFormat, videoOutput: IRFFDecoderVideoOutput?, audioOutput: IRFFDecoderAudioOutput?) {
+    init(
+        contentURL: URL,
+        videoFormat: IRVideoFormat,
+        contentHeaders:
+            [String: String] = [:],
+        videoOutput: IRFFDecoderVideoOutput?,
+        audioOutput: IRFFDecoderAudioOutput?
+    ) {
         self.contentURL = contentURL
         self.videoFormat = videoFormat
+        self.contentHeaders =
+            contentHeaders
         self.collaborators = IRFFDecoderCollaboratorSession(
             configuration: .init(
                 delegate: nil,
@@ -358,24 +384,45 @@ protocol IRFFDecoderDelegate: AnyObject {
         }
     }
 
-    private func scheduleWorkers() {
+    private func scheduleWorkers(
+        deferIfRunning: Bool = false,
+        includeRead: Bool = true
+    ) {
         if error != nil {
             delegateErrorCallback()
             return
         }
         let resources = session.workerResources
+        let includeAudio =
+            resources.formatContext?.audioEnable == true &&
+            resources.audioDecoder != nil
+        let generation =
+            runtimeState.snapshot.decodeGeneration
         session.scheduleWorkers(
+            includeRead: includeRead,
             includeVideo: resources.formatContext?.videoEnable == true,
             read: { [weak self] in
                 self?.readPacketThread()
             },
             decode: { [weak self] in
-                self?.session.workerResources.videoDecoder?.decodeFrameThread()
+                self?.session.workerResources
+                    .videoDecoder?
+                    .decodeFrameThread(
+                        generation: generation
+                    )
             },
             display: { [weak self] in
-                self?.displayThread()
-            }
+                self?.displayThread(
+                    generation: generation
+                )
+            },
+            deferIfRunning: deferIfRunning
         )
+        if includeAudio {
+            session.scheduleAudioMonitor { [weak self] in
+                self?.audioMonitoringThread()
+            }
+        }
     }
 
     static func videoCodecContext(
@@ -416,6 +463,48 @@ protocol IRFFDecoderDelegate: AnyObject {
         )
     }
 
+    static func audioPumpFailureError(
+        code: Int32
+    ) -> NSError {
+        var userInfo: [String: Any] = [
+            NSLocalizedDescriptionKey:
+                "The audio decoder could not make progress."
+        ]
+        if let underlyingError = IRFFCheckError(code) {
+            userInfo[NSUnderlyingErrorKey] =
+                underlyingError
+        }
+        return NSError(
+            domain: "IRFFAudioDecoder",
+            code: Int(
+                IRFFDecoderErrorCode
+                    .codecAudioSendPacket.rawValue
+            ),
+            userInfo: userInfo
+        )
+    }
+
+    static func audioUnexpectedEndOfStreamError()
+        -> NSError {
+        NSError(
+            domain: "IRFFAudioDecoder",
+            code: Int(
+                IRFFDecoderErrorCode
+                    .codecAudioSendPacket.rawValue
+            ),
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "The audio decoder ended before the input stream."
+            ]
+        )
+    }
+
+    static func decodeAdmissionSleepInterval(
+        paused: Bool
+    ) -> TimeInterval {
+        paused ? 0.05 : 0.002
+    }
+
     static func bufferedDurationTransition(bufferedDuration: TimeInterval, endOfFile: Bool) -> BufferedDurationTransition {
         let normalizedDuration =
             bufferedDuration.isFinite &&
@@ -427,6 +516,21 @@ protocol IRFFDecoderDelegate: AnyObject {
             shouldFinishPlayback:
                 normalizedDuration <= 0 && endOfFile
         )
+    }
+
+    static func normalizedProgress(
+        _ progress: TimeInterval,
+        duration: TimeInterval
+    ) -> TimeInterval? {
+        guard progress.isFinite else {
+            return nil
+        }
+        let lowerBounded = max(0, progress)
+        guard duration.isFinite,
+              duration > 0 else {
+            return lowerBounded
+        }
+        return min(lowerBounded, duration)
     }
 
     static func packetBufferBackpressureSleepInterval(audioSize: Int,
@@ -541,12 +645,14 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func shouldFetchAudioFrame(closed: Bool,
+                                      hasError: Bool,
                                       seeking: Bool,
                                       buffering: Bool,
                                       paused: Bool,
                                       playbackFinished: Bool,
                                       audioEnabled: Bool) -> Bool {
         return !closed &&
+            !hasError &&
             !seeking &&
             !buffering &&
             !paused &&
@@ -573,7 +679,8 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     static func readPacketEOFTransition(readFrameResult: Int32?) -> ReadPacketEOFTransition? {
-        guard (readFrameResult ?? -1) < 0 else {
+        guard readFrameResult ==
+                IR_AVERROR_EOF else {
             return nil
         }
         return ReadPacketEOFTransition(
@@ -709,6 +816,17 @@ protocol IRFFDecoderDelegate: AnyObject {
         return IRFFDecoderReadLoopState.eofAction(readFrameResult: readFrameResult)
     }
 
+    static func readLoopReadAction(
+        readFrameResult: Int32,
+        retryAttempt: Int
+    ) -> IRFFDecoderReadLoopState.Action? {
+        IRFFDecoderReadLoopState.readAction(
+            readFrameResult:
+                readFrameResult,
+            retryAttempt: retryAttempt
+        )
+    }
+
     static func readLoopPacketAction(streamIndex: Int32,
                                      videoTrackIndex: Int?,
                                      audioTrackIndex: Int?) -> IRFFDecoderReadLoopState.Action {
@@ -764,6 +882,32 @@ protocol IRFFDecoderDelegate: AnyObject {
         )
     }
 
+    static func admitDisplayFrame(
+        _ frame: IRFFVideoFrame?,
+        after currentPosition:
+            TimeInterval?
+    ) -> Bool {
+        guard shouldAcceptDisplayFrame(
+            currentPosition: currentPosition,
+            nextPosition: frame?.position
+        ) else {
+            frame?.cancel()
+            return false
+        }
+        return true
+    }
+
+    static func retainDeliveredDisplayFrame(
+        _ frame: IRFFVideoFrame,
+        delivered: Bool
+    ) -> IRFFVideoFrame? {
+        guard delivered else {
+            frame.cancel()
+            return nil
+        }
+        return frame
+    }
+
     static func displayLoopStandaloneSleepAction(frameDuration: TimeInterval,
                                                  fps: TimeInterval) -> IRFFDecoderDisplayLoopState.Action? {
         return IRFFDecoderDisplayLoopState.standaloneSleepAction(
@@ -773,7 +917,13 @@ protocol IRFFDecoderDelegate: AnyObject {
     }
 
     private func openFormatContext() {
-        guard !closed else { return }
+        let openSnapshot =
+            runtimeState.snapshot
+        guard !openSnapshot.closed else {
+            return
+        }
+        let openGeneration =
+            openSnapshot.decodeGeneration
         notifyDelegate {
             $0.decoderWillOpenInputStream(self)
         }
@@ -781,7 +931,8 @@ protocol IRFFDecoderDelegate: AnyObject {
 
         let formatContext = IRFFFormatContext(
             contentURL: contentURL,
-            videoFormat: videoFormat
+            videoFormat: videoFormat,
+            contentHeaders: contentHeaders
         )
         formatContext.delegate = self
         guard session.installFormatContext(formatContext) else {
@@ -791,9 +942,14 @@ protocol IRFFDecoderDelegate: AnyObject {
 
         formatContext.setupSync()
         if let formatError = formatContext.error {
-            error = formatError
             session.markOpenFailed()
-            delegateErrorCallback()
+            _ = runtimeState.commitDecodeError(
+                formatError,
+                generation: openGeneration,
+                notification: {
+                    delegateErrorCallback()
+                }
+            )
             return
         }
         guard !closed else { return }
@@ -842,10 +998,49 @@ protocol IRFFDecoderDelegate: AnyObject {
 
     private func readPacketThread() {
         let initialResources = session.workerResources
-        initialResources.videoDecoder?.flush()
-        initialResources.audioDecoder?.flush()
+        let initialGeneration =
+            runtimeState.snapshot.decodeGeneration
+        initialResources.videoDecoder?.flush(
+            generation: initialGeneration
+        )
+        initialResources.audioDecoder?.flush(
+            generation: initialGeneration
+        )
         reading = true
         var finished = false
+        var readRetryAttempt = 0
+        var pendingAudioPacket: (
+            packet: IRFFPacket,
+            generation: UInt64
+        )?
+        var pendingVideoPacket: (
+            packet: IRFFPacket,
+            generation: UInt64
+        )?
+        var pendingEOF: (
+            transition: ReadPacketEOFTransition,
+            generation: UInt64
+        )?
+        var maintenanceGeneration =
+            initialGeneration
+        defer {
+            pendingAudioPacket?.packet.close()
+            pendingVideoPacket?.packet.close()
+        }
+
+        func commitAudioError(
+            _ error: NSError,
+            generation: UInt64
+        ) -> Bool {
+            runtimeState.commitDecodeError(
+                error,
+                generation: generation,
+                notification: {
+                    delegateErrorCallback()
+                }
+            )
+        }
+
         while !finished {
             let runtimeSnapshot = runtimeState.snapshot
             if Self.readLoopExitAction(
@@ -856,36 +1051,344 @@ protocol IRFFDecoderDelegate: AnyObject {
                 break
             }
             let resources = session.workerResources
-            if case let .completeSeek(transition)? = Self.readLoopSeekCompletionAction(
-                seeking: runtimeSnapshot.seeking,
-                progress: runtimeSnapshot.progress
-            ) {
-                guard let seekRequest = runtimeState.takePendingSeek() else {
-                    continue
-                }
-                endOfFile = transition.endOfFile
-                playbackFinished = transition.playbackFinished
+            if let seekRequest =
+                    runtimeState.takePendingSeek(),
+               let transition =
+                    Self.seekCompletionTransition(
+                        seeking: true,
+                        progress:
+                            seekRequest.target
+                    ) {
+                pendingAudioPacket?.packet.close()
+                pendingAudioPacket = nil
+                pendingVideoPacket?.packet.close()
+                pendingVideoPacket = nil
+                pendingEOF = nil
                 resources.formatContext?.seekFile(
                     withFFTimebase: seekRequest.target
                 )
-                buffering = transition.buffering
-                if buffering {
-                    bufferingStartTime = Date().timeIntervalSince1970
+                resources.audioDecoder?.flush(
+                    generation:
+                        seekRequest.decodeGeneration
+                )
+                resources.videoDecoder?.flush(
+                    generation:
+                        seekRequest.decodeGeneration
+                )
+                resources.videoDecoder?.paused =
+                    transition.videoPaused
+                let commit = runtimeState.commitSeek(
+                    seekRequest,
+                    transition: transition,
+                    bufferingStartTime:
+                        Date().timeIntervalSince1970
+                )
+                if let bufferingChange =
+                        commit?.bufferingChange {
+                    notifyDelegate {
+                        $0.decoder(
+                            self,
+                            didChangeValueOfBuffering:
+                                bufferingChange.current
+                        )
+                    }
                 }
-                resources.audioDecoder?.flush()
-                resources.videoDecoder?.flush()
-                resources.videoDecoder?.paused = transition.videoPaused
-                resources.videoDecoder?.endOfFile = transition.videoEndOfFile
-                let seekCompletion = runtimeState.finishSeek(seekRequest)
-                seekCompletion?(true)
-                audioTimeClock = transition.audioTimeClock
-                if transition.shouldClearFrames {
-                    runtimeState.clearFrames()
-                }
-                updateBufferedDurationByVideo()
-                updateBufferedDurationByAudio()
+                maintenanceGeneration =
+                    seekRequest.decodeGeneration
+                updateBufferedDurationByVideo(
+                    generation:
+                        seekRequest.decodeGeneration
+                )
+                updateBufferedDurationByAudio(
+                    generation:
+                        seekRequest.decodeGeneration
+                )
+                commit?.completion?(true)
+                readRetryAttempt = 0
                 continue
             }
+
+            if let pendingEnd = pendingEOF {
+                guard runtimeState
+                        .acceptsDecodeGeneration(
+                            pendingEnd.generation
+                        ) else {
+                    pendingEOF = nil
+                    continue
+                }
+                let drainResult =
+                    resources.audioDecoder?.drain(
+                        generation:
+                            pendingEnd.generation
+                    ) ?? .endOfStream
+                switch drainResult {
+                case .needsInput:
+                    continue
+                case .backpressured:
+                    Thread.sleep(
+                        forTimeInterval:
+                            Self
+                                .decodeAdmissionSleepInterval(
+                                    paused:
+                                        runtimeSnapshot.paused
+                                )
+                    )
+                    continue
+                case .canceled:
+                    pendingEOF = nil
+                    continue
+                case let .failed(code):
+                    pendingEOF = nil
+                    if commitAudioError(
+                        Self.audioPumpFailureError(
+                            code: code
+                        ),
+                        generation:
+                            pendingEnd.generation
+                    ) {
+                        finished = true
+                    }
+                    continue
+                case .endOfStream:
+                    break
+                }
+
+                pendingEOF = nil
+                resources.videoDecoder?.finish(
+                    generation:
+                        pendingEnd.generation
+                )
+                let didCommitEOF =
+                    runtimeState.commitEndOfFile(
+                        generation:
+                            pendingEnd.generation,
+                        notification: {
+                            if pendingEnd
+                                .transition
+                                .shouldNotifyDelegate {
+                                notifyDelegate {
+                                    $0.decoderDidEndOfFile(
+                                        self
+                                    )
+                                }
+                            }
+                        }
+                    )
+                guard didCommitEOF else {
+                    continue
+                }
+                finished =
+                    pendingEnd.transition
+                        .shouldFinishReadLoop
+                continue
+            }
+
+            if let pending = pendingAudioPacket {
+                guard runtimeState
+                        .acceptsDecodeGeneration(
+                            pending.generation
+                        ) else {
+                    pending.packet.close()
+                    pendingAudioPacket = nil
+                    continue
+                }
+                guard let audioDecoder =
+                        resources.audioDecoder else {
+                    pending.packet.close()
+                    pendingAudioPacket = nil
+                    continue
+                }
+                let packetResult =
+                    audioDecoder.putPacket(
+                        pending.packet,
+                        generation:
+                            pending.generation
+                    )
+                switch packetResult {
+                case .deferred:
+                    updateBufferedDurationByAudio(
+                        generation:
+                            pending.generation
+                    )
+                    Thread.sleep(
+                        forTimeInterval:
+                            Self
+                                .decodeAdmissionSleepInterval(
+                                    paused:
+                                        runtimeSnapshot.paused
+                                )
+                    )
+                    continue
+                case let .consumed(result):
+                    pendingAudioPacket = nil
+                    updateBufferedDurationByAudio(
+                        generation:
+                            pending.generation
+                    )
+                    switch result {
+                    case .needsInput:
+                        break
+                    case .backpressured:
+                        continue
+                    case .canceled:
+                        continue
+                    case let .failed(code):
+                        if commitAudioError(
+                            Self.audioPumpFailureError(
+                                code: code
+                            ),
+                            generation:
+                                pending.generation
+                        ) {
+                            finished = true
+                        }
+                        continue
+                    case .endOfStream:
+                        if commitAudioError(
+                            Self
+                                .audioUnexpectedEndOfStreamError(),
+                            generation:
+                                pending.generation
+                        ) {
+                            finished = true
+                        }
+                        continue
+                    }
+                }
+            }
+
+            if let pending = pendingVideoPacket {
+                guard runtimeState
+                        .acceptsDecodeGeneration(
+                            pending.generation
+                        ) else {
+                    pending.packet.close()
+                    pendingVideoPacket = nil
+                    continue
+                }
+                guard let videoDecoder =
+                        resources.videoDecoder else {
+                    pending.packet.close()
+                    pendingVideoPacket = nil
+                    continue
+                }
+                switch videoDecoder.putPacket(
+                    pending.packet,
+                    generation:
+                        pending.generation
+                ) {
+                case .accepted:
+                    pendingVideoPacket = nil
+                    maintenanceGeneration =
+                        pending.generation
+                    updateBufferedDurationByVideo(
+                        generation:
+                            pending.generation
+                    )
+                case .deferred:
+                    Thread.sleep(
+                        forTimeInterval:
+                            Self
+                                .decodeAdmissionSleepInterval(
+                                    paused:
+                                        runtimeSnapshot.paused
+                                )
+                    )
+                    continue
+                case .rejected:
+                    pendingVideoPacket = nil
+                    continue
+                }
+            }
+
+            if let audioDecoder =
+                    resources.audioDecoder {
+                let admission =
+                    audioDecoder.decodeAdmission
+                if admission.requiresOutputResume {
+                    switch audioDecoder
+                        .resumePendingOutput(
+                            generation:
+                                runtimeSnapshot
+                                    .decodeGeneration
+                        ) {
+                    case .needsInput:
+                        updateBufferedDurationByAudio(
+                            generation:
+                                runtimeSnapshot
+                                    .decodeGeneration
+                        )
+                    case .backpressured:
+                        updateBufferedDurationByAudio(
+                            generation:
+                                runtimeSnapshot
+                                    .decodeGeneration
+                        )
+                        Thread.sleep(
+                            forTimeInterval:
+                                Self
+                                    .decodeAdmissionSleepInterval(
+                                        paused:
+                                            runtimeSnapshot
+                                                .paused
+                                    )
+                        )
+                        continue
+                    case .canceled:
+                        continue
+                    case let .failed(code):
+                        if commitAudioError(
+                            Self.audioPumpFailureError(
+                                code: code
+                            ),
+                            generation:
+                                runtimeSnapshot
+                                    .decodeGeneration
+                        ) {
+                            finished = true
+                        }
+                        continue
+                    case .endOfStream:
+                        if commitAudioError(
+                            Self
+                                .audioUnexpectedEndOfStreamError(),
+                            generation:
+                                runtimeSnapshot
+                                    .decodeGeneration
+                        ) {
+                            finished = true
+                        }
+                        continue
+                    }
+                }
+                if audioDecoder.decodeAdmission
+                    .shouldThrottlePacketRead {
+                    Thread.sleep(
+                        forTimeInterval:
+                            Self
+                                .decodeAdmissionSleepInterval(
+                                    paused:
+                                        runtimeSnapshot.paused
+                                )
+                    )
+                    continue
+                }
+            }
+            if let videoDecoder =
+                    resources.videoDecoder,
+               videoDecoder.decodeAdmission
+                .shouldThrottlePacketRead {
+                Thread.sleep(
+                    forTimeInterval:
+                        Self
+                            .decodeAdmissionSleepInterval(
+                                paused:
+                                    runtimeSnapshot.paused
+                            )
+                )
+                continue
+            }
+
             let size = Int(resources.audioDecoder?.size() ?? 0)
             let packetSize = resources.videoDecoder?.packetSize() ?? 0
             if case let .sleep(interval)? = Self.readLoopBackpressureAction(
@@ -897,23 +1400,74 @@ protocol IRFFDecoderDelegate: AnyObject {
                 Thread.sleep(forTimeInterval: interval)
                 continue
             }
+            let readGeneration =
+                runtimeState.snapshot.decodeGeneration
             let packet = IRFFPacket()
             let result = packet.fill {
                 rawPacket in
                 resources.formatContext?
                     .readFrame(&rawPacket) ?? -1
             }
-            if case let .finishEOF(transition)? = Self.readLoopEOFAction(readFrameResult: result) {
-                IRFFRuntimeDebugOutput.write("read packet finished")
-                endOfFile = transition.endOfFile
-                resources.videoDecoder?.endOfFile = transition.videoEndOfFile
-                finished = transition.shouldFinishReadLoop
-                if transition.shouldNotifyDelegate {
-                    notifyDelegate {
-                        $0.decoderDidEndOfFile(self)
-                    }
+            guard runtimeState
+                    .acceptsDecodeGeneration(
+                        readGeneration
+                    ) else {
+                packet.close()
+                readRetryAttempt = 0
+                continue
+            }
+            maintenanceGeneration =
+                readGeneration
+            if case let .retryRead(interval)? =
+                    Self.readLoopReadAction(
+                        readFrameResult: result,
+                        retryAttempt:
+                            readRetryAttempt
+                    ) {
+                readRetryAttempt += 1
+                Thread.sleep(
+                    forTimeInterval: interval
+                )
+                continue
+            }
+            if case let .failRead(code)? =
+                    Self.readLoopReadAction(
+                        readFrameResult: result,
+                        retryAttempt:
+                            readRetryAttempt
+                    ) {
+                let readError = IRFFCheckErrorCode(
+                    code,
+                    errorCode:
+                        IRFFDecoderErrorCode
+                            .formatReadFrame.rawValue
+                )
+                if let readError,
+                   runtimeState.commitDecodeError(
+                       readError,
+                       generation:
+                           readGeneration,
+                       notification: {
+                           delegateErrorCallback()
+                       }
+                   ) {
+                    finished = true
+                    break
                 }
-                break
+                continue
+            }
+            readRetryAttempt = 0
+            if case let .finishEOF(transition)? =
+                    Self.readLoopReadAction(
+                        readFrameResult: result,
+                        retryAttempt: 0
+                    ) {
+                IRFFRuntimeDebugOutput.write("read packet finished")
+                pendingEOF = (
+                    transition,
+                    readGeneration
+                )
+                continue
             }
             guard let packetSnapshot = packet.snapshot else {
                 packet.close()
@@ -927,31 +1481,106 @@ protocol IRFFDecoderDelegate: AnyObject {
             switch packetAction {
             case .routePacket(.video):
                 IRFFRuntimeDebugOutput.write("video: put packet")
-                resources.videoDecoder?.putPacket(packet)
-                updateBufferedDurationByVideo()
+                if let videoDecoder =
+                        resources.videoDecoder {
+                    switch videoDecoder.putPacket(
+                        packet,
+                        generation: readGeneration
+                    ) {
+                    case .accepted:
+                        updateBufferedDurationByVideo(
+                            generation:
+                                readGeneration
+                        )
+                    case .deferred:
+                        pendingVideoPacket = (
+                            packet,
+                            readGeneration
+                        )
+                    case .rejected:
+                        break
+                    }
+                } else {
+                    packet.close()
+                }
             case .routePacket(.audio):
                 IRFFRuntimeDebugOutput.write("audio: put packet")
-                let audioPacketResult = resources.audioDecoder?.putPacket(packet) ?? -1
-                if audioPacketResult < 0 {
-                    error = Self.audioPacketError(fromPacketResult: audioPacketResult)
-                    delegateErrorCallback()
+                guard let audioDecoder =
+                        resources.audioDecoder else {
+                    packet.close()
                     continue
                 }
-                updateBufferedDurationByAudio()
+                switch audioDecoder.putPacket(
+                    packet,
+                    generation: readGeneration
+                ) {
+                case .deferred:
+                    pendingAudioPacket = (
+                        packet,
+                        readGeneration
+                    )
+                    updateBufferedDurationByAudio(
+                        generation:
+                            readGeneration
+                    )
+                case let .consumed(result):
+                    updateBufferedDurationByAudio(
+                        generation:
+                            readGeneration
+                    )
+                    switch result {
+                    case .needsInput:
+                        break
+                    case .backpressured,
+                         .canceled:
+                        continue
+                    case let .failed(code):
+                        if commitAudioError(
+                            Self.audioPumpFailureError(
+                                code: code
+                            ),
+                            generation:
+                                readGeneration
+                        ) {
+                            finished = true
+                        }
+                    case .endOfStream:
+                        if commitAudioError(
+                            Self
+                                .audioUnexpectedEndOfStreamError(),
+                            generation:
+                                readGeneration
+                        ) {
+                            finished = true
+                        }
+                    }
+                }
             case .routePacket(.ignored):
                 packet.close()
-            case .quit, .completeSeek(_), .sleep(_), .finishEOF(_):
+            case .quit,
+                 .completeSeek(_),
+                 .sleep(_),
+                 .retryRead(_),
+                 .finishEOF(_),
+                 .failRead(_):
                 packet.close()
             }
         }
         reading = false
-        checkBufferingStatus()
+        checkBufferingStatus(
+            generation:
+                maintenanceGeneration
+        )
     }
 
-    private func displayThread() {
+    private func displayThread(
+        generation: UInt64
+    ) {
         while true {
             let runtimeSnapshot = runtimeState.snapshot
-            if Self.displayLoopExitAction(
+            if runtimeSnapshot
+                .decodeGeneration != generation ||
+                Self.displayLoopExitAction(
                 closed: runtimeSnapshot.closed,
                 hasError: runtimeSnapshot.hasError
             ) == .quit {
@@ -966,8 +1595,19 @@ protocol IRFFDecoderDelegate: AnyObject {
                 paused: runtimeSnapshot.paused,
                 hasCurrentFrame: displayedFrame != nil
             ) {
-                if replayCurrentFrame, let currentFrame = displayedFrame {
-                    collaborators.deliverVideoFrame(currentFrame)
+                if replayCurrentFrame {
+                    _ = runtimeState
+                        .replayCurrentVideoFrame(
+                            generation:
+                                generation,
+                            delivery: {
+                                [collaborators] frame in
+                                collaborators
+                                    .deliverVideoFrame(
+                                        frame
+                                    )
+                            }
+                        )
                 }
                 Thread.sleep(forTimeInterval: sleepTime)
                 continue
@@ -993,42 +1633,85 @@ protocol IRFFDecoderDelegate: AnyObject {
                     }
                 }
                 if resources.videoDecoder?.frameEmpty() ?? true {
-                    updateBufferedDurationByVideo()
+                    updateBufferedDurationByVideo(
+                        generation: generation
+                    )
                 }
                 let newFrame = resources.videoDecoder?.waitForFrame()
-                if !Self.shouldAcceptDisplayFrame(
-                    currentPosition: displayedFrame?.position,
-                    nextPosition: newFrame?.position
+                guard runtimeState
+                        .acceptsDecodeGeneration(
+                            generation
+                        ) else {
+                    newFrame?.cancel()
+                    break
+                }
+                if !Self.admitDisplayFrame(
+                    newFrame,
+                    after:
+                        displayedFrame?.position
                 ) {
                     continue
                 }
-                currentVideoFrame = newFrame
                 if let currentFrame = newFrame {
-                    collaborators.deliverVideoFrame(currentFrame)
-                    updateProgressByVideo()
+                    guard commitDeliveredVideoFrame(
+                        currentFrame,
+                        generation: generation,
+                        updatesProgress: false
+                    ) else {
+                        currentFrame.cancel()
+                        continue
+                    }
                     if runtimeSnapshot.endOfFile {
-                        updateBufferedDurationByVideo()
+                        updateBufferedDurationByVideo(
+                            generation:
+                                generation
+                        )
                     }
                 } else if runtimeSnapshot.endOfFile {
-                    updateBufferedDurationByVideo()
+                    _ = runtimeState
+                        .clearCurrentVideoFrame(
+                            generation:
+                                generation
+                        )
+                    updateBufferedDurationByVideo(
+                        generation: generation
+                    )
                 }
             } else {
                 if resources.videoDecoder?.frameEmpty() ?? true {
-                    updateBufferedDurationByVideo()
+                    updateBufferedDurationByVideo(
+                        generation: generation
+                    )
                 }
                 let newFrame = resources.videoDecoder?.waitForFrame()
-                if !Self.shouldAcceptDisplayFrame(
-                    currentPosition: displayedFrame?.position,
-                    nextPosition: newFrame?.position
+                guard runtimeState
+                        .acceptsDecodeGeneration(
+                            generation
+                        ) else {
+                    newFrame?.cancel()
+                    break
+                }
+                if !Self.admitDisplayFrame(
+                    newFrame,
+                    after:
+                        displayedFrame?.position
                 ) {
                     continue
                 }
-                currentVideoFrame = newFrame
                 if let currentFrame = newFrame {
-                    collaborators.deliverVideoFrame(currentFrame)
-                    updateProgressByVideo()
+                    guard commitDeliveredVideoFrame(
+                        currentFrame,
+                        generation: generation,
+                        updatesProgress: true
+                    ) else {
+                        currentFrame.cancel()
+                        continue
+                    }
                     if runtimeSnapshot.endOfFile {
-                        updateBufferedDurationByVideo()
+                        updateBufferedDurationByVideo(
+                            generation:
+                                generation
+                        )
                     }
                     if case let .sleepAfterFrame(interval: sleepTime)? = Self.displayLoopStandaloneSleepAction(
                         frameDuration: currentFrame.duration,
@@ -1037,11 +1720,20 @@ protocol IRFFDecoderDelegate: AnyObject {
                         Thread.sleep(forTimeInterval: sleepTime)
                     }
                 } else if runtimeSnapshot.endOfFile {
-                    updateBufferedDurationByVideo()
+                    _ = runtimeState
+                        .clearCurrentVideoFrame(
+                            generation:
+                                generation
+                        )
+                    updateBufferedDurationByVideo(
+                        generation: generation
+                    )
                 }
             }
         }
-        checkBufferingStatus()
+        checkBufferingStatus(
+            generation: generation
+        )
     }
 
     func pause() {
@@ -1087,6 +1779,18 @@ protocol IRFFDecoderDelegate: AnyObject {
             completeHandler?(false)
             return
         }
+        session.withResources(default: ()) {
+            resources in
+            resources.audioDecoder?.invalidate(
+                generation:
+                    seekResult.decodeGeneration
+            )
+            resources.videoDecoder?.invalidate(
+                generation:
+                    seekResult.decodeGeneration
+            )
+            resources.videoDecoder?.paused = true
+        }
         seekResult.displacedCompletion?(false)
         if let progressChange = seekResult.progressChange {
             notifyDelegate {
@@ -1096,42 +1800,43 @@ protocol IRFFDecoderDelegate: AnyObject {
                 )
             }
         }
-        session.withResources(default: ()) {
-            $0.videoDecoder?.paused = true
-        }
-        if runtimeState.snapshot.endOfFile {
-            scheduleWorkers()
-        }
+        scheduleWorkers(
+            deferIfRunning: true,
+            includeRead:
+                seekResult.needsWorkerRestart
+        )
     }
 
-    func fetchAudioFrame() -> IRFFAudioFrame? {
-        session.withResources(
-            default: Optional<IRFFAudioFrame>.none
-        ) { resources in
-            let runtimeSnapshot = runtimeState.snapshot
-            if !Self.shouldFetchAudioFrame(
+    func fetchAudioFrame() -> IRFFAudioRenderLease? {
+        runtimeState.tryFetchAudioFrame {
+            runtimeSnapshot in
+            guard Self.shouldFetchAudioFrame(
                 closed: runtimeSnapshot.closed,
+                hasError:
+                    runtimeSnapshot.hasError,
                 seeking: runtimeSnapshot.seeking,
                 buffering: runtimeSnapshot.buffering,
                 paused: runtimeSnapshot.paused,
-                playbackFinished: runtimeSnapshot.playbackFinished,
-                audioEnabled: resources.formatContext?.audioEnable == true
-            ) {
+                playbackFinished:
+                    runtimeSnapshot.playbackFinished,
+                audioEnabled: true
+            ) else {
                 return nil
             }
-            guard let audioFrame = resources.audioDecoder?.dequeueFrame()
-            else {
-                updateBufferedDurationByAudio()
-                return nil
-            }
-            currentAudioFrame = audioFrame
-            if runtimeSnapshot.endOfFile {
-                updateBufferedDurationByAudio()
-            }
-            updateProgressByAudio()
-            audioTimeClock = audioFrame.position
-            return audioFrame
+            return session.tryDequeueAudioFrame()
         }
+    }
+
+    func finishAudioFrame(
+        _ identifier: ObjectIdentifier
+    ) -> Bool {
+        runtimeState.tryFinishAudioFrame(identifier)
+    }
+
+    func finishAudioFrameSynchronously(
+        _ identifier: ObjectIdentifier
+    ) -> Bool {
+        runtimeState.finishAudioFrame(identifier)
     }
 
     func closeFile() {
@@ -1165,7 +1870,30 @@ protocol IRFFDecoderDelegate: AnyObject {
         bufferingStartTime = 0
     }
 
-    private func checkBufferingStatus() {
+    private func checkBufferingStatus(
+        generation: UInt64? = nil
+    ) {
+        if let generation {
+            _ = runtimeState
+                .commitVideoBufferingStatus(
+                    generation: generation,
+                    currentTime:
+                        Date()
+                            .timeIntervalSince1970,
+                    notification: {
+                        bufferingChange in
+                        notifyDelegate {
+                            $0.decoder(
+                                self,
+                                didChangeValueOfBuffering:
+                                    bufferingChange
+                                        .current
+                            )
+                        }
+                    }
+                )
+            return
+        }
         let runtimeSnapshot = runtimeState.snapshot
         let transition = Self.bufferingStatusTransition(
             buffering: runtimeSnapshot.buffering,
@@ -1189,7 +1917,34 @@ protocol IRFFDecoderDelegate: AnyObject {
         }
     }
 
-    private func updateBufferedDurationByVideo() {
+    private func audioMonitoringThread() {
+        while true {
+            while let frame =
+                    runtimeState.takeFinishedAudioFrame() {
+                frame.cancel()
+            }
+            let runtimeSnapshot = runtimeState.snapshot
+            guard !runtimeSnapshot.closed,
+                  !runtimeSnapshot.hasError else {
+                return
+            }
+            let generation =
+                runtimeSnapshot.decodeGeneration
+            if !runtimeSnapshot.seeking {
+                updateProgressByAudio(
+                    generation: generation
+                )
+                updateBufferedDurationByAudio(
+                    generation: generation
+                )
+            }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+    }
+
+    private func updateBufferedDurationByVideo(
+        generation: UInt64
+    ) {
         let duration = session.withResources(
             default: Optional<TimeInterval>.none
         ) { resources -> TimeInterval? in
@@ -1198,42 +1953,157 @@ protocol IRFFDecoderDelegate: AnyObject {
             }
             return resources.videoDecoder?.duration() ?? 0
         }
-        if let duration {
-            bufferedDuration = duration
-        }
+        guard let duration else { return }
+        commitBufferedDuration(
+            duration,
+            generation: generation
+        )
     }
 
-    private func updateBufferedDurationByAudio() {
+    private func updateBufferedDurationByAudio(
+        generation: UInt64
+    ) {
         let duration = session.withResources(
             default: Optional<TimeInterval>.none
         ) { resources -> TimeInterval? in
             guard resources.formatContext?.audioEnable == true else {
                 return nil
             }
-            return resources.audioDecoder?.duration() ?? 0
+            return (resources.audioDecoder?.duration() ?? 0)
+                + runtimeState.activeAudioFrameDuration
         }
-        if let duration {
-            bufferedDuration = duration
-        }
+        guard let duration else { return }
+        commitBufferedDuration(
+            duration,
+            generation: generation
+        )
     }
 
-    private func updateProgressByVideo() {
-        let shouldUpdate = session.withResources(default: false) {
-            $0.formatContext?.audioEnable == false &&
-                $0.formatContext?.videoEnable == true
-        }
-        if shouldUpdate {
-            progress = currentVideoFrame?.position ?? 0
-        }
+    private func commitBufferedDuration(
+        _ duration: TimeInterval,
+        generation: UInt64
+    ) {
+        _ = runtimeState.commitBufferedDuration(
+            duration,
+            playbackDuration: self.duration,
+            generation: generation,
+            currentTime:
+                Date().timeIntervalSince1970,
+            notification: {
+                [self] commit in
+                notifyDelegate {
+                    $0.decoder(
+                        self,
+                        didChangeValueOfBufferedDuration:
+                            commit
+                                .bufferedDurationChange
+                                .current
+                    )
+                }
+                if let progressChange =
+                        commit.progressChange {
+                    _ = runtimeState
+                        .notifyIfCurrentDecodeGeneration(
+                            generation,
+                            notification: {
+                                notifyDelegate {
+                                    $0.decoder(
+                                        self,
+                                        didChangeValueOfProgress:
+                                            progressChange
+                                                .current
+                                    )
+                                }
+                            }
+                        )
+                }
+                if commit.didFinishPlayback {
+                    _ = runtimeState
+                        .notifyIfCurrentDecodeGeneration(
+                            generation,
+                            notification: {
+                                notifyDelegate {
+                                    $0.decoderDidPlaybackFinished(
+                                        self
+                                    )
+                                }
+                            }
+                        )
+                }
+                if let bufferingChange =
+                        commit.bufferingChange {
+                    _ = runtimeState
+                        .notifyIfCurrentDecodeGeneration(
+                            generation,
+                            notification: {
+                                notifyDelegate {
+                                    $0.decoder(
+                                        self,
+                                        didChangeValueOfBuffering:
+                                            bufferingChange
+                                                .current
+                                    )
+                                }
+                            }
+                        )
+                }
+            }
+        )
     }
 
-    private func updateProgressByAudio() {
+    private func commitDeliveredVideoFrame(
+        _ frame: IRFFVideoFrame,
+        generation: UInt64,
+        updatesProgress: Bool
+    ) -> Bool {
+        runtimeState.commitDeliveredVideoFrame(
+            frame,
+            generation: generation,
+            progress:
+                updatesProgress
+                ? frame.position
+                : nil,
+            playbackDuration: duration,
+            delivery: {
+                [collaborators] frame in
+                collaborators.deliverVideoFrame(
+                    frame
+                )
+            },
+            notification: {
+                [self] progressChange in
+                notifyDelegate {
+                    $0.decoder(
+                        self,
+                        didChangeValueOfProgress:
+                            progressChange.current
+                    )
+                }
+            }
+        )
+    }
+
+    private func updateProgressByAudio(
+        generation: UInt64
+    ) {
         let shouldUpdate = session.withResources(default: false) {
             $0.formatContext?.audioEnable == true
         }
-        if shouldUpdate {
-            progress = currentAudioFrame?.position ?? 0
-        }
+        guard shouldUpdate else { return }
+        _ = runtimeState.commitPendingAudioProgress(
+            generation: generation,
+            playbackDuration: duration,
+            notification: {
+                [self] progressChange in
+                notifyDelegate {
+                    $0.decoder(
+                        self,
+                        didChangeValueOfProgress:
+                            progressChange.current
+                    )
+                }
+            }
+        )
     }
 
     private func delegateErrorCallback() {
@@ -1253,7 +2123,8 @@ protocol IRFFDecoderDelegate: AnyObject {
 
 extension IRFFDecoder: IRFFFormatContextDelegate {
     public func formatContextNeedInterrupt(_ formatContext: IRFFFormatContext) -> Bool {
-        return closed
+        let snapshot = runtimeState.snapshot
+        return snapshot.closed || snapshot.seeking
     }
 }
 
@@ -1272,24 +2143,56 @@ extension IRFFDecoder: IRFFAudioDecoderDelegate {
 }
 
 extension IRFFDecoder: IRFFVideoDecoderDelegate {
-    func videoDecoderNeedUpdateBufferedDuration(_ videoDecoder: IRFFVideoDecoder) {
-        updateBufferedDurationByVideo()
+    func videoDecoderNeedUpdateBufferedDuration(
+        _ videoDecoder: IRFFVideoDecoder,
+        generation: UInt64
+    ) {
+        updateBufferedDurationByVideo(
+            generation: generation
+        )
     }
 
-    func videoDecoderNeedCheckBufferingStatus(_ videoDecoder: IRFFVideoDecoder) {
-        checkBufferingStatus()
+    func videoDecoderNeedCheckBufferingStatus(
+        _ videoDecoder: IRFFVideoDecoder,
+        generation: UInt64
+    ) {
+        checkBufferingStatus(
+            generation: generation
+        )
     }
 
-    func videoDecoder(_ videoDecoder: IRFFVideoDecoder, didError error: Error) {
-        self.error = error
-        delegateErrorCallback()
+    func videoDecoder(
+        _ videoDecoder: IRFFVideoDecoder,
+        didError error: Error,
+        generation: UInt64
+    ) {
+        _ = runtimeState.commitDecodeError(
+            error,
+            generation: generation,
+            notification: {
+                delegateErrorCallback()
+            }
+        )
     }
 }
 
 extension IRFFDecoder: IRFFDecoderVideoOutput {
     public func send(videoFrame: IRFFVideoFrame) {
-        session.withResources(default: ()) {
-            $0.videoDecoder?.send(videoFrame: videoFrame)
+        _ = trySend(videoFrame: videoFrame)
+    }
+
+    public func trySend(
+        videoFrame: IRFFVideoFrame
+    ) -> Bool {
+        session.withResources(default: false) {
+            guard let videoDecoder =
+                    $0.videoDecoder else {
+                videoFrame.cancel()
+                return false
+            }
+            return videoDecoder.trySend(
+                videoFrame: videoFrame
+            )
         }
     }
 }

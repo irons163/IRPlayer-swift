@@ -11,23 +11,24 @@ final class IRPlaybackBackendEventRouterTests: XCTestCase {
         let sink = BackendEventSinkProbe()
         let router = IRPlaybackBackendEventRouter(sink: sink)
         let error = IRError()
+        let activation = activation(.avFoundation, generation: 1)
 
         router.deliverState(
-            from: .avFoundation,
+            from: activation,
             previous: .none,
             current: .playing
         )
         router.deliverProgress(
-            from: .avFoundation,
+            from: activation,
             current: 1,
             total: 2
         )
         router.deliverPlayableTime(
-            from: .avFoundation,
+            from: activation,
             current: 1.5,
             total: 2
         )
-        router.deliverFailure(from: .avFoundation, error: error)
+        router.deliverFailure(from: activation, error: error)
 
         XCTAssertEqual(sink.eventCount, 0)
         XCTAssertEqual(router.diagnostics.acceptedEventCount, 0)
@@ -37,21 +38,27 @@ final class IRPlaybackBackendEventRouterTests: XCTestCase {
     func testRouterAdmitsOnlyEventsFromActiveBackendKind() {
         let sink = BackendEventSinkProbe()
         let router = IRPlaybackBackendEventRouter(sink: sink)
-        router.activate(.ffmpeg)
+        let ffActivation = activation(.ffmpeg, generation: 1)
+        let avActivation = activation(.avFoundation, generation: 2)
+        router.activate(ffActivation)
 
         router.deliverState(
-            from: .avFoundation,
+            from: avActivation,
             previous: .none,
             current: .playing
         )
         router.deliverState(
-            from: .ffmpeg,
+            from: ffActivation,
             previous: .none,
             current: .buffering
         )
-        router.deliverProgress(from: .ffmpeg, current: 3, total: 10)
-        router.deliverPlayableTime(from: .ffmpeg, current: 7, total: 10)
-        router.deliverFailure(from: .ffmpeg, error: IRError())
+        router.deliverProgress(from: ffActivation, current: 3, total: 10)
+        router.deliverPlayableTime(
+            from: ffActivation,
+            current: 7,
+            total: 10
+        )
+        router.deliverFailure(from: ffActivation, error: IRError())
 
         XCTAssertEqual(sink.states.count, 1)
         XCTAssertEqual(sink.states.first?.previous, IRPlayerState.none)
@@ -66,12 +73,26 @@ final class IRPlaybackBackendEventRouterTests: XCTestCase {
     func testSwitchingActiveKindRejectsEventsFromPreviousBackend() {
         let sink = BackendEventSinkProbe()
         let router = IRPlaybackBackendEventRouter(sink: sink)
+        let avActivation = activation(.avFoundation, generation: 1)
+        let ffActivation = activation(.ffmpeg, generation: 2)
 
-        router.activate(.avFoundation)
-        router.deliverProgress(from: .avFoundation, current: 1, total: 5)
-        router.activate(.ffmpeg)
-        router.deliverProgress(from: .avFoundation, current: 2, total: 5)
-        router.deliverProgress(from: .ffmpeg, current: 3, total: 5)
+        router.activate(avActivation)
+        router.deliverProgress(
+            from: avActivation,
+            current: 1,
+            total: 5
+        )
+        router.activate(ffActivation)
+        router.deliverProgress(
+            from: avActivation,
+            current: 2,
+            total: 5
+        )
+        router.deliverProgress(
+            from: ffActivation,
+            current: 3,
+            total: 5
+        )
 
         XCTAssertEqual(sink.progresses.map(\.current), [1, 3])
         XCTAssertEqual(router.diagnostics.activeKind, .ffmpeg)
@@ -88,11 +109,17 @@ final class IRPlaybackBackendEventRouterTests: XCTestCase {
             let sink = BackendEventSinkProbe()
             weakSink = sink
             router.setSink(sink)
-            router.activate(.avFoundation)
+            router.activate(
+                activation(.avFoundation, generation: 1)
+            )
         }
 
         XCTAssertNil(weakSink)
-        router.deliverProgress(from: .avFoundation, current: 1, total: 2)
+        router.deliverProgress(
+            from: activation(.avFoundation, generation: 1),
+            current: 1,
+            total: 2
+        )
         XCTAssertEqual(router.diagnostics.rejectedEventCount, 1)
     }
 
@@ -100,12 +127,13 @@ final class IRPlaybackBackendEventRouterTests: XCTestCase {
         let context = BackendContextProbe()
         let sink = BackendEventSinkProbe()
         let router = IRPlaybackBackendEventRouter(sink: sink)
+        let activation = activation(.avFoundation, generation: 1)
         let adapter = IRPlaybackBackendHostAdapter(
-            kind: .avFoundation,
+            activation: activation,
             context: context,
             eventRouter: router
         )
-        router.activate(.avFoundation)
+        router.activate(activation)
 
         XCTAssertEqual(adapter.contentURL, context.contentURL)
         XCTAssertEqual(adapter.contentHeaders, context.contentHeaders)
@@ -128,19 +156,72 @@ final class IRPlaybackBackendEventRouterTests: XCTestCase {
     func testConcurrentDeliveryIsRaceFreeAndLossless() {
         let sink = BackendEventSinkProbe()
         let router = IRPlaybackBackendEventRouter(sink: sink)
-        router.activate(.ffmpeg)
+        let activation = activation(.ffmpeg, generation: 1)
+        router.activate(activation)
 
         DispatchQueue.concurrentPerform(iterations: 1_000) { index in
             router.deliverProgress(
-                from: .ffmpeg,
+                from: activation,
                 current: TimeInterval(index),
                 total: 1_000
             )
         }
+        let drained = expectation(description: "concurrent events drained")
+        DispatchQueue.main.async { drained.fulfill() }
+        wait(for: [drained], timeout: 2)
 
         XCTAssertEqual(sink.progresses.count, 1_000)
         XCTAssertEqual(router.diagnostics.acceptedEventCount, 1_000)
         XCTAssertEqual(router.diagnostics.rejectedEventCount, 0)
+    }
+
+    func testSameKindPreviousActivationCannotDeliverToReplacement() {
+        let sink = BackendEventSinkProbe()
+        let router = IRPlaybackBackendEventRouter(sink: sink)
+        let first = activation(.avFoundation, generation: 1)
+        let second = activation(.avFoundation, generation: 2)
+
+        router.activate(first)
+        router.deliverProgress(from: first, current: 1, total: 5)
+        router.activate(second)
+        router.deliverFailure(from: first, error: IRError())
+        router.deliverProgress(from: second, current: 2, total: 5)
+
+        XCTAssertEqual(sink.progresses.map(\.current), [1, 2])
+        XCTAssertEqual(sink.failureCount, 0)
+        XCTAssertEqual(router.diagnostics.rejectedEventCount, 1)
+    }
+
+    func testQueuedWorkerDeliveryRevalidatesOnMainQueue() {
+        let sink = BackendEventSinkProbe()
+        let router = IRPlaybackBackendEventRouter(sink: sink)
+        let first = activation(.avFoundation, generation: 1)
+        let second = activation(.avFoundation, generation: 2)
+        let queued = DispatchSemaphore(value: 0)
+        router.activate(first)
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            router.deliverProgress(from: first, current: 1, total: 5)
+            queued.signal()
+        }
+        XCTAssertEqual(queued.wait(timeout: .now() + 1), .success)
+        router.activate(second)
+        let drained = expectation(description: "main delivery drained")
+        DispatchQueue.main.async { drained.fulfill() }
+        wait(for: [drained], timeout: 1)
+
+        XCTAssertTrue(sink.progresses.isEmpty)
+        XCTAssertEqual(router.diagnostics.rejectedEventCount, 1)
+    }
+
+    private func activation(
+        _ kind: IRPlaybackBackendKind,
+        generation: UInt64
+    ) -> IRPlaybackBackendActivation {
+        IRPlaybackBackendActivation(
+            generation: generation,
+            kind: kind
+        )
     }
 }
 

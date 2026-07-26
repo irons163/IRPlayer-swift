@@ -110,8 +110,6 @@ public class IRPlayerImp: NSObject {
     var presentationSession: IRPlayerPresentationSession!
     var environmentSession: IRPlayerEnvironmentSession!
     var backendCoordinator: IRPlaybackBackendCoordinator!
-    var avBackendHost: IRPlaybackBackendHostAdapter!
-    var ffBackendHost: IRPlaybackBackendHostAdapter!
 
     public var decoder: IRPlayerDecoder {
         get { settingsStore.decoder }
@@ -281,31 +279,32 @@ public class IRPlayerImp: NSObject {
         }
 
         backendEventRouter.setSink(self)
-        avBackendHost = IRPlaybackBackendHostAdapter(
-            kind: .avFoundation,
-            context: self,
-            eventRouter: backendEventRouter
-        )
-        ffBackendHost = IRPlaybackBackendHostAdapter(
-            kind: .ffmpeg,
-            context: self,
-            eventRouter: backendEventRouter
-        )
 
         backendCoordinator = IRPlaybackBackendCoordinator(
-            factory: { [weak self] kind in
+            factory: { [weak self] activation in
                 guard let self else { return nil }
-                let host: any IRPlaybackBackendHost
-                switch kind {
-                case .avFoundation:
-                    host = self.avBackendHost
-                case .ffmpeg:
-                    host = self.ffBackendHost
+                let host = IRPlaybackBackendHostAdapter(
+                    activation: activation,
+                    context: self,
+                    eventRouter: self.backendEventRouter
+                )
+                guard let backend = runtimeDependencies.backendFactory(
+                    activation.kind,
+                    host
+                ) else {
+                    return nil
                 }
-                return runtimeDependencies.backendFactory(kind, host)
+                return IRPlaybackBackendProduct(
+                    backend: backend,
+                    retaining: host
+                )
             },
-            didChangeActiveKind: { [weak backendEventRouter] kind in
-                backendEventRouter?.activate(kind)
+            didChangeActiveActivation: {
+                [weak self, weak backendEventRouter] activation in
+                backendEventRouter?.activate(activation)
+                self?.environmentSession?.activatePlayback(
+                    activation
+                )
             }
         )
 
@@ -353,21 +352,30 @@ public class IRPlayerImp: NSObject {
         player ?? IRFFPlayer(abstractPlayer: abstractPlayer)
     }
 
+    @objc(play)
     public func play() {
         IRMainThreadExecutor.sync {
             guard backendCoordinator.activeKind != nil else { return }
-            backendCoordinator.play()
-            environmentSession.playbackDidStart()
+            if let activation = backendCoordinator.play() {
+                environmentSession.playbackDidStart(
+                    activation: activation
+                )
+            }
         }
     }
 
+    @objc(pause)
     public func pause() {
         IRMainThreadExecutor.sync {
-            backendCoordinator.pause()
-            environmentSession.playbackDidPauseOrStop()
+            if let activation = backendCoordinator.pause() {
+                environmentSession.playbackDidPauseOrStop(
+                    activation: activation
+                )
+            }
         }
     }
 
+    @objc(seekToTime:completeHandler:)
     public func seekToTime(
         time: TimeInterval,
         completeHandler: ((Bool) -> Void)? = nil
@@ -386,8 +394,14 @@ public class IRPlayerImp: NSObject {
         backendCoordinator.existingBackend(for: kind)
     }
 
+    @objc(setRequestHeaderFields:)
     public func setRequestHeaderFields(_ fields: [String: String]?) {
-        mediaSession.setLegacyHeaders(fields)
+        IRMainThreadExecutor.sync {
+            mediaSession.setLegacyHeaders(fields)
+            backendCoordinator.updateActiveContentHeaders(
+                mediaSession.snapshot.contentHeaders
+            )
+        }
     }
 }
 
@@ -443,16 +457,34 @@ public extension IRPlayerImp {
         }
     }
 
+    @objc(stop)
     func stop() {
         IRMainThreadExecutor.sync {
-            resetPlayback(clearError: true, publishFinalState: true)
+            _ = resetPlayback(
+                clearError: true,
+                publishFinalState: true
+            )
         }
     }
 
+    @objc(replaceEmpty)
     func replaceEmpty() {
         stop()
     }
 
+    @objc(replaceVideoWithURL:videoType:)
+    func replaceVideoWithURL(
+        contentURL: NSURL?,
+        videoType: IRVideoType
+    ) {
+        replaceVideoWithURL(
+            contentURL: contentURL,
+            videoType: videoType,
+            videoInput: nil
+        )
+    }
+
+    @nonobjc
     func replaceVideoWithURL(
         contentURL: NSURL?,
         videoType: IRVideoType = .normal,
@@ -460,7 +492,15 @@ public extension IRPlayerImp {
     ) {
         IRMainThreadExecutor.sync {
             guard let contentURL else {
-                resetPlayback(clearError: true, publishFinalState: true)
+                let transactionGeneration = resetPlayback(
+                    clearError: true,
+                    publishFinalState: true
+                )
+                guard isCurrentResetTransaction(
+                    transactionGeneration
+                ) else {
+                    return
+                }
                 setVideoType(videoType)
                 return
             }
@@ -483,18 +523,89 @@ extension IRPlayerImp {
         autoplay: Bool?
     ) {
         error = nil
-        let requestedDecoderType = source.decoderType(using: decoder)
-        guard let backendKind = requestedDecoderType.playbackBackendKind else {
-            resetPlayback(clearError: true, publishFinalState: true)
+        let previousSnapshot = backendCoordinator.snapshot
+        let hadPreviousPlayback =
+            backendCoordinator.activeActivation != nil
+            || mediaSession.snapshot.source != nil
+            || previousSnapshot != .empty
+        let backendKind: IRPlaybackBackendKind
+        switch source.backendResolution(using: decoder) {
+        case let .backend(kind):
+            backendKind = kind
+
+        case .missingURL:
+            let transactionGeneration = resetPlayback(
+                clearError: true,
+                publishFinalState: true,
+                forceFinalPublication: true
+            )
+            guard isCurrentResetTransaction(
+                transactionGeneration
+            ) else {
+                return
+            }
             setVideoType(source.videoType)
+            guard isCurrentResetTransaction(
+                transactionGeneration
+            ) else {
+                return
+            }
             publishLoadError(
                 code: 1,
                 description: "A media source URL is required."
             )
             return
+
+        case .unsupportedSource:
+            let transactionGeneration = resetPlayback(
+                clearError: true,
+                publishFinalState: true,
+                forceFinalPublication: true
+            )
+            guard isCurrentResetTransaction(
+                transactionGeneration
+            ) else {
+                return
+            }
+            setVideoType(source.videoType)
+            guard isCurrentResetTransaction(
+                transactionGeneration
+            ) else {
+                return
+            }
+            publishLoadError(
+                code: 4,
+                description:
+                    "No playback backend supports this media source."
+            )
+            return
+
+        case .unsupportedAVFoundation:
+            let transactionGeneration = resetPlayback(
+                clearError: true,
+                publishFinalState: true,
+                forceFinalPublication: true
+            )
+            guard isCurrentResetTransaction(
+                transactionGeneration
+            ) else {
+                return
+            }
+            setVideoType(source.videoType)
+            guard isCurrentResetTransaction(
+                transactionGeneration
+            ) else {
+                return
+            }
+            publishLoadError(
+                code: 3,
+                description:
+                    "AVFoundation does not support this media source configuration."
+            )
+            return
         }
 
-        let backend = backendCoordinator.replace(
+        let replacement = backendCoordinator.replace(
             with: backendKind,
             prepare: { [self] in
                 mediaSession.replace(with: source)
@@ -503,25 +614,45 @@ extension IRPlayerImp {
             }
         )
 
-        guard let backend else {
-            mediaSession.clear()
+        switch replacement {
+        case .superseded:
+            return
+
+        case let .unavailable(activation):
+            guard finalizePlaybackReset(
+                previousSnapshot: previousSnapshot,
+                hadPlayback: hadPreviousPlayback || source.url != nil,
+                transactionGeneration: activation.generation,
+                clearError: false,
+                publishFinalState: true
+            ) else {
+                return
+            }
             publishLoadError(
                 code: 2,
                 description: "The requested playback backend is unavailable."
             )
             return
-        }
 
-        if videoInput?.outputType == .decoder {
-            mediaSession.bindCurrentVideoInput(
-                to: backend.decoderVideoOutput
-            )
-        } else {
-            mediaSession.bindCurrentVideoInput(to: displayView)
-        }
+        case let .activated(activation, backend):
+            guard backendCoordinator.isCurrent(activation) else {
+                return
+            }
 
-        if autoplay ?? autoplayOnLoad {
-            play()
+            if source.videoInput?.outputType == .decoder {
+                mediaSession.bindCurrentVideoInput(
+                    to: backend.decoderVideoOutput
+                )
+            } else {
+                mediaSession.bindCurrentVideoInput(to: displayView)
+            }
+
+            guard backendCoordinator.isCurrent(activation) else {
+                return
+            }
+            if autoplay ?? autoplayOnLoad {
+                play()
+            }
         }
     }
     func setVideoType(_ videoType: IRVideoType) {
@@ -532,23 +663,88 @@ extension IRPlayerImp {
         )
     }
 
+    @discardableResult
     func resetPlayback(
         clearError: Bool,
+        publishFinalState: Bool,
+        forceFinalPublication: Bool = false
+    ) -> UInt64 {
+        let previousSnapshot = backendCoordinator.snapshot
+        let hadPlayback =
+            forceFinalPublication
+            || backendCoordinator.activeActivation != nil
+            || mediaSession.snapshot.source != nil
+            || previousSnapshot != .empty
+        let transactionGeneration =
+            backendCoordinator.reset()
+        _ = finalizePlaybackReset(
+            previousSnapshot: previousSnapshot,
+            hadPlayback: hadPlayback,
+            transactionGeneration: transactionGeneration,
+            clearError: clearError,
+            publishFinalState: publishFinalState
+        )
+        return transactionGeneration
+    }
+
+    @discardableResult
+    private func finalizePlaybackReset(
+        previousSnapshot: IRPlaybackBackendSnapshot,
+        hadPlayback: Bool,
+        transactionGeneration: UInt64,
+        clearError: Bool,
         publishFinalState: Bool
-    ) {
-        let previousState = backendCoordinator.snapshot.state
-        backendCoordinator.reset()
+    ) -> Bool {
+        guard isCurrentResetTransaction(
+            transactionGeneration
+        ) else {
+            return false
+        }
         mediaSession.clear()
-        environmentSession.resetLifecycle()
-        environmentSession.playbackDidPauseOrStop()
+        guard isCurrentResetTransaction(
+            transactionGeneration
+        ) else {
+            return false
+        }
         if clearError {
             error = nil
         }
         presentationSession.clearEmptyBuffer()
-
-        if publishFinalState, previousState != .none {
-            receiveBackendState(previous: previousState, current: .none)
+        guard publishFinalState,
+              hadPlayback,
+              isCurrentResetTransaction(
+                  transactionGeneration
+              ) else {
+            return isCurrentResetTransaction(
+                transactionGeneration
+            )
         }
+
+        receiveBackendState(
+            previous: previousSnapshot.state,
+            current: .none
+        )
+        guard isCurrentResetTransaction(
+            transactionGeneration
+        ) else {
+            return false
+        }
+        receiveBackendProgress(current: 0, total: 0)
+        guard isCurrentResetTransaction(
+            transactionGeneration
+        ) else {
+            return false
+        }
+        receiveBackendPlayableTime(current: 0, total: 0)
+        return isCurrentResetTransaction(
+            transactionGeneration
+        )
+    }
+
+    private func isCurrentResetTransaction(
+        _ generation: UInt64
+    ) -> Bool {
+        backendCoordinator.isCurrentResetTransaction(generation)
     }
 
     func publishLoadError(code: Int, description: String) {
@@ -570,11 +766,16 @@ extension IRPlayerImp:
         previous: IRPlayerState,
         current: IRPlayerState
     ) {
+        let activation = backendCoordinator.activeActivation
         switch current {
         case .playing, .buffering:
-            environmentSession.playbackDidStart()
+            environmentSession.playbackDidStart(
+                activation: activation
+            )
         case .none, .readyToPlay, .suspend, .finished, .failed:
-            environmentSession.playbackDidPauseOrStop()
+            environmentSession.playbackDidPauseOrStop(
+                activation: activation
+            )
         }
         IRPlayerNotification.postPlayer(
             self,
@@ -614,7 +815,9 @@ extension IRPlayerImp:
     }
 
     func receiveBackendFailure(_ error: IRError) {
-        environmentSession.playbackDidPauseOrStop()
+        environmentSession.playbackDidPauseOrStop(
+            activation: backendCoordinator.activeActivation
+        )
         IRPlayerNotification.postPlayer(self, error: error)
     }
 }

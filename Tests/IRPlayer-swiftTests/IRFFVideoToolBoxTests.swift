@@ -2,6 +2,7 @@ import CoreMedia
 import CoreVideo
 import Foundation
 import IRFFMpeg
+import IRPlayerObjc
 import VideoToolbox
 import XCTest
 #if SWIFT_PACKAGE
@@ -37,7 +38,14 @@ final class IRFFVideoToolBoxTests: XCTestCase {
     func testDecodeFrameSucceededRequiresStatusCallbackAndOutput() {
         XCTAssertFalse(IRFFVideoToolBox.decodeFrameSucceeded(status: -1, callbackStatus: noErr, hasOutput: true))
         XCTAssertFalse(IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: -1, hasOutput: true))
-        XCTAssertFalse(IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: noErr, hasOutput: false))
+        XCTAssertTrue(
+            IRFFVideoToolBox.decodeFrameSucceeded(
+                status: noErr,
+                callbackStatus: noErr,
+                hasOutput: false
+            ),
+            "A successful decode with no image is a consumed drop, not a software-fallback signal"
+        )
     }
 
     func testNALLengthSizeDecisionNormalizesThreeByteMarker() {
@@ -84,6 +92,219 @@ final class IRFFVideoToolBoxTests: XCTestCase {
             XCTAssertEqual(payload?.data, buffer.baseAddress)
             XCTAssertEqual(payload?.size, Int32(buffer.count))
         }
+    }
+
+    func testOwnedPacketBlockBufferDoesNotBorrowPacketMemory() throws {
+        var source: [UInt8] =
+            [1, 2, 3, 4]
+        let blockBuffer = try source
+            .withUnsafeMutableBufferPointer {
+                buffer -> CMBlockBuffer in
+                let payload =
+                    IRFFVideoToolBox
+                    .PacketPayload(
+                        data:
+                            try XCTUnwrap(
+                                buffer.baseAddress
+                            ),
+                        size:
+                            Int32(buffer.count)
+                )
+                let block = try XCTUnwrap(
+                    IRFFVideoToolBox
+                        .makeOwnedBlockBuffer(
+                            from: payload
+                        )
+                )
+                buffer[0] = 99
+                return block
+            }
+        var copied = [UInt8](
+            repeating: 0,
+            count: source.count
+        )
+        let copiedCount = copied.count
+        let status = copied
+            .withUnsafeMutableBytes {
+                bytes in
+                CMBlockBufferCopyDataBytes(
+                    blockBuffer,
+                    atOffset: 0,
+                    dataLength:
+                        copiedCount,
+                    destination:
+                        bytes.baseAddress!
+                )
+            }
+
+        XCTAssertEqual(status, noErr)
+        XCTAssertEqual(copied, [1, 2, 3, 4])
+        XCTAssertEqual(source[0], 99)
+    }
+
+    func testPacketSampleTimingUsesPTSDecodeTimeAndDuration() {
+        var packet = AVPacket()
+        packet.pts = 9_000
+        packet.dts = 8_000
+        packet.duration = 3_000
+
+        let timing =
+            IRFFVideoToolBox.sampleTiming(
+                for: packet,
+                timebase: 1.0 / 90_000
+            )
+
+        XCTAssertEqual(
+            CMTimeGetSeconds(
+                timing
+                    .presentationTimeStamp
+            ),
+            0.1,
+            accuracy: 0.000001
+        )
+        XCTAssertEqual(
+            CMTimeGetSeconds(
+                timing.decodeTimeStamp
+            ),
+            8.0 / 90,
+            accuracy: 0.000001
+        )
+        XCTAssertEqual(
+            CMTimeGetSeconds(
+                timing.duration
+            ),
+            1.0 / 30,
+            accuracy: 0.000001
+        )
+    }
+
+    func testPacketSampleTimingFallsBackToDTSAndRejectsInvalidValues() {
+        var packet = AVPacket()
+        packet.pts = IR_AV_NOPTS_VALUE
+        packet.dts = 45
+        packet.duration = 0
+
+        var timing =
+            IRFFVideoToolBox.sampleTiming(
+                for: packet,
+                timebase: 0.001
+            )
+        XCTAssertEqual(
+            CMTimeGetSeconds(
+                timing
+                    .presentationTimeStamp
+            ),
+            0.045,
+            accuracy: 0.000001
+        )
+        XCTAssertFalse(timing.duration.isValid)
+
+        packet.dts = IR_AV_NOPTS_VALUE
+        timing =
+            IRFFVideoToolBox.sampleTiming(
+                for: packet,
+                timebase: .nan
+            )
+        XCTAssertFalse(
+            timing
+                .presentationTimeStamp
+                .isValid
+        )
+        XCTAssertFalse(
+            timing.decodeTimeStamp.isValid
+        )
+    }
+
+    func testSampleBufferPublishesTimingAndSampleSize() throws {
+        var bytes: [UInt8] =
+            [0, 0, 0, 1]
+        let blockBuffer = try bytes
+            .withUnsafeMutableBufferPointer {
+                buffer in
+                try XCTUnwrap(
+                    IRFFVideoToolBox
+                        .makeOwnedBlockBuffer(
+                            from: .init(
+                                data:
+                                    XCTUnwrap(
+                                        buffer
+                                            .baseAddress
+                                    ),
+                                size:
+                                    Int32(
+                                        buffer.count
+                                    )
+                            )
+                        )
+                )
+            }
+        var formatDescription:
+            CMFormatDescription?
+        XCTAssertEqual(
+            CMVideoFormatDescriptionCreate(
+                allocator: nil,
+                codecType:
+                    kCMVideoCodecType_H264,
+                width: 16,
+                height: 16,
+                extensions: nil,
+                formatDescriptionOut:
+                    &formatDescription
+            ),
+            noErr
+        )
+        let timing = CMSampleTimingInfo(
+            duration:
+                CMTime(
+                    value: 1,
+                    timescale: 30
+                ),
+            presentationTimeStamp:
+                CMTime(
+                    value: 3,
+                    timescale: 30
+                ),
+            decodeTimeStamp:
+                CMTime(
+                    value: 2,
+                    timescale: 30
+                )
+        )
+        let sampleBuffer = try XCTUnwrap(
+            IRFFVideoToolBox
+                .makeSampleBuffer(
+                    blockBuffer: blockBuffer,
+                    formatDescription:
+                        XCTUnwrap(
+                            formatDescription
+                        ),
+                    timing: timing,
+                    sampleSize: bytes.count
+                )
+        )
+
+        XCTAssertEqual(
+            CMSampleBufferGetNumSamples(
+                sampleBuffer
+            ),
+            1
+        )
+        XCTAssertEqual(
+            CMSampleBufferGetSampleSize(
+                sampleBuffer,
+                at: 0
+            ),
+            bytes.count
+        )
+        XCTAssertEqual(
+            CMTimeGetSeconds(
+                CMSampleBufferGetPresentationTimeStamp(
+                    sampleBuffer
+                )
+            ),
+            0.1,
+            accuracy: 0.000001
+        )
     }
 
     func testConvertedNALBlockPayloadRejectsMissingOrInvalidBuffer() {
@@ -193,7 +414,7 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         }
     }
 
-    func testSetupVTSessionNormalizesThreeByteNALMarkerBeforeSessionAttempt() {
+    func testRepeatedSetupNeverMutatesThreeByteNALCodecExtradata() {
         var codecContext = AVCodecContext()
         codecContext.codec_id = AV_CODEC_ID_H264
         codecContext.width = 0
@@ -215,7 +436,16 @@ final class IRFFVideoToolBoxTests: XCTestCase {
                             .contains(error as? IRFFVideoToolBoxErrorCode)
                     )
                 }
-                XCTAssertEqual(buffer[4], 0xFF)
+                XCTAssertEqual(buffer[4], 0xFE)
+                do {
+                    try videoToolBox.setupVTSession()
+                } catch {
+                    XCTAssertTrue(
+                        [.createFormatDescription, .createSession]
+                            .contains(error as? IRFFVideoToolBoxErrorCode)
+                    )
+                }
+                XCTAssertEqual(buffer[4], 0xFE)
                 XCTAssertNil(videoToolBox.imageBuffer())
 
                 videoToolBox.cleanVTSession()
@@ -232,13 +462,21 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         withUnsafeMutablePointer(to: &codecContext) { context in
             let videoToolBox = IRFFVideoToolBox.videoToolBox(with: context)
 
-            XCTAssertFalse(videoToolBox.sendPacket(AVPacket()))
+            assertNotAvailable(
+                videoToolBox.sendPacket(
+                    AVPacket()
+                )
+            )
 
             var bytes = [UInt8](arrayLiteral: 0, 0, 0, 1)
             bytes.withUnsafeMutableBufferPointer { buffer in
                 let packet = makePacket(data: buffer.baseAddress, size: buffer.count)
 
-                XCTAssertFalse(videoToolBox.sendPacket(packet))
+                assertNotAvailable(
+                    videoToolBox.sendPacket(
+                        packet
+                    )
+                )
             }
             XCTAssertNil(videoToolBox.imageBuffer())
             XCTAssertEqual(videoToolBox.diagnostics.phase, .idle)
@@ -417,7 +655,179 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         XCTAssertTrue(IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: noErr, hasOutput: true))
         XCTAssertFalse(IRFFVideoToolBox.decodeFrameSucceeded(status: -1, callbackStatus: noErr, hasOutput: true))
         XCTAssertFalse(IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: -1, hasOutput: true))
-        XCTAssertFalse(IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: noErr, hasOutput: false))
+        XCTAssertTrue(IRFFVideoToolBox.decodeFrameSucceeded(status: noErr, callbackStatus: noErr, hasOutput: false))
+    }
+
+    func testTypedDecodeResultTreatsNilOutputAsConsumedDrop() {
+        let result =
+            IRFFVideoToolBox
+                .classifyDecodeResult(
+                    status: noErr,
+                    events: [
+                        .init(
+                            status: noErr,
+                            imageBuffer: nil,
+                            presentationTimeStamp:
+                                .zero,
+                            presentationDuration:
+                                .zero
+                        )
+                    ]
+                )
+
+        guard case let .accepted(outputs) =
+                result else {
+            return XCTFail(
+                "Expected a consumed VideoToolbox result"
+            )
+        }
+        XCTAssertTrue(outputs.isEmpty)
+    }
+
+    func testTypedDecodeResultPreservesEveryCallbackOutput() throws {
+        let first = try makePixelBuffer()
+        let second = try makePixelBuffer()
+        let third = try makePixelBuffer()
+        let result =
+            IRFFVideoToolBox
+                .classifyDecodeResult(
+                    status: noErr,
+                    events: [
+                        .init(
+                            status: noErr,
+                            imageBuffer: first,
+                            presentationTimeStamp:
+                                CMTime(
+                                    seconds: 1,
+                                    preferredTimescale: 600
+                                ),
+                            presentationDuration:
+                                CMTime(
+                                    value: 1,
+                                    timescale: 30
+                                )
+                        ),
+                        .init(
+                            status: noErr,
+                            imageBuffer: second,
+                            presentationTimeStamp:
+                                CMTime(
+                                    seconds: 2,
+                                    preferredTimescale: 600
+                                ),
+                            presentationDuration:
+                                CMTime(
+                                    value: 1,
+                                    timescale: 30
+                                )
+                        ),
+                        .init(
+                            status: noErr,
+                            imageBuffer: third,
+                            presentationTimeStamp:
+                                CMTime(
+                                    seconds: 3,
+                                    preferredTimescale: 600
+                                ),
+                            presentationDuration:
+                                CMTime(
+                                    value: 1,
+                                    timescale: 30
+                                )
+                        )
+                    ]
+                )
+
+        guard case let .accepted(outputs) =
+                result else {
+            return XCTFail(
+                "Expected all callback outputs"
+            )
+        }
+        XCTAssertEqual(outputs.count, 3)
+        XCTAssertTrue(
+            outputs[0].imageBuffer === first
+        )
+        XCTAssertTrue(
+            outputs[1].imageBuffer === second
+        )
+        XCTAssertTrue(
+            outputs[2].imageBuffer === third
+        )
+        XCTAssertEqual(
+            outputs.map {
+                CMTimeGetSeconds(
+                    $0.presentationTimeStamp
+                )
+            },
+            [1, 2, 3]
+        )
+    }
+
+    func testTypedDecodeResultFencesDecodeAndCallbackFailures() {
+        if case let .failed(status) =
+                IRFFVideoToolBox
+                    .classifyDecodeResult(
+                        status: -7,
+                        events: []
+                    ) {
+            XCTAssertEqual(status, -7)
+        } else {
+            XCTFail("Expected decode failure")
+        }
+
+        if case let .failed(status) =
+                IRFFVideoToolBox
+                    .classifyDecodeResult(
+                        status: noErr,
+                        events: [
+                            .init(
+                                status: -9,
+                                imageBuffer: nil,
+                                presentationTimeStamp:
+                                    .invalid,
+                                presentationDuration:
+                                    .invalid
+                            )
+                        ]
+                    ) {
+            XCTAssertEqual(status, -9)
+        } else {
+            XCTFail("Expected callback failure")
+        }
+    }
+
+    private func assertNotAvailable(
+        _ result:
+            IRFFVideoToolBox.DecodeResult,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard case .notAvailable = result else {
+            return XCTFail(
+                "Expected VideoToolbox to be unavailable",
+                file: file,
+                line: line
+            )
+        }
+    }
+
+    private func makePixelBuffer()
+        throws -> CVPixelBuffer
+    {
+        var pixelBuffer: CVPixelBuffer?
+        XCTAssertEqual(
+            CVPixelBufferCreate(
+                nil,
+                2,
+                2,
+                kCVPixelFormatType_32BGRA,
+                nil,
+                &pixelBuffer
+            ),
+            kCVReturnSuccess
+        )
+        return try XCTUnwrap(pixelBuffer)
     }
 
     private func makePacket(data: UnsafeMutablePointer<UInt8>?, size: Int) -> AVPacket {

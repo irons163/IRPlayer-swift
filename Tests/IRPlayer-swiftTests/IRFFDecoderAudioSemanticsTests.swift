@@ -66,6 +66,7 @@ final class IRFFDecoderAudioSemanticsTests: XCTestCase {
         XCTAssertTrue(
             IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
+                hasError: false,
                 seeking: false,
                 buffering: false,
                 paused: false,
@@ -76,6 +77,7 @@ final class IRFFDecoderAudioSemanticsTests: XCTestCase {
         XCTAssertFalse(
             IRFFDecoder.shouldFetchAudioFrame(
                 closed: true,
+                hasError: false,
                 seeking: false,
                 buffering: false,
                 paused: false,
@@ -86,6 +88,7 @@ final class IRFFDecoderAudioSemanticsTests: XCTestCase {
         XCTAssertFalse(
             IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
+                hasError: false,
                 seeking: true,
                 buffering: false,
                 paused: false,
@@ -96,6 +99,7 @@ final class IRFFDecoderAudioSemanticsTests: XCTestCase {
         XCTAssertFalse(
             IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
+                hasError: false,
                 seeking: false,
                 buffering: true,
                 paused: false,
@@ -106,6 +110,7 @@ final class IRFFDecoderAudioSemanticsTests: XCTestCase {
         XCTAssertFalse(
             IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
+                hasError: false,
                 seeking: false,
                 buffering: false,
                 paused: true,
@@ -116,6 +121,7 @@ final class IRFFDecoderAudioSemanticsTests: XCTestCase {
         XCTAssertFalse(
             IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
+                hasError: false,
                 seeking: false,
                 buffering: false,
                 paused: false,
@@ -126,11 +132,23 @@ final class IRFFDecoderAudioSemanticsTests: XCTestCase {
         XCTAssertFalse(
             IRFFDecoder.shouldFetchAudioFrame(
                 closed: false,
+                hasError: false,
                 seeking: false,
                 buffering: false,
                 paused: false,
                 playbackFinished: false,
                 audioEnabled: false
+            )
+        )
+        XCTAssertFalse(
+            IRFFDecoder.shouldFetchAudioFrame(
+                closed: false,
+                hasError: true,
+                seeking: false,
+                buffering: false,
+                paused: false,
+                playbackFinished: false,
+                audioEnabled: true
             )
         )
     }

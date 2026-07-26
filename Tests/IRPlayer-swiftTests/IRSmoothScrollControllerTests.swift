@@ -187,6 +187,35 @@ final class IRSmoothScrollControllerTests: XCTestCase {
         )
     }
 
+    func testFinalTickCompletesBeforeDisplayLinkIsPaused() {
+        let fixture = SmoothScrollControllerFixture()
+        let delegate = SmoothScrollDelegateProbe()
+        var finalOrder: [String] = []
+        delegate.onEndDecelerating = {
+            finalOrder.append("target-applied")
+        }
+        fixture.driver.onActiveRequest = { isActive in
+            if !isActive {
+                finalOrder.append("display-link-paused")
+            }
+        }
+        fixture.controller.delegate = delegate
+        fixture.controller.isPaned = true
+        XCTAssertTrue(
+            fixture.controller.calculateSmoothScroll(
+                velocity: CGPoint(x: 300, y: 400)
+            )
+        )
+
+        fixture.driver.emit(timestamp: 10)
+        fixture.driver.emit(timestamp: 10.25)
+
+        XCTAssertEqual(
+            finalOrder,
+            ["target-applied", "display-link-paused"]
+        )
+    }
+
     func testResetRejectsCapturedStaleTick() {
         let fixture = SmoothScrollControllerFixture()
         let delegate = SmoothScrollDelegateProbe()
@@ -447,6 +476,7 @@ private final class SmoothScrollDisplayLinkProbe:
     private(set) var installCount = 0
     private(set) var closeCount = 0
     private(set) var activeRequests: [Bool] = []
+    var onActiveRequest: ((Bool) -> Void)?
 
     init(
         installsSuccessfully: Bool = true,
@@ -489,11 +519,12 @@ private final class SmoothScrollDisplayLinkProbe:
 
     @discardableResult
     func setActive(_ isActive: Bool) -> Bool {
+        let callback: ((Bool) -> Void)?
         lock.lock()
-        defer { lock.unlock() }
         guard storedSnapshot.phase == .idle
                 || storedSnapshot.phase == .active,
               !isActive || activatesSuccessfully else {
+            lock.unlock()
             return false
         }
         activeRequests.append(isActive)
@@ -503,6 +534,9 @@ private final class SmoothScrollDisplayLinkProbe:
                 scheduledMode:
                     RunLoop.Mode.common.rawValue
             )
+        callback = onActiveRequest
+        lock.unlock()
+        callback?(isActive)
         return true
     }
 
@@ -576,6 +610,7 @@ private final class SmoothScrollDelegateProbe:
     private(set) var endDeceleratingViews:
         [IRGLView?] = []
     private(set) var boundsScrollViews: [IRGLView?] = []
+    var onEndDecelerating: (() -> Void)?
 
     func glViewDidEndDragging(
         _ view: IRGLView?,
@@ -587,6 +622,7 @@ private final class SmoothScrollDelegateProbe:
 
     func glViewDidEndDecelerating(_ view: IRGLView?) {
         endDeceleratingViews.append(view)
+        onEndDecelerating?()
     }
 
     func glViewDidEndZooming(

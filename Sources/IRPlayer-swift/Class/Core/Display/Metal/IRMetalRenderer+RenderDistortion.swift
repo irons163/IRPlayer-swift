@@ -19,6 +19,29 @@ extension IRMetalRenderer {
                           to drawable: CAMetalDrawable,
                           drawableSize: CGSize,
                           contentMode: IRGLRenderContentMode) -> Bool {
+        renderDistortion(
+            frame: frame,
+            leftMesh: leftMesh,
+            rightMesh: rightMesh,
+            to: drawable,
+            drawableSize: drawableSize,
+            contentMode: contentMode,
+            completion: {}
+        )
+    }
+
+    func renderDistortion(frame: IRFFVideoFrame,
+                          leftMesh: IRMetalDistortionMesh,
+                          rightMesh: IRMetalDistortionMesh,
+                          to drawable: CAMetalDrawable,
+                          drawableSize: CGSize,
+                          contentMode: IRGLRenderContentMode,
+                          completion: @escaping IRGLRenderCompletion) -> Bool {
+        guard let scissorRects = Self.distortionScissorRects(
+            drawableSize: drawableSize
+        ) else {
+            return false
+        }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         let commandResources = IRMetalCommandResources()
         guard let offscreen = makeDistortionOffscreenTexture(size: drawableSize) else { return false }
@@ -81,8 +104,6 @@ extension IRMetalRenderer {
                                         znear: 0,
                                         zfar: 1))
 
-        guard let scissorRects = Self.distortionScissorRects(drawableSize: drawableSize) else { return false }
-
         encoder.setScissorRect(scissorRects.left)
         encoder.setVertexBuffer(leftMesh.vertexBuffer, offset: 0, index: 0)
         encoder.drawIndexedPrimitives(type: MTLPrimitiveType.triangleStrip,
@@ -100,7 +121,10 @@ extension IRMetalRenderer {
                                       indexBufferOffset: 0)
 
         encoder.endEncoding()
-        guard commandResources.submit(to: commandBuffer) else {
+        guard commandResources.submit(
+            to: commandBuffer,
+            completion: completion
+        ) else {
             return false
         }
         commandBuffer.present(drawable)

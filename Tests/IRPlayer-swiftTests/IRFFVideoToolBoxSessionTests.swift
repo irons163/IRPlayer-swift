@@ -1,3 +1,4 @@
+import CoreMedia
 import CoreVideo
 import Foundation
 import XCTest
@@ -201,10 +202,56 @@ final class IRFFVideoToolBoxSessionTests: XCTestCase {
         let published = state.snapshot
         XCTAssertEqual(published.status, -7)
         XCTAssertTrue(published.imageBuffer === imageBuffer)
+        let events = state.takeEvents()
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events[0].status, -7)
+        XCTAssertTrue(
+            events[0].imageBuffer === imageBuffer
+        )
+        XCTAssertTrue(state.takeEvents().isEmpty)
 
         state.reset()
         XCTAssertEqual(state.snapshot.status, noErr)
         XCTAssertNil(state.snapshot.imageBuffer)
+    }
+
+    func testCallbackStateDrainsEveryEventInFIFOOrder() {
+        let state =
+            IRFFVideoToolBoxCallbackState()
+        state.publish(
+            status: 1,
+            imageBuffer: nil,
+            presentationTimeStamp:
+                CMTime(
+                    value: 10,
+                    timescale: 1
+                )
+        )
+        state.publish(
+            status: 2,
+            imageBuffer: nil,
+            presentationTimeStamp:
+                CMTime(
+                    value: 20,
+                    timescale: 1
+                )
+        )
+
+        let events = state.takeEvents()
+
+        XCTAssertEqual(
+            events.map(\.status),
+            [1, 2]
+        )
+        XCTAssertEqual(
+            events.map {
+                CMTimeGetSeconds(
+                    $0.presentationTimeStamp
+                )
+            },
+            [10, 20]
+        )
+        XCTAssertTrue(state.takeEvents().isEmpty)
     }
 
     func testCallbackStateSupportsConcurrentPublishResetAndSnapshots() {

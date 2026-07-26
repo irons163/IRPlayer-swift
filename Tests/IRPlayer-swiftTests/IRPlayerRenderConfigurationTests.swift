@@ -1,3 +1,4 @@
+import CoreGraphics
 import XCTest
 #if SWIFT_PACKAGE
 @testable import IRPlayerSwift
@@ -31,7 +32,22 @@ final class IRPlayerRenderConfigurationTests: XCTestCase {
         let fisheye = IRPlayerRenderConfiguration.make(videoType: .fisheye, displayMode: .normal)
         let panorama = IRPlayerRenderConfiguration.make(videoType: .pano, displayMode: .normal)
 
-        XCTAssertTrue(try XCTUnwrap(fisheye.modes?.first) is IRGLRenderMode3DFisheye)
+        let fisheyeMode = try XCTUnwrap(
+            fisheye.modes?.first
+                as? IRGLRenderMode3DFisheye
+        )
+        fisheyeMode.buildIRGLProgram(
+            pixelFormat: .YUV_IRPixelFormat,
+            viewprotRange: CGRect(
+                x: 0,
+                y: 0,
+                width: 320,
+                height: 180
+            ),
+            parameter: fisheyeMode.parameter
+        )
+
+        XCTAssertNotNil(fisheyeMode.program)
         XCTAssertTrue(try XCTUnwrap(panorama.modes?.first) is IRGLRenderMode2DFisheye2Pano)
         XCTAssertEqual(fisheye.gravityMode, .resizeAspect)
     }

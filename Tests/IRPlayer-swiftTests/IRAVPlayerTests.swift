@@ -244,6 +244,168 @@ final class IRAVPlayerTests: XCTestCase {
         withExtendedLifetime(abstractPlayer) {}
     }
 
+    func testSeekClampsToDurationFromTheCapturedItem() throws {
+        let host = AVPlaybackBackendHostSpy(contentURL: nil)
+        let recorder = AVSeekExecutorRecorder()
+        let avPlayer = IRAVPlayer(
+            abstractPlayer: host,
+            itemSeekExecutor: recorder.execute
+        )
+        let url = try makeTemporaryTinyVideoFile()
+        activate(
+            avPlayer,
+            url: url,
+            automaticallyLoadedAssetKeys: IRAVPlayer.AVAssetLoadKeys
+        )
+        let item = try XCTUnwrap(avPlayer.avPlayerItem)
+        waitUntilReadyToPlay(item)
+        let duration = avPlayer.duration
+        XCTAssertGreaterThan(duration, 0)
+
+        avPlayer.seek(to: duration + 100)
+        waitForMainQueue()
+
+        XCTAssertEqual(recorder.invocationCount, 1)
+        XCTAssertTrue(recorder.lastItem === item)
+        let recordedTime = try XCTUnwrap(recorder.lastTime)
+        XCTAssertEqual(
+            CMTimeGetSeconds(recordedTime),
+            duration,
+            accuracy: 0.001
+        )
+        avPlayer.cancelPendingSeek()
+    }
+
+    func testQueuedClampedSeekCannotReachReplacementItem() throws {
+        let host = AVPlaybackBackendHostSpy(contentURL: nil)
+        let recorder = AVSeekExecutorRecorder()
+        let avPlayer = IRAVPlayer(
+            abstractPlayer: host,
+            itemSeekExecutor: recorder.execute
+        )
+        let url = try makeTemporaryTinyVideoFile()
+        activate(
+            avPlayer,
+            url: url,
+            automaticallyLoadedAssetKeys: IRAVPlayer.AVAssetLoadKeys
+        )
+        waitUntilReadyToPlay(try XCTUnwrap(avPlayer.avPlayerItem))
+        let completed = expectation(
+            description: "stale clamped seek rejected"
+        )
+        var result: Bool?
+
+        avPlayer.seek(to: avPlayer.duration + 100) {
+            result = $0
+            completed.fulfill()
+        }
+        avPlayer.replaceEmpty()
+        activate(
+            avPlayer,
+            url: url,
+            automaticallyLoadedAssetKeys: IRAVPlayer.AVAssetLoadKeys
+        )
+
+        wait(for: [completed], timeout: 2)
+        XCTAssertEqual(result, false)
+        XCTAssertEqual(recorder.invocationCount, 0)
+        XCTAssertFalse(avPlayer.seeking)
+    }
+
+    func testPlayBeforeReadyPreservesAutoplayIntent() throws {
+        let host = AVPlaybackBackendHostSpy(
+            contentURL: missingMediaURL() as NSURL
+        )
+        let avPlayer = IRAVPlayer(abstractPlayer: host)
+        activate(avPlayer, url: missingMediaURL())
+
+        avPlayer.play()
+
+        XCTAssertEqual(avPlayer.state, .buffering)
+        XCTAssertTrue(avPlayer.needPlay)
+
+        avPlayer.handleItemStatus(.readyToPlay)
+
+        XCTAssertEqual(avPlayer.state, .playing)
+        XCTAssertFalse(avPlayer.needPlay)
+    }
+
+    func testDisplacedSeekReentrancyDoesNotSeekStaleItem() throws {
+        let host = AVPlaybackBackendHostSpy(contentURL: nil)
+        let recorder = AVSeekExecutorRecorder()
+        let avPlayer = IRAVPlayer(
+            abstractPlayer: host,
+            itemSeekExecutor: recorder.execute
+        )
+        let url = try makeTemporaryTinyVideoFile()
+        activate(
+            avPlayer,
+            url: url,
+            automaticallyLoadedAssetKeys: IRAVPlayer.AVAssetLoadKeys
+        )
+        waitUntilReadyToPlay(try XCTUnwrap(avPlayer.avPlayerItem))
+        var firstResult: Bool?
+        var secondResult: Bool?
+
+        avPlayer.seek(to: 0) { result in
+            firstResult = result
+            if !result {
+                avPlayer.replaceEmpty()
+            }
+        }
+        waitForMainQueue()
+        XCTAssertEqual(recorder.invocationCount, 1)
+
+        avPlayer.seek(to: 0) { secondResult = $0 }
+        waitForMainQueue()
+
+        XCTAssertEqual(firstResult, false)
+        XCTAssertEqual(secondResult, false)
+        XCTAssertEqual(recorder.invocationCount, 1)
+        XCTAssertFalse(avPlayer.seeking)
+    }
+
+    func testSeekCompletionRevalidatesAfterPlayingCallback() throws {
+        let abstractPlayer = IRPlayerImp.player()
+        let avPlayer = IRAVPlayer(
+            abstractPlayer: abstractPlayer,
+            itemSeekExecutor: { _, _, completion in
+                completion(true)
+            }
+        )
+        let url = try makeTemporaryTinyVideoFile()
+        activate(
+            avPlayer,
+            url: url,
+            automaticallyLoadedAssetKeys: IRAVPlayer.AVAssetLoadKeys
+        )
+        waitUntilReadyToPlay(try XCTUnwrap(avPlayer.avPlayerItem))
+        avPlayer.state = .playing
+        var didReset = false
+        let observation = abstractPlayer.observeEvents { event in
+            guard !didReset,
+                  case let .stateChanged(_, current) = event,
+                  current == .playing else {
+                return
+            }
+            didReset = true
+            avPlayer.replaceEmpty()
+        }
+        let completed = expectation(description: "seek completion")
+        var result: Bool?
+
+        avPlayer.seek(to: 0) {
+            result = $0
+            completed.fulfill()
+        }
+
+        wait(for: [completed], timeout: 1)
+        XCTAssertTrue(didReset)
+        XCTAssertEqual(result, false)
+        XCTAssertFalse(avPlayer.seeking)
+        withExtendedLifetime(observation) {}
+    }
+
     func testProgressReturnsZeroWhenPlayerItemIsMissing() {
         let abstractPlayer = IRPlayerImp.player()
         let avPlayer = IRAVPlayer(abstractPlayer: abstractPlayer)
@@ -308,6 +470,60 @@ final class IRAVPlayerTests: XCTestCase {
         withExtendedLifetime(abstractPlayer) {}
     }
 
+    func testPlayableTimeSupportsConcurrentReadsAndWrites() {
+        let host = AVPlaybackBackendHostSpy(contentURL: nil)
+        let avPlayer = IRAVPlayer(abstractPlayer: host)
+        let group = DispatchGroup()
+        let invalidValue = AVConcurrentBoolBox()
+
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            for index in 0..<5_000 {
+                avPlayer.playableTime = TimeInterval(index % 100)
+            }
+            group.leave()
+        }
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            for _ in 0..<5_000 {
+                let value = avPlayer.playableTime
+                if !value.isFinite || value < 0 || value >= 100 {
+                    invalidValue.value = true
+                }
+            }
+            group.leave()
+        }
+
+        XCTAssertEqual(group.wait(timeout: .now() + 3), .success)
+        XCTAssertFalse(invalidValue.value)
+    }
+
+    func testSnapshotPublishesSynchronizedPlayableTime() {
+        let host = AVPlaybackBackendHostSpy(contentURL: nil)
+        let avPlayer = IRAVPlayer(abstractPlayer: host)
+        activate(avPlayer, url: missingMediaURL())
+        avPlayer.playableTime = 7
+
+        XCTAssertEqual(avPlayer.snapshot.playableTime, 7)
+    }
+
+    func testPlayableTimeNormalizesInvalidAndNegativeValues() {
+        let host = AVPlaybackBackendHostSpy(contentURL: nil)
+        let avPlayer = IRAVPlayer(abstractPlayer: host)
+
+        for value in [
+            TimeInterval.nan,
+            .infinity,
+            -.infinity,
+            -1,
+            .greatestFiniteMagnitude
+        ] {
+            avPlayer.playableTime = value
+            XCTAssertEqual(avPlayer.playableTime, 0)
+            XCTAssertEqual(avPlayer.snapshot.playableTime, 0)
+        }
+    }
+
     func testUnknownItemStatusBuffersWithoutDebugOutput() {
         let output = captureStandardOutput {
             XCTAssertEqual(
@@ -333,6 +549,33 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertEqual(avPlayer.playableTime, 0)
         XCTAssertFalse(avPlayer.needPlay)
         withExtendedLifetime(abstractPlayer) {}
+    }
+
+    func testUnknownDurationLoadedRangeRecoversBufferedPlayback() {
+        let host = AVPlaybackBackendHostSpy(
+            contentURL: missingMediaURL() as NSURL
+        )
+        let avPlayer = IRAVPlayer(abstractPlayer: host)
+        activate(avPlayer, url: missingMediaURL())
+        avPlayer.state = .playing
+        avPlayer.setPlayIfNeeded()
+
+        XCTAssertEqual(avPlayer.state, .buffering)
+        XCTAssertTrue(avPlayer.needPlay)
+
+        avPlayer.reevaluatePlaybackAfterLoadedTimeRange(
+            playableTime: IRAVPlayer.playableEndTime(
+                start: 0,
+                duration: 5,
+                totalDuration: 0
+            ),
+            progress: 0,
+            totalDuration: 0,
+            playableBufferInterval: host.playableBufferInterval
+        )
+
+        XCTAssertEqual(avPlayer.state, .playing)
+        XCTAssertFalse(avPlayer.needPlay)
     }
 
     func testFinishedNotificationMarksPlayerFinished() {
@@ -697,23 +940,24 @@ final class IRAVPlayerTests: XCTestCase {
         XCTAssertEqual(loop.diagnostics.closeCount, 1)
     }
 
-    func testReplaceVideoWithCustomAndFisheyeURLsLeaveRendererUnconfigured() throws {
-        let player = IRPlayerImp.player()
-        player.manager = nil
-        player.decoder = IRPlayerDecoder.AVPlayerDecoder()
-        let displayView = try XCTUnwrap(player.view as? IRGLView)
+    func testAdvancedAutomaticSourcesResolveToFFmpeg() {
+        let decoder = IRPlayerDecoder.AVPlayerDecoder()
+        let url = missingMediaURL()
 
-        player.replaceVideoWithURL(contentURL: missingMediaURL() as NSURL, videoType: .custom)
-
-        XCTAssertEqual(displayView.rendererType, .empty)
-        XCTAssertEqual(player.state, .none)
-        XCTAssertNil(loadedAVPlayer(from: player)?.avPlayerItem)
-
-        player.replaceVideoWithURL(contentURL: missingMediaURL(named: "missing-fisheye.mp4") as NSURL, videoType: .fisheye)
-
-        XCTAssertEqual(displayView.rendererType, .empty)
-        XCTAssertEqual(player.state, .none)
-        withExtendedLifetime(player) {}
+        XCTAssertEqual(
+            IRMediaSource(
+                url: url,
+                videoType: .custom
+            ).decoderType(using: decoder),
+            .ffmpeg
+        )
+        XCTAssertEqual(
+            IRMediaSource(
+                url: url,
+                videoType: .fisheye
+            ).decoderType(using: decoder),
+            .ffmpeg
+        )
     }
 
     func testSetupTrackInfoAndAudioTrackSelectionIgnoreMissingAssetGroups() {
@@ -911,5 +1155,64 @@ private final class AVPlaybackBackendHostSpy: IRPlaybackBackendHost {
 
     func playbackBackendDidFail(_ error: IRError) {
         failures += 1
+    }
+}
+
+private final class AVSeekExecutorRecorder:
+    @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var storedInvocationCount = 0
+    private var storedLastItem: AVPlayerItem?
+    private var storedLastTime: CMTime?
+
+    var invocationCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedInvocationCount
+    }
+
+    var lastItem: AVPlayerItem? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedLastItem
+    }
+
+    var lastTime: CMTime? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedLastTime
+    }
+
+    func execute(
+        item: AVPlayerItem,
+        time: CMTime,
+        completion: @escaping (Bool) -> Void
+    ) {
+        lock.lock()
+        storedInvocationCount += 1
+        storedLastItem = item
+        storedLastTime = time
+        lock.unlock()
+    }
+}
+
+private final class AVConcurrentBoolBox:
+    @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var storedValue = false
+
+    var value: Bool {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedValue
+        }
+        set {
+            lock.lock()
+            storedValue = newValue
+            lock.unlock()
+        }
     }
 }

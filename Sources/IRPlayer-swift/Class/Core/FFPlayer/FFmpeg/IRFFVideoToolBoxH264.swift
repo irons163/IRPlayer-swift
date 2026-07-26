@@ -1,6 +1,12 @@
 import CoreMedia
 import Foundation
-import IRFFMpeg
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+internal import IRPlayerObjc
+#else
+@_implementationOnly import IRFFMpeg
+@_implementationOnly import IRPlayerObjc
+#endif
 import VideoToolbox
 
 extension IRFFVideoToolBox {
@@ -47,6 +53,58 @@ extension IRFFVideoToolBox {
     static func packetPayload(for packet: AVPacket) -> PacketPayload? {
         guard let data = packet.data, packet.size > 0 else { return nil }
         return PacketPayload(data: data, size: packet.size)
+    }
+
+    static func makeOwnedBlockBuffer(
+        from packetPayload: PacketPayload
+    ) -> CMBlockBuffer? {
+        let byteCount =
+            Int(packetPayload.size)
+        guard byteCount > 0,
+              let ownedMemory =
+                av_malloc(byteCount) else {
+            return nil
+        }
+        memcpy(
+            ownedMemory,
+            packetPayload.data,
+            byteCount
+        )
+        var customBlockSource =
+            CMBlockBufferCustomBlockSource(
+                version:
+                    kCMBlockBufferCustomBlockSourceVersion,
+                AllocateBlock: nil,
+                FreeBlock: {
+                    _,
+                    memoryBlock,
+                    _ in
+                    av_free(memoryBlock)
+                },
+                refCon: nil
+            )
+        var blockBuffer: CMBlockBuffer?
+        let status =
+            CMBlockBufferCreateWithMemoryBlock(
+                allocator: nil,
+                memoryBlock: ownedMemory,
+                blockLength: byteCount,
+                blockAllocator:
+                    kCFAllocatorNull,
+                customBlockSource:
+                    &customBlockSource,
+                offsetToData: 0,
+                dataLength: byteCount,
+                flags: 0,
+                blockBufferOut:
+                    &blockBuffer
+            )
+        if status != noErr {
+            av_free(ownedMemory)
+        }
+        return status == noErr
+            ? blockBuffer
+            : nil
     }
 
     static func convertedNALBlockPayload(
@@ -111,9 +169,10 @@ extension IRFFVideoToolBox {
     static func decodeFrameSucceeded(
         status: OSStatus,
         callbackStatus: OSStatus,
-        hasOutput: Bool
+        hasOutput _: Bool
     ) -> Bool {
-        status == noErr && callbackStatus == noErr && hasOutput
+        status == noErr &&
+            callbackStatus == noErr
     }
 
     static func nalPayloadCanAdvance(
@@ -199,9 +258,16 @@ extension IRFFVideoToolBox {
 
     static func makeSampleBuffer(
         blockBuffer: CMBlockBuffer,
-        formatDescription: CMFormatDescription
+        formatDescription: CMFormatDescription,
+        timing: CMSampleTimingInfo,
+        sampleSize: Int
     ) -> CMSampleBuffer? {
+        guard sampleSize > 0 else {
+            return nil
+        }
         var sampleBuffer: CMSampleBuffer?
+        var timing = timing
+        var sampleSize = sampleSize
         let status = CMSampleBufferCreate(
             allocator: nil,
             dataBuffer: blockBuffer,
@@ -210,12 +276,77 @@ extension IRFFVideoToolBox {
             refcon: nil,
             formatDescription: formatDescription,
             sampleCount: 1,
-            sampleTimingEntryCount: 0,
-            sampleTimingArray: nil,
-            sampleSizeEntryCount: 0,
-            sampleSizeArray: nil,
+            sampleTimingEntryCount: 1,
+            sampleTimingArray: &timing,
+            sampleSizeEntryCount: 1,
+            sampleSizeArray: &sampleSize,
             sampleBufferOut: &sampleBuffer
         )
         return status == noErr ? sampleBuffer : nil
+    }
+
+    static func sampleTiming(
+        for packet: AVPacket,
+        timebase: TimeInterval
+    ) -> CMSampleTimingInfo {
+        let presentationTimestamp =
+            packet.pts != IR_AV_NOPTS_VALUE
+            ? packet.pts
+            : packet.dts
+        return CMSampleTimingInfo(
+            duration:
+                mediaTime(
+                    ticks: packet.duration,
+                    timebase: timebase,
+                    requiresPositiveTicks:
+                        true
+                ),
+            presentationTimeStamp:
+                mediaTime(
+                    ticks:
+                        presentationTimestamp,
+                    timebase: timebase,
+                    requiresPositiveTicks:
+                        false
+                ),
+            decodeTimeStamp:
+                mediaTime(
+                    ticks: packet.dts,
+                    timebase: timebase,
+                    requiresPositiveTicks:
+                        false
+                )
+        )
+    }
+
+    static func mediaTime(
+        ticks: Int64,
+        timebase: TimeInterval,
+        requiresPositiveTicks: Bool
+    ) -> CMTime {
+        guard ticks != IR_AV_NOPTS_VALUE,
+              (!requiresPositiveTicks ||
+                  ticks > 0),
+              timebase.isFinite,
+              timebase > 0 else {
+            return .invalid
+        }
+        let seconds =
+            Double(ticks) * timebase
+        let timescale: Int32 = 1_000_000
+        let scaled =
+            seconds * Double(timescale)
+        guard seconds.isFinite,
+              scaled.isFinite,
+              scaled >= Double(Int64.min),
+              scaled < Double(Int64.max) else {
+            return .invalid
+        }
+        return CMTime(
+            value: Int64(
+                scaled.rounded()
+            ),
+            timescale: timescale
+        )
     }
 }

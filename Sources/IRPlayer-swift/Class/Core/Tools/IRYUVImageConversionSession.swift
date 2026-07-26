@@ -6,7 +6,11 @@
 //
 
 import Foundation
-import IRFFMpeg
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+#else
+@_implementationOnly import IRFFMpeg
+#endif
 
 struct IRYUVImageConversionConfiguration: Equatable {
     let width: Int32

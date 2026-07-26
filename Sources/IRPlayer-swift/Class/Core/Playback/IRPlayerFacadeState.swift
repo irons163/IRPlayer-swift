@@ -272,7 +272,13 @@ final class IRPlayerMediaSession: @unchecked Sendable {
 
     func setLegacyHeaders(_ headers: [String: String]?) {
         lock.lock()
-        contentHeaders = headers?.isEmpty == false ? headers : nil
+        let normalized =
+            headers?.isEmpty == false ? headers : nil
+        contentHeaders = normalized
+        if var currentSource = source {
+            currentSource.headers = normalized ?? [:]
+            source = currentSource
+        }
         lock.unlock()
     }
 

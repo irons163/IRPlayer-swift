@@ -23,6 +23,32 @@ extension IRMetalRenderer {
                          outputSize: CGSize,
                          zoomScale: Float,
                          translation: SIMD2<Float>) -> Bool {
+        renderFish2Pano(
+            frame: frame,
+            params: params,
+            texUVTextures: texUVTextures,
+            to: drawable,
+            drawableSize: drawableSize,
+            viewport: viewport,
+            contentMode: contentMode,
+            outputSize: outputSize,
+            zoomScale: zoomScale,
+            translation: translation,
+            completion: {}
+        )
+    }
+
+    func renderFish2Pano(frame: IRFFVideoFrame,
+                         params: Fish2PanoParams,
+                         texUVTextures: [MTLTexture],
+                         to drawable: CAMetalDrawable,
+                         drawableSize: CGSize,
+                         viewport: CGRect,
+                         contentMode: IRGLRenderContentMode,
+                         outputSize: CGSize,
+                         zoomScale: Float,
+                         translation: SIMD2<Float>,
+                         completion: @escaping IRGLRenderCompletion) -> Bool {
         guard Self.fish2PanoInputsAreValid(params: params, texUVTextureCount: texUVTextures.count) else { return false }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return false }
         let commandResources = IRMetalCommandResources()
@@ -67,7 +93,8 @@ extension IRMetalRenderer {
         encoder.endEncoding()
         if didRender {
             guard commandResources.submit(
-                to: commandBuffer
+                to: commandBuffer,
+                completion: completion
             ) else {
                 return false
             }

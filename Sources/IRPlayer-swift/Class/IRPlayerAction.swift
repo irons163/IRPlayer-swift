@@ -59,6 +59,19 @@ enum IRPayloadNumber {
 }
 
 enum IRPlayerNotificationPayload {
+    struct TimeValues: Equatable {
+        let fraction: Double
+        let current: TimeInterval
+        let total: TimeInterval
+
+        var snapshot: IRPlayerTimeSnapshot {
+            IRPlayerTimeSnapshot(
+                current: current,
+                total: total,
+                fraction: fraction
+            )
+        }
+    }
 
     static func state(previous: IRPlayerState, current: IRPlayerState) -> [AnyHashable: Any] {
         return [
@@ -68,25 +81,72 @@ enum IRPlayerNotificationPayload {
     }
 
     static func progress(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
+        progress(
+            timeValues(
+                percent: percent,
+                current: current,
+                total: total
+            )
+        )
+    }
+
+    static func progress(
+        _ values: TimeValues
+    ) -> [AnyHashable: Any] {
         return [
-            IRPlayerProgressPercentKey: finiteNumber(percent),
-            IRPlayerProgressCurrentKey: finiteNumber(current),
-            IRPlayerProgressTotalKey: finiteNumber(total)
+            IRPlayerProgressPercentKey:
+                NSNumber(value: values.fraction),
+            IRPlayerProgressCurrentKey:
+                NSNumber(value: values.current),
+            IRPlayerProgressTotalKey:
+                NSNumber(value: values.total)
         ]
     }
 
     static func playable(percent: NSNumber?, current: NSNumber?, total: NSNumber?) -> [AnyHashable: Any] {
+        playable(
+            timeValues(
+                percent: percent,
+                current: current,
+                total: total
+            )
+        )
+    }
+
+    static func playable(
+        _ values: TimeValues
+    ) -> [AnyHashable: Any] {
         return [
-            IRPlayerPlayablePercentKey: finiteNumber(percent),
-            IRPlayerPlayableCurrentKey: finiteNumber(current),
-            IRPlayerPlayableTotalKey: finiteNumber(total)
+            IRPlayerPlayablePercentKey:
+                NSNumber(value: values.fraction),
+            IRPlayerPlayableCurrentKey:
+                NSNumber(value: values.current),
+            IRPlayerPlayableTotalKey:
+                NSNumber(value: values.total)
         ]
     }
 
+    static func timeValues(
+        percent: Any?,
+        current: Any?,
+        total: Any?
+    ) -> TimeValues {
+        TimeValues(
+            fraction: sanitizedFraction(percent),
+            current: sanitizedTime(current),
+            total: sanitizedTime(total)
+        )
+    }
+
     static func timePercent(current: TimeInterval, total: TimeInterval) -> NSNumber {
-        guard total > 0,
-              let range = IRPlaybackTimeRange(duration: total),
-              let boundedCurrent = range.clamped(current) else {
+        let sanitizedTotal = sanitizedTime(total)
+        let sanitizedCurrent = sanitizedTime(current)
+        guard sanitizedTotal > 0,
+              let range = IRPlaybackTimeRange(
+                  duration: sanitizedTotal
+              ),
+              let boundedCurrent =
+                range.clamped(sanitizedCurrent) else {
             return NSNumber(value: 0)
         }
         let percent = boundedCurrent / range.duration
@@ -98,18 +158,16 @@ enum IRPlayerNotificationPayload {
     }
 
     static func cgFloat(_ value: Any?) -> CGFloat {
-        if value is Bool {
-            return 0
-        }
-
         let converted: CGFloat
-        if let value = value as? CGFloat {
-            converted = value
-        } else if let value = value as? NSNumber {
+        if let value = value as? NSNumber {
             guard !IRPayloadNumber.isBoolean(value) else {
                 return 0
             }
             converted = CGFloat(truncating: value)
+        } else if value is Bool {
+            return 0
+        } else if let value = value as? CGFloat {
+            converted = value
         } else if let value = value as? Double {
             converted = CGFloat(value)
         } else if let value = value as? Float {
@@ -139,13 +197,47 @@ enum IRPlayerNotificationPayload {
         return .none
     }
 
-    private static func finiteNumber(_ value: NSNumber?) -> NSNumber {
-        guard let value,
-              !IRPayloadNumber.isBoolean(value),
-              value.doubleValue.isFinite else {
-            return NSNumber(value: 0)
+    private static func sanitizedFraction(_ value: Any?) -> Double {
+        guard let converted = numericDouble(value),
+              let normalized =
+                IRPlaybackTimeValue.normalized(converted) else {
+            return 0
         }
-        return value
+        return min(normalized, 1)
+    }
+
+    private static func sanitizedTime(_ value: Any?) -> TimeInterval {
+        guard let converted = numericDouble(value),
+              let normalized =
+                IRPlaybackTimeValue.normalized(converted) else {
+            return 0
+        }
+        return normalized
+    }
+
+    private static func numericDouble(_ value: Any?) -> Double? {
+        if let value = value as? NSNumber {
+            guard !IRPayloadNumber.isBoolean(value) else {
+                return nil
+            }
+            return value.doubleValue
+        }
+        if value is Bool {
+            return nil
+        }
+        if let value = value as? CGFloat {
+            return Double(value)
+        }
+        if let value = value as? Double {
+            return value
+        }
+        if let value = value as? Float {
+            return Double(value)
+        }
+        if let value = value as? Int {
+            return Double(value)
+        }
+        return nil
     }
 }
 
@@ -172,18 +264,28 @@ public class IRModel: NSObject {
     }
 
     public static func progress(fromUserInfo userInfo: [AnyHashable : Any]) -> IRProgress {
+        let values = IRPlayerNotificationPayload.timeValues(
+            percent: userInfo[IRPlayerProgressPercentKey],
+            current: userInfo[IRPlayerProgressCurrentKey],
+            total: userInfo[IRPlayerProgressTotalKey]
+        )
         let progress = IRProgress()
-        progress.percent = IRPlayerNotificationPayload.cgFloat(userInfo[IRPlayerProgressPercentKey])
-        progress.current = IRPlayerNotificationPayload.cgFloat(userInfo[IRPlayerProgressCurrentKey])
-        progress.total = IRPlayerNotificationPayload.cgFloat(userInfo[IRPlayerProgressTotalKey])
+        progress.percent = CGFloat(values.fraction)
+        progress.current = CGFloat(values.current)
+        progress.total = CGFloat(values.total)
         return progress
     }
 
     public static func playable(fromUserInfo userInfo: [AnyHashable : Any]) -> IRPlayable {
+        let values = IRPlayerNotificationPayload.timeValues(
+            percent: userInfo[IRPlayerPlayablePercentKey],
+            current: userInfo[IRPlayerPlayableCurrentKey],
+            total: userInfo[IRPlayerPlayableTotalKey]
+        )
         let playable = IRPlayable()
-        playable.percent = IRPlayerNotificationPayload.cgFloat(userInfo[IRPlayerPlayablePercentKey])
-        playable.current = IRPlayerNotificationPayload.cgFloat(userInfo[IRPlayerPlayableCurrentKey])
-        playable.total = IRPlayerNotificationPayload.cgFloat(userInfo[IRPlayerPlayableTotalKey])
+        playable.percent = CGFloat(values.fraction)
+        playable.current = CGFloat(values.current)
+        playable.total = CGFloat(values.total)
         return playable
     }
 

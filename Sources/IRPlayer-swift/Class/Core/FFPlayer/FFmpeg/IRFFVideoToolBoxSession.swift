@@ -1,3 +1,4 @@
+import CoreMedia
 import CoreVideo
 import Foundation
 import VideoToolbox
@@ -185,32 +186,69 @@ final class IRFFVideoToolBoxSession<Resource>: @unchecked Sendable {
 }
 
 final class IRFFVideoToolBoxCallbackState: @unchecked Sendable {
+    struct Event {
+        let status: OSStatus
+        let imageBuffer: CVImageBuffer?
+        let presentationTimeStamp: CMTime
+        let presentationDuration: CMTime
+    }
+
     struct Snapshot {
         let status: OSStatus
         let imageBuffer: CVImageBuffer?
     }
 
     private let lock = NSLock()
-    private var status: OSStatus = noErr
-    private var imageBuffer: CVImageBuffer?
+    private var lastEvent: Event?
+    private var events: [Event] = []
 
     var snapshot: Snapshot {
         lock.lock()
         defer { lock.unlock() }
-        return Snapshot(status: status, imageBuffer: imageBuffer)
+        return Snapshot(
+            status: lastEvent?.status ?? noErr,
+            imageBuffer: lastEvent?.imageBuffer
+        )
     }
 
     func reset() {
         lock.lock()
-        status = noErr
-        imageBuffer = nil
+        lastEvent = nil
+        events.removeAll(
+            keepingCapacity: true
+        )
         lock.unlock()
     }
 
-    func publish(status: OSStatus, imageBuffer: CVImageBuffer?) {
+    func publish(
+        status: OSStatus,
+        imageBuffer: CVImageBuffer?,
+        presentationTimeStamp: CMTime =
+            .invalid,
+        presentationDuration: CMTime =
+            .invalid
+    ) {
         lock.lock()
-        self.status = status
-        self.imageBuffer = imageBuffer
+        let event = Event(
+            status: status,
+            imageBuffer: imageBuffer,
+            presentationTimeStamp:
+                presentationTimeStamp,
+            presentationDuration:
+                presentationDuration
+        )
+        lastEvent = event
+        events.append(event)
         lock.unlock()
+    }
+
+    func takeEvents() -> [Event] {
+        lock.lock()
+        let result = events
+        events.removeAll(
+            keepingCapacity: true
+        )
+        lock.unlock()
+        return result
     }
 }

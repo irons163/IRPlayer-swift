@@ -13,7 +13,6 @@ FFmpeg-based player and decoder pipeline.
 | `IRFFPlayerRuntime.swift`      | Commands, audio ordering, time, and events   |
 | `IRFFPlayerPresentation.swift` | Main-thread FFmpeg display configuration     |
 | `IRFFAudioRenderer.swift`      | Synchronized decoded-audio frame consumer    |
-| `IRFFPlayer.h`                 | Objective-C header for FFmpeg player bridge  |
 
 ## Subdirectory
 

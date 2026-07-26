@@ -50,9 +50,3 @@ public extension IRPlayerImp {
         presentationSession.glViewDidScroll(toBounds: glView)
     }
 }
-
-extension IRPlayerImp {
-    func cleanPlayerView() {
-        presentationSession.cleanPlayerView()
-    }
-}

@@ -134,6 +134,35 @@ final class IRPlayerFacadeStateTests: XCTestCase {
         XCTAssertNil(session.snapshot.contentHeaders)
     }
 
+    func testLegacyHeadersKeepInstalledSourceCoherent() {
+        let session = IRPlayerMediaSession()
+        session.replace(
+            with: IRMediaSource(
+                url: URL(
+                    string: "https://example.com/video.mp4"
+                ),
+                headers: ["Initial": "value"]
+            )
+        )
+
+        session.setLegacyHeaders(
+            ["Authorization": "token"]
+        )
+
+        XCTAssertEqual(
+            session.snapshot.contentHeaders,
+            ["Authorization": "token"]
+        )
+        XCTAssertEqual(
+            session.snapshot.source?.headers,
+            ["Authorization": "token"]
+        )
+
+        session.setLegacyHeaders(nil)
+        XCTAssertNil(session.snapshot.contentHeaders)
+        XCTAssertEqual(session.snapshot.source?.headers, [:])
+    }
+
     func testConcurrentMediaReplacementEndsWithOneBoundCurrentInput() {
         let session = IRPlayerMediaSession()
         let inputs = (0..<100).map { _ in IRFFVideoInput() }

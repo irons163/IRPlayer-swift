@@ -41,17 +41,56 @@ open class IRFFVideoInput: IRFFVideoDecoderDataSource {
         self.outputType = outputType
     }
 
+    /// Forwards one frame through the active bounded output without waiting.
+    ///
+    /// A `false` result means the target rejected and reclaimed the frame, or
+    /// there was no callable target and this input reclaimed it.
+    @discardableResult
+    public func trySend(
+        videoFrame frame: IRFFVideoFrame
+    ) -> Bool {
+        guard let videoOutput else {
+            frame.cancel()
+            return false
+        }
+        if let accepted =
+                videoOutput.trySend?(
+                    videoFrame: frame
+                ) {
+            return accepted
+        }
+        if videoOutput.send?(
+            videoFrame: frame
+        ) != nil {
+            return true
+        }
+        frame.cancel()
+        return false
+    }
+
+    @discardableResult
+    public func send(
+        videoFrame frame: IRFFVideoFrame
+    ) -> Bool {
+        trySend(videoFrame: frame)
+    }
+
     open func shouldHandle(
         _ videoDecoder: IRFFVideoDecoderInfo,
-        decodeFrame packet: IRFFCompressedVideoPacket
+        packet: IRFFVideoPacketDescriptor
     ) -> Bool {
-        return true
+        // The base input only routes output. Custom decoders opt in by
+        // overriding this method; otherwise FFmpeg remains the safe fallback.
+        return false
     }
 
     open func videoDecoder(
         _ videoDecoder: IRFFVideoDecoderInfo,
-        decodeFrame packet: IRFFCompressedVideoPacket
-    ) -> IRFFVideoFrame? {
-        return nil
+        decodeFrame packet:
+            IRFFCompressedVideoPacket,
+        completion:
+            IRFFCustomVideoDecodeCompletion
+    ) -> IRFFCustomVideoDecodeOutcome {
+        return .dropped
     }
 }

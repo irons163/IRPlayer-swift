@@ -24,6 +24,9 @@ Provides the native system player backend. Used when `IRPlayerDecoder` is config
 - This is the simpler of the two player backends (vs FFPlayer).
 - Handles standard HTTP/file-based video URLs via AVFoundation.
 - Does not support custom video frames or advanced decode pipelines — use FFPlayer for those.
+- Treat custom request headers as an FFmpeg capability. Do not emulate them
+  with `AVAssetResourceLoader`; that public boundary cannot guarantee headers
+  on every HLS playlist and segment request.
 - Keep all AV asset/item/player/output and observation ownership inside
   `IRAVPlayerSession`.
 - Gate asynchronous work with the session token and exact resource identity.

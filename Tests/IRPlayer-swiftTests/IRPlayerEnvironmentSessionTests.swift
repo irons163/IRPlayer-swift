@@ -107,6 +107,141 @@ final class IRPlayerEnvironmentSessionTests: XCTestCase {
         XCTAssertEqual(idleTimer.values, [true, false, true, false])
     }
 
+    func testQueuedStaleStartCannotReenableAfterLifecycleReset() {
+        let idleTimer = EnvironmentIdleTimerProbe()
+        let session = makeSession(idleTimer: idleTimer)
+        let scheduled = DispatchSemaphore(value: 0)
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            session.playbackDidStart()
+            scheduled.signal()
+        }
+        XCTAssertEqual(
+            scheduled.wait(timeout: .now() + 1),
+            .success
+        )
+
+        session.resetLifecycle()
+        let drained = expectation(
+            description: "main idle intent queue drained"
+        )
+        DispatchQueue.main.async {
+            drained.fulfill()
+        }
+        wait(for: [drained], timeout: 1)
+
+        XCTAssertEqual(idleTimer.values, [])
+        XCTAssertFalse(
+            session.diagnostics.isIdleTimerDisabled
+        )
+    }
+
+    func testIdleTimerRejectsSupersededActivationCallbacks() {
+        let idleTimer = EnvironmentIdleTimerProbe()
+        let session = makeSession(idleTimer: idleTimer)
+        let first = IRPlaybackBackendActivation(
+            generation: 1,
+            kind: .avFoundation
+        )
+        let second = IRPlaybackBackendActivation(
+            generation: 2,
+            kind: .ffmpeg
+        )
+
+        session.activatePlayback(first)
+        session.playbackDidStart(activation: first)
+        session.activatePlayback(second)
+        session.playbackDidStart(activation: first)
+        session.playbackDidStart(activation: second)
+        session.playbackDidPauseOrStop(activation: first)
+
+        XCTAssertEqual(idleTimer.values, [true, false, true])
+        XCTAssertEqual(
+            session.diagnostics.idleTimerActivation,
+            second
+        )
+        XCTAssertTrue(
+            session.diagnostics.isIdleTimerDisabled
+        )
+    }
+
+    func testActivationChangeRevokesStaleLifecycleCommandsAndResume() {
+        let applicationCenter = NotificationCenter()
+        let audioCenter = NotificationCenter()
+        let state = EnvironmentStateBox(.playing)
+        let commands = EnvironmentCommandRecorder()
+        let dispatcher = EnvironmentDeferredDispatcher()
+        let session = makeSession(
+            center: applicationCenter,
+            state: state,
+            commands: commands,
+            commandDispatcher: dispatcher.enqueue,
+            audioManagerFactory: {
+                makeTestAudioManager(
+                    notificationCenter: audioCenter
+                )
+            }
+        )
+        let first = IRPlaybackBackendActivation(
+            generation: 1,
+            kind: .avFoundation
+        )
+        let second = IRPlaybackBackendActivation(
+            generation: 2,
+            kind: .ffmpeg
+        )
+        session.activatePlayback(first)
+
+        applicationCenter.post(
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        postInterruption(to: audioCenter)
+        postOldDeviceUnavailable(to: audioCenter)
+        XCTAssertTrue(
+            session.diagnostics.needsForegroundResume
+        )
+        XCTAssertEqual(dispatcher.count, 3)
+        let firstGeneration =
+            session.diagnostics.lifecycleGeneration
+
+        session.activatePlayback(second)
+        state.value = .suspend
+        session.willEnterForeground()
+        dispatcher.runAll()
+
+        XCTAssertGreaterThan(
+            session.diagnostics.lifecycleGeneration,
+            firstGeneration
+        )
+        XCTAssertEqual(
+            session.diagnostics.lifecycleActivation,
+            second
+        )
+        XCTAssertFalse(
+            session.diagnostics.needsForegroundResume
+        )
+        XCTAssertEqual(commands.values, [])
+    }
+
+    func testRepeatedActivationIdentityIsLifecycleNoOp() {
+        let session = makeSession()
+        let activation = IRPlaybackBackendActivation(
+            generation: 1,
+            kind: .avFoundation
+        )
+        session.activatePlayback(activation)
+        let generation =
+            session.diagnostics.lifecycleGeneration
+
+        session.activatePlayback(activation)
+
+        XCTAssertEqual(
+            session.diagnostics.lifecycleGeneration,
+            generation
+        )
+    }
+
     func testReplacingAudioManagerDetachesOldEventRoute() {
         let firstCenter = NotificationCenter()
         let secondCenter = NotificationCenter()
@@ -135,6 +270,42 @@ final class IRPlayerEnvironmentSessionTests: XCTestCase {
         XCTAssertTrue(session.audioManager === secondManager)
     }
 
+    func testReplacingAudioManagerRevokesQueuedOldManagerCommand() {
+        let firstCenter = NotificationCenter()
+        let secondCenter = NotificationCenter()
+        let firstManager = makeTestAudioManager(
+            notificationCenter: firstCenter
+        )
+        let secondManager = makeTestAudioManager(
+            notificationCenter: secondCenter
+        )
+        let state = EnvironmentStateBox(.playing)
+        let commands = EnvironmentCommandRecorder()
+        let dispatcher = EnvironmentDeferredDispatcher()
+        let session = makeSession(
+            state: state,
+            commands: commands,
+            commandDispatcher: dispatcher.enqueue,
+            audioManagerFactory: { firstManager }
+        )
+
+        postInterruption(to: firstCenter)
+        XCTAssertEqual(dispatcher.count, 1)
+        let firstGeneration =
+            session.diagnostics.audioManagerGeneration
+
+        session.replaceAudioManager(secondManager)
+        session.replaceAudioManager(firstManager)
+        dispatcher.runAll()
+
+        XCTAssertGreaterThan(
+            session.diagnostics.audioManagerGeneration,
+            firstGeneration
+        )
+        XCTAssertTrue(session.audioManager === firstManager)
+        XCTAssertEqual(commands.values, [])
+    }
+
     func testCloseCancelsAlreadyDispatchedCommands() {
         let center = NotificationCenter()
         let state = EnvironmentStateBox(.playing)
@@ -156,6 +327,76 @@ final class IRPlayerEnvironmentSessionTests: XCTestCase {
         dispatcher.runAll()
 
         XCTAssertEqual(commands.values, [])
+    }
+
+    func testLifecycleResetCancelsQueuedCommandAndResumeIntent() {
+        let center = NotificationCenter()
+        let state = EnvironmentStateBox(.playing)
+        let commands = EnvironmentCommandRecorder()
+        let dispatcher = EnvironmentDeferredDispatcher()
+        let session = makeSession(
+            center: center,
+            state: state,
+            commands: commands,
+            commandDispatcher: dispatcher.enqueue
+        )
+
+        center.post(
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        let previousGeneration =
+            session.diagnostics.lifecycleGeneration
+        XCTAssertTrue(session.diagnostics.needsForegroundResume)
+        XCTAssertEqual(dispatcher.count, 1)
+
+        session.resetLifecycle()
+        dispatcher.runAll()
+
+        XCTAssertGreaterThan(
+            session.diagnostics.lifecycleGeneration,
+            previousGeneration
+        )
+        XCTAssertFalse(session.diagnostics.needsForegroundResume)
+        XCTAssertEqual(commands.values, [])
+    }
+
+    func testChangingModeInvalidatesResumeIntent() {
+        let center = NotificationCenter()
+        let state = EnvironmentStateBox(.playing)
+        let session = makeSession(center: center, state: state)
+        center.post(
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        XCTAssertTrue(session.diagnostics.needsForegroundResume)
+
+        session.mode = .continuing
+
+        XCTAssertFalse(session.diagnostics.needsForegroundResume)
+        XCTAssertEqual(session.diagnostics.mode, .continuing)
+    }
+
+    func testLifecycleResetDuringStateReadRejectsStaleDecision() {
+        let commands = EnvironmentCommandRecorder()
+        let stateProvider = EnvironmentReentrantStateProvider()
+        let session = IRPlayerEnvironmentSession(
+            dependencies: IRPlayerEnvironmentDependencies(
+                notificationCenter: NotificationCenter(),
+                clock: { 100 },
+                commandDispatcher: { $0() },
+                idleTimer: EnvironmentIdleTimerProbe(),
+                audioManagerFactory: { nil }
+            ),
+            stateProvider: stateProvider.read,
+            commandHandler: { commands.append($0) }
+        )
+        stateProvider.session = session
+
+        session.didEnterBackground()
+
+        XCTAssertEqual(commands.values, [])
+        XCTAssertFalse(session.diagnostics.needsForegroundResume)
     }
 
     func testConcurrentManagerReplacementAndCloseAreRaceFree() {
@@ -208,6 +449,20 @@ final class IRPlayerEnvironmentSessionTests: XCTestCase {
             userInfo: [
                 AVAudioSessionInterruptionTypeKey:
                     AVAudioSession.InterruptionType.began.rawValue
+            ]
+        )
+    }
+
+    private func postOldDeviceUnavailable(
+        to center: NotificationCenter
+    ) {
+        center.post(
+            name: AVAudioSession.routeChangeNotification,
+            object: nil,
+            userInfo: [
+                AVAudioSessionRouteChangeReasonKey:
+                    AVAudioSession.RouteChangeReason
+                    .oldDeviceUnavailable.rawValue
             ]
         )
     }
@@ -318,5 +573,14 @@ private final class EnvironmentDeferredDispatcher:
         blocks = []
         lock.unlock()
         current.forEach { $0() }
+    }
+}
+
+private final class EnvironmentReentrantStateProvider {
+    weak var session: IRPlayerEnvironmentSession?
+
+    func read() -> IRPlayerState {
+        session?.resetLifecycle()
+        return .playing
     }
 }

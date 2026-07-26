@@ -51,6 +51,34 @@ final class IRPlayerNotificationTests: XCTestCase {
         withExtendedLifetime(player) {}
     }
 
+    func testQueuedPlayerNotificationIsRejectedAfterNewTransaction() {
+        let player = IRPlayerImp.player()
+        let expectation = expectation(
+            description: "superseded notification is rejected"
+        )
+        expectation.isInverted = true
+        let observer = NotificationCenter.default.addObserver(
+            forName: Notification.Name(
+                IRPlayerStateChangeNotificationName
+            ),
+            object: player,
+            queue: .main
+        ) { _ in
+            expectation.fulfill()
+        }
+
+        IRPlayerNotification.postPlayer(
+            player,
+            statePrevious: .buffering,
+            current: .playing
+        )
+        player.stop()
+
+        wait(for: [expectation], timeout: 0.1)
+        NotificationCenter.default.removeObserver(observer)
+        withExtendedLifetime(player) {}
+    }
+
     func testPostPlayerProgressAndPlayableUseExpectedPayloads() throws {
         let player = IRPlayerImp.player()
         let progressExpectation = observeNotification(
@@ -109,6 +137,102 @@ final class IRPlayerNotificationTests: XCTestCase {
 
         wait(for: [expectation], timeout: 1.0)
         XCTAssertTrue(player.error === error)
+        withExtendedLifetime(player) {}
+    }
+
+    func testBackgroundErrorPostsTypedThenLegacyOnMain() {
+        let player = IRPlayerImp.player()
+        let error = IRError()
+        error.error = NSError(
+            domain: "IRPlayerNotificationTests.background",
+            code: 43
+        )
+        var deliveryOrder: [String] = []
+        let typed = expectation(
+            description: "typed event delivered on main"
+        )
+        let legacy = expectation(
+            description: "legacy event delivered on main"
+        )
+        let observation = player.observeEvents { event in
+            guard case let .failure(receivedError) = event else {
+                return
+            }
+            XCTAssertTrue(Thread.isMainThread)
+            XCTAssertTrue(receivedError === error)
+            XCTAssertTrue(player.error === error)
+            deliveryOrder.append("typed")
+            typed.fulfill()
+        }
+        let observer = NotificationCenter.default.addObserver(
+            forName: Notification.Name(
+                IRPlayerErrorNotificationName
+            ),
+            object: player,
+            queue: .main
+        ) { _ in
+            XCTAssertTrue(Thread.isMainThread)
+            deliveryOrder.append("legacy")
+            legacy.fulfill()
+        }
+
+        DispatchQueue.global().async {
+            IRPlayerNotification.postPlayer(
+                player,
+                error: error
+            )
+        }
+
+        wait(for: [typed, legacy], timeout: 1)
+        XCTAssertEqual(deliveryOrder, ["typed", "legacy"])
+        NotificationCenter.default.removeObserver(observer)
+        withExtendedLifetime(observation) {}
+        withExtendedLifetime(player) {}
+    }
+
+    func testSupersededBackgroundPostIsRejectedBeforeTypedDelivery() {
+        let player = IRPlayerImp.player()
+        let error = IRError()
+        let enqueued = DispatchSemaphore(value: 0)
+        let typed = expectation(
+            description: "superseded typed event rejected"
+        )
+        typed.isInverted = true
+        let legacy = expectation(
+            description: "superseded legacy event rejected"
+        )
+        legacy.isInverted = true
+        let observation = player.observeEvents { event in
+            guard case .failure = event else { return }
+            typed.fulfill()
+        }
+        let observer = NotificationCenter.default.addObserver(
+            forName: Notification.Name(
+                IRPlayerErrorNotificationName
+            ),
+            object: player,
+            queue: .main
+        ) { _ in
+            legacy.fulfill()
+        }
+
+        DispatchQueue.global().async {
+            IRPlayerNotification.postPlayer(
+                player,
+                error: error
+            )
+            enqueued.signal()
+        }
+        XCTAssertEqual(
+            enqueued.wait(timeout: .now() + 1),
+            .success
+        )
+        player.stop()
+
+        wait(for: [typed, legacy], timeout: 0.1)
+        XCTAssertNil(player.error)
+        NotificationCenter.default.removeObserver(observer)
+        withExtendedLifetime(observation) {}
         withExtendedLifetime(player) {}
     }
 

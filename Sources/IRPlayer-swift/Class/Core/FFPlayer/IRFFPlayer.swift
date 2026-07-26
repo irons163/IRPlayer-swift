@@ -32,8 +32,9 @@ class IRFFPlayer: NSObject {
                     IRFFDecoder(
                         contentURL: $0,
                         videoFormat: $1,
-                        videoOutput: $2,
-                        audioOutput: $3
+                        contentHeaders: $2,
+                        videoOutput: $3,
+                        audioOutput: $4
                     )
                 },
                 audioRenderer: IRFFAudioRenderer()
@@ -294,6 +295,9 @@ class IRFFPlayer: NSObject {
             videoFormat: abstractPlayer.decoder.formatForContentURL(
                 contentURL: contentURL
             ),
+            contentHeaders:
+                abstractPlayer.contentHeaders
+                ?? [:],
             videoOutput: displayView,
             audioOutput: self,
             source: abstractPlayer.videoInput,

@@ -133,9 +133,11 @@ final class IRFFFramePoolTests: XCTestCase {
             pool.diagnostics,
             .init(
                 phase: .open,
+                maximumCapacity: 2,
                 availableCount: 0,
                 leasedCount: 1,
                 hasPlayingFrame: false,
+                playingCount: 0,
                 totalCount: 1,
                 revision: 1
             )
@@ -146,6 +148,7 @@ final class IRFFFramePoolTests: XCTestCase {
         XCTAssertEqual(diagnostics.availableCount, 0)
         XCTAssertEqual(diagnostics.leasedCount, 0)
         XCTAssertTrue(diagnostics.hasPlayingFrame)
+        XCTAssertEqual(diagnostics.playingCount, 1)
         XCTAssertEqual(diagnostics.totalCount, 1)
 
         frame.stopPlaying()
@@ -157,7 +160,7 @@ final class IRFFFramePoolTests: XCTestCase {
         XCTAssertFalse(frame.playing)
     }
 
-    func testFlushReturnsLeasedAndPlayingFramesForReuse()
+    func testFlushNeverRevokesLeasedOrPlayingFrames()
         throws
     {
         let pool = makePool(capacity: 2)
@@ -165,31 +168,65 @@ final class IRFFFramePoolTests: XCTestCase {
         let playing = try XCTUnwrap(pool.leaseFrame())
         playing.startPlaying()
 
-        XCTAssertEqual(pool.flush(), 2)
         XCTAssertEqual(pool.flush(), 0)
 
-        let diagnostics = pool.diagnostics
+        var diagnostics = pool.diagnostics
+        XCTAssertEqual(diagnostics.availableCount, 0)
+        XCTAssertEqual(diagnostics.leasedCount, 1)
+        XCTAssertTrue(diagnostics.hasPlayingFrame)
+        XCTAssertEqual(diagnostics.playingCount, 1)
+        XCTAssertEqual(diagnostics.totalCount, 2)
+        XCTAssertTrue(playing.playing)
+
+        XCTAssertNil(pool.leaseFrame())
+        leased.cancel()
+        let reusedFrame = try XCTUnwrap(pool.leaseFrame())
+        XCTAssertTrue(reusedFrame === leased)
+        XCTAssertFalse(reusedFrame === playing)
+        reusedFrame.cancel()
+        playing.stopPlaying()
+
+        diagnostics = pool.diagnostics
         XCTAssertEqual(diagnostics.availableCount, 2)
         XCTAssertEqual(diagnostics.leasedCount, 0)
-        XCTAssertFalse(diagnostics.hasPlayingFrame)
-        XCTAssertEqual(diagnostics.totalCount, 2)
-        XCTAssertFalse(playing.playing)
+        XCTAssertEqual(diagnostics.playingCount, 0)
 
         let firstReuse = try XCTUnwrap(pool.leaseFrame())
         let secondReuse = try XCTUnwrap(pool.leaseFrame())
-        XCTAssertEqual(
-            Set([
-                ObjectIdentifier(firstReuse),
-                ObjectIdentifier(secondReuse)
-            ]),
-            Set([
-                ObjectIdentifier(leased),
-                ObjectIdentifier(playing)
-            ])
+        let reusedIdentifiers = Set([
+            ObjectIdentifier(firstReuse),
+            ObjectIdentifier(secondReuse)
+        ])
+        let returned = Set([
+            ObjectIdentifier(leased),
+            ObjectIdentifier(playing)
+        ])
+        XCTAssertTrue(
+            reusedIdentifiers.isSubset(of: returned)
         )
     }
 
-    func testCancelReturnsFrameAndNewPlayingFrameReleasesPrevious()
+    func testCapacityIsHardBoundAndZeroCapacityRejectsLeases()
+        throws
+    {
+        let pool = makePool(capacity: 2)
+        let first = try XCTUnwrap(pool.leaseFrame())
+        let second = try XCTUnwrap(pool.leaseFrame())
+        first.startPlaying()
+
+        XCTAssertNil(pool.leaseFrame())
+        XCTAssertEqual(pool.diagnostics.totalCount, 2)
+
+        second.cancel()
+        XCTAssertTrue(pool.leaseFrame() === second)
+        XCTAssertEqual(pool.diagnostics.totalCount, 2)
+
+        let emptyPool = makePool(capacity: 0)
+        XCTAssertNil(emptyPool.leaseFrame())
+        XCTAssertEqual(emptyPool.diagnostics.totalCount, 0)
+    }
+
+    func testCancelReturnsFrameAndPlayingLeasesReleaseIndependently()
         throws
     {
         let pool = makePool(capacity: 2)
@@ -210,10 +247,17 @@ final class IRFFFramePoolTests: XCTestCase {
         let second = try XCTUnwrap(pool.leaseFrame())
         second.startPlaying()
 
-        let diagnostics = pool.diagnostics
-        XCTAssertEqual(diagnostics.availableCount, 1)
+        var diagnostics = pool.diagnostics
+        XCTAssertEqual(diagnostics.availableCount, 0)
         XCTAssertEqual(diagnostics.leasedCount, 0)
         XCTAssertTrue(diagnostics.hasPlayingFrame)
+        XCTAssertEqual(diagnostics.playingCount, 2)
+        XCTAssertTrue(reused.playing)
+
+        reused.cancel()
+        diagnostics = pool.diagnostics
+        XCTAssertEqual(diagnostics.availableCount, 1)
+        XCTAssertEqual(diagnostics.playingCount, 1)
         XCTAssertFalse(reused.playing)
 
         second.stopPlaying()
@@ -379,10 +423,11 @@ final class IRFFFramePoolTests: XCTestCase {
                     let partitionCount =
                         diagnostics.availableCount
                         + diagnostics.leasedCount
-                        + (diagnostics.hasPlayingFrame ? 1 : 0)
+                        + diagnostics.playingCount
                     if diagnostics.phase != .open
                         || partitionCount
-                            != diagnostics.totalCount {
+                            != diagnostics.totalCount
+                        || diagnostics.totalCount > 32 {
                         resultLock.lock()
                         observedInvalidSnapshot = true
                         resultLock.unlock()

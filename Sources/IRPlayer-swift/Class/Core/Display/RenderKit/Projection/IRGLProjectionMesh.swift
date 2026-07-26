@@ -163,7 +163,10 @@ enum IRGLProjectionMeshBuilder {
               centerY.isFinite,
               radius.isFinite,
               textureWidth > 0,
-              textureHeight > 0 else {
+              textureHeight > 0,
+              centerX >= 0,
+              centerY >= 0,
+              radius >= 0 else {
             return nil
         }
 
@@ -175,6 +178,8 @@ enum IRGLProjectionMeshBuilder {
             || normalizedCenterY == 0
             || normalizedRadius > textureWidth / 2
             || normalizedRadius > textureHeight / 2
+            || normalizedRadius > normalizedCenterX
+            || normalizedRadius > normalizedCenterY
             || normalizedRadius + normalizedCenterX > textureWidth
             || normalizedRadius + normalizedCenterY > textureHeight {
             normalizedCenterX = textureWidth / 2
@@ -220,6 +225,8 @@ enum IRGLProjectionMeshBuilder {
             && radius > 0
             && centerX > 0
             && centerY > 0
+            && radius <= centerX
+            && radius <= centerY
             && radius <= textureWidth
             && radius <= textureHeight
             && centerX + radius <= textureWidth

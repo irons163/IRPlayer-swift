@@ -9,6 +9,11 @@ import Foundation
 import simd
 
 final class IRGLProjectionVR: IRGLProjection {
+    struct MeshSnapshot: Equatable, Sendable {
+        let generation: UInt64
+        let mesh: IRGLProjectionMesh
+    }
+
     private static let sharedMesh: IRGLProjectionMesh = {
         guard let mesh =
             IRGLProjectionMeshBuilder.makeVRMesh() else {
@@ -18,6 +23,8 @@ final class IRGLProjectionVR: IRGLProjection {
         }
         return mesh
     }()
+
+    private static let sharedMeshGeneration: UInt64 = 1
 
     private(set) var index_count: Int
     private(set) var vertex_count: Int
@@ -44,6 +51,13 @@ final class IRGLProjectionVR: IRGLProjection {
         texcoords: [SIMD2<Float>],
         indices: [UInt16]
     )? {
-        Self.sharedMesh.exported
+        meshSnapshot().mesh.exported
+    }
+
+    func meshSnapshot() -> MeshSnapshot {
+        MeshSnapshot(
+            generation: Self.sharedMeshGeneration,
+            mesh: Self.sharedMesh
+        )
     }
 }

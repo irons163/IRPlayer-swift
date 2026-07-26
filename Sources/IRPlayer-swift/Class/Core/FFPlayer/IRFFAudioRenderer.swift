@@ -1,7 +1,23 @@
 import Foundation
 
 protocol IRFFAudioFrameSource: AnyObject {
-    func fetchAudioFrame() -> IRFFAudioFrame?
+    func fetchAudioFrame() -> IRFFAudioRenderLease?
+    func finishAudioFrame(_ identifier: ObjectIdentifier) -> Bool
+    func finishAudioFrameSynchronously(
+        _ identifier: ObjectIdentifier
+    ) -> Bool
+}
+
+extension IRFFAudioFrameSource {
+    func finishAudioFrame(_ identifier: ObjectIdentifier) -> Bool {
+        true
+    }
+
+    func finishAudioFrameSynchronously(
+        _ identifier: ObjectIdentifier
+    ) -> Bool {
+        finishAudioFrame(identifier)
+    }
 }
 
 extension IRFFDecoder: IRFFAudioFrameSource {}
@@ -23,8 +39,14 @@ final class IRFFAudioRenderer:
     }
 
     private let renderLock = NSLock()
-    private weak var source: (any IRFFAudioFrameSource)?
-    private var storedCurrentFrame: IRFFAudioFrame?
+    // Keep the lease owner alive until every callback-owned frame has been
+    // acknowledged. Teardown explicitly detaches this reference before the
+    // decoder session is closed, so there is no ownership cycle.
+    private var source: (any IRFFAudioFrameSource)?
+    private var storedCurrentLease: IRFFAudioRenderLease?
+    private var pendingFinishedFrameID: ObjectIdentifier?
+    private var pendingFinishedSource:
+        (any IRFFAudioFrameSource)?
     private var enabled = false
 
     var diagnostics: Diagnostics {
@@ -33,22 +55,26 @@ final class IRFFAudioRenderer:
         return Diagnostics(
             enabled: enabled,
             hasSource: source != nil,
-            hasCurrentFrame: storedCurrentFrame != nil
+            hasCurrentFrame: storedCurrentLease != nil
         )
     }
 
     var currentFrame: IRFFAudioFrame? {
         renderLock.lock()
         defer { renderLock.unlock() }
-        return storedCurrentFrame
+        return storedCurrentLease?.frame
     }
 
     func attachSource(_ source: (any IRFFAudioFrameSource)?) {
         renderLock.lock()
         if self.source !== source ||
-            (source == nil && storedCurrentFrame != nil) {
-            storedCurrentFrame?.stopPlaying()
-            storedCurrentFrame = nil
+            (source == nil && storedCurrentLease != nil) {
+            guard finishCurrentFrameLocked(
+                waitForAcknowledgment: true
+            ) else {
+                renderLock.unlock()
+                return
+            }
         }
         self.source = source
         renderLock.unlock()
@@ -60,21 +86,46 @@ final class IRFFAudioRenderer:
         renderLock.unlock()
     }
 
-    func replaceCurrentFrame(_ frame: IRFFAudioFrame?) {
+    /// Stops admission, waits for any active callback to leave, and
+    /// synchronously returns the callback-owned frame before decoder teardown.
+    func suspendAndDrain() {
         renderLock.lock()
-        if storedCurrentFrame !== frame {
-            storedCurrentFrame?.stopPlaying()
+        enabled = false
+        _ = finishCurrentFrameLocked(
+            waitForAcknowledgment: true
+        )
+        renderLock.unlock()
+    }
+
+    func replaceCurrentFrame(_ frame: IRFFAudioFrame?) {
+        let replacement = frame.map {
+            IRFFAudioRenderLease(
+                frame: $0,
+                byteCount: $0.size,
+                outputOffset: $0.outputOffset
+            )
         }
-        storedCurrentFrame = frame
+        renderLock.lock()
+        if storedCurrentLease?.frame !== frame {
+            guard finishCurrentFrameLocked(
+                waitForAcknowledgment: true
+            ) else {
+                renderLock.unlock()
+                return
+            }
+        }
+        storedCurrentLease = replacement
         renderLock.unlock()
     }
 
     func reset() {
         renderLock.lock()
         enabled = false
-        source = nil
-        storedCurrentFrame?.stopPlaying()
-        storedCurrentFrame = nil
+        if finishCurrentFrameLocked(
+            waitForAcknowledgment: true
+        ) {
+            source = nil
+        }
         renderLock.unlock()
     }
 
@@ -95,35 +146,42 @@ final class IRFFAudioRenderer:
         guard renderLock.try() else { return }
         defer { renderLock.unlock() }
         guard enabled else { return }
+        guard acknowledgePendingFrameLocked(
+            waitForAcknowledgment: false
+        ) else {
+            return
+        }
 
         var remainingFrames = numberOfFrames
         var currentOutput = outputData
 
         while remainingFrames > 0 {
-            if storedCurrentFrame == nil {
-                storedCurrentFrame = source?.fetchAudioFrame()
-                storedCurrentFrame?.startPlaying()
+            if storedCurrentLease == nil {
+                storedCurrentLease = source?.fetchAudioFrame()
             }
 
-            guard let frame = storedCurrentFrame,
+            guard var lease = storedCurrentLease,
                   let plan = Self.copyPlan(
-                    frameSize: frame.size,
-                    outputOffset: frame.outputOffset,
+                    frameSize: lease.byteCount,
+                    outputOffset: lease.outputOffset,
                     remainingFrames: remainingFrames,
                     numberOfChannels: numberOfChannels
                   ) else {
-                storedCurrentFrame?.stopPlaying()
-                storedCurrentFrame = nil
+                _ = finishCurrentFrameLocked(
+                    waitForAcknowledgment: false
+                )
                 return
             }
 
-            guard frame.copySamples(
+            guard lease.frame.copySamples(
                 to: currentOutput,
-                byteOffset: frame.outputOffset,
-                byteCount: plan.bytesToCopy
+                byteOffset: lease.outputOffset,
+                byteCount: plan.bytesToCopy,
+                availableByteCount: lease.byteCount
             ) else {
-                frame.stopPlaying()
-                storedCurrentFrame = nil
+                _ = finishCurrentFrameLocked(
+                    waitForAcknowledgment: false
+                )
                 return
             }
 
@@ -133,12 +191,77 @@ final class IRFFAudioRenderer:
             )
 
             if plan.hasRemainingFrameBytes {
-                frame.outputOffset += plan.bytesToCopy
+                lease.outputOffset += plan.bytesToCopy
+                storedCurrentLease = lease
             } else {
-                frame.stopPlaying()
-                storedCurrentFrame = nil
+                guard finishCurrentFrameLocked(
+                    waitForAcknowledgment: false
+                ) else {
+                    return
+                }
             }
         }
+    }
+
+    @discardableResult
+    private func finishCurrentFrameLocked(
+        waitForAcknowledgment: Bool
+    ) -> Bool {
+        guard acknowledgePendingFrameLocked(
+            waitForAcknowledgment:
+                waitForAcknowledgment
+        ) else {
+            return false
+        }
+        guard let lease = storedCurrentLease else {
+            return true
+        }
+        let identifier = ObjectIdentifier(lease.frame)
+        storedCurrentLease = nil
+        guard acknowledge(
+            identifier,
+            from: source,
+            waitForAcknowledgment:
+                waitForAcknowledgment
+        ) else {
+            pendingFinishedFrameID = identifier
+            pendingFinishedSource = source
+            return false
+        }
+        return true
+    }
+
+    private func acknowledgePendingFrameLocked(
+        waitForAcknowledgment: Bool
+    ) -> Bool {
+        guard let identifier = pendingFinishedFrameID else {
+            return true
+        }
+        guard acknowledge(
+            identifier,
+            from: pendingFinishedSource,
+            waitForAcknowledgment:
+                waitForAcknowledgment
+        ) else {
+            return false
+        }
+        pendingFinishedFrameID = nil
+        pendingFinishedSource = nil
+        return true
+    }
+
+    private func acknowledge(
+        _ identifier: ObjectIdentifier,
+        from source: (any IRFFAudioFrameSource)?,
+        waitForAcknowledgment: Bool
+    ) -> Bool {
+        guard let source else { return true }
+        if waitForAcknowledgment {
+            return source.finishAudioFrameSynchronously(
+                identifier
+            )
+        }
+        return source.finishAudioFrame(identifier)
     }
 
     static func silenceByteCount(

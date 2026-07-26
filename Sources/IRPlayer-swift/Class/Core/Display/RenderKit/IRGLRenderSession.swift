@@ -29,6 +29,8 @@ final class IRGLRenderSession: @unchecked Sendable {
     private var pixelFormat: IRPixelFormat = .YUV_IRPixelFormat
     private var modes: [IRGLRenderMode] = []
     private var currentMode: IRGLRenderMode?
+    private var ownedRenderers:
+        [ObjectIdentifier: IRGLRender] = [:]
     private var viewportRange: CGRect = .zero
     private var contentMode: IRGLRenderContentMode = .scaleAspectFit
     private var closed = false
@@ -120,6 +122,7 @@ final class IRGLRenderSession: @unchecked Sendable {
 
             let pixelFormatChanged = self.pixelFormat != pixelFormat
             self.pixelFormat = pixelFormat
+            releaseOwnedRenderersLocked()
             if let replacingModes {
                 modes = replacingModes
             }
@@ -130,7 +133,6 @@ final class IRGLRenderSession: @unchecked Sendable {
             frames.reset()
             let surfaceReady = surface.prepare(surfaceInput)
             for mode in modes {
-                mode.renderer = nil
                 if pixelFormatChanged {
                     mode.program = nil
                     mode.shiftController.program = nil
@@ -340,7 +342,7 @@ final class IRGLRenderSession: @unchecked Sendable {
             guard !closed else { return }
             frames.reset()
             surface.reset()
-            modes.forEach { $0.renderer = nil }
+            releaseOwnedRenderersLocked()
             viewportRange = .zero
         }
     }
@@ -352,7 +354,7 @@ final class IRGLRenderSession: @unchecked Sendable {
             closed = true
             _ = frames.close()
             _ = surface.close()
-            modes.forEach { $0.renderer = nil }
+            releaseOwnedRenderersLocked()
             modes = []
             currentMode = nil
             viewportRange = .zero
@@ -379,18 +381,56 @@ final class IRGLRenderSession: @unchecked Sendable {
                 resetTransform: false
             )
         }
+        let modeIdentifier = ObjectIdentifier(renderMode)
+        if let ownedRenderer =
+                ownedRenderers[modeIdentifier],
+           !Self.sameRenderer(
+               renderMode.renderer,
+               ownedRenderer
+           ) {
+            ownedRenderers.removeValue(
+                forKey: modeIdentifier
+            )
+        }
         if renderMode.renderer == nil,
            let renderer = surface.resourceSnapshot?.renderer {
-            renderMode.renderer = IRGLRenderStrategyFactory.make(
+            let strategy = IRGLRenderStrategyFactory.make(
                 for: renderMode,
                 renderer: renderer
             )
+            renderMode.renderer = strategy
+            ownedRenderers[modeIdentifier] = strategy
         }
         frames.configureMode(
             renderMode,
             viewportSize: viewportRange.size
         )
         return CGFloat(renderMode.aspect)
+    }
+
+    private func releaseOwnedRenderersLocked() {
+        for mode in modes {
+            let identifier = ObjectIdentifier(mode)
+            guard let ownedRenderer =
+                    ownedRenderers[identifier] else {
+                continue
+            }
+            if Self.sameRenderer(
+                mode.renderer,
+                ownedRenderer
+            ) {
+                mode.renderer = nil
+            }
+        }
+        ownedRenderers.removeAll()
+    }
+
+    private static func sameRenderer(
+        _ lhs: IRGLRender?,
+        _ rhs: IRGLRender
+    ) -> Bool {
+        guard let lhs else { return false }
+        return lhs === rhs
     }
 
     private func updateViewportFromSurfaceLocked(

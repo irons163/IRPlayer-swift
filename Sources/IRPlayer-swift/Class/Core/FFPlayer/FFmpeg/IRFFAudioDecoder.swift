@@ -7,15 +7,101 @@
 
 import Foundation
 import Accelerate
-import IRFFMpeg
-import IRPlayerObjc
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+internal import IRPlayerObjc
+#else
+@_implementationOnly import IRFFMpeg
+@_implementationOnly import IRPlayerObjc
+#endif
 
 protocol IRFFAudioDecoderDelegate: AnyObject {
     func audioDecoder(_ audioDecoder: IRFFAudioDecoder, samplingRate: inout Float64)
     func audioDecoder(_ audioDecoder: IRFFAudioDecoder, channelCount: inout UInt32)
 }
 
+struct IRFFAudioFrameTransfer {
+    let frame: IRFFAudioFrame
+    let position: TimeInterval
+    let duration: TimeInterval
+    let size: Int
+}
+
+/// A render-owned frame plus metadata frozen at queue admission.
+///
+/// The audio callback owns `outputOffset`; decode and pool workers must not
+/// mutate the frame until `finishAudioFrame` acknowledges this lease.
+struct IRFFAudioRenderLease {
+    let frame: IRFFAudioFrame
+    let byteCount: Int
+    var outputOffset: Int
+
+    init(
+        frame: IRFFAudioFrame,
+        byteCount: Int,
+        outputOffset: Int = 0
+    ) {
+        self.frame = frame
+        self.byteCount = byteCount
+        self.outputOffset = outputOffset
+    }
+}
+
+enum IRFFAudioCodecPumpResult:
+    Equatable,
+    Sendable
+{
+    case needsInput
+    case backpressured
+    case endOfStream
+    case canceled
+    case failed(Int32)
+}
+
+/// Packet ownership is part of the result contract.
+///
+/// `consumed` means the decoder closed the packet, whether FFmpeg accepted it
+/// or the generation rejected it terminally. `deferred` means FFmpeg has not
+/// seen the packet and the caller retains the still-open owner for retry.
+enum IRFFAudioPacketDecodeResult:
+    Equatable,
+    Sendable
+{
+    case consumed(IRFFAudioCodecPumpResult)
+    case deferred
+}
+
+struct IRFFAudioDecodeAdmissionDiagnostics:
+    Equatable,
+    Sendable
+{
+    let capacity: IRFFDecodeAdmission.Snapshot
+    let requiresOutputResume: Bool
+    let acceptsPackets: Bool
+
+    var hasPacketAdmissionCapacity: Bool {
+        acceptsPackets &&
+            !requiresOutputResume &&
+            capacity.canAdmitPacket
+    }
+
+    var shouldThrottlePacketRead: Bool {
+        !hasPacketAdmissionCapacity
+    }
+}
+
+struct IRFFAudioDecoderHooks {
+    var willEnqueueFrame: (() -> Void)?
+    var didPublishInvalidation:
+        ((UInt64) -> Void)?
+
+    static let none =
+        IRFFAudioDecoderHooks()
+}
+
 class IRFFAudioDecoder {
+
+    static let packetAdmissionHeadroom = 8
 
     weak var delegate: IRFFAudioDecoderDelegate?
     private let codecContext:
@@ -28,18 +114,57 @@ class IRFFAudioDecoder {
 
     private let frameQueue: IRFFFrameQueue
     private let framePool: IRFFFramePool
+    private let admissionPacketHeadroom: Int
+    private let hooks:
+        IRFFAudioDecoderHooks
+    private let transitionLock = NSLock()
+    private let generationLock = NSLock()
+    private var storedGeneration: UInt64 = 0
+    private var generationTransitionRevision:
+        UInt64 = 0
+    private var generationTransitioning = false
+    private var generationClosed = false
+    private let codecLock = NSLock()
+    private var codecPhase:
+        CodecPhase = .acceptingInput
+
+    private enum CodecPhase {
+        case acceptingInput
+        case packetOutputPending
+        case draining
+        case endOfStream
+        case closed
+    }
+
+    private struct PumpOutcome {
+        let result: IRFFAudioCodecPumpResult
+        let receivedFrameCount: Int
+    }
 
     static func decoder(codecContext: UnsafeMutablePointer<AVCodecContext>, timebase: TimeInterval, delegate: IRFFAudioDecoderDelegate) -> IRFFAudioDecoder {
         return IRFFAudioDecoder(codecContext: codecContext, timebase: timebase, delegate: delegate)
     }
 
-    private init(codecContext: UnsafeMutablePointer<AVCodecContext>, timebase: TimeInterval, delegate: IRFFAudioDecoderDelegate) {
+    init(
+        codecContext: UnsafeMutablePointer<AVCodecContext>,
+        timebase: TimeInterval,
+        delegate: IRFFAudioDecoderDelegate,
+        framePool: IRFFFramePool = .audioPool(),
+        packetAdmissionHeadroom: Int =
+            IRFFAudioDecoder
+                .packetAdmissionHeadroom,
+        hooks:
+            IRFFAudioDecoderHooks = .none
+    ) {
         self.codecContext = codecContext
         self.decodeFrame = IRFFDecodeFrame()
         self.timebase = timebase
         self.delegate = delegate
         self.frameQueue = IRFFFrameQueue()
-        self.framePool = IRFFFramePool.audioPool()
+        self.framePool = framePool
+        self.admissionPacketHeadroom =
+            packetAdmissionHeadroom
+        self.hooks = hooks
         setupResampler()
     }
 
@@ -82,6 +207,51 @@ class IRFFAudioDecoder {
 
     func isEmpty() -> Bool {
         return frameQueue.count <= 0
+    }
+
+    var decodeAdmission:
+        IRFFAudioDecodeAdmissionDiagnostics
+    {
+        let capacity = capacitySnapshot()
+        codecLock.lock()
+        let phase = codecPhase
+        codecLock.unlock()
+        generationLock.lock()
+        let generationIsClosed =
+            generationClosed
+        let generationIsReady =
+            !generationClosed &&
+            !generationTransitioning
+        generationLock.unlock()
+
+        let isClosed =
+            phase == .closed ||
+            generationIsClosed ||
+            capacity.phase == .closed
+        let effectiveCapacity =
+            isClosed
+            ? IRFFDecodeAdmission.Snapshot(
+                limits: capacity.limits,
+                occupiedFrameCount:
+                    capacity.occupiedFrameCount,
+                phase: .closed
+            )
+            : capacity
+        return IRFFAudioDecodeAdmissionDiagnostics(
+            capacity: effectiveCapacity,
+            requiresOutputResume:
+                phase == .packetOutputPending ||
+                phase == .draining,
+            acceptsPackets:
+                phase == .acceptingInput &&
+                generationIsReady &&
+                !isClosed
+        )
+    }
+
+    var hasPacketAdmissionCapacity: Bool {
+        decodeAdmission
+            .hasPacketAdmissionCapacity
     }
 
     static func sampleElementCount(numberOfFrames: Int, channelCount: UInt32) -> Int? {
@@ -254,14 +424,78 @@ class IRFFAudioDecoder {
     }
 
     func flush() {
+        _ = flush(generation: generation)
+    }
+
+    @discardableResult
+    func invalidate(
+        generation: UInt64
+    ) -> Bool {
+        transitionLock.lock()
+        defer { transitionLock.unlock() }
+        generationLock.lock()
+        guard !generationClosed,
+              generation >= storedGeneration else {
+            generationLock.unlock()
+            return false
+        }
+        storedGeneration = generation
+        generationTransitionRevision &+= 1
+        let transitionRevision =
+            generationTransitionRevision
+        generationTransitioning = true
+        generationLock.unlock()
+        hooks.didPublishInvalidation?(
+            generation
+        )
+
+        // Changing the generation first cancels an in-flight pump. Waiting on
+        // the codec gate then guarantees that no old receive can enqueue after
+        // this queue flush completes.
+        codecLock.lock()
         frameQueue.flush()
         framePool.flush()
+        codecPhase = .acceptingInput
         avcodec_flush_buffers(codecContext)
+
+        generationLock.lock()
+        let didComplete =
+            !generationClosed &&
+            storedGeneration == generation &&
+            generationTransitionRevision ==
+                transitionRevision
+        if didComplete {
+            generationTransitioning = false
+        }
+        if generationClosed {
+            codecPhase = .closed
+        }
+        generationLock.unlock()
+        codecLock.unlock()
+        return didComplete
+    }
+
+    @discardableResult
+    func flush(
+        generation: UInt64
+    ) -> Bool {
+        invalidate(generation: generation)
     }
 
     func destroy() {
+        transitionLock.lock()
+        defer { transitionLock.unlock() }
+        generationLock.lock()
+        generationClosed = true
+        generationTransitionRevision &+= 1
+        generationTransitioning = true
+        storedGeneration &+= 1
+        generationLock.unlock()
+        codecLock.lock()
+        codecPhase = .closed
         frameQueue.close()
         framePool.close()
+        codecLock.unlock()
     }
 
     func waitForFrame() -> IRFFAudioFrame? {
@@ -272,94 +506,528 @@ class IRFFAudioDecoder {
         return frameQueue.dequeue() as? IRFFAudioFrame
     }
 
-    func putPacket(_ packet: IRFFPacket) -> Int {
-        defer { packet.close() }
+    func tryDequeueFrame() -> IRFFAudioFrameTransfer? {
+        guard let transfer =
+                frameQueue.tryDequeueTransfer(),
+              let frame =
+                transfer.frame as? IRFFAudioFrame else {
+            return nil
+        }
+        return IRFFAudioFrameTransfer(
+            frame: frame,
+            position: transfer.position,
+            duration: transfer.duration,
+            size: transfer.size
+        )
+    }
+
+    func putPacket(
+        _ packet: IRFFPacket
+    ) -> IRFFAudioPacketDecodeResult {
+        putPacket(
+            packet,
+            generation: generation
+        )
+    }
+
+    func putPacket(
+        _ packet: IRFFPacket,
+        generation: UInt64
+    ) -> IRFFAudioPacketDecodeResult {
+        guard accepts(
+            generation: generation
+        ) else {
+            packet.close()
+            return .consumed(.canceled)
+        }
         guard let snapshot = packet.snapshot,
               Self.shouldDecodePacket(
                   hasData: snapshot.hasData
               ) else {
-            return 0
+            packet.close()
+            return .consumed(.needsInput)
         }
 
-        var decodeResult = -1
+        codecLock.lock()
+        defer { codecLock.unlock() }
+        guard accepts(
+            generation: generation
+        ) else {
+            packet.close()
+            return .consumed(.canceled)
+        }
+
+        switch prepareForInputLocked(
+            generation: generation
+        ).result {
+        case .needsInput:
+            break
+        case .backpressured:
+            return .deferred
+        case .endOfStream:
+            packet.close()
+            return .consumed(.endOfStream)
+        case .canceled:
+            packet.close()
+            return .consumed(.canceled)
+        case let .failed(code):
+            packet.close()
+            return .consumed(.failed(code))
+        }
+        guard capacitySnapshot()
+                .canAdmitPacket else {
+            return .deferred
+        }
+
+        var submission:
+            IRFFAudioPacketDecodeResult =
+                .consumed(.failed(-1))
         let didBorrow = packet.withPacket {
             borrowedPacket in
-            decodeResult = decodePacket(borrowedPacket)
+            var borrowedPacket = borrowedPacket
+            submission = submitPacketLocked(
+                &borrowedPacket,
+                generation: generation
+            )
             return true
         }
-        return didBorrow ? decodeResult : -1
+        guard didBorrow else {
+            packet.close()
+            return .consumed(.failed(-1))
+        }
+        if case .consumed = submission {
+            packet.close()
+        }
+        return submission
     }
 
-    private func decodePacket(
-        _ borrowedPacket: AVPacket
-    ) -> Int {
-        var borrowedPacket = borrowedPacket
-        var result = avcodec_send_packet(
-            codecContext,
-            &borrowedPacket
-        )
-        if Self.packetDecodeResultIsFailure(result) {
-            return -1
+    func resumePendingOutput(
+        generation: UInt64
+    ) -> IRFFAudioCodecPumpResult {
+        codecLock.lock()
+        defer { codecLock.unlock() }
+        guard accepts(
+            generation: generation
+        ) else {
+            return .canceled
+        }
+        switch codecPhase {
+        case .acceptingInput:
+            return .needsInput
+        case .packetOutputPending,
+             .draining:
+            return pumpPendingOutputLocked(
+                generation: generation
+            ).result
+        case .endOfStream:
+            return .endOfStream
+        case .closed:
+            return .canceled
+        }
+    }
+
+    func drain(
+        generation: UInt64
+    ) -> IRFFAudioCodecPumpResult {
+        codecLock.lock()
+        defer { codecLock.unlock() }
+        guard accepts(
+            generation: generation
+        ) else {
+            return .canceled
         }
 
-        while result >= 0 {
-            guard let decodeFrame else { return -1 }
-            var receivedFrame:
-                IRFFAudioFrame?
-            var receiveResult: Int32 = -1
-            let didBorrow = decodeFrame.withFrame {
-                frame in
-                receiveResult = avcodec_receive_frame(
+        let pendingOutcome =
+            prepareForInputLocked(
+                generation: generation
+            )
+        switch pendingOutcome.result {
+        case .needsInput:
+            break
+        case .backpressured,
+             .endOfStream,
+             .canceled,
+             .failed:
+            return pendingOutcome.result
+        }
+
+        while true {
+            guard accepts(
+                generation: generation
+            ) else {
+                return .canceled
+            }
+            guard capacitySnapshot()
+                    .canResumeOutput else {
+                return .backpressured
+            }
+
+            let sendResult =
+                avcodec_send_packet(
                     codecContext,
-                    frame
+                    nil
                 )
+            if sendResult >= 0 {
+                codecPhase = .draining
+                return pumpPendingOutputLocked(
+                    generation: generation
+                ).result
+            }
+            if sendResult == IR_AVERROR_EOF {
+                codecPhase = .endOfStream
+                return .endOfStream
+            }
+            guard sendResult ==
+                    AVERROR(EAGAIN) else {
+                codecPhase = .acceptingInput
+                return .failed(sendResult)
+            }
+
+            codecPhase = .packetOutputPending
+            let outcome =
+                pumpPendingOutputLocked(
+                    generation: generation
+                )
+            switch outcome.result {
+            case .needsInput:
+                guard outcome.receivedFrameCount > 0 else {
+                    codecPhase = .acceptingInput
+                    return .failed(sendResult)
+                }
+                continue
+            case .backpressured,
+                 .endOfStream,
+                 .canceled,
+                 .failed:
+                return outcome.result
+            }
+        }
+    }
+
+    private func submitPacketLocked(
+        _ packet: inout AVPacket,
+        generation: UInt64
+    ) -> IRFFAudioPacketDecodeResult {
+        while true {
+            guard accepts(
+                generation: generation
+            ) else {
+                return .consumed(.canceled)
+            }
+            guard capacitySnapshot()
+                    .canAdmitPacket else {
+                return .deferred
+            }
+
+            let sendResult =
+                avcodec_send_packet(
+                    codecContext,
+                    &packet
+                )
+            if sendResult >= 0 {
+                codecPhase =
+                    .packetOutputPending
+                return .consumed(
+                    pumpPendingOutputLocked(
+                        generation: generation
+                    ).result
+                )
+            }
+            if sendResult == IR_AVERROR_EOF {
+                codecPhase = .endOfStream
+                return .consumed(.endOfStream)
+            }
+            guard sendResult ==
+                    AVERROR(EAGAIN) else {
+                codecPhase = .acceptingInput
+                return .consumed(
+                    .failed(sendResult)
+                )
+            }
+
+            codecPhase = .packetOutputPending
+            let outcome =
+                pumpPendingOutputLocked(
+                    generation: generation
+                )
+            switch outcome.result {
+            case .needsInput:
+                guard outcome.receivedFrameCount > 0 else {
+                    codecPhase = .acceptingInput
+                    return .consumed(
+                        .failed(sendResult)
+                    )
+                }
+                continue
+            case .backpressured:
+                return .deferred
+            case .endOfStream:
+                return .consumed(.endOfStream)
+            case .canceled:
+                return .consumed(.canceled)
+            case let .failed(code):
+                return .consumed(.failed(code))
+            }
+        }
+    }
+
+    private func prepareForInputLocked(
+        generation: UInt64
+    ) -> PumpOutcome {
+        switch codecPhase {
+        case .acceptingInput:
+            return PumpOutcome(
+                result: .needsInput,
+                receivedFrameCount: 0
+            )
+        case .packetOutputPending:
+            return pumpPendingOutputLocked(
+                generation: generation
+            )
+        case .draining:
+            return pumpPendingOutputLocked(
+                generation: generation
+            )
+        case .endOfStream:
+            return PumpOutcome(
+                result: .endOfStream,
+                receivedFrameCount: 0
+            )
+        case .closed:
+            return PumpOutcome(
+                result: .canceled,
+                receivedFrameCount: 0
+            )
+        }
+    }
+
+    private func pumpPendingOutputLocked(
+        generation: UInt64
+    ) -> PumpOutcome {
+        guard let decodeFrame else {
+            return PumpOutcome(
+                result: .failed(-1),
+                receivedFrameCount: 0
+            )
+        }
+        var receivedFrameCount = 0
+
+        while true {
+            guard accepts(
+                generation: generation
+            ) else {
+                return PumpOutcome(
+                    result: .canceled,
+                    receivedFrameCount:
+                        receivedFrameCount
+                )
+            }
+            guard capacitySnapshot()
+                    .canResumeOutput else {
+                return PumpOutcome(
+                    result: .backpressured,
+                    receivedFrameCount:
+                        receivedFrameCount
+                )
+            }
+            guard let audioFrame =
+                    framePool.leaseFrame()
+                        as? IRFFAudioFrame else {
+                let capacity = capacitySnapshot()
+                let result:
+                    IRFFAudioCodecPumpResult =
+                        capacity.phase == .closed ||
+                        !accepts(
+                            generation: generation
+                        )
+                        ? .canceled
+                        : capacity.canResumeOutput
+                            ? .failed(-1)
+                            : .backpressured
+                return PumpOutcome(
+                    result: result,
+                    receivedFrameCount:
+                        receivedFrameCount
+                )
+            }
+
+            var receiveResult: Int32 = -1
+            var didPopulateFrame = false
+            let didBorrow = decodeFrame.withFrame {
+                decodedFrame in
+                receiveResult =
+                    avcodec_receive_frame(
+                        codecContext,
+                        decodedFrame
+                    )
                 if receiveResult >= 0 {
-                    receivedFrame = autoreleasepool {
-                        decode(frame: frame)
-                    }
+                    didPopulateFrame =
+                        autoreleasepool {
+                            decode(
+                                frame: decodedFrame,
+                                into: audioFrame
+                            )
+                        }
                 }
                 return true
             }
-            guard didBorrow else { return -1 }
-            result = receiveResult
-            if result < 0 {
-                if Self.packetDecodeResultIsFailure(result) {
-                    return -1
+            guard didBorrow else {
+                audioFrame.cancel()
+                codecPhase = .acceptingInput
+                return PumpOutcome(
+                    result: .failed(-1),
+                    receivedFrameCount:
+                        receivedFrameCount
+                )
+            }
+
+            if receiveResult >= 0 {
+                let (nextFrameCount, overflow) =
+                    receivedFrameCount
+                        .addingReportingOverflow(1)
+                guard !overflow else {
+                    audioFrame.cancel()
+                    codecPhase = .acceptingInput
+                    return PumpOutcome(
+                        result: .failed(-1),
+                        receivedFrameCount:
+                            receivedFrameCount
+                    )
                 }
-                break
+                receivedFrameCount =
+                    nextFrameCount
+
+                guard accepts(
+                    generation: generation
+                ) else {
+                    audioFrame.cancel()
+                    return PumpOutcome(
+                        result: .canceled,
+                        receivedFrameCount:
+                            receivedFrameCount
+                    )
+                }
+                guard didPopulateFrame else {
+                    audioFrame.cancel()
+                    codecPhase = .acceptingInput
+                    return PumpOutcome(
+                        result: .failed(-1),
+                        receivedFrameCount:
+                            receivedFrameCount
+                    )
+                }
+                hooks.willEnqueueFrame?()
+                guard frameQueue.enqueue(audioFrame) ==
+                        .accepted else {
+                    codecPhase = .acceptingInput
+                    return PumpOutcome(
+                        result: .failed(-1),
+                        receivedFrameCount:
+                            receivedFrameCount
+                    )
+                }
+                continue
             }
-            if let receivedFrame {
-                frameQueue.enqueue(receivedFrame)
+
+            audioFrame.cancel()
+            if receiveResult ==
+                AVERROR(EAGAIN) {
+                if codecPhase == .draining {
+                    codecPhase =
+                        .acceptingInput
+                    return PumpOutcome(
+                        result:
+                            .failed(receiveResult),
+                        receivedFrameCount:
+                            receivedFrameCount
+                    )
+                }
+                codecPhase = .acceptingInput
+                return PumpOutcome(
+                    result: .needsInput,
+                    receivedFrameCount:
+                        receivedFrameCount
+                )
             }
+            if receiveResult ==
+                IR_AVERROR_EOF {
+                codecPhase = .endOfStream
+                return PumpOutcome(
+                    result: .endOfStream,
+                    receivedFrameCount:
+                        receivedFrameCount
+                )
+            }
+
+            codecPhase = .acceptingInput
+            return PumpOutcome(
+                result: .failed(receiveResult),
+                receivedFrameCount:
+                    receivedFrameCount
+            )
         }
-        return 0
+    }
+
+    private func capacitySnapshot()
+        -> IRFFDecodeAdmission.Snapshot
+    {
+        let pool = framePool.diagnostics
+        let limits = IRFFDecodeAdmission.Limits(
+            frameCapacity:
+                pool.maximumCapacity,
+            packetHeadroom:
+                admissionPacketHeadroom
+        )
+        let (occupiedFrameCount, overflow) =
+            pool.leasedCount
+                .addingReportingOverflow(
+                    pool.playingCount
+                )
+        let phase: IRFFDecodeAdmission.Phase =
+            pool.phase == .open
+            ? .open
+            : .closed
+        return IRFFDecodeAdmission.Snapshot(
+            limits: limits,
+            occupiedFrameCount:
+                overflow
+                ? limits.frameCapacity
+                : occupiedFrameCount,
+            phase: phase
+        )
+    }
+
+    private var generation: UInt64 {
+        generationLock.lock()
+        defer { generationLock.unlock() }
+        return storedGeneration
+    }
+
+    private func accepts(
+        generation: UInt64
+    ) -> Bool {
+        generationLock.lock()
+        defer { generationLock.unlock() }
+        return !generationClosed &&
+            !generationTransitioning &&
+            storedGeneration == generation
     }
 
     private func decode(
         frame decodedFrame:
-            UnsafeMutablePointer<AVFrame>
-    ) -> IRFFAudioFrame? {
+            UnsafeMutablePointer<AVFrame>,
+        into audioFrame: IRFFAudioFrame
+    ) -> Bool {
         guard Self.shouldDecodeFrame(
             hasFrame: true,
             hasPrimaryData:
                 decodedFrame.pointee.data.0 != nil
         ) else {
-            return nil
+            return false
         }
 
         reloadAudioOutputInfo()
         updateResampler()
-        guard let audioFrame =
-                framePool.leaseFrame()
-                    as? IRFFAudioFrame else {
-            return nil
-        }
-        var didPopulateFrame = false
-        defer {
-            if !didPopulateFrame {
-                audioFrame.cancel()
-            }
-        }
 
         if let resampleSession {
             guard Self.swrOutputInfo(
@@ -371,7 +1039,7 @@ class IRFFAudioDecoder {
                                                  outputChannelCount: channelCount,
                                                  inputChannelCount: codecContext.pointee.ch_layout.nb_channels),
                   let frameCapacity = Self.resampleFrameCapacity(inputFrameCount: decodedFrame.pointee.nb_samples, ratio: ratio) else {
-                return nil
+                return false
             }
             let outcome =
                 resampleSession.withConvertedSamples(
@@ -397,12 +1065,12 @@ class IRFFAudioDecoder {
                 )
             }
             guard case .converted = outcome else {
-                return nil
+                return false
             }
         } else {
             if !Self.canUseDirectOutput(sampleFormat: codecContext.pointee.sample_fmt) {
                 IRFFErrorLog("audio format error")
-                return nil
+                return false
             }
             guard let decodedData =
                     decodedFrame.pointee.data.0,
@@ -412,10 +1080,10 @@ class IRFFAudioDecoder {
                             Int(
                                 decodedFrame
                                     .pointee.nb_samples
-                            ),
+                        ),
                         channelCount: channelCount
                     ) else {
-                return nil
+                return false
             }
             let samples = UnsafeBufferPointer(
                 start: UnsafeRawPointer(decodedData)
@@ -434,12 +1102,11 @@ class IRFFAudioDecoder {
                     ),
                 decodedFrame: decodedFrame
             ) else {
-                return nil
+                return false
             }
         }
 
-        didPopulateFrame = true
-        return audioFrame
+        return true
     }
 
     private func populate(

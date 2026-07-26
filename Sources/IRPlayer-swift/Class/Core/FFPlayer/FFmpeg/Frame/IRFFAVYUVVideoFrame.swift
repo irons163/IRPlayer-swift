@@ -7,7 +7,11 @@
 
 import Foundation
 import CoreVideo
-import IRFFMpeg
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+#else
+@_implementationOnly import IRFFMpeg
+#endif
 
 @objcMembers public class IRFFAVYUVVideoFrame: IRFFVideoFrame {
     private let planeLock = NSLock()

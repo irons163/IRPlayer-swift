@@ -13,31 +13,107 @@ public class IRPlayerNotification: NSObject {
 
     public static func postPlayer(_ player: IRPlayerImp?, error: IRError?) {
         guard let player = player, let error = error else { return }
-        let userInfo = IRPlayerNotificationPayload.error(error)
-        player.error = error
-        player.emit(.failure(error))
-        postNotification(name: IRPlayerErrorNotificationName, object: player, userInfo: userInfo)
+        let generation =
+            player.backendCoordinator.currentTransactionGeneration
+        IRMainThreadExecutor.execute {
+            guard player.backendCoordinator.isCurrentTransaction(
+                generation
+            ) else {
+                return
+            }
+            let userInfo = IRPlayerNotificationPayload.error(error)
+            player.error = error
+            player.emit(.failure(error))
+            postPlayerNotification(
+                name: IRPlayerErrorNotificationName,
+                player: player,
+                userInfo: userInfo,
+                generation: generation
+            )
+        }
     }
 
     public static func postPlayer(_ player: IRPlayerImp?, statePrevious previous: IRPlayerState, current: IRPlayerState) {
         guard let player = player else { return }
-        let userInfo = IRPlayerNotificationPayload.state(previous: previous, current: current)
-        player.emit(.stateChanged(previous: previous, current: current))
-        postNotification(name: IRPlayerStateChangeNotificationName, object: player, userInfo: userInfo)
+        let generation =
+            player.backendCoordinator.currentTransactionGeneration
+        IRMainThreadExecutor.execute {
+            guard player.backendCoordinator.isCurrentTransaction(
+                generation
+            ) else {
+                return
+            }
+            let userInfo = IRPlayerNotificationPayload.state(
+                previous: previous,
+                current: current
+            )
+            player.emit(
+                .stateChanged(
+                    previous: previous,
+                    current: current
+                )
+            )
+            postPlayerNotification(
+                name: IRPlayerStateChangeNotificationName,
+                player: player,
+                userInfo: userInfo,
+                generation: generation
+            )
+        }
     }
 
     public static func postPlayer(_ player: IRPlayerImp?, progressPercent percent: NSNumber?, current: NSNumber?, total: NSNumber?) {
         guard let player = player else { return }
-        let userInfo = IRPlayerNotificationPayload.progress(percent: percent, current: current, total: total)
-        player.emit(.progress(timeSnapshot(percent: percent, current: current, total: total)))
-        postNotification(name: IRPlayerProgressChangeNotificationName, object: player, userInfo: userInfo)
+        let generation =
+            player.backendCoordinator.currentTransactionGeneration
+        IRMainThreadExecutor.execute {
+            guard player.backendCoordinator.isCurrentTransaction(
+                generation
+            ) else {
+                return
+            }
+            let values = IRPlayerNotificationPayload.timeValues(
+                percent: percent,
+                current: current,
+                total: total
+            )
+            let userInfo =
+                IRPlayerNotificationPayload.progress(values)
+            player.emit(.progress(values.snapshot))
+            postPlayerNotification(
+                name: IRPlayerProgressChangeNotificationName,
+                player: player,
+                userInfo: userInfo,
+                generation: generation
+            )
+        }
     }
 
     public static func postPlayer(_ player: IRPlayerImp?, playablePercent percent: NSNumber?, current: NSNumber?, total: NSNumber?) {
         guard let player = player else { return }
-        let userInfo = IRPlayerNotificationPayload.playable(percent: percent, current: current, total: total)
-        player.emit(.playable(timeSnapshot(percent: percent, current: current, total: total)))
-        postNotification(name: IRPlayerPlayableChangeNotificationName, object: player, userInfo: userInfo)
+        let generation =
+            player.backendCoordinator.currentTransactionGeneration
+        IRMainThreadExecutor.execute {
+            guard player.backendCoordinator.isCurrentTransaction(
+                generation
+            ) else {
+                return
+            }
+            let values = IRPlayerNotificationPayload.timeValues(
+                percent: percent,
+                current: current,
+                total: total
+            )
+            let userInfo =
+                IRPlayerNotificationPayload.playable(values)
+            player.emit(.playable(values.snapshot))
+            postPlayerNotification(
+                name: IRPlayerPlayableChangeNotificationName,
+                player: player,
+                userInfo: userInfo,
+                generation: generation
+            )
+        }
     }
 
     public static func postNotification(name: String, object: Any?, userInfo: [AnyHashable: Any]?) {
@@ -46,15 +122,24 @@ public class IRPlayerNotification: NSObject {
         }
     }
 
-    private static func timeSnapshot(
-        percent: NSNumber?,
-        current: NSNumber?,
-        total: NSNumber?
-    ) -> IRPlayerTimeSnapshot {
-        IRPlayerTimeSnapshot(
-            current: current?.doubleValue ?? 0,
-            total: total?.doubleValue ?? 0,
-            fraction: percent?.doubleValue ?? 0
-        )
+    private static func postPlayerNotification(
+        name: String,
+        player: IRPlayerImp,
+        userInfo: [AnyHashable: Any],
+        generation: UInt64
+    ) {
+        DispatchQueue.main.async {
+            guard player.backendCoordinator.isCurrentTransaction(
+                generation
+            ) else {
+                return
+            }
+            NotificationCenter.default.post(
+                name: Notification.Name(name),
+                object: player,
+                userInfo: userInfo
+            )
+        }
     }
+
 }

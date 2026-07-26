@@ -2,6 +2,7 @@ import AVFoundation
 import CoreImage
 import Metal
 import QuartzCore
+import UIKit
 import XCTest
 #if SWIFT_PACKAGE
 @testable import IRPlayerSwift
@@ -23,6 +24,40 @@ private final class IRGLOwnerCounter: @unchecked Sendable {
         lock.lock()
         storedValue += 1
         lock.unlock()
+    }
+}
+
+private final class IRGLOwnerRenderCompletionStore:
+    @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var completions: [IRGLRenderCompletion] = []
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return completions.count
+    }
+
+    func append(
+        _ completion: @escaping IRGLRenderCompletion
+    ) {
+        lock.lock()
+        completions.append(completion)
+        lock.unlock()
+    }
+
+    @discardableResult
+    func completeFirst() -> Bool {
+        lock.lock()
+        guard !completions.isEmpty else {
+            lock.unlock()
+            return false
+        }
+        let completion = completions.removeFirst()
+        lock.unlock()
+        completion()
+        return true
     }
 }
 
@@ -383,6 +418,46 @@ final class IRGLMetalSurfaceSessionTests: XCTestCase {
         XCTAssertFalse(session.prepare(makeInput(layer: layer)))
     }
 
+    func testPrepareSurfacesInitialResizeFailureAndCanRecover()
+        throws {
+        guard MTLCreateSystemDefaultDevice() != nil else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        let layer = CAMetalLayer()
+        let session = IRGLMetalSurfaceSession(
+            executor: IRGLRenderExecutor()
+        )
+
+        XCTAssertFalse(
+            session.prepare(
+                makeInput(
+                    layer: layer,
+                    bounds: .zero
+                )
+            )
+        )
+        XCTAssertEqual(
+            session.diagnostics.phase,
+            .readyAwaitingDrawable
+        )
+        XCTAssertTrue(
+            session.diagnostics.hasCompleteResources
+        )
+        XCTAssertEqual(
+            session.diagnostics.rejectedOperationCount,
+            1
+        )
+
+        XCTAssertTrue(
+            session.resize(
+                makeInput(layer: layer)
+            )
+        )
+        XCTAssertEqual(session.diagnostics.phase, .ready)
+        XCTAssertEqual(session.diagnostics.pixelWidth, 200)
+        XCTAssertEqual(session.diagnostics.pixelHeight, 100)
+    }
+
     func testInvalidResizePreservesLastValidPixelSize() throws {
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("Metal device unavailable")
@@ -450,6 +525,18 @@ final class IRGLMetalSurfaceSessionTests: XCTestCase {
                     height: 1
                 ),
                 screenScale: 2,
+                viewportScale: 1
+            )
+        )
+        XCTAssertNil(
+            IRGLMetalSurfaceSession.pixelSize(
+                bounds: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 0.5,
+                    height: 10
+                ),
+                screenScale: 1,
                 viewportScale: 1
             )
         )
@@ -636,6 +723,218 @@ final class IRGLFrameSubmissionSessionTests: XCTestCase {
         XCTAssertEqual(session.diagnostics.submissionCount, 100)
         XCTAssertEqual(session.diagnostics.completedRenderCount, 100)
     }
+
+    func testDeferredRenderCompletesOnlyAfterGPUCallback() {
+        let completions =
+            IRGLOwnerRenderCompletionStore()
+        let notifications = IRGLOwnerCounter()
+        let session = IRGLFrameSubmissionSession(
+            executor: IRGLRenderExecutor(),
+            renderOperation: { input in
+                completions.append(
+                    input.renderDidComplete
+                )
+                return .init(
+                    currentImage: input.currentImage,
+                    didSubmitRender: true,
+                    completionMode: .deferred
+                )
+            }
+        )
+        session.setCompletionHandler(
+            notifications.increment
+        )
+
+        XCTAssertTrue(
+            session.submit(
+                IRFFVideoFrame(),
+                context: makeContext()
+            )
+        )
+        XCTAssertEqual(
+            session.diagnostics.completedRenderCount,
+            0
+        )
+        XCTAssertEqual(
+            session.diagnostics.inFlightRenderCount,
+            1
+        )
+        XCTAssertEqual(notifications.value, 0)
+
+        XCTAssertTrue(completions.completeFirst())
+
+        XCTAssertEqual(
+            session.diagnostics.completedRenderCount,
+            1
+        )
+        XCTAssertEqual(
+            session.diagnostics.inFlightRenderCount,
+            0
+        )
+        XCTAssertEqual(notifications.value, 1)
+    }
+
+    func testSoftwareReplacementAndResetDoNotAliasInFlightFrames()
+        throws {
+        let pool = makeVideoFramePool()
+        let completions =
+            IRGLOwnerRenderCompletionStore()
+        let session = IRGLFrameSubmissionSession(
+            executor: IRGLRenderExecutor(),
+            renderOperation: { input in
+                completions.append(
+                    input.renderDidComplete
+                )
+                return .init(
+                    currentImage: input.currentImage,
+                    didSubmitRender: true,
+                    completionMode: .deferred
+                )
+            }
+        )
+        let first = try XCTUnwrap(
+            pool.leaseFrame()
+                as? IRFFAVYUVVideoFrame
+        )
+        XCTAssertTrue(
+            session.submit(first, context: makeContext())
+        )
+        let second = try XCTUnwrap(
+            pool.leaseFrame()
+                as? IRFFAVYUVVideoFrame
+        )
+        XCTAssertFalse(first === second)
+        XCTAssertTrue(
+            session.submit(second, context: makeContext())
+        )
+
+        XCTAssertTrue(first.playing)
+        XCTAssertTrue(second.playing)
+        XCTAssertEqual(pool.diagnostics.playingCount, 2)
+        XCTAssertEqual(
+            session.diagnostics.presentationLeaseCount,
+            2
+        )
+
+        session.reset()
+        XCTAssertNil(
+            pool.leaseFrame(),
+            "A full pool must not alias either in-flight frame."
+        )
+
+        XCTAssertTrue(completions.completeFirst())
+        _ = session.diagnostics
+        XCTAssertFalse(first.playing)
+        XCTAssertTrue(second.playing)
+
+        let third = try XCTUnwrap(
+            pool.leaseFrame()
+                as? IRFFAVYUVVideoFrame
+        )
+        XCTAssertTrue(third === first)
+        XCTAssertFalse(third === second)
+        third.cancel()
+
+        XCTAssertTrue(completions.completeFirst())
+        _ = session.diagnostics
+        XCTAssertFalse(second.playing)
+        XCTAssertEqual(
+            session.diagnostics.inFlightRenderCount,
+            0
+        )
+        XCTAssertEqual(
+            session.diagnostics.presentationLeaseCount,
+            0
+        )
+        XCTAssertEqual(pool.diagnostics.availableCount, 2)
+        XCTAssertEqual(pool.diagnostics.playingCount, 0)
+        XCTAssertEqual(pool.diagnostics.leasedCount, 0)
+    }
+
+    func testSoftwarePresentationPoolStaysBoundedDuringLongPlay()
+        throws {
+        let pool = makeVideoFramePool()
+        let session = IRGLFrameSubmissionSession(
+            executor: IRGLRenderExecutor(),
+            renderOperation: { input in
+                .init(
+                    currentImage: input.currentImage,
+                    didCompleteRender: true
+                )
+            }
+        )
+
+        for _ in 0..<500 {
+            let frame = try XCTUnwrap(
+                pool.leaseFrame()
+                    as? IRFFAVYUVVideoFrame
+            )
+            XCTAssertTrue(
+                session.submit(
+                    frame,
+                    context: makeContext()
+                )
+            )
+            XCTAssertLessThanOrEqual(
+                pool.diagnostics.totalCount,
+                2
+            )
+        }
+
+        session.reset()
+
+        XCTAssertEqual(pool.diagnostics.totalCount, 2)
+        XCTAssertEqual(pool.diagnostics.availableCount, 2)
+        XCTAssertEqual(pool.diagnostics.playingCount, 0)
+        XCTAssertEqual(pool.diagnostics.leasedCount, 0)
+    }
+
+    func testCloseDefersSoftwareFrameCancellationUntilCompletion()
+        throws {
+        let pool = makeVideoFramePool()
+        let completions =
+            IRGLOwnerRenderCompletionStore()
+        let session = IRGLFrameSubmissionSession(
+            executor: IRGLRenderExecutor(),
+            renderOperation: { input in
+                completions.append(
+                    input.renderDidComplete
+                )
+                return .init(
+                    currentImage: input.currentImage,
+                    didSubmitRender: true,
+                    completionMode: .deferred
+                )
+            }
+        )
+        let frame = try XCTUnwrap(
+            pool.leaseFrame()
+                as? IRFFAVYUVVideoFrame
+        )
+        XCTAssertTrue(
+            session.submit(frame, context: makeContext())
+        )
+
+        XCTAssertTrue(session.close())
+        XCTAssertTrue(frame.playing)
+        XCTAssertEqual(pool.diagnostics.playingCount, 1)
+
+        XCTAssertTrue(completions.completeFirst())
+        _ = session.diagnostics
+
+        XCTAssertFalse(frame.playing)
+        XCTAssertEqual(pool.diagnostics.playingCount, 0)
+        XCTAssertEqual(pool.diagnostics.availableCount, 1)
+    }
+
+    private func makeVideoFramePool() -> IRFFFramePool {
+        IRFFFramePool(
+            capacity: 2,
+            frameClassName: IRFFAVYUVVideoFrame.self
+        ) {
+            IRFFAVYUVVideoFrame()
+        }
+    }
 }
 
 final class IRGLSnapshotSessionTests: XCTestCase {
@@ -662,7 +961,9 @@ final class IRGLSnapshotSessionTests: XCTestCase {
         XCTAssertTrue(session.request())
         XCTAssertTrue(session.request())
         XCTAssertTrue(session.hasPendingRequest)
-        session.renderDidComplete { UIImage() }
+        session.renderDidComplete {
+            makeRenderableSnapshotImage()
+        }
 
         XCTAssertFalse(session.hasPendingRequest)
         XCTAssertEqual(dispatcher.count, 1)
@@ -705,6 +1006,76 @@ final class IRGLSnapshotSessionTests: XCTestCase {
         XCTAssertEqual(saves.value, 0)
         XCTAssertEqual(session.diagnostics.savedCaptureCount, 0)
         XCTAssertEqual(session.diagnostics.scheduledCaptureCount, 1)
+    }
+
+    func testEmptyCaptureIsNotSaved() {
+        let dispatcher = IRGLDeferredDispatcher()
+        let saves = IRGLOwnerCounter()
+        let session = makeSession(
+            dispatcher: dispatcher,
+            saves: saves
+        )
+        XCTAssertTrue(session.request())
+        session.renderDidComplete { UIImage() }
+
+        dispatcher.runAll()
+
+        XCTAssertEqual(saves.value, 0)
+        XCTAssertEqual(
+            session.diagnostics.savedCaptureCount,
+            0
+        )
+        XCTAssertEqual(
+            session.diagnostics.cancelledCaptureCount,
+            1
+        )
+    }
+
+    func testCloseDuringCapturePreventsSave() {
+        let dispatcher = IRGLDeferredDispatcher()
+        let saves = IRGLOwnerCounter()
+        let session = makeSession(
+            dispatcher: dispatcher,
+            saves: saves
+        )
+        XCTAssertTrue(session.request())
+        session.renderDidComplete {
+            XCTAssertTrue(session.close())
+            return makeRenderableSnapshotImage()
+        }
+
+        dispatcher.runAll()
+
+        XCTAssertEqual(saves.value, 0)
+        XCTAssertTrue(session.diagnostics.isClosed)
+        XCTAssertEqual(
+            session.diagnostics.cancelledCaptureCount,
+            1
+        )
+    }
+
+    func testCancelDuringCapturePreventsSave() {
+        let dispatcher = IRGLDeferredDispatcher()
+        let saves = IRGLOwnerCounter()
+        let session = makeSession(
+            dispatcher: dispatcher,
+            saves: saves
+        )
+        XCTAssertTrue(session.request())
+        session.renderDidComplete {
+            XCTAssertTrue(
+                session.cancelPendingRequest()
+            )
+            return makeRenderableSnapshotImage()
+        }
+
+        dispatcher.runAll()
+
+        XCTAssertEqual(saves.value, 0)
+        XCTAssertEqual(
+            session.diagnostics.cancelledCaptureCount,
+            1
+        )
     }
 
     func testCloseCancelsPendingAndScheduledTickets() {
@@ -1080,6 +1451,38 @@ final class IRGLRenderSessionTests: XCTestCase {
         XCTAssertEqual(session.currentViewportRange, .zero)
     }
 
+    func testPrepareResetAndClosePreserveCallerOwnedRenderer() {
+        let mode = IRGLRenderMode2D()
+        let renderer = IRGLOwnerExternalRenderer()
+        mode.renderer = renderer
+        let session = IRGLRenderSession(
+            surfaceDependencies: unavailableSurface
+        )
+
+        XCTAssertFalse(
+            session.prepare(
+                surfaceInput: makeInput(),
+                pixelFormat: .YUV_IRPixelFormat,
+                replacingModes: [mode]
+            )
+        )
+        XCTAssertTrue(mode.renderer === renderer)
+
+        XCTAssertFalse(
+            session.prepare(
+                surfaceInput: makeInput(),
+                pixelFormat: .RGB_IRPixelFormat
+            )
+        )
+        XCTAssertTrue(mode.renderer === renderer)
+
+        session.reset()
+        XCTAssertTrue(mode.renderer === renderer)
+
+        XCTAssertTrue(session.close())
+        XCTAssertTrue(mode.renderer === renderer)
+    }
+
     func testConcurrentSubmissionsUseSingleExecutionDomain() {
         let session = IRGLRenderSession(
             surfaceDependencies: unavailableSurface,
@@ -1181,6 +1584,20 @@ final class IRGLRenderSessionTests: XCTestCase {
         session.scroll(dx: .nan, dy: 0)
 
         XCTAssertEqual(params.offsetX, 25)
+    }
+}
+
+private final class IRGLOwnerExternalRenderer:
+    IRGLRender {}
+
+private func makeRenderableSnapshotImage() -> UIImage {
+    UIGraphicsImageRenderer(
+        size: CGSize(width: 1, height: 1)
+    ).image { context in
+        UIColor.black.setFill()
+        context.fill(
+            CGRect(x: 0, y: 0, width: 1, height: 1)
+        )
     }
 }
 

@@ -1,5 +1,6 @@
 import CoreGraphics
 import Metal
+import QuartzCore
 import XCTest
 #if SWIFT_PACKAGE
 @testable import IRPlayerSwift
@@ -164,6 +165,73 @@ final class IRGLViewRenderStateTests: XCTestCase {
         })
     }
 
+    func testPrepareFish2PanoTexturesRetriesPixelMapAfterUploadFailure()
+        throws
+    {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        var uploadAttemptCount = 0
+        let state = IRGLViewRenderState(
+            fish2PanoTextureUpload: {
+                device,
+                width,
+                height,
+                data in
+                uploadAttemptCount += 1
+                guard uploadAttemptCount > 1 else {
+                    return nil
+                }
+                return IRGLViewRenderState
+                    .makeTexUVTexture(
+                        device: device,
+                        width: width,
+                        height: height,
+                        data: data
+                    )
+            }
+        )
+        let params = StubFish2PanoShaderParams(
+            elementCapacity: 2 * 2 * 2
+        )
+        params.outputWidth = 2
+        params.outputHeight = 2
+        params.antialias = 1
+        params.queuePixelMap(
+            outputWidth: 2,
+            outputHeight: 2,
+            antialias: 1
+        )
+        let mode = InjectedPanoRenderMode(
+            program: StubFish2PanoProgram(
+                params: params
+            )
+        )
+        state.configureFish2Pano(renderMode: mode)
+
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(
+                device: device
+            ),
+            .waitingForTextures
+        )
+        XCTAssertNotNil(params.pixelMapIfReady())
+        XCTAssertEqual(params.acknowledgedCount, 0)
+
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(
+                device: device
+            ),
+            .ready(
+                outputSize: CGSize(width: 2, height: 2),
+                antialias: 1
+            )
+        )
+        XCTAssertEqual(uploadAttemptCount, 2)
+        XCTAssertEqual(params.acknowledgedCount, 1)
+        XCTAssertNil(params.pixelMapIfReady())
+    }
+
     func testConfigureFisheyeUsesProgramControllerAndParameter() throws {
         let state = IRGLViewRenderState()
         let mode = makeFisheyeMode()
@@ -233,6 +301,308 @@ final class IRGLViewRenderStateTests: XCTestCase {
         XCTAssertNil(state.fisheyeParameter)
     }
 
+    func testFisheyeMeshCacheRebuildsForSameSizeCalibrationChange()
+        throws
+    {
+        let device = try makeMetalDevice()
+        let drawable = try makeDrawable(device: device)
+        let renderer = IRGLRenderYUV()
+        let frame = IRFFVideoFrame()
+        XCTAssertTrue(
+            frame.setDimensions(width: 8, height: 8)
+        )
+        let state = IRGLViewRenderState()
+        let firstMode = makeFisheyeMode(
+            parameter: IRFisheyeParameter(
+                width: 8,
+                height: 8,
+                up: false,
+                rx: 3,
+                ry: 3,
+                cx: 4,
+                cy: 4,
+                latmax: 80
+            )
+        )
+        state.configureFisheye(
+            renderMode: firstMode,
+            viewportSize: CGSize(width: 8, height: 8)
+        )
+        _ = state.renderFisheyeIfNeeded(
+            frame: frame,
+            mode: firstMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        let firstMesh = try XCTUnwrap(state.fisheyeMesh)
+        _ = state.renderFisheyeIfNeeded(
+            frame: frame,
+            mode: firstMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        XCTAssertTrue(
+            state.fisheyeMesh === firstMesh
+        )
+
+        let secondMode = makeFisheyeMode(
+            parameter: IRFisheyeParameter(
+                width: 8,
+                height: 8,
+                up: false,
+                rx: 2,
+                ry: 2,
+                cx: 5,
+                cy: 4,
+                latmax: 80
+            )
+        )
+        state.configureFisheye(
+            renderMode: secondMode,
+            viewportSize: CGSize(width: 8, height: 8)
+        )
+        _ = state.renderFisheyeIfNeeded(
+            frame: frame,
+            mode: secondMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        let secondMesh = try XCTUnwrap(state.fisheyeMesh)
+
+        XCTAssertFalse(firstMesh === secondMesh)
+        XCTAssertEqual(
+            state.fisheyeMeshCacheKey?.kind,
+            .single
+        )
+        XCTAssertEqual(
+            state.fisheyeMeshCacheKey?.centerX,
+            5
+        )
+        XCTAssertEqual(
+            state.fisheyeMeshCacheKey?.radiusY,
+            2
+        )
+    }
+
+    func testFisheyeMeshCacheDoesNotReuseMultiMeshForSingleMode()
+        throws
+    {
+        let device = try makeMetalDevice()
+        let drawable = try makeDrawable(device: device)
+        let renderer = IRGLRenderYUV()
+        let frame = IRFFVideoFrame()
+        XCTAssertTrue(
+            frame.setDimensions(width: 8, height: 8)
+        )
+        let parameter = IRFisheyeParameter(
+            width: 8,
+            height: 8,
+            up: false,
+            rx: 3,
+            ry: 3,
+            cx: 4,
+            cy: 4,
+            latmax: 80
+        )
+        let multiMode = IRGLRenderModeMulti4P()
+        multiMode.parameter = parameter
+        multiMode.buildIRGLProgram(
+            pixelFormat: .YUV_IRPixelFormat,
+            viewprotRange: CGRect(
+                x: 0,
+                y: 0,
+                width: 8,
+                height: 8
+            ),
+            parameter: parameter
+        )
+        let state = IRGLViewRenderState()
+        _ = state.renderMulti4PIfNeeded(
+            frame: frame,
+            mode: multiMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        let multiMesh = try XCTUnwrap(state.fisheyeMesh)
+        XCTAssertEqual(
+            state.fisheyeMeshCacheKey?.kind,
+            .multi4P
+        )
+
+        let singleMode = makeFisheyeMode(
+            parameter: parameter
+        )
+        state.configureFisheye(
+            renderMode: singleMode,
+            viewportSize: CGSize(width: 8, height: 8)
+        )
+        _ = state.renderFisheyeIfNeeded(
+            frame: frame,
+            mode: singleMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        let singleMesh = try XCTUnwrap(state.fisheyeMesh)
+
+        XCTAssertFalse(multiMesh === singleMesh)
+        XCTAssertEqual(
+            state.fisheyeMeshCacheKey?.kind,
+            .single
+        )
+    }
+
+    func testVRMeshCacheReusesSameModeAndRebuildsForModeSwitch()
+        throws
+    {
+        let device = try makeMetalDevice()
+        let drawable = try makeDrawable(device: device)
+        let renderer = IRGLRenderYUV()
+        let frame = IRFFVideoFrame()
+        XCTAssertTrue(
+            frame.setDimensions(width: 8, height: 8)
+        )
+        let state = IRGLViewRenderState()
+        let firstMode = makeVRMode()
+        let firstProgram = try XCTUnwrap(
+            firstMode.program as? IRGLProgramVR
+        )
+        let firstProjection = try XCTUnwrap(
+            firstProgram.mapProjection
+                as? IRGLProjectionVR
+        )
+
+        _ = state.renderVRIfNeeded(
+            frame: frame,
+            mode: firstMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        let firstMesh = try XCTUnwrap(state.vrMesh)
+        XCTAssertEqual(
+            state.vrMeshCacheKey?.modeIdentifier,
+            ObjectIdentifier(firstMode)
+        )
+        XCTAssertEqual(
+            state.vrMeshCacheKey?.projectionIdentifier,
+            ObjectIdentifier(firstProjection)
+        )
+        XCTAssertEqual(
+            state.vrMeshCacheKey?.projectionGeneration,
+            firstProjection.meshSnapshot().generation
+        )
+        XCTAssertEqual(
+            state.vrMeshCacheKey?.deviceIdentifier,
+            ObjectIdentifier(device)
+        )
+
+        _ = state.renderVRIfNeeded(
+            frame: frame,
+            mode: firstMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        XCTAssertTrue(state.vrMesh === firstMesh)
+
+        let secondMode = makeVRMode()
+        let secondProgram = try XCTUnwrap(
+            secondMode.program as? IRGLProgramVR
+        )
+        let secondProjection = try XCTUnwrap(
+            secondProgram.mapProjection
+                as? IRGLProjectionVR
+        )
+        XCTAssertFalse(firstProjection === secondProjection)
+
+        _ = state.renderVRIfNeeded(
+            frame: frame,
+            mode: secondMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        let secondMesh = try XCTUnwrap(state.vrMesh)
+
+        XCTAssertFalse(firstMesh === secondMesh)
+        XCTAssertEqual(
+            state.vrMeshCacheKey?.modeIdentifier,
+            ObjectIdentifier(secondMode)
+        )
+        XCTAssertEqual(
+            state.vrMeshCacheKey?.projectionIdentifier,
+            ObjectIdentifier(secondProjection)
+        )
+    }
+
+    func testConfigureVRAndResetClearStaleMeshCache()
+        throws
+    {
+        let device = try makeMetalDevice()
+        let drawable = try makeDrawable(device: device)
+        let renderer = IRGLRenderYUV()
+        let frame = IRFFVideoFrame()
+        XCTAssertTrue(
+            frame.setDimensions(width: 8, height: 8)
+        )
+        let state = IRGLViewRenderState()
+        let firstMode = makeVRMode()
+        _ = state.renderVRIfNeeded(
+            frame: frame,
+            mode: firstMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        XCTAssertNotNil(state.vrMesh)
+        XCTAssertNotNil(state.vrMeshCacheKey)
+
+        state.configureVR(renderMode: makeVRMode())
+
+        XCTAssertNil(state.vrMesh)
+        XCTAssertNil(state.vrMeshCacheKey)
+
+        _ = state.renderVRIfNeeded(
+            frame: frame,
+            mode: firstMode,
+            renderer: renderer,
+            drawable: drawable,
+            drawableSize: CGSize(width: 8, height: 8),
+            device: device,
+            completion: {}
+        )
+        XCTAssertNotNil(state.vrMesh)
+        XCTAssertNotNil(state.vrMeshCacheKey)
+
+        state.reset()
+
+        XCTAssertNil(state.vrMesh)
+        XCTAssertNil(state.vrMeshCacheKey)
+    }
+
     private func makePanoMode() -> IRGLRenderMode2DFisheye2Pano {
         let mode = IRGLRenderMode2DFisheye2Pano()
         mode.buildIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
@@ -241,21 +611,72 @@ final class IRGLViewRenderStateTests: XCTestCase {
         return mode
     }
 
-    private func makeFisheyeMode() -> IRGLRenderMode3DFisheye {
+    private func makeFisheyeMode(
+        parameter: IRFisheyeParameter =
+            IRFisheyeParameter(
+                width: 2,
+                height: 2,
+                up: false,
+                rx: 1,
+                ry: 1,
+                cx: 1,
+                cy: 1,
+                latmax: 90
+            )
+    ) -> IRGLRenderMode3DFisheye {
         let mode = IRGLRenderMode3DFisheye()
-        let parameter = IRFisheyeParameter(width: 2,
-                                           height: 2,
-                                           up: false,
-                                           rx: 1,
-                                           ry: 1,
-                                           cx: 1,
-                                           cy: 1,
-                                           latmax: 90)
         mode.parameter = parameter
         mode.buildIRGLProgram(pixelFormat: .YUV_IRPixelFormat,
                               viewprotRange: CGRect(x: 0, y: 0, width: 320, height: 180),
                               parameter: parameter)
         return mode
+    }
+
+    private func makeVRMode() -> IRGLRenderModeVR {
+        let mode = IRGLRenderModeVR()
+        mode.buildIRGLProgram(
+            pixelFormat: .YUV_IRPixelFormat,
+            viewprotRange: CGRect(
+                x: 0,
+                y: 0,
+                width: 8,
+                height: 8
+            ),
+            parameter: nil
+        )
+        return mode
+    }
+
+    private func makeMetalDevice() throws -> MTLDevice {
+        guard let device = MTLCreateSystemDefaultDevice()
+        else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        return device
+    }
+
+    private func makeDrawable(
+        device: MTLDevice
+    ) throws -> RenderStateTestMetalDrawable {
+        let descriptor =
+            MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .bgra8Unorm,
+                width: 8,
+                height: 8,
+                mipmapped: false
+            )
+        descriptor.usage = [.renderTarget, .shaderRead]
+        guard let texture =
+                device.makeTexture(
+                    descriptor: descriptor
+                ) else {
+            throw XCTSkip(
+                "Offscreen Metal texture unavailable"
+            )
+        }
+        return RenderStateTestMetalDrawable(
+            texture: texture
+        )
     }
 }
 
@@ -298,6 +719,7 @@ private final class StubFish2PanoShaderParams: IRGLFish2PanoShaderParams {
     private var requestGeneration = 0
     private var queuedPixelMaps:
         [IRGLFish2PanoPixelMapGeneration] = []
+    private(set) var acknowledgedCount = 0
 
     init(elementCapacity: Int) {
         self.elementCapacity = elementCapacity
@@ -335,12 +757,54 @@ private final class StubFish2PanoShaderParams: IRGLFish2PanoShaderParams {
         queuedPixelMaps.append(pixelMap)
     }
 
-    override func takePixelMapIfReady()
+    override func pixelMapIfReady()
         -> IRGLFish2PanoPixelMapGeneration?
     {
-        guard !queuedPixelMaps.isEmpty else {
-            return nil
+        queuedPixelMaps.first
+    }
+
+    override func acknowledgePixelMap(
+        _ pixelMap: IRGLFish2PanoPixelMapGeneration
+    ) {
+        guard queuedPixelMaps.first === pixelMap else {
+            return
         }
-        return queuedPixelMaps.removeFirst()
+        queuedPixelMaps.removeFirst()
+        acknowledgedCount += 1
+    }
+}
+
+private final class RenderStateTestMetalDrawable:
+    NSObject,
+    CAMetalDrawable
+{
+    let texture: MTLTexture
+    let layer = CAMetalLayer()
+
+    init(texture: MTLTexture) {
+        self.texture = texture
+        super.init()
+    }
+
+    func present() {}
+
+    func present(
+        at presentationTime: CFTimeInterval
+    ) {}
+
+    @objc func presentAfterMinimumDuration(
+        _ duration: CFTimeInterval
+    ) {}
+
+    @objc func addPresentScheduledHandler(
+        _ block: @escaping (MTLDrawable) -> Void
+    ) {
+        block(self)
+    }
+
+    @objc func addPresentedHandler(
+        _ block: @escaping (MTLDrawable) -> Void
+    ) {
+        block(self)
     }
 }

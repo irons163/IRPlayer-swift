@@ -15,6 +15,8 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 | `IRFFAudioDecoder.swift`     | Audio packet → audio frame decoding                  |
 | `IRFFAudioResampleSession.swift` | Owned resampler and managed sample scratch       |
 | `IRFFVideoDecoder.swift`     | Video packet → video frame decoding                  |
+| `IRFFDecodeAdmission.swift`  | Shared bounded decode/output admission model         |
+| `IRFFCustomVideoDecoding.swift` | Immutable public custom-decode values and token  |
 | `IRFFDecodeFrame.swift`      | Shared owned AVFrame scratch resource                |
 | `IRFFVideoToolBox.swift`     | Hardware-accelerated decoding via VideoToolBox        |
 | `IRFFVideoToolBoxSession.swift` | VideoToolbox generations, leases, and callbacks    |
@@ -101,13 +103,26 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
   synchronous callback-before-return contract. If async or temporal flags are
   introduced, redesign result correlation before enabling them.
 - `IRFFVideoInput` allows bypassing the decode pipeline entirely for custom
-  frame sources. Its callbacks receive only immutable
-  `IRFFVideoCodecDescriptor`, `IRFFVideoDecoderInfo`, and
-  `IRFFCompressedVideoPacket` values; never expose borrowed `AVPacket` or
-  `AVCodecContext` pointers across that public boundary.
-- Build one custom packet value while the internal packet borrow is active.
-  The value must own payload and side-data bytes so callers may retain it or
-  send it to asynchronous decode work.
+  frame sources. Build one immutable `IRFFVideoCodecDescriptor` for the
+  decoder generation, then route each borrowed packet through the
+  allocation-free `IRFFVideoPacketDescriptor`. Never expose `AVPacket`,
+  `AVCodecContext`, or another borrowed pointer across that public boundary.
+- Copy `IRFFCompressedVideoPacket` payload and side-data bytes only after
+  `shouldHandle` opts in. The accepted packet owns its storage so callers may
+  retain it or send it to asynchronous decode work.
+- Every accepted custom packet owns one bounded reservation and one one-shot
+  completion. `.deferred` work must retain the token; token deinit, explicit
+  drop, seek/stop invalidation, or terminal error resolves the reservation
+  exactly once and reclaims every rejected or late frame.
+- Keep software, VideoToolbox, external, and custom outputs in one admission
+  ledger. Check-and-reserve must be atomic; do not infer unique occupancy by
+  adding or taking the maximum of overlapping pool and queue counts.
+- Same-generation flush must fail without mutation while a decoder worker is
+  active. Generation-advancing invalidation cancels old work and wakes all
+  capacity and deferred-completion waiters.
+- The first terminal decode error must reject new packet/output/custom
+  admission, cancel every pending completion, and notify the delegate exactly
+  once outside transition/runtime/custom locks.
 - Custom source and output bindings are synchronized weak references. Detaching
   a decoder generation must propagate the nil source into an installed video
   decoder before teardown; an input must never own its display/decoder target.
@@ -119,4 +134,4 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
   `IRFFDecoderCollaboratorSessionTests.swift`,
   `IRFFDictionaryTests.swift`, `IRFFTrackTests.swift`,
   `IRFFMetadataTests.swift`, `IRFFVideoInputTests.swift`, and
-  `IRFFDecoderOperationTests.swift`.
+  `IRFFDecodeAdmissionTests.swift`, `IRFFDecoderOperationTests.swift`.

@@ -80,8 +80,26 @@ import Foundation
         byteOffset: Int,
         byteCount: Int
     ) -> Bool {
+        copySamples(
+            to: destination,
+            byteOffset: byteOffset,
+            byteCount: byteCount,
+            availableByteCount: size
+        )
+    }
+
+    /// Uses metadata captured before render ownership was transferred, so the
+    /// real-time callback never has to acquire the frame transport lock.
+    func copySamples(
+        to destination: UnsafeMutablePointer<Float>,
+        byteOffset: Int,
+        byteCount: Int,
+        availableByteCount: Int
+    ) -> Bool {
         let stride = MemoryLayout<Float>.stride
-        guard byteOffset >= 0,
+        guard availableByteCount > 0,
+              availableByteCount.isMultiple(of: stride),
+              byteOffset >= 0,
               byteCount > 0,
               byteOffset.isMultiple(of: stride),
               byteCount.isMultiple(of: stride),
@@ -89,13 +107,13 @@ import Foundation
                   byteOffset,
                   byteCount
               ),
-              endOffset <= size,
-              activeSampleCount > 0 else {
+              endOffset <= availableByteCount else {
             return false
         }
 
         return sampleStorage.withUnsafeBytes { storage in
             guard let baseAddress = storage.baseAddress,
+                  availableByteCount <= storage.count,
                   endOffset <= storage.count else {
                 return false
             }

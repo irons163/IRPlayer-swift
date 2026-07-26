@@ -12,6 +12,7 @@ enum IRGLMetalSurfaceFailure: Equatable {
 
 enum IRGLMetalSurfacePhase: Equatable {
     case idle
+    case readyAwaitingDrawable
     case ready
     case unavailable(IRGLMetalSurfaceFailure)
     case closed
@@ -166,8 +167,11 @@ final class IRGLMetalSurfaceSession: @unchecked Sendable {
                 renderer: renderer
             )
             generation &+= 1
+            guard resizeLocked(input) else {
+                phase = .readyAwaitingDrawable
+                return false
+            }
             phase = .ready
-            _ = resizeLocked(input)
             return true
         }
     }
@@ -175,13 +179,21 @@ final class IRGLMetalSurfaceSession: @unchecked Sendable {
     @discardableResult
     func resize(_ input: Input) -> Bool {
         executor.sync {
-            guard phase == .ready,
+            guard phase == .ready
+                    || phase == .readyAwaitingDrawable,
                   let resources,
                   resources.layer === input.layer else {
                 rejectedOperationCount += 1
                 return false
             }
-            return resizeLocked(input)
+            guard resizeLocked(input) else {
+                if pixelWidth == 0 || pixelHeight == 0 {
+                    phase = .readyAwaitingDrawable
+                }
+                return false
+            }
+            phase = .ready
+            return true
         }
     }
 
@@ -225,11 +237,16 @@ final class IRGLMetalSurfaceSession: @unchecked Sendable {
               height.isFinite,
               width > 0,
               height > 0,
-              width <= CGFloat(Int.max),
-              height <= CGFloat(Int.max) else {
+              width < CGFloat(Int.max),
+              height < CGFloat(Int.max) else {
             return nil
         }
-        return (Int(width), Int(height))
+        let pixelWidth = Int(width)
+        let pixelHeight = Int(height)
+        guard pixelWidth > 0, pixelHeight > 0 else {
+            return nil
+        }
+        return (pixelWidth, pixelHeight)
     }
 
     static func pixelSize(

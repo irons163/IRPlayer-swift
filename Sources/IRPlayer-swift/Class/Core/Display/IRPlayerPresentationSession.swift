@@ -248,13 +248,6 @@ final class IRPlayerPresentationSession:
         }
     }
 
-    func cleanPlayerView() {
-        guard let displayView else { return }
-        IRMainThreadExecutor.sync {
-            cleanPlayerSubviews(of: displayView)
-        }
-    }
-
     func updateFrame(_ frame: CGRect) {
         guard let displayView else { return }
         IRMainThreadExecutor.sync {

@@ -31,15 +31,20 @@ final class IRMetalCommandResources:
     {
         private let lock = NSLock()
         private var resources: [AnyObject]
+        private var didComplete = false
 
         init(resources: [AnyObject]) {
             self.resources = resources
         }
 
-        func complete() {
+        @discardableResult
+        func complete() -> Bool {
             lock.lock()
             defer { lock.unlock() }
+            guard !didComplete else { return false }
+            didComplete = true
             resources.removeAll(keepingCapacity: false)
+            return true
         }
     }
 
@@ -102,6 +107,17 @@ final class IRMetalCommandResources:
     func submit(
         registerCompletion: CompletionRegistrar
     ) -> Bool {
+        submit(
+            registerCompletion: registerCompletion,
+            completion: {}
+        )
+    }
+
+    @discardableResult
+    func submit(
+        registerCompletion: CompletionRegistrar,
+        completion: @escaping @Sendable () -> Void
+    ) -> Bool {
         let completionResources: CompletionResources
 
         lock.lock()
@@ -122,18 +138,32 @@ final class IRMetalCommandResources:
         lock.unlock()
 
         registerCompletion {
-            completionResources.complete()
+            guard completionResources.complete() else {
+                return
+            }
+            completion()
         }
         return true
     }
 
     @discardableResult
     func submit(to commandBuffer: MTLCommandBuffer) -> Bool {
-        submit { completion in
-            commandBuffer.addCompletedHandler { _ in
-                completion()
-            }
-        }
+        submit(to: commandBuffer, completion: {})
+    }
+
+    @discardableResult
+    func submit(
+        to commandBuffer: MTLCommandBuffer,
+        completion: @escaping @Sendable () -> Void
+    ) -> Bool {
+        submit(
+            registerCompletion: { registeredCompletion in
+                commandBuffer.addCompletedHandler { _ in
+                    registeredCompletion()
+                }
+            },
+            completion: completion
+        )
     }
 
     @discardableResult

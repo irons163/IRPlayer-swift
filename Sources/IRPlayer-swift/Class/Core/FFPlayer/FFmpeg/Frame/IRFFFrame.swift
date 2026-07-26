@@ -6,7 +6,11 @@
 //
 
 import Foundation
-import IRPlayerObjc
+#if SWIFT_PACKAGE || DEBUG
+internal import IRPlayerObjc
+#else
+@_implementationOnly import IRPlayerObjc
+#endif
 
 enum IRFFFrameTime {
     static func position(timestamp: Int64, timebase: TimeInterval) -> TimeInterval {
@@ -149,6 +153,19 @@ enum IRFFFrameType: UInt, Hashable, Equatable, Sendable, RawRepresentable {
         -> IRFFFrameTransportSnapshot
     {
         transportLock.lock()
+        defer { transportLock.unlock() }
+        return IRFFFrameTransportSnapshot(
+            position: storedPosition,
+            duration: storedDuration,
+            size: storedSize
+        )
+    }
+
+    @nonobjc
+    func tryTransportSnapshot()
+        -> IRFFFrameTransportSnapshot?
+    {
+        guard transportLock.try() else { return nil }
         defer { transportLock.unlock() }
         return IRFFFrameTransportSnapshot(
             position: storedPosition,

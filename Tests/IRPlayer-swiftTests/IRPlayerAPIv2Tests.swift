@@ -36,7 +36,48 @@ final class IRPlayerAPIv2Tests: XCTestCase {
             IRMediaSource(url: mp4URL, backendPreference: .avFoundation).decoderType(using: decoder),
             .avPlayer
         )
+        XCTAssertEqual(
+            IRMediaSource(
+                url: mp4URL,
+                headers: ["Authorization": "token"]
+            ).backendResolution(using: decoder),
+            .backend(.ffmpeg)
+        )
+        XCTAssertEqual(
+            IRMediaSource(
+                url: mp4URL,
+                headers: ["Authorization": "token"],
+                backendPreference: .avFoundation
+            ).backendResolution(using: decoder),
+            .unsupportedAVFoundation
+        )
         XCTAssertEqual(IRMediaSource.empty.decoderType(using: decoder), .error)
+    }
+
+    func testAutomaticSourceDistinguishesUnsupportedURLFromMissingURL() {
+        let decoder = IRPlayerDecoder.defaultDecoder()
+        decoder.unkonwnFormat = .error
+        let unsupportedURLs = [
+            URL(string: "custom://example.com/media")!,
+            URL(
+                string: "https://example.com/video.unknown"
+            )!
+        ]
+
+        XCTAssertEqual(
+            IRMediaSource(url: nil).backendResolution(
+                using: decoder
+            ),
+            .missingURL
+        )
+        for url in unsupportedURLs {
+            XCTAssertEqual(
+                IRMediaSource(url: url).backendResolution(
+                    using: decoder
+                ),
+                .unsupportedSource
+            )
+        }
     }
 
     func testConfigurationInitializerAppliesPlayerWideBehavior() {
@@ -85,17 +126,47 @@ final class IRPlayerAPIv2Tests: XCTestCase {
         player.manager = nil
         player.setRequestHeaderFields(["Authorization": "token"])
         let failure = expectation(description: "invalid source failure")
+        var eventOrder: [String] = []
         let observation = player.observeEvents { event in
-            guard case .failure(let error) = event else { return }
-            XCTAssertEqual(error.error.domain, "IRPlayer.Load")
-            XCTAssertEqual(error.error.code, 1)
-            failure.fulfill()
+            switch event {
+            case .stateChanged:
+                eventOrder.append("state")
+            case let .progress(snapshot):
+                XCTAssertEqual(
+                    snapshot,
+                    IRPlayerTimeSnapshot(
+                        current: 0,
+                        total: 0,
+                        fraction: 0
+                    )
+                )
+                eventOrder.append("progress")
+            case let .playable(snapshot):
+                XCTAssertEqual(
+                    snapshot,
+                    IRPlayerTimeSnapshot(
+                        current: 0,
+                        total: 0,
+                        fraction: 0
+                    )
+                )
+                eventOrder.append("playable")
+            case let .failure(error):
+                XCTAssertEqual(error.error.domain, "IRPlayer.Load")
+                XCTAssertEqual(error.error.code, 1)
+                eventOrder.append("failure")
+                failure.fulfill()
+            }
         }
 
         player.load(.empty)
         wait(for: [failure], timeout: 1)
         player.stop()
 
+        XCTAssertEqual(
+            eventOrder,
+            ["state", "progress", "playable", "failure"]
+        )
         XCTAssertNil(player.mediaSource)
         XCTAssertNil(player.contentHeaders)
         XCTAssertNil(player.activeBackend)
@@ -105,5 +176,42 @@ final class IRPlayerAPIv2Tests: XCTestCase {
         XCTAssertEqual(player.playableTime, 0)
         XCTAssertFalse(player.isSeeking)
         withExtendedLifetime(observation) {}
+    }
+
+    func testObjectiveCFacadeSelectorsMatchTheCompatibilityContract() {
+        let player = IRPlayerImp()
+        player.manager = nil
+        let supportedSelectors = [
+            "play",
+            "pause",
+            "stop",
+            "replaceEmpty",
+            "seekToTime:completeHandler:",
+            "setRequestHeaderFields:",
+            "replaceVideoWithURL:videoType:"
+        ]
+
+        for selectorName in supportedSelectors {
+            XCTAssertTrue(
+                player.responds(
+                    to: NSSelectorFromString(selectorName)
+                ),
+                "Missing Objective-C selector \(selectorName)"
+            )
+        }
+        XCTAssertFalse(
+            player.responds(
+                to: NSSelectorFromString(
+                    "selectAudioTrackIndex:"
+                )
+            )
+        )
+        XCTAssertFalse(
+            player.responds(
+                to: NSSelectorFromString(
+                    "replaceVideoWithURL:videoType:videoInput:"
+                )
+            )
+        )
     }
 }

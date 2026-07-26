@@ -6,6 +6,30 @@ import XCTest
 #endif
 
 final class IRPlaybackTimeRangeTests: XCTestCase {
+    func testPlaybackTimeValueAcceptsOnlySafeSeconds() {
+        XCTAssertEqual(IRPlaybackTimeValue.normalized(0), 0)
+        XCTAssertEqual(
+            IRPlaybackTimeValue.normalized(
+                IRPlaybackTimeValue.maximumSeconds
+            ),
+            IRPlaybackTimeValue.maximumSeconds
+        )
+        for value in [
+            TimeInterval.nan,
+            .infinity,
+            -.infinity,
+            -1,
+            .greatestFiniteMagnitude
+        ] {
+            XCTAssertNil(
+                IRPlaybackTimeValue.normalized(value)
+            )
+            XCTAssertEqual(
+                IRPlaybackTimeValue.normalizedOrZero(value),
+                0
+            )
+        }
+    }
 
     func testInitializerAcceptsFiniteNonNegativeDuration() {
         XCTAssertEqual(

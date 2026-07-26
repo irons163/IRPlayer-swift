@@ -300,6 +300,25 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
         XCTAssertNil(params.takePixelMapIfReady())
     }
 
+    func testPanoShaderParamsKeepsBorrowedMapUntilAcknowledged()
+        throws
+    {
+        let params = IRGLFish2PanoShaderParams()
+        params.updateTextureWidth(32, height: 24)
+        try waitForPublishedPixelMap(in: params)
+
+        let first = try XCTUnwrap(
+            params.pixelMapIfReady()
+        )
+        let retry = try XCTUnwrap(
+            params.pixelMapIfReady()
+        )
+
+        XCTAssertTrue(first === retry)
+        params.acknowledgePixelMap(first)
+        XCTAssertNil(params.pixelMapIfReady())
+    }
+
     func testPanoShaderParamsPublishesOnlyLatestPixelMapGeneration() throws {
         let params = IRGLFish2PanoShaderParams()
         params.antialias = 2

@@ -26,19 +26,15 @@
 		4A9D78A32F65855F00CDB43B /* IRMetalRenderer+RenderMesh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9D78962F65855F00CDB43B /* IRMetalRenderer+RenderMesh.swift */; };
 		4A9D78A52F658FD300CDB43B /* IRGLRenderAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9D78A42F658FD300CDB43B /* IRGLRenderAdapters.swift */; };
 		B559AA6B2D15C603007A9F9F /* libavcodec.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA612D15C603007A9F9F /* libavcodec.xcframework */; };
-		B559AA6C2D15C603007A9F9F /* libavfilter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA632D15C603007A9F9F /* libavfilter.xcframework */; };
-		B559AA6D2D15C603007A9F9F /* libavdevice.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA622D15C603007A9F9F /* libavdevice.xcframework */; };
 		B559AA6E2D15C603007A9F9F /* libswresample.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA662D15C603007A9F9F /* libswresample.xcframework */; };
 		B559AA6F2D15C603007A9F9F /* libswscale.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA672D15C603007A9F9F /* libswscale.xcframework */; };
 		B559AA702D15C603007A9F9F /* libavformat.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA642D15C603007A9F9F /* libavformat.xcframework */; };
 		B559AA712D15C603007A9F9F /* libavutil.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B559AA652D15C603007A9F9F /* libavutil.xcframework */; };
 		B559AA722D15C603007A9F9F /* IRFFMpeg.m in Sources */ = {isa = PBXBuildFile; fileRef = B559AA692D15C603007A9F9F /* IRFFMpeg.m */; };
 		B559AA732D15C603007A9F9F /* IRFFMpeg.h in Headers */ = {isa = PBXBuildFile; fileRef = B559AA5F2D15C603007A9F9F /* IRFFMpeg.h */; };
-		B559AA742D15C603007A9F9F /* package.xcworkspace in Resources */ = {isa = PBXBuildFile; fileRef = B559AA5C2D15C603007A9F9F /* package.xcworkspace */; };
 		B5A024E42D0B2F1C00BE80C5 /* IRFFMpegErrorUtil.m in Sources */ = {isa = PBXBuildFile; fileRef = B5A024E32D0B2F1C00BE80C5 /* IRFFMpegErrorUtil.m */; };
 		B5A024E82D0B305700BE80C5 /* IRFFMpegErrorUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = B5A024E62D0B305700BE80C5 /* IRFFMpegErrorUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B5A025302D0C456E00BE80C5 /* public-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = B5A0252B2D0C456E00BE80C5 /* public-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		B5A025312D0C456E00BE80C5 /* private-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = B5A0252E2D0C456E00BE80C5 /* private-umbrella.h */; };
 		B5E94D662D0950DB00149265 /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E94D602D09501300149265 /* libbz2.tbd */; };
 		B5E94D672D0950EF00149265 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E94D642D09509F00149265 /* libz.tbd */; };
 		B5E94D682D0950FD00149265 /* liblzma.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B5E94D622D09506E00149265 /* liblzma.tbd */; };
@@ -88,6 +84,8 @@
 		B5E97D032F8800010149265 /* IRSensorMotionSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E97D022F8800010149265 /* IRSensorMotionSession.swift */; };
 		B5E94EF72D0B21F800149265 /* IRSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94E0B2D0B21F800149265 /* IRSensor.swift */; };
 		B5E94EFB2D0B21F800149265 /* IRFFAudioDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94DF72D0B21F800149265 /* IRFFAudioDecoder.swift */; };
+		B5E9B0022F8C00000149265 /* IRFFDecodeAdmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9B0012F8C00000149265 /* IRFFDecodeAdmission.swift */; };
+		B5E9B0042F8C00000149265 /* IRFFDecodeAdmissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9B0032F8C00000149265 /* IRFFDecodeAdmissionTests.swift */; };
 		B5E979032F8400010149265 /* IRFFDecodeFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E979022F8400010149265 /* IRFFDecodeFrame.swift */; };
 		B5E979052F8400010149265 /* IRFFAudioResampleSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E979042F8400010149265 /* IRFFAudioResampleSession.swift */; };
 		B5E94EFC2D0B21F800149265 /* IRGLRenderModeFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94D952D0B21F800149265 /* IRGLRenderModeFactory.swift */; };
@@ -185,7 +183,6 @@
 		B5E94F962D0B21F800149265 /* IRPlayer_swift.h in Headers */ = {isa = PBXBuildFile; fileRef = B5E94EC02D0B21F800149265 /* IRPlayer_swift.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B5E94F9A0000000000000001 /* IRPhotoSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E94F990000000000000001 /* IRPhotoSaver.swift */; };
 		B5E9526B2F6903400149265 /* IRPhotoLibrarySession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9526A2F6903400149265 /* IRPhotoLibrarySession.swift */; };
-		B5E94FE12D0B21F800149265 /* IRFFPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = B5E94E052D0B21F800149265 /* IRFFPlayer.h */; };
 		B5E950012F68A00100149265 /* IRPlayerTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950002F68A00100149265 /* IRPlayerTestSupport.swift */; };
 		B5E950032F68A00200149265 /* IRPlayerDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950022F68A00200149265 /* IRPlayerDecoderTests.swift */; };
 		B5E950052F68A00300149265 /* IRModelPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E950042F68A00300149265 /* IRModelPayloadTests.swift */; };
@@ -330,11 +327,8 @@
 		4A9D78962F65855F00CDB43B /* IRMetalRenderer+RenderMesh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderMesh.swift"; sourceTree = "<group>"; };
 		4A9D78972F65855F00CDB43B /* IRMetalRenderer+RenderPixelFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IRMetalRenderer+RenderPixelFormat.swift"; sourceTree = "<group>"; };
 		4A9D78A42F658FD300CDB43B /* IRGLRenderAdapters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRGLRenderAdapters.swift; sourceTree = "<group>"; };
-		B559AA5C2D15C603007A9F9F /* package.xcworkspace */ = {isa = PBXFileReference; lastKnownFileType = wrapper.workspace; path = package.xcworkspace; sourceTree = "<group>"; };
 		B559AA5F2D15C603007A9F9F /* IRFFMpeg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IRFFMpeg.h; sourceTree = "<group>"; };
 		B559AA612D15C603007A9F9F /* libavcodec.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libavcodec.xcframework; sourceTree = "<group>"; };
-		B559AA622D15C603007A9F9F /* libavdevice.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libavdevice.xcframework; sourceTree = "<group>"; };
-		B559AA632D15C603007A9F9F /* libavfilter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libavfilter.xcframework; sourceTree = "<group>"; };
 		B559AA642D15C603007A9F9F /* libavformat.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libavformat.xcframework; sourceTree = "<group>"; };
 		B559AA652D15C603007A9F9F /* libavutil.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libavutil.xcframework; sourceTree = "<group>"; };
 		B559AA662D15C603007A9F9F /* libswresample.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libswresample.xcframework; sourceTree = "<group>"; };
@@ -344,8 +338,6 @@
 		B5A024E62D0B305700BE80C5 /* IRFFMpegErrorUtil.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IRFFMpegErrorUtil.h; sourceTree = "<group>"; };
 		B5A0252A2D0C456E00BE80C5 /* public.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = public.modulemap; sourceTree = "<group>"; };
 		B5A0252B2D0C456E00BE80C5 /* public-umbrella.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "public-umbrella.h"; sourceTree = "<group>"; };
-		B5A0252D2D0C456E00BE80C5 /* private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = private.modulemap; sourceTree = "<group>"; };
-		B5A0252E2D0C456E00BE80C5 /* private-umbrella.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "private-umbrella.h"; sourceTree = "<group>"; };
 		B5E94D602D09501300149265 /* libbz2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbz2.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/usr/lib/libbz2.tbd; sourceTree = DEVELOPER_DIR; };
 		B5E94D612D09505500149265 /* libiconv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libiconv.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/usr/lib/libiconv.tbd; sourceTree = DEVELOPER_DIR; };
 		B5E94D622D09506E00149265 /* liblzma.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = liblzma.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/usr/lib/liblzma.tbd; sourceTree = DEVELOPER_DIR; };
@@ -435,6 +427,8 @@
 		B5E94DF42D0B21F800149265 /* IRFFVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoFrame.swift; sourceTree = "<group>"; };
 		B5E94DF52D0B21F800149265 /* IRVideoFrameRGB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRVideoFrameRGB.swift; sourceTree = "<group>"; };
 		B5E94DF72D0B21F800149265 /* IRFFAudioDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioDecoder.swift; sourceTree = "<group>"; };
+		B5E9B0012F8C00000149265 /* IRFFDecodeAdmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecodeAdmission.swift; sourceTree = "<group>"; };
+		B5E9B0032F8C00000149265 /* IRFFDecodeAdmissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecodeAdmissionTests.swift; sourceTree = "<group>"; };
 		B5E979022F8400010149265 /* IRFFDecodeFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecodeFrame.swift; sourceTree = "<group>"; };
 		B5E979042F8400010149265 /* IRFFAudioResampleSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFAudioResampleSession.swift; sourceTree = "<group>"; };
 		B5E94DF82D0B21F800149265 /* IRFFDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFDecoder.swift; sourceTree = "<group>"; };
@@ -462,7 +456,6 @@
 		B5E94E032D0B21F800149265 /* IRFFVideoToolBox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoToolBox.swift; sourceTree = "<group>"; };
 		B5E978002F8300000149265 /* IRFFVideoToolBoxSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoToolBoxSession.swift; sourceTree = "<group>"; };
 		B5E978022F8300010149265 /* IRFFVideoToolBoxH264.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFVideoToolBoxH264.swift; sourceTree = "<group>"; };
-		B5E94E052D0B21F800149265 /* IRFFPlayer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IRFFPlayer.h; sourceTree = "<group>"; };
 		B5E94E072D0B21F800149265 /* IRFFPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPlayer.swift; sourceTree = "<group>"; };
 		B5E977002F8200000149265 /* IRFFPlayerExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPlayerExecutor.swift; sourceTree = "<group>"; };
 		B5E977022F8200010149265 /* IRFFPlayerStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IRFFPlayerStateMachine.swift; sourceTree = "<group>"; };
@@ -618,8 +611,6 @@
 				B5E94D682D0950FD00149265 /* liblzma.tbd in Frameworks */,
 				B5E94D672D0950EF00149265 /* libz.tbd in Frameworks */,
 				B559AA6B2D15C603007A9F9F /* libavcodec.xcframework in Frameworks */,
-				B559AA6C2D15C603007A9F9F /* libavfilter.xcframework in Frameworks */,
-				B559AA6D2D15C603007A9F9F /* libavdevice.xcframework in Frameworks */,
 				B559AA6E2D15C603007A9F9F /* libswresample.xcframework in Frameworks */,
 				B559AA6F2D15C603007A9F9F /* libswscale.xcframework in Frameworks */,
 				B559AA702D15C603007A9F9F /* libavformat.xcframework in Frameworks */,
@@ -662,22 +653,6 @@
 			path = Metal;
 			sourceTree = "<group>";
 		};
-		B559AA5D2D15C603007A9F9F /* xcode */ = {
-			isa = PBXGroup;
-			children = (
-				B559AA5C2D15C603007A9F9F /* package.xcworkspace */,
-			);
-			path = xcode;
-			sourceTree = "<group>";
-		};
-		B559AA5E2D15C603007A9F9F /* .swiftpm */ = {
-			isa = PBXGroup;
-			children = (
-				B559AA5D2D15C603007A9F9F /* xcode */,
-			);
-			path = .swiftpm;
-			sourceTree = "<group>";
-		};
 		B559AA602D15C603007A9F9F /* include */ = {
 			isa = PBXGroup;
 			children = (
@@ -690,8 +665,6 @@
 			isa = PBXGroup;
 			children = (
 				B559AA612D15C603007A9F9F /* libavcodec.xcframework */,
-				B559AA622D15C603007A9F9F /* libavdevice.xcframework */,
-				B559AA632D15C603007A9F9F /* libavfilter.xcframework */,
 				B559AA642D15C603007A9F9F /* libavformat.xcframework */,
 				B559AA652D15C603007A9F9F /* libavutil.xcframework */,
 				B559AA662D15C603007A9F9F /* libswresample.xcframework */,
@@ -703,7 +676,6 @@
 		B559AA6A2D15C603007A9F9F /* IRFFMpeg */ = {
 			isa = PBXGroup;
 			children = (
-				B559AA5E2D15C603007A9F9F /* .swiftpm */,
 				B559AA602D15C603007A9F9F /* include */,
 				B559AA682D15C603007A9F9F /* Libs */,
 				B559AA692D15C603007A9F9F /* IRFFMpeg.m */,
@@ -735,15 +707,6 @@
 				B5A0252B2D0C456E00BE80C5 /* public-umbrella.h */,
 			);
 			path = include;
-			sourceTree = "<group>";
-		};
-		B5A0252F2D0C456E00BE80C5 /* private_include */ = {
-			isa = PBXGroup;
-			children = (
-				B5A0252D2D0C456E00BE80C5 /* private.modulemap */,
-				B5A0252E2D0C456E00BE80C5 /* private-umbrella.h */,
-			);
-			path = private_include;
 			sourceTree = "<group>";
 		};
 		B5E94D6C2D0B21F800149265 /* Audio */ = {
@@ -991,6 +954,7 @@
 				B5E94DF62D0B21F800149265 /* Frame */,
 				B5E94DF72D0B21F800149265 /* IRFFAudioDecoder.swift */,
 				B5E979042F8400010149265 /* IRFFAudioResampleSession.swift */,
+				B5E9B0012F8C00000149265 /* IRFFDecodeAdmission.swift */,
 				B5E979022F8400010149265 /* IRFFDecodeFrame.swift */,
 				B5E94DF82D0B21F800149265 /* IRFFDecoder.swift */,
 				B5E98A012F8B00000149265 /* IRFFDecoderCollaboratorSession.swift */,
@@ -1022,7 +986,6 @@
 			children = (
 				B5E94E042D0B21F800149265 /* FFmpeg */,
 				B5E974042F7E30020149265 /* IRFFAudioRenderer.swift */,
-				B5E94E052D0B21F800149265 /* IRFFPlayer.h */,
 				B5E94E072D0B21F800149265 /* IRFFPlayer.swift */,
 				B5E977002F8200000149265 /* IRFFPlayerExecutor.swift */,
 				B5E977022F8200010149265 /* IRFFPlayerStateMachine.swift */,
@@ -1128,7 +1091,6 @@
 			isa = PBXGroup;
 			children = (
 				B5A0252C2D0C456E00BE80C5 /* include */,
-				B5A0252F2D0C456E00BE80C5 /* private_include */,
 				B5A024E52D0B2F3100BE80C5 /* Objc */,
 				B5E94E1F2D0B21F800149265 /* Class */,
 				B5E94EBF2D0B21F800149265 /* ThirdParty */,
@@ -1160,6 +1122,7 @@
 				B5E973002F7E20000149265 /* IRAVPlayerSessionTests.swift */,
 				B5E9501A2F68A00E00149265 /* IRFFAVYUVVideoFrameTests.swift */,
 				B5E950202F68A01100149265 /* IRFFAudioDecoderTests.swift */,
+				B5E9B0032F8C00000149265 /* IRFFDecodeAdmissionTests.swift */,
 				B5E952002F6900600149265 /* IRFFAudioFrameTests.swift */,
 				B5E9740C2F7E30060149265 /* IRFFAudioRendererTests.swift */,
 				B5E952162F6900A00149265 /* IRFFDecoderAudioSemanticsTests.swift */,
@@ -1311,9 +1274,7 @@
 				B5A025302D0C456E00BE80C5 /* public-umbrella.h in Headers */,
 				B5E94F962D0B21F800149265 /* IRPlayer_swift.h in Headers */,
 				B5A024E82D0B305700BE80C5 /* IRFFMpegErrorUtil.h in Headers */,
-				B5A025312D0C456E00BE80C5 /* private-umbrella.h in Headers */,
 				B559AA732D15C603007A9F9F /* IRFFMpeg.h in Headers */,
-				B5E94FE12D0B21F800149265 /* IRFFPlayer.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1398,7 +1359,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B559AA742D15C603007A9F9F /* package.xcworkspace in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1466,6 +1426,7 @@
 				B5E97D032F8800010149265 /* IRSensorMotionSession.swift in Sources */,
 				B5E94EF72D0B21F800149265 /* IRSensor.swift in Sources */,
 				B5E94EFB2D0B21F800149265 /* IRFFAudioDecoder.swift in Sources */,
+				B5E9B0022F8C00000149265 /* IRFFDecodeAdmission.swift in Sources */,
 				B5E979052F8400010149265 /* IRFFAudioResampleSession.swift in Sources */,
 				B5E979032F8400010149265 /* IRFFDecodeFrame.swift in Sources */,
 				B5E94EFC2D0B21F800149265 /* IRGLRenderModeFactory.swift in Sources */,
@@ -1597,6 +1558,7 @@
 				B5E973012F7E20000149265 /* IRAVPlayerSessionTests.swift in Sources */,
 				B5E9501B2F68A00E00149265 /* IRFFAVYUVVideoFrameTests.swift in Sources */,
 				B5E950212F68A01100149265 /* IRFFAudioDecoderTests.swift in Sources */,
+				B5E9B0042F8C00000149265 /* IRFFDecodeAdmissionTests.swift in Sources */,
 				B5E952012F6900600149265 /* IRFFAudioFrameTests.swift in Sources */,
 				B5E9740D2F7E30060149265 /* IRFFAudioRendererTests.swift in Sources */,
 				B5E952172F6900A00149265 /* IRFFDecoderAudioSemanticsTests.swift in Sources */,
@@ -1762,7 +1724,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1819,7 +1781,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -1834,14 +1796,15 @@
 		D1B25EB52804376100F79DCC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_LIBRARY_FOR_DISTRIBUTION = NO;
 				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEFINES_MODULE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_COMPATIBILITY_VERSION = 2.0.0;
+				DYLIB_CURRENT_VERSION = 2.0.0;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					IRPLATFORM_TARGET_OS_IPHONE_OR_TV,
@@ -1854,7 +1817,7 @@
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1865,7 +1828,6 @@
 				);
 				MARKETING_VERSION = 2.0;
 				MODULEMAP_FILE = "Sources/IRPlayer-swift/include/public.modulemap";
-				MODULEMAP_PRIVATE_FILE = "Sources/IRPlayer-swift/private_include/private.modulemap";
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "-Objc";
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-error=non-modular-include-in-framework-module";
@@ -1886,14 +1848,15 @@
 		D1B25EB62804376100F79DCC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
 				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEFINES_MODULE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_COMPATIBILITY_VERSION = 2.0.0;
+				DYLIB_CURRENT_VERSION = 2.0.0;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					IRPLATFORM_TARGET_OS_IPHONE_OR_TV,
@@ -1906,7 +1869,7 @@
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1917,13 +1880,12 @@
 				);
 				MARKETING_VERSION = 2.0;
 				MODULEMAP_FILE = "Sources/IRPlayer-swift/include/public.modulemap";
-				MODULEMAP_PRIVATE_FILE = "Sources/IRPlayer-swift/private_include/private.modulemap";
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "-Objc";
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-error=non-modular-include-in-framework-module";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.phil.IRPlayer-swift";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "IRPLATFORM_TARGET_OS_IPHONE_OR_TV IRPLATFORM_TARGET_OS_MAC_OR_IPHONE";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_INCLUDE_PATHS = "";
@@ -1950,7 +1912,7 @@
 					"$(PROJECT_DIR)/Sources/IRPlayer-swift/ThirdParty/IRFFMpeg/include",
 					"$(PROJECT_DIR)/Sources/IRPlayer-swift/Objc/include",
 				);
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 2.0;
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-error=non-modular-include-in-framework-module";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.phil.IRPlayer-swiftTests";
@@ -1976,7 +1938,7 @@
 					"$(PROJECT_DIR)/Sources/IRPlayer-swift/ThirdParty/IRFFMpeg/include",
 					"$(PROJECT_DIR)/Sources/IRPlayer-swift/Objc/include",
 				);
-				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 2.0;
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-error=non-modular-include-in-framework-module";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.phil.IRPlayer-swiftTests";

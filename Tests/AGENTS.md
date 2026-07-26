@@ -21,7 +21,7 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRPlayerNotificationTests.swift` — Notification dispatch tests
 - `IRPlayerLifecycleDecisionTests.swift` — Lifecycle decision boundaries
 - `IRPlayerLifecycleControllerTests.swift` — Stateful lifecycle transitions
-- `IRAVPlayerSemanticsTests.swift` — AVPlayer state, time, track, redirect,
+- `IRAVPlayerSemanticsTests.swift` — AVPlayer state, time, seek, track,
   asset-load, and error-mapping semantics
 - `IRAVPlayerTests.swift` — AVPlayer backend integration tests
 - `IRAVPlayerPresentationLoopTests.swift` — VR display-link generation and
@@ -37,8 +37,12 @@ All tests are in `IRPlayer-swiftTests/` — a single flat directory with one tes
 - `IRFFDecodeFrameTests.swift` — Shared AVFrame scratch ownership
 - `IRFFAudioFrameTests.swift` — Managed decoded-audio storage and checked copy
 - `IRFFAudioRendererTests.swift` — Real-time decoded-audio consumption
-- `IRFFVideoDecoderTests.swift` — Video decoding
-- `IRFFVideoInputTests.swift` — Pointer-free immutable custom codec/packet values
+- `IRFFDecodeAdmissionTests.swift` — Shared capacity limits, occupancy, phase,
+  and long-run recovery semantics
+- `IRFFVideoDecoderTests.swift` — Video decoding, unified admission,
+  generation fencing, and terminal-error cancellation
+- `IRFFVideoInputTests.swift` — Pointer-free immutable custom values, typed
+  one-shot completion, weak forwarding, and late-frame reclamation
 - `IRFFVideoToolBoxTests.swift` — Hardware decode via VideoToolBox
 - `IRFFVideoToolBoxSessionTests.swift` — VideoToolbox generation/callback ownership
 - `IRFFDecoderOperationTests.swift` — Decoder operation lifecycle
@@ -131,4 +135,7 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift \
 - Some decoder integration tests use generated or bundled media fixtures.
 - When adding new source files, add a corresponding test file following the naming convention: `<ClassName>Tests.swift`.
 - Test owner semantics directly; do not add wrapper-versus-policy mirror tests.
+- Custom-decode tests must cover routing before packet copying, every typed
+  outcome, exactly-once completion, bounded deferred reservations, EOF wait,
+  generation invalidation, terminal cancellation, and late-frame reclamation.
 - Run relevant tests first, then broader tests if impact is cross-cutting.

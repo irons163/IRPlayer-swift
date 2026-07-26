@@ -109,6 +109,39 @@ final class IRMetalRendererDistortionTests: XCTestCase {
         XCTAssertEqual(rects.right.height, 50)
     }
 
+    func testRenderDistortionRejectsInvalidDrawableSizeBeforeCreatingTarget() throws {
+        let renderer = try makeRenderer()
+        let drawable = try makeOffscreenDrawable(renderer: renderer)
+        let leftMesh = try XCTUnwrap(
+            IRMetalDistortionMesh(
+                device: renderer.device,
+                modelType: .left
+            )
+        )
+        let rightMesh = try XCTUnwrap(
+            IRMetalDistortionMesh(
+                device: renderer.device,
+                modelType: .right
+            )
+        )
+
+        XCTAssertFalse(
+            renderer.renderDistortion(
+                frame: makeRGBFrame(),
+                leftMesh: leftMesh,
+                rightMesh: rightMesh,
+                to: drawable,
+                drawableSize: CGSize(width: 0, height: 4),
+                contentMode: .scaleAspectFit
+            )
+        )
+        XCTAssertNil(renderer.distortionTargetSnapshot)
+        XCTAssertEqual(
+            renderer.distortionTargetDiagnostics.creationCount,
+            0
+        )
+    }
+
     func testRenderDistortionDrawsValidRGBFrame() throws {
         let renderer = try makeRenderer()
         let drawable = try makeOffscreenDrawable(renderer: renderer)

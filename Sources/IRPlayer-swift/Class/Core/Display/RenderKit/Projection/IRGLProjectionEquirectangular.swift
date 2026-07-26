@@ -59,7 +59,7 @@ final class IRGLProjectionEquirectangular:
             textureHeight: parameter.height,
             centerX: parameter.cx,
             centerY: parameter.cy,
-            radius: parameter.rx
+            radius: parameter.ry
         )
     }
 

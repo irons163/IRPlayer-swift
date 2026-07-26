@@ -1,4 +1,6 @@
 import XCTest
+import IRFFMpeg
+import IRPlayerObjc
 #if SWIFT_PACKAGE
 @testable import IRPlayerSwift
 #else
@@ -69,8 +71,20 @@ final class IRFFDecoderReadLoopStateTests: XCTestCase {
 
     func testEOFActionWrapsPacketEOFTransition() {
         XCTAssertNil(IRFFDecoderReadLoopState.eofAction(readFrameResult: 0))
+        XCTAssertNil(
+            IRFFDecoderReadLoopState.eofAction(
+                readFrameResult: AVERROR(EAGAIN)
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoderReadLoopState.eofAction(
+                readFrameResult: -1
+            )
+        )
         XCTAssertEqual(
-            IRFFDecoderReadLoopState.eofAction(readFrameResult: -1),
+            IRFFDecoderReadLoopState.eofAction(
+                readFrameResult: IR_AVERROR_EOF
+            ),
             .finishEOF(
                 IRFFDecoder.ReadPacketEOFTransition(
                     endOfFile: true,
@@ -79,6 +93,60 @@ final class IRFFDecoderReadLoopStateTests: XCTestCase {
                     shouldNotifyDelegate: true
                 )
             )
+        )
+    }
+
+    func testReadResultRetriesEAGAINWithBoundedBackoff() {
+        XCTAssertEqual(
+            IRFFDecoderReadLoopState.classifyReadResult(
+                AVERROR(EAGAIN),
+                retryAttempt: 0
+            ),
+            .retry(after: 0.002)
+        )
+        XCTAssertEqual(
+            IRFFDecoderReadLoopState.classifyReadResult(
+                AVERROR(EAGAIN),
+                retryAttempt: 4
+            ),
+            .retry(after: 0.032)
+        )
+        XCTAssertEqual(
+            IRFFDecoderReadLoopState.classifyReadResult(
+                AVERROR(EAGAIN),
+                retryAttempt: 20
+            ),
+            .retry(after: 0.05)
+        )
+        XCTAssertEqual(
+            IRFFDecoderReadLoopState.readAction(
+                readFrameResult: AVERROR(EAGAIN),
+                retryAttempt: 2
+            ),
+            .retryRead(0.008)
+        )
+    }
+
+    func testReadResultTreatsOnlyFFmpegEOFAsTerminal() {
+        XCTAssertEqual(
+            IRFFDecoderReadLoopState.classifyReadResult(0),
+            .packet
+        )
+        XCTAssertEqual(
+            IRFFDecoderReadLoopState.classifyReadResult(
+                IR_AVERROR_EOF
+            ),
+            .endOfStream
+        )
+        XCTAssertEqual(
+            IRFFDecoderReadLoopState.classifyReadResult(-123),
+            .failed(code: -123)
+        )
+        XCTAssertEqual(
+            IRFFDecoderReadLoopState.readAction(
+                readFrameResult: -123
+            ),
+            .failRead(-123)
         )
     }
 

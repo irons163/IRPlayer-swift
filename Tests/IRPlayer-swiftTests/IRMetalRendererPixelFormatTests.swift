@@ -28,8 +28,9 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
 
     private func makeOffscreenDrawable(renderer: IRMetalRenderer,
                                        width: Int = 4,
-                                       height: Int = 2) throws -> IRPixelFormatTestMetalDrawable {
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+                                       height: Int = 2,
+                                       pixelFormat: MTLPixelFormat = .bgra8Unorm) throws -> IRPixelFormatTestMetalDrawable {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: pixelFormat,
                                                                   width: width,
                                                                   height: height,
                                                                   mipmapped: false)
@@ -837,6 +838,41 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
                                             viewport: CGRect(x: 0, y: 0, width: 4, height: 4)))
     }
 
+    func testRenderFisheyeDrawsValidRGBFrameAndCompletesSubmission() throws {
+        let renderer = try makeRenderer()
+        let mesh = try makeFisheyeMesh(renderer: renderer)
+        let drawable = try makeOffscreenDrawable(
+            renderer: renderer,
+            width: 4,
+            height: 4
+        )
+        let completion = expectation(
+            description: "RGB mesh command completed"
+        )
+
+        XCTAssertTrue(
+            renderer.renderFisheye(
+                frame: makeRGBFrame(),
+                mesh: mesh,
+                mvp: makeIdentityMatrix(),
+                textureMatrix: makeIdentityMatrix(),
+                to: drawable,
+                drawableSize: CGSize(width: 4, height: 4),
+                viewport: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 4,
+                    height: 4
+                ),
+                completion: {
+                    completion.fulfill()
+                }
+            )
+        )
+
+        wait(for: [completion], timeout: 2)
+    }
+
     func testRenderFisheyeMultiDrawsValidI420FrameAcrossViewports() throws {
         let renderer = try makeRenderer()
         let mesh = try makeFisheyeMesh(renderer: renderer)
@@ -857,6 +893,122 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
                                                         CGRect(x: 2, y: 0, width: 2, height: 4)
                                                      ]))
         }
+    }
+
+    func testRenderFisheyeMultiDrawsValidRGBFrameAcrossFourViewports() throws {
+        let renderer = try makeRenderer()
+        let mesh = try makeFisheyeMesh(renderer: renderer)
+        let drawable = try makeOffscreenDrawable(
+            renderer: renderer,
+            width: 4,
+            height: 4
+        )
+        let matrices = Array(
+            repeating: makeIdentityMatrix(),
+            count: 4
+        )
+
+        XCTAssertTrue(
+            renderer.renderFisheyeMulti(
+                frame: makeRGBFrame(),
+                mesh: mesh,
+                mvpList: matrices,
+                textureMatrix: makeIdentityMatrix(),
+                to: drawable,
+                drawableSize: CGSize(width: 4, height: 4),
+                viewports: [
+                    CGRect(x: 0, y: 0, width: 2, height: 2),
+                    CGRect(x: 2, y: 0, width: 2, height: 2),
+                    CGRect(x: 0, y: 2, width: 2, height: 2),
+                    CGRect(x: 2, y: 2, width: 2, height: 2)
+                ]
+            )
+        )
+    }
+
+    func testRenderFisheyeRejectsInvalidGeometryAndDrawable() throws {
+        let renderer = try makeRenderer()
+        let mesh = try makeFisheyeMesh(renderer: renderer)
+        let frame = makeRGBFrame()
+        let drawable = try makeOffscreenDrawable(
+            renderer: renderer,
+            width: 4,
+            height: 4
+        )
+        let invalidDrawable = try makeOffscreenDrawable(
+            renderer: renderer,
+            width: 4,
+            height: 4,
+            pixelFormat: .rgba8Unorm
+        )
+        var invalidMatrix = makeIdentityMatrix()
+        invalidMatrix.columns.0.x = .nan
+
+        XCTAssertFalse(
+            renderer.renderFisheye(
+                frame: frame,
+                mesh: mesh,
+                mvp: makeIdentityMatrix(),
+                textureMatrix: makeIdentityMatrix(),
+                to: drawable,
+                drawableSize: .zero,
+                viewport: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 4,
+                    height: 4
+                )
+            )
+        )
+        XCTAssertFalse(
+            renderer.renderFisheye(
+                frame: frame,
+                mesh: mesh,
+                mvp: invalidMatrix,
+                textureMatrix: makeIdentityMatrix(),
+                to: drawable,
+                drawableSize: CGSize(width: 4, height: 4),
+                viewport: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 4,
+                    height: 4
+                )
+            )
+        )
+        XCTAssertFalse(
+            renderer.renderFisheye(
+                frame: frame,
+                mesh: mesh,
+                mvp: makeIdentityMatrix(),
+                textureMatrix: makeIdentityMatrix(),
+                to: invalidDrawable,
+                drawableSize: CGSize(width: 4, height: 4),
+                viewport: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 4,
+                    height: 4
+                )
+            )
+        )
+        XCTAssertFalse(
+            renderer.renderFisheyeMulti(
+                frame: frame,
+                mesh: mesh,
+                mvpList: [
+                    makeIdentityMatrix(),
+                    makeIdentityMatrix()
+                ],
+                textureMatrix: makeIdentityMatrix(),
+                to: drawable,
+                drawableSize: CGSize(width: 4, height: 4),
+                viewports: [
+                    CGRect(x: 0, y: 0, width: 2, height: 4),
+                    CGRect(x: 2, y: 0, width: 0, height: 4)
+                ]
+            )
+        )
     }
 
     func testRGBPixelRendererRendersFish2PanoWithValidInputs() throws {
@@ -921,10 +1073,11 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
         }
     }
 
-    func testRGBPixelRendererRenders2DAndRejectsMesh() throws {
+    func testRGBPixelRendererRenders2DAndMeshUsingOneTextureGeneration() throws {
         let renderer = try makeRenderer()
         let pixelRenderer = IRMetalPixelRendererRGB()
         let frame = makeRGBFrame()
+        let mesh = try makeFisheyeMesh(renderer: renderer)
 
         try withOffscreenEncoder(renderer: renderer) {
             encoder,
@@ -933,13 +1086,155 @@ final class IRMetalRendererPixelFormatTests: XCTestCase {
                                                  frame: frame,
                                                  encoder: encoder,
                                                  resources: resources))
-            XCTAssertFalse(pixelRenderer.renderMesh(renderer: renderer,
-                                                    frame: frame,
-                                                    encoder: encoder,
-                                                    indexCount: 0,
-                                                    indexBuffer: renderer.vertexBuffer,
-                                                    resources: resources))
+            encoder.setVertexBuffer(
+                mesh.vertexBuffer,
+                offset: 0,
+                index: 0
+            )
+            var matrix = makeIdentityMatrix()
+            encoder.setVertexBytes(
+                &matrix,
+                length: MemoryLayout<simd_float4x4>.size,
+                index: 1
+            )
+            encoder.setVertexBytes(
+                &matrix,
+                length: MemoryLayout<simd_float4x4>.size,
+                index: 2
+            )
+            XCTAssertTrue(
+                pixelRenderer.renderMesh(
+                    renderer: renderer,
+                    frame: frame,
+                    encoder: encoder,
+                    indexCount: mesh.indexCount,
+                    indexBuffer: mesh.indexBuffer,
+                    resources: resources
+                )
+            )
+            XCTAssertEqual(
+                resources.diagnostics.cachedFrameCount,
+                1
+            )
         }
+    }
+
+    func testRGBMeshRejectsInvalidIndexGeometryWithoutGeneratingTexture() throws {
+        let renderer = try makeRenderer()
+        let pixelRenderer = IRMetalPixelRendererRGB()
+        let frame = makeRGBFrame()
+        let indexBuffer = try makeIndexBuffer(
+            renderer: renderer
+        )
+
+        try withOffscreenEncoder(renderer: renderer) {
+            encoder,
+            resources in
+            XCTAssertFalse(
+                pixelRenderer.renderMesh(
+                    renderer: renderer,
+                    frame: frame,
+                    encoder: encoder,
+                    indexCount: 0,
+                    indexBuffer: indexBuffer,
+                    resources: resources
+                )
+            )
+            XCTAssertFalse(
+                pixelRenderer.renderMesh(
+                    renderer: renderer,
+                    frame: frame,
+                    encoder: encoder,
+                    indexCount: 2,
+                    indexBuffer: indexBuffer,
+                    resources: resources
+                )
+            )
+            XCTAssertFalse(
+                pixelRenderer.renderMesh(
+                    renderer: renderer,
+                    frame: frame,
+                    encoder: encoder,
+                    indexCount: 4,
+                    indexBuffer: indexBuffer,
+                    resources: resources
+                )
+            )
+            XCTAssertEqual(
+                resources.diagnostics.cachedFrameCount,
+                0
+            )
+        }
+    }
+
+    func testRGBMeshGenerationReleasesAfterRealGPUCompletion() throws {
+        let renderer = try makeRenderer()
+        let mesh = try makeFisheyeMesh(renderer: renderer)
+        let drawable = try makeOffscreenDrawable(
+            renderer: renderer,
+            width: 4,
+            height: 4
+        )
+        guard let commandBuffer =
+                renderer.commandQueue.makeCommandBuffer(),
+              let renderPass =
+                renderer.currentRenderPassDescriptor(
+                    drawable: drawable
+                ),
+              let encoder =
+                commandBuffer.makeRenderCommandEncoder(
+                    descriptor: renderPass
+                ) else {
+            throw XCTSkip("Offscreen Metal rendering unavailable")
+        }
+        let resources = IRMetalCommandResources()
+        let frame = makeRGBFrame()
+        weak var weakGeneration:
+            IRMetalFrameTextureGeneration?
+
+        encoder.setVertexBuffer(
+            mesh.vertexBuffer,
+            offset: 0,
+            index: 0
+        )
+        var matrix = makeIdentityMatrix()
+        encoder.setVertexBytes(
+            &matrix,
+            length: MemoryLayout<simd_float4x4>.size,
+            index: 1
+        )
+        encoder.setVertexBytes(
+            &matrix,
+            length: MemoryLayout<simd_float4x4>.size,
+            index: 2
+        )
+        XCTAssertTrue(
+            renderer.renderRGBMesh(
+                rgbFrame: frame,
+                encoder: encoder,
+                indexCount: mesh.indexCount,
+                indexBuffer: mesh.indexBuffer,
+                resources: resources
+            )
+        )
+        weakGeneration = resources.frameTextureGeneration(
+            for: frame
+        ) {
+            XCTFail("Expected the command-cached RGB generation")
+            return nil
+        }
+        XCTAssertNotNil(weakGeneration)
+
+        encoder.endEncoding()
+        XCTAssertTrue(resources.submit(to: commandBuffer))
+        XCTAssertNotNil(weakGeneration)
+
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+
+        XCTAssertEqual(commandBuffer.status, .completed)
+        XCTAssertNil(commandBuffer.error)
+        XCTAssertNil(weakGeneration)
     }
 
     func testPixelRenderersRejectMismatchedFrameTypes() throws {

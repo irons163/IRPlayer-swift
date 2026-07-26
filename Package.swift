@@ -78,6 +78,10 @@ let package = Package(
                 "libswscale"
             ],
             path: "Sources/IRPlayer-swift/ThirdParty/IRFFMpeg",
+            exclude: [
+                "Libs/libavdevice.xcframework",
+                "Libs/libavfilter.xcframework"
+            ],
             publicHeadersPath: "include",
             cSettings: [
                 .define("IR_USE_METAL")
@@ -96,14 +100,6 @@ let package = Package(
             path: "Sources/IRPlayer-swift/ThirdParty/IRFFMpeg/Libs/libavutil.xcframework"
         ),
         .binaryTarget(
-            name: "libavdevice",
-            path: "Sources/IRPlayer-swift/ThirdParty/IRFFMpeg/Libs/libavdevice.xcframework"
-        ),
-        .binaryTarget(
-            name: "libavfilter",
-            path: "Sources/IRPlayer-swift/ThirdParty/IRFFMpeg/Libs/libavfilter.xcframework"
-        ),
-        .binaryTarget(
             name: "libswresample",
             path: "Sources/IRPlayer-swift/ThirdParty/IRFFMpeg/Libs/libswresample.xcframework"
         ),
@@ -113,7 +109,11 @@ let package = Package(
         ),
         .testTarget(
             name: "IRPlayer-swiftTests",
-            dependencies: ["IRPlayerSwift"],
+            dependencies: [
+                "IRPlayerSwift",
+                "IRFFMpeg",
+                "IRPlayerObjc"
+            ],
             path: "Tests",
             exclude: ["AGENTS.md"]
         )

@@ -8,7 +8,7 @@ This is the top-level source directory for the IRPlayer framework.
   - `Class/` — All Swift framework code (player, rendering, controllers, pipeline).
   - `Objc/` — Objective-C bridge code (`IRPlayerObjc` target) for FFmpeg error utilities.
   - `ThirdParty/` — FFmpeg wrapper target (`IRFFMpeg`) and pre-built xcframework binaries.
-  - `include/` and `private_include/` — Bridging and module headers.
+  - `include/` — Public umbrella and module headers.
   - `IRPlayer_swift.h` — Umbrella header.
   - `IRPlayer_swift.docc/` — DocC documentation catalog.
 

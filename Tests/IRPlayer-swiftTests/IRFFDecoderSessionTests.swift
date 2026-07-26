@@ -108,6 +108,241 @@ final class IRFFDecoderSessionTests: XCTestCase {
         XCTAssertTrue(session.close())
     }
 
+    func testDeferredWorkerRescheduleRunsAfterCurrentOperationFinishes() {
+        let queue = OperationQueue()
+        let session = IRFFDecoderSession(
+            operationQueue: queue
+        )
+        let firstStarted = DispatchSemaphore(value: 0)
+        let releaseFirst = DispatchSemaphore(value: 0)
+        let secondFinished = DispatchSemaphore(value: 0)
+
+        XCTAssertTrue(session.start {})
+        queue.waitUntilAllOperationsAreFinished()
+        XCTAssertTrue(
+            session.scheduleWorkers(
+                includeVideo: false,
+                read: {
+                    firstStarted.signal()
+                    releaseFirst.wait()
+                },
+                decode: {},
+                display: {}
+            )
+        )
+        XCTAssertEqual(
+            firstStarted.wait(timeout: .now() + 2),
+            .success
+        )
+
+        XCTAssertTrue(
+            session.scheduleWorkers(
+                includeVideo: false,
+                read: {
+                    secondFinished.signal()
+                },
+                decode: {},
+                display: {},
+                deferIfRunning: true
+            )
+        )
+        XCTAssertEqual(
+            session.diagnostics.readScheduleCount,
+            1
+        )
+
+        releaseFirst.signal()
+
+        XCTAssertEqual(
+            secondFinished.wait(timeout: .now() + 2),
+            .success
+        )
+        queue.waitUntilAllOperationsAreFinished()
+        XCTAssertEqual(
+            session.diagnostics.readScheduleCount,
+            2
+        )
+        XCTAssertTrue(session.close())
+    }
+
+    func testDeferredDecodeAndDisplayRestartOnlyLatestGenerationExactlyOnce() {
+        let queue = OperationQueue()
+        let session = IRFFDecoderSession(
+            operationQueue: queue
+        )
+        let decodeStarted =
+            DispatchSemaphore(value: 0)
+        let displayStarted =
+            DispatchSemaphore(value: 0)
+        let releaseDecode =
+            DispatchSemaphore(value: 0)
+        let releaseDisplay =
+            DispatchSemaphore(value: 0)
+        let staleDecodeRan =
+            DispatchSemaphore(value: 0)
+        let staleDisplayRan =
+            DispatchSemaphore(value: 0)
+        let latestDecodeRan =
+            DispatchSemaphore(value: 0)
+        let latestDisplayRan =
+            DispatchSemaphore(value: 0)
+
+        XCTAssertTrue(session.start {})
+        queue.waitUntilAllOperationsAreFinished()
+        XCTAssertTrue(
+            session.scheduleWorkers(
+                includeRead: false,
+                includeVideo: true,
+                read: {},
+                decode: {
+                    decodeStarted.signal()
+                    releaseDecode.wait()
+                },
+                display: {
+                    displayStarted.signal()
+                    releaseDisplay.wait()
+                }
+            )
+        )
+        XCTAssertEqual(
+            decodeStarted.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        XCTAssertEqual(
+            displayStarted.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+
+        XCTAssertTrue(
+            session.scheduleWorkers(
+                includeRead: false,
+                includeVideo: true,
+                read: {},
+                decode: {
+                    staleDecodeRan.signal()
+                },
+                display: {
+                    staleDisplayRan.signal()
+                },
+                deferIfRunning: true
+            )
+        )
+        XCTAssertTrue(
+            session.scheduleWorkers(
+                includeRead: false,
+                includeVideo: true,
+                read: {},
+                decode: {
+                    latestDecodeRan.signal()
+                },
+                display: {
+                    latestDisplayRan.signal()
+                },
+                deferIfRunning: true
+            )
+        )
+
+        releaseDecode.signal()
+        releaseDisplay.signal()
+        XCTAssertEqual(
+            latestDecodeRan.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        XCTAssertEqual(
+            latestDisplayRan.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        queue.waitUntilAllOperationsAreFinished()
+
+        XCTAssertEqual(
+            staleDecodeRan.wait(
+                timeout: .now() + 0.05
+            ),
+            .timedOut
+        )
+        XCTAssertEqual(
+            staleDisplayRan.wait(
+                timeout: .now() + 0.05
+            ),
+            .timedOut
+        )
+        let diagnostics = session.diagnostics
+        XCTAssertEqual(
+            diagnostics.readScheduleCount,
+            0
+        )
+        XCTAssertEqual(
+            diagnostics.decodeScheduleCount,
+            2
+        )
+        XCTAssertEqual(
+            diagnostics.displayScheduleCount,
+            2
+        )
+        XCTAssertTrue(session.close())
+    }
+
+    func testWorkerOwnedTeardownNeverWaitsForItsOwnOperation() {
+        let queue = OperationQueue()
+        let session = IRFFDecoderSession(
+            operationQueue: queue
+        )
+        let workerStarted = DispatchSemaphore(value: 0)
+        let releaseWorker = DispatchSemaphore(value: 0)
+        let deinitReturned = DispatchSemaphore(value: 0)
+        var owner: SessionWorkerOwnedTeardownProbe? =
+            SessionWorkerOwnedTeardownProbe(
+                session: session,
+                workerStarted: workerStarted,
+                releaseWorker: releaseWorker,
+                deinitReturned: deinitReturned
+            )
+        weak var weakOwner:
+            SessionWorkerOwnedTeardownProbe?
+        weakOwner = owner
+
+        XCTAssertTrue(session.start {})
+        queue.waitUntilAllOperationsAreFinished()
+        XCTAssertTrue(
+            session.scheduleWorkers(
+                includeVideo: false,
+                read: { [weak owner] in
+                    owner?.run()
+                },
+                decode: {},
+                display: {}
+            )
+        )
+        XCTAssertEqual(
+            workerStarted.wait(timeout: .now() + 2),
+            .success
+        )
+
+        owner = nil
+        releaseWorker.signal()
+
+        XCTAssertEqual(
+            deinitReturned.wait(timeout: .now() + 2),
+            .success,
+            "A worker-origin close must return before that worker can finish"
+        )
+        XCTAssertNil(weakOwner)
+        XCTAssertTrue(
+            waitUntil {
+                session.diagnostics.phase == .closed
+            }
+        )
+        XCTAssertFalse(session.close())
+    }
+
     func testAudioOnlySessionSchedulesReadWithoutVideoWorkers() {
         let queue = OperationQueue()
         queue.isSuspended = true
@@ -419,5 +654,34 @@ final class IRFFDecoderSessionTests: XCTestCase {
             Thread.sleep(forTimeInterval: 0.001)
         }
         return condition()
+    }
+}
+
+private final class SessionWorkerOwnedTeardownProbe {
+    private let session: IRFFDecoderSession
+    private let workerStarted: DispatchSemaphore
+    private let releaseWorker: DispatchSemaphore
+    private let deinitReturned: DispatchSemaphore
+
+    init(
+        session: IRFFDecoderSession,
+        workerStarted: DispatchSemaphore,
+        releaseWorker: DispatchSemaphore,
+        deinitReturned: DispatchSemaphore
+    ) {
+        self.session = session
+        self.workerStarted = workerStarted
+        self.releaseWorker = releaseWorker
+        self.deinitReturned = deinitReturned
+    }
+
+    func run() {
+        workerStarted.signal()
+        releaseWorker.wait()
+    }
+
+    deinit {
+        _ = session.close()
+        deinitReturned.signal()
     }
 }

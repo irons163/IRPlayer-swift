@@ -24,12 +24,15 @@ extension IRAVPlayer {
             else {
                 return nil
             }
+            let itemDuration = resources.item.duration
+            let totalDuration =
+                itemDuration.isIndefinite
+                ? 0
+                : CMTimeGetSeconds(itemDuration)
             return Self.playableEndTime(
-                start: Self.finiteSeconds(from: range.start),
-                duration: Self.finiteSeconds(from: range.duration),
-                totalDuration: Self.finiteSeconds(
-                    from: resources.item.duration
-                )
+                start: CMTimeGetSeconds(range.start),
+                duration: CMTimeGetSeconds(range.duration),
+                totalDuration: totalDuration
             )
         }
         playableTime = value ?? 0

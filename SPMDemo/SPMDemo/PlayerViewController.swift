@@ -87,13 +87,13 @@ class PlayerViewController: UIViewController {
             self.player.replaceVideoWithURL(contentURL: PlayerViewController.normalVideo as NSURL, videoType: .normal)
         case .ffmpegFisheyeHardware:
             self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
-            #if TARGET_IPHONE_SIMULATOR
+            #if targetEnvironment(simulator)
             self.player.decoder.ffmpegHardwareDecoderEnable = false
             #endif
             self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL, videoType: .fisheye)
         case .ffmpegPanoramaHardware:
             self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
-            #if TARGET_IPHONE_SIMULATOR
+            #if targetEnvironment(simulator)
             self.player.decoder.ffmpegHardwareDecoderEnable = false
             #endif
             self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL, videoType: .pano)
@@ -101,15 +101,15 @@ class PlayerViewController: UIViewController {
             self.player.decoder = IRPlayerDecoder.FFmpegDecoder()
             let sharedRender: IRGLRender
             modes = self.createFisheyeModes(with: nil)
-            #if TARGET_IPHONE_SIMULATOR
+            #if targetEnvironment(simulator)
             sharedRender = IRGLRenderYUV()
             self.player.decoder.ffmpegHardwareDecoderEnable = false
             #else
             sharedRender = IRGLRenderNV12()
-            for mode in modes ?? [] {
-                mode.renderer = sharedRender;
-            }
             #endif
+            for mode in modes ?? [] {
+                mode.renderer = sharedRender
+            }
             self.player.renderModes = modes
             self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL, videoType: .custom)
             self.modesButton.isHidden = false
@@ -197,26 +197,21 @@ extension PlayerViewController {
 
             let alertView = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
-            for (index, mode) in aryModes.enumerated() {
-                if let tmpRenderMode = mode as? IRGLRenderMode {
-                    let renderModeStr = tmpRenderMode.name
-                    aryStreamsTitle.append(renderModeStr)
+            for mode in aryModes {
+                let renderModeStr = mode.name
+                aryStreamsTitle.append(renderModeStr)
 
-                    if tmpRenderMode == currentRenderMode {
-                        aryStreamsCheckMark.append(.checkmark)
-                    } else {
-                        aryStreamsCheckMark.append(.none)
-                    }
-
-                    let itemAction = UIAlertAction(title: renderModeStr, style: .default) { [weak self] action in
-                        guard let self = self else { return }
-                        if let tmpRenderMode = aryModes[index] as? IRGLRenderMode {
-                            self.player.selectRenderMode(renderMode: tmpRenderMode)
-                        }
-                    }
-
-                    alertView.addAction(itemAction)
+                if mode == currentRenderMode {
+                    aryStreamsCheckMark.append(.checkmark)
+                } else {
+                    aryStreamsCheckMark.append(.none)
                 }
+
+                let itemAction = UIAlertAction(title: renderModeStr, style: .default) { [weak self] _ in
+                    self?.player.selectRenderMode(renderMode: mode)
+                }
+
+                alertView.addAction(itemAction)
             }
 
             present(alertView, animated: true, completion: nil)

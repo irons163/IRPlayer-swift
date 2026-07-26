@@ -176,6 +176,51 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(renderer.renderDistortionCallCount, 1)
     }
 
+    func testSpecializedRenderFailureDoesNotFallBackToGenericRenderer() {
+        let view = IRGLView(
+            frame: CGRect(
+                x: 0,
+                y: 0,
+                width: 12,
+                height: 8
+            )
+        )
+        let mode = IRGLRenderModeDistortion()
+        let renderer = ViewRenderRecorder()
+        renderer.renderDistortionResult = false
+        view.setRenderModes([mode])
+        mode.renderer = renderer
+
+        view.send(videoFrame: makeRGBFrame())
+
+        XCTAssertEqual(
+            renderer.renderDistortionCallCount,
+            1
+        )
+        XCTAssertEqual(renderer.renderCallCount, 0)
+    }
+
+    func testMissingMultiProgramDoesNotFallBackToGenericRenderer() {
+        let view = IRGLView(
+            frame: CGRect(
+                x: 0,
+                y: 0,
+                width: 12,
+                height: 8
+            )
+        )
+        let mode = ViewNilProgramMultiRenderMode()
+        let renderer = ViewRenderRecorder()
+        view.setRenderModes([mode])
+        mode.renderer = renderer
+
+        view.send(videoFrame: makeRGBFrame())
+
+        XCTAssertNil(mode.program)
+        XCTAssertEqual(renderer.renderMultiCallCount, 0)
+        XCTAssertEqual(renderer.renderCallCount, 0)
+    }
+
     func testRenderRoutesFisheyeFrameThroughRenderer() {
         let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 12, height: 8))
         let mode = IRGLRenderMode3DFisheye()
@@ -231,17 +276,14 @@ final class IRGLViewSnapshotTests: XCTestCase {
 
         view.send(videoFrame: makeRGBFrame(width: 64, height: 48))
         let deadline = Date().addingTimeInterval(2)
-        var renderAttempts = 1
         while renderer.renderFish2PanoCallCount == 0, Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
-            view.render(nil)
-            renderAttempts += 1
         }
 
         XCTAssertEqual(
             renderer.renderFish2PanoCallCount,
             1,
-            "attempts=\(renderAttempts) clears=\(renderer.renderClearCallCount) texture=\(params.textureWidth)x\(params.textureHeight) output=\(params.outputWidth)x\(params.outputHeight)"
+            "clears=\(renderer.renderClearCallCount) texture=\(params.textureWidth)x\(params.textureHeight) output=\(params.outputWidth)x\(params.outputHeight)"
         )
         XCTAssertEqual(renderer.lastFish2PanoTextureCount, 1)
         XCTAssertEqual(renderer.lastFish2PanoOutputSize,
@@ -740,6 +782,14 @@ private final class ViewFlatMultiRenderMode: IRGLRenderModeMulti4P {
     }
 }
 
+private final class ViewNilProgramMultiRenderMode:
+    IRGLRenderModeMulti4P
+{
+    override var programFactory: IRGLProgram2DFactory {
+        NilProgramFactory()
+    }
+}
+
 private final class ViewFlatMultiProgramFactory: IRGLProgram2DFactory {
     override func createIRGLProgram(pixelFormat: IRPixelFormat,
                                     viewportRange: CGRect,
@@ -794,6 +844,7 @@ private final class ViewRenderRecorder: IRGLRenderInternal {
     private(set) var lastMVPCount = 0
     private(set) var lastViewportCount = 0
     private(set) var lastFrame: IRFFVideoFrame?
+    var renderDistortionResult = true
 
     func render(frame: IRFFVideoFrame,
                 to drawable: CAMetalDrawable,
@@ -848,7 +899,7 @@ private final class ViewRenderRecorder: IRGLRenderInternal {
                           contentMode: IRGLRenderContentMode) -> Bool {
         renderDistortionCallCount += 1
         lastFrame = frame
-        return true
+        return renderDistortionResult
     }
 
     func renderFisheye(frame: IRFFVideoFrame,

@@ -46,10 +46,13 @@ values internally. Only the public custom-decode boundary changes.
   wrappers.
 - Reject malformed codec geometry, extradata, packet sizes, or side-data
   layouts before calling a custom source.
-- Construct one descriptor and packet snapshot per packet and pass the same
-  values to both custom routing callbacks.
-- Preserve synchronous custom frame returns and asynchronous
-  `videoOutput.send(videoFrame:)`.
+- Construct one immutable codec descriptor for the decoder generation.
+- Route with an allocation-free borrowed packet descriptor, and copy an owned
+  compressed packet only after the custom source opts in.
+- Preserve synchronous custom frame returns and make asynchronous packet
+  ownership explicit with a one-shot completion.
+- Bound deferred reservations with the same frame admission capacity, and
+  delay EOF until current-generation reservations resolve.
 - Make the asynchronous output binding synchronized and non-owning, and make
   its routing mode immutable after input construction.
 - Keep built-in software and VideoToolbox decode behavior unchanged.
@@ -60,11 +63,11 @@ values internally. Only the public custom-decode boundary changes.
 
 - Change FFmpeg packet ownership inside `IRFFPacket` or `IRFFPacketQueue`.
 - Replace the built-in decoder's scoped `AVPacket` or codec-context calls.
-- Add an asynchronous completion handler to `IRFFVideoInput`.
 - Interpret codec-specific extradata or packet side data.
 - Change packet timestamp units; raw ticks remain paired with decoder
   `timebase`.
-- Change decoder backpressure, frame ordering, or error behavior.
+- Add an implicit timeout to asynchronous custom work. Deferred tokens resolve,
+  auto-drop on deinit, or are invalidated by seek/stop.
 
 ## Components
 
@@ -108,23 +111,49 @@ Construction is all-or-nothing.
 
 The immutable info value combines one codec descriptor with the current
 hardware-decoding flag, maximum decode duration, timebase, and frames per
-second. It no longer provides any mutable pointer.
+second. `maximumDecodeDuration` is the built-in decoder's buffered-output
+backpressure threshold, not a timeout or deadline for deferred custom work. It
+no longer provides any mutable pointer.
 
 ### Callback Integration
 
-`IRFFVideoDecoder` builds the codec and packet values while the internal raw
-packet borrow is active. If construction succeeds, both
-`shouldHandle(_:decodeFrame:)` and `videoDecoder(_:decodeFrame:)` receive the
-same values. Retaining or sending them to a `Task` is safe because all
-FFmpeg-owned bytes have already been copied.
+`IRFFVideoDecoder` builds the codec descriptor once for the decoder
+generation. While an internal raw packet borrow is active, it creates an
+allocation-free `IRFFVideoPacketDescriptor` containing only routing metadata
+and passes that descriptor to `shouldHandle(_:packet:)`. Declining custom
+handling therefore performs no payload or side-data allocation.
+
+Only after the source opts in does the decoder copy the payload and side data
+into an owned `IRFFCompressedVideoPacket` and call
+`videoDecoder(_:decodeFrame:completion:)`. Retaining that packet or sending it
+to a `Task` is safe because no FFmpeg-owned bytes cross the public decode
+callback.
 
 If a custom source declines the packet, the original borrowed `AVPacket`
 continues through VideoToolbox or software FFmpeg decode within its existing
 scope.
 
-`IRFFVideoInput.videoOutput` is a lock-protected weak binding so asynchronous
-custom work can read it while facade replacement clears or rebinds it without
-a race or stale ownership. `outputType` is fixed at initialization.
+Every accepted packet reserves one output credit before the custom callback.
+The callback returns `.frame`, `.dropped`, `.deferred`, or `.failed`. Deferred
+work retains the supplied exactly-once completion and later resolves it with a
+frame, drop, or failure. The decoder holds only a weak token reference:
+forgetting to retain the token auto-drops the reservation. EOF waits on a
+condition for current-generation reservations; seek/stop remove reservations,
+wake the worker, invalidate retained tokens, and reclaim late frames. There is
+no implicit completion timeout: deferred work must resolve, release its token,
+or be invalidated by a lifecycle or terminal transition.
+
+Decode invalidation is epoch-based. A generation-advancing seek may cancel an
+active worker. A same-generation flush succeeds only while no decode worker is
+active; an active-worker request returns `false` without mutating queues,
+reservations, codec state, or the EOF ticket. This prevents a packet already
+removed from the packet queue from being relabeled into a new
+same-generation epoch.
+
+`IRFFVideoInput.videoOutput` is a lock-protected weak binding. Direct injection
+uses `trySend(videoFrame:)`, which prefers bounded admission, falls back to a
+legacy callable output, and reclaims a frame when no target exists.
+`outputType` is fixed at initialization.
 
 ## Public 2.0 Migration
 
@@ -143,14 +172,23 @@ override func videoDecoder(
 After:
 
 ```swift
+override func shouldHandle(
+    _ decoder: IRFFVideoDecoderInfo,
+    packet: IRFFVideoPacketDescriptor
+) -> Bool {
+    packet.isKeyFrame || acceptsInterFrames
+}
+
 override func videoDecoder(
     _ decoder: IRFFVideoDecoderInfo,
-    decodeFrame packet: IRFFCompressedVideoPacket
-) -> IRFFVideoFrame? {
-    Task {
-        await decode(packet.data, codec: decoder.codec)
+    decodeFrame packet: IRFFCompressedVideoPacket,
+    completion: IRFFCustomVideoDecodeCompletion
+) -> IRFFCustomVideoDecodeOutcome {
+    Task { [completion] in
+        let frame = await decode(packet.data, codec: decoder.codec)
+        completion.send(videoFrame: frame)
     }
-    return nil
+    return .deferred
 }
 ```
 
@@ -162,9 +200,19 @@ override func videoDecoder(
 - Codec geometry is never negative or half-empty.
 - Positive declared byte counts always have backing storage.
 - Packet side-data order and raw identifiers are preserved.
-- Both custom routing callbacks observe the same immutable generation.
+- Routing and decode callbacks observe the same immutable decoder
+  information, while payload ownership begins only after routing opts in.
 - Declining custom handling leaves the internal built-in decode path
   unchanged.
+- Accepting custom handling is authoritative: copy failure or `.failed` is
+  terminal and never falls through to a second decoder.
+- Every deferred packet owns exactly one bounded reservation until completion,
+  token deinit, or generation invalidation.
+- EOF never finishes the frame queue while a current-generation reservation is
+  pending.
+- Idle same-generation flush advances the transition revision; active-worker
+  same-generation flush is rejected atomically, while a newer generation
+  cancels and wakes old work.
 - Output binding replacement is synchronized and the input never owns its
   display or decoder target.
 
@@ -175,8 +223,11 @@ override func videoDecoder(
   behavior.
 - Captured packet and codec values surviving source-memory mutation and packet
   close.
-- Exact same info/packet values across both custom callbacks.
-- Custom synchronous frame return and asynchronous output integration.
+- Allocation-free descriptor routing before opt-in and an exact owned packet
+  copy after opt-in.
+- Typed synchronous frame/drop/failure and deferred completion integration.
+- Exactly-once completion, duplicate/late reclaim, unretained auto-drop, EOF
+  waiting, capacity bounds, and seek/stop cancellation.
 - Concurrent output reads/rebinding and weak target lifetime.
 - Built-in software, VideoToolbox, decoder orchestration, queue, and player
   regressions.

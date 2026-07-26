@@ -99,8 +99,18 @@ final class IRGLSnapshotSession: @unchecked Sendable {
     func cancelPendingRequest() -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard pendingTicket != nil else { return false }
-        pendingTicket = nil
+        if pendingTicket != nil {
+            pendingTicket = nil
+            cancelledCaptureCount += 1
+            return true
+        }
+        guard let scheduledTicket =
+                scheduledTickets.max(by: {
+                    $0.generation < $1.generation
+                }) else {
+            return false
+        }
+        scheduledTickets.remove(scheduledTicket)
         cancelledCaptureCount += 1
         return true
     }
@@ -121,8 +131,16 @@ final class IRGLSnapshotSession: @unchecked Sendable {
         lock.unlock()
 
         dependencies.dispatchToMain { [weak self] in
-            guard let self, self.admit(ticket) else { return }
-            guard let image = capture() else { return }
+            guard let self,
+                  self.isAdmitted(ticket) else {
+                return
+            }
+            guard let image = capture(),
+                  Self.isRenderableSnapshot(image) else {
+                self.discard(ticket)
+                return
+            }
+            guard self.consume(ticket) else { return }
             self.dependencies.saveImage(image)
             self.recordSavedCapture()
         }
@@ -144,7 +162,15 @@ final class IRGLSnapshotSession: @unchecked Sendable {
         return true
     }
 
-    private func admit(_ ticket: Ticket) -> Bool {
+    private func isAdmitted(_ ticket: Ticket) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !closed
+            && ticket.epoch == epoch
+            && scheduledTickets.contains(ticket)
+    }
+
+    private func consume(_ ticket: Ticket) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard !closed,
@@ -155,9 +181,27 @@ final class IRGLSnapshotSession: @unchecked Sendable {
         return true
     }
 
+    private func discard(_ ticket: Ticket) {
+        lock.lock()
+        if scheduledTickets.remove(ticket) != nil {
+            cancelledCaptureCount += 1
+        }
+        lock.unlock()
+    }
+
     private func recordSavedCapture() {
         lock.lock()
         savedCaptureCount += 1
         lock.unlock()
+    }
+
+    private static func isRenderableSnapshot(
+        _ image: UIImage
+    ) -> Bool {
+        image.size.width.isFinite
+            && image.size.height.isFinite
+            && image.size.width > 0
+            && image.size.height > 0
+            && (image.cgImage != nil || image.ciImage != nil)
     }
 }

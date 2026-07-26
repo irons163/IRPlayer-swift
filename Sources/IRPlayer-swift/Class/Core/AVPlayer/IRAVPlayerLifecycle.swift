@@ -19,7 +19,10 @@ extension IRAVPlayer {
         item: AVPlayerItem,
         event: IRAVPlayerSession.ItemEvent
     ) {
-        guard session.isCurrent(token, item: item) else { return }
+        guard session.isCurrent(token, item: item),
+              abstractPlayer?.isCurrentActivation != false else {
+            return
+        }
 
         switch event {
         case .statusChanged:
@@ -32,21 +35,46 @@ extension IRAVPlayer {
 
         case .loadedTimeRangesChanged:
             reloadPlayableTime()
-            guard let abstractPlayer else { return }
-            let interval = playableTime - progress
-            let residue = duration - progress
-            if interval > abstractPlayer.playableBufferInterval {
-                playIfNeeded()
-            } else if interval < 0.3 && residue > 1.5 {
-                setPlayIfNeeded()
+            guard session.isCurrent(token, item: item),
+                  let abstractPlayer,
+                  abstractPlayer.isCurrentActivation else {
+                return
             }
+            reevaluatePlaybackAfterLoadedTimeRange(
+                playableTime: playableTime,
+                progress: progress,
+                totalDuration: duration,
+                playableBufferInterval:
+                    abstractPlayer.playableBufferInterval
+            )
 
         case .didPlayToEnd:
             state = .finished
         }
     }
 
-    private func handleItemStatus(_ status: AVPlayerItem.Status) {
+    func reevaluatePlaybackAfterLoadedTimeRange(
+        playableTime: TimeInterval,
+        progress: TimeInterval,
+        totalDuration: TimeInterval,
+        playableBufferInterval: TimeInterval
+    ) {
+        switch Self.loadedTimeRangeDecision(
+            playableTime: playableTime,
+            progress: progress,
+            totalDuration: totalDuration,
+            playableBufferInterval: playableBufferInterval
+        ) {
+        case .playIfNeeded:
+            playIfNeeded()
+        case .buffer:
+            setPlayIfNeeded()
+        case .ignore:
+            break
+        }
+    }
+
+    func handleItemStatus(_ status: AVPlayerItem.Status) {
         switch Self.itemStatusDecision(
             status: status,
             currentState: state
@@ -90,12 +118,14 @@ extension IRAVPlayer {
     ) {
         guard state == .playing,
               session.isCurrent(token),
-              let abstractPlayer else {
+              let abstractPlayer,
+              abstractPlayer.isCurrentActivation else {
             return
         }
         abstractPlayer.playbackBackendDidUpdateProgress(
             current: Self.finiteSeconds(from: time),
-            total: duration
+            total: duration,
+            activation: abstractPlayer.activation
         )
     }
 
@@ -235,9 +265,13 @@ extension IRAVPlayer {
             state = .failed
             return
         }
+        let activation = abstractPlayer.activation
         abstractPlayer.error = errorInfo
         state = .failed
-        abstractPlayer.playbackBackendDidFail(errorInfo)
+        abstractPlayer.playbackBackendDidFail(
+            errorInfo,
+            activation: activation
+        )
     }
 }
 
@@ -253,6 +287,7 @@ extension IRAVPlayer {
     func replaceVideo() {
         replaceEmpty()
         guard let abstractPlayer,
+              abstractPlayer.isCurrentActivation,
               let contentURL = abstractPlayer.contentURL else {
             return
         }
@@ -270,8 +305,7 @@ extension IRAVPlayer {
         let asset = AVURLAsset(url: contentURL as URL)
         guard let token = activateSession(
             asset: asset,
-            automaticallyLoadedAssetKeys: automaticallyLoadedAssetKeys,
-            contentHeaders: abstractPlayer.contentHeaders
+            automaticallyLoadedAssetKeys: automaticallyLoadedAssetKeys
         ) else {
             return
         }
@@ -303,14 +337,12 @@ extension IRAVPlayer {
     @discardableResult
     func activateSession(
         asset: AVURLAsset,
-        automaticallyLoadedAssetKeys: [String]?,
-        contentHeaders: [String: String]? = nil
+        automaticallyLoadedAssetKeys: [String]?
     ) -> IRAVPlayerSession.Token? {
         session.activate(
             asset: asset,
             automaticallyLoadedAssetKeys:
                 automaticallyLoadedAssetKeys,
-            contentHeaders: contentHeaders,
             itemEventHandler: { [weak self] token, item, event in
                 self?.handleItemEvent(
                     token: token,
@@ -333,6 +365,8 @@ extension IRAVPlayer {
             DispatchQueue.main.async {
                 guard let self,
                       let asset,
+                      self.abstractPlayer?
+                        .isCurrentActivation != false,
                       self.session.isCurrent(token, asset: asset) else {
                     return
                 }
@@ -369,7 +403,8 @@ extension IRAVPlayer {
         }
     }
 
-    func replaceEmpty() {
+    func replaceEmpty(allowInactiveCleanup: Bool = false) {
+        let activation = abstractPlayer?.activation
         _ = presentationLoop.deactivate()
         cancelPendingSeek()
         session.reset()
@@ -381,12 +416,14 @@ extension IRAVPlayer {
             if shouldSendPlayableReset {
                 abstractPlayer.playbackBackendDidUpdatePlayableTime(
                     current: 0,
-                    total: 0
+                    total: 0,
+                    activation: activation
                 )
             }
             abstractPlayer.playbackBackendDidUpdateProgress(
                 current: 0,
-                total: 0
+                total: 0,
+                activation: activation
             )
         }
 
@@ -394,6 +431,9 @@ extension IRAVPlayer {
         state = .none
         needPlay = false
         readyToPlayTime = 0
-        abstractPlayer?.displayView?.cleanEmptyBuffer()
+        if allowInactiveCleanup
+            || abstractPlayer?.isCurrentActivation != false {
+            abstractPlayer?.displayView?.cleanEmptyBuffer()
+        }
     }
 }

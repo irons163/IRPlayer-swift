@@ -58,8 +58,6 @@ final class IRAVPlayerSession: @unchecked Sendable {
         let itemObservations: [NSKeyValueObservation]
         let endObserver: NSObjectProtocol
         let periodicTimeObserver: Any
-        let resourceLoaderDelegate: IRAVPlayerResourceLoaderDelegate?
-        let resourceLoaderQueue: DispatchQueue?
         let itemEventHandler: ItemEventHandler
         let periodicTimeHandler: PeriodicTimeHandler
     }
@@ -110,7 +108,6 @@ final class IRAVPlayerSession: @unchecked Sendable {
     func activate(
         asset: AVURLAsset,
         automaticallyLoadedAssetKeys: [String]?,
-        contentHeaders: [String: String]?,
         itemEventHandler: @escaping ItemEventHandler,
         periodicTimeHandler: @escaping PeriodicTimeHandler
     ) -> Token? {
@@ -127,23 +124,6 @@ final class IRAVPlayerSession: @unchecked Sendable {
         let token = Token(generation: generationCounter)
         phase = .building
         condition.unlock()
-
-        let loaderDelegate: IRAVPlayerResourceLoaderDelegate?
-        let loaderQueue: DispatchQueue?
-        if let contentHeaders, !contentHeaders.isEmpty {
-            let delegate = IRAVPlayerResourceLoaderDelegate(
-                contentHeaders: contentHeaders
-            )
-            let queue = DispatchQueue(
-                label: "IRAVPlayer.AssetResourceLoader.\(token.generation)"
-            )
-            asset.resourceLoader.setDelegate(delegate, queue: queue)
-            loaderDelegate = delegate
-            loaderQueue = queue
-        } else {
-            loaderDelegate = nil
-            loaderQueue = nil
-        }
 
         let item: AVPlayerItem
         if let automaticallyLoadedAssetKeys {
@@ -188,8 +168,6 @@ final class IRAVPlayerSession: @unchecked Sendable {
             itemObservations: itemObservations,
             endObserver: endObserver,
             periodicTimeObserver: periodicTimeObserver,
-            resourceLoaderDelegate: loaderDelegate,
-            resourceLoaderQueue: loaderQueue,
             itemEventHandler: itemEventHandler,
             periodicTimeHandler: periodicTimeHandler
         )
@@ -352,22 +330,6 @@ final class IRAVPlayerSession: @unchecked Sendable {
         return .ignore
     }
 
-    static func resourceLoaderRedirectRequest(
-        for request: URLRequest,
-        headers: [String: String]?
-    ) -> URLRequest? {
-        guard let headers, !headers.isEmpty,
-              request.url?.scheme?.lowercased() == "https" else {
-            return nil
-        }
-
-        var redirectRequest = request
-        headers.forEach { key, value in
-            redirectRequest.setValue(value, forHTTPHeaderField: key)
-        }
-        return redirectRequest
-    }
-
     private var phaseSnapshot: Phase {
         condition.lock()
         defer { condition.unlock() }
@@ -487,7 +449,6 @@ final class IRAVPlayerSession: @unchecked Sendable {
         resources.player.removeTimeObserver(resources.periodicTimeObserver)
 
         resources.asset.cancelLoading()
-        resources.asset.resourceLoader.setDelegate(nil, queue: nil)
         resources.item.cancelPendingSeeks()
         resources.player.pause()
         resources.player.cancelPendingPrerolls()
@@ -497,9 +458,6 @@ final class IRAVPlayerSession: @unchecked Sendable {
            resources.item.outputs.contains(where: { $0 === output }) {
             resources.item.remove(output)
         }
-
-        withExtendedLifetime(resources.resourceLoaderDelegate) {}
-        withExtendedLifetime(resources.resourceLoaderQueue) {}
     }
 
     private func resourceSnapshot(
@@ -537,33 +495,5 @@ final class IRAVPlayerSession: @unchecked Sendable {
             withAdvanceInterval: IRAVPlayer.pixelBufferRequestInterval
         )
         return output
-    }
-}
-
-private final class IRAVPlayerResourceLoaderDelegate:
-    NSObject,
-    AVAssetResourceLoaderDelegate
-{
-    private let contentHeaders: [String: String]
-
-    init(contentHeaders: [String: String]) {
-        self.contentHeaders = contentHeaders
-    }
-
-    func resourceLoader(
-        _ resourceLoader: AVAssetResourceLoader,
-        shouldWaitForLoadingOfRequestedResource loadingRequest:
-            AVAssetResourceLoadingRequest
-    ) -> Bool {
-        guard let redirectRequest =
-            IRAVPlayerSession.resourceLoaderRedirectRequest(
-                for: loadingRequest.request,
-                headers: contentHeaders
-            ) else {
-            return false
-        }
-        loadingRequest.redirect = redirectRequest
-        loadingRequest.finishLoading()
-        return true
     }
 }

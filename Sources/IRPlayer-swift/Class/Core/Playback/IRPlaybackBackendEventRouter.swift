@@ -28,6 +28,10 @@ protocol IRPlaybackBackendEventSink: AnyObject {
     func receiveBackendFailure(_ error: IRError)
 }
 
+protocol IRPlaybackBackendSourceUpdating: AnyObject {
+    func updateContentHeaders(_ headers: [String: String]?)
+}
+
 final class IRPlaybackBackendEventRouter: @unchecked Sendable {
     struct Diagnostics {
         let activeKind: IRPlaybackBackendKind?
@@ -36,9 +40,9 @@ final class IRPlaybackBackendEventRouter: @unchecked Sendable {
         let rejectedEventCount: Int
     }
 
-    private let lock = NSLock()
+    private let lock = NSRecursiveLock()
     private weak var sink: (any IRPlaybackBackendEventSink)?
-    private var activeKind: IRPlaybackBackendKind?
+    private var activeActivation: IRPlaybackBackendActivation?
     private var generation: UInt64 = 0
     private var acceptedEventCount = 0
     private var rejectedEventCount = 0
@@ -51,7 +55,7 @@ final class IRPlaybackBackendEventRouter: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return Diagnostics(
-            activeKind: activeKind,
+            activeKind: activeActivation?.kind,
             generation: generation,
             acceptedEventCount: acceptedEventCount,
             rejectedEventCount: rejectedEventCount
@@ -64,90 +68,127 @@ final class IRPlaybackBackendEventRouter: @unchecked Sendable {
         lock.unlock()
     }
 
-    func activate(_ kind: IRPlaybackBackendKind?) {
+    func activate(_ activation: IRPlaybackBackendActivation?) {
         lock.lock()
-        activeKind = kind
+        activeActivation = activation
         generation &+= 1
         lock.unlock()
     }
 
+    func isActive(_ activation: IRPlaybackBackendActivation) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return activeActivation == activation
+    }
+
     func deliverState(
-        from kind: IRPlaybackBackendKind,
+        from activation: IRPlaybackBackendActivation,
         previous: IRPlayerState,
         current: IRPlayerState
     ) {
-        guard let sink = admittedSink(for: kind) else { return }
-        sink.receiveBackendState(previous: previous, current: current)
+        deliver(from: activation) {
+            $0.receiveBackendState(previous: previous, current: current)
+        }
     }
 
     func deliverProgress(
-        from kind: IRPlaybackBackendKind,
+        from activation: IRPlaybackBackendActivation,
         current: TimeInterval,
         total: TimeInterval
     ) {
-        guard let sink = admittedSink(for: kind) else { return }
-        sink.receiveBackendProgress(current: current, total: total)
+        deliver(from: activation) {
+            $0.receiveBackendProgress(current: current, total: total)
+        }
     }
 
     func deliverPlayableTime(
-        from kind: IRPlaybackBackendKind,
+        from activation: IRPlaybackBackendActivation,
         current: TimeInterval,
         total: TimeInterval
     ) {
-        guard let sink = admittedSink(for: kind) else { return }
-        sink.receiveBackendPlayableTime(current: current, total: total)
+        deliver(from: activation) {
+            $0.receiveBackendPlayableTime(current: current, total: total)
+        }
     }
 
     func deliverFailure(
-        from kind: IRPlaybackBackendKind,
+        from activation: IRPlaybackBackendActivation,
         error: IRError
     ) {
-        guard let sink = admittedSink(for: kind) else { return }
-        sink.receiveBackendFailure(error)
+        deliver(from: activation) { $0.receiveBackendFailure(error) }
     }
 
-    private func admittedSink(
-        for kind: IRPlaybackBackendKind
-    ) -> (any IRPlaybackBackendEventSink)? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard activeKind == kind, let sink else {
-            rejectedEventCount += 1
-            return nil
+    private func deliver(
+        from activation: IRPlaybackBackendActivation,
+        action:
+            @escaping (any IRPlaybackBackendEventSink) -> Void
+    ) {
+        IRMainThreadExecutor.execute { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            defer { self.lock.unlock() }
+            guard self.activeActivation == activation,
+                  let sink = self.sink else {
+                self.rejectedEventCount += 1
+                return
+            }
+            self.acceptedEventCount += 1
+            action(sink)
         }
-        acceptedEventCount += 1
-        return sink
     }
 }
 
 final class IRPlaybackBackendHostAdapter: IRPlaybackBackendHost {
     let kind: IRPlaybackBackendKind
+    let activation: IRPlaybackBackendActivation
 
     private weak var context: (any IRPlaybackBackendContext)?
     private let eventRouter: IRPlaybackBackendEventRouter
-    private let fallbackDecoder = IRPlayerDecoder.defaultDecoder()
+    private let storedContentURL: NSURL?
+    private let sourceLock = NSLock()
+    private var storedContentHeaders: [String: String]?
+    private let storedVideoType: IRVideoType
+    private let storedVideoInput: IRFFVideoInput?
+    private let storedDecoder: IRPlayerDecoder
 
     init(
-        kind: IRPlaybackBackendKind,
+        activation: IRPlaybackBackendActivation,
         context: any IRPlaybackBackendContext,
         eventRouter: IRPlaybackBackendEventRouter
     ) {
-        self.kind = kind
+        self.kind = activation.kind
+        self.activation = activation
         self.context = context
         self.eventRouter = eventRouter
+        storedContentURL = context.contentURL
+        storedContentHeaders = context.contentHeaders
+        storedVideoType = context.videoType
+        storedVideoInput = context.videoInput
+        storedDecoder = context.decoder
     }
 
-    var contentURL: NSURL? { context?.contentURL }
-    var contentHeaders: [String: String]? { context?.contentHeaders }
-    var videoType: IRVideoType { context?.videoType ?? .normal }
-    var videoInput: IRFFVideoInput? { context?.videoInput }
-    var decoder: IRPlayerDecoder { context?.decoder ?? fallbackDecoder }
+    var isCurrentActivation: Bool {
+        eventRouter.isActive(activation)
+    }
+
+    var contentURL: NSURL? { storedContentURL }
+    var contentHeaders: [String: String]? {
+        sourceLock.lock()
+        defer { sourceLock.unlock() }
+        return storedContentHeaders
+    }
+    var videoType: IRVideoType { storedVideoType }
+    var videoInput: IRFFVideoInput? { storedVideoInput }
+    var decoder: IRPlayerDecoder { storedDecoder }
     var displayView: IRGLView? { context?.displayView }
     var manager: IRAudioManager? { context?.manager }
 
     var error: IRError? {
         get { context?.error }
-        set { context?.error = newValue }
+        set {
+            guard isCurrentActivation else { return }
+            context?.error = newValue
+        }
     }
 
     var volume: CGFloat { context?.volume ?? 0 }
@@ -160,8 +201,21 @@ final class IRPlaybackBackendHostAdapter: IRPlaybackBackendHost {
         previous: IRPlayerState,
         current: IRPlayerState
     ) {
+        playbackBackendDidChangeState(
+            previous: previous,
+            current: current,
+            activation: activation
+        )
+    }
+
+    func playbackBackendDidChangeState(
+        previous: IRPlayerState,
+        current: IRPlayerState,
+        activation: IRPlaybackBackendActivation?
+    ) {
+        guard activation == self.activation else { return }
         eventRouter.deliverState(
-            from: kind,
+            from: self.activation,
             previous: previous,
             current: current
         )
@@ -171,8 +225,21 @@ final class IRPlaybackBackendHostAdapter: IRPlaybackBackendHost {
         current: TimeInterval,
         total: TimeInterval
     ) {
+        playbackBackendDidUpdateProgress(
+            current: current,
+            total: total,
+            activation: activation
+        )
+    }
+
+    func playbackBackendDidUpdateProgress(
+        current: TimeInterval,
+        total: TimeInterval,
+        activation: IRPlaybackBackendActivation?
+    ) {
+        guard activation == self.activation else { return }
         eventRouter.deliverProgress(
-            from: kind,
+            from: self.activation,
             current: current,
             total: total
         )
@@ -182,14 +249,48 @@ final class IRPlaybackBackendHostAdapter: IRPlaybackBackendHost {
         current: TimeInterval,
         total: TimeInterval
     ) {
+        playbackBackendDidUpdatePlayableTime(
+            current: current,
+            total: total,
+            activation: activation
+        )
+    }
+
+    func playbackBackendDidUpdatePlayableTime(
+        current: TimeInterval,
+        total: TimeInterval,
+        activation: IRPlaybackBackendActivation?
+    ) {
+        guard activation == self.activation else { return }
         eventRouter.deliverPlayableTime(
-            from: kind,
+            from: self.activation,
             current: current,
             total: total
         )
     }
 
     func playbackBackendDidFail(_ error: IRError) {
-        eventRouter.deliverFailure(from: kind, error: error)
+        playbackBackendDidFail(error, activation: activation)
+    }
+
+    func playbackBackendDidFail(
+        _ error: IRError,
+        activation: IRPlaybackBackendActivation?
+    ) {
+        guard activation == self.activation else { return }
+        eventRouter.deliverFailure(
+            from: self.activation,
+            error: error
+        )
+    }
+}
+
+extension IRPlaybackBackendHostAdapter:
+    IRPlaybackBackendSourceUpdating
+{
+    func updateContentHeaders(_ headers: [String: String]?) {
+        sourceLock.lock()
+        storedContentHeaders = headers
+        sourceLock.unlock()
     }
 }

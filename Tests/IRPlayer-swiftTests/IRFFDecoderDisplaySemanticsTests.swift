@@ -104,6 +104,71 @@ final class IRFFDecoderDisplaySemanticsTests: XCTestCase {
         XCTAssertFalse(IRFFDecoder.shouldAcceptVideoFrame(currentPosition: 1.0, nextPosition: .infinity))
     }
 
+    func testRejectedRepeatedOutOfOrderFramesReturnPoolCredits() throws {
+        let pool = IRFFFramePool(
+            capacity: 1,
+            frameClassName:
+                IRFFVideoFrame.self
+        ) {
+            IRFFVideoFrame()
+        }
+
+        for _ in 0..<2 {
+            let frame = try XCTUnwrap(
+                pool.leaseFrame()
+                    as? IRFFVideoFrame
+            )
+            frame.position = 0.5
+
+            XCTAssertFalse(
+                IRFFDecoder.admitDisplayFrame(
+                    frame,
+                    after: 1
+                )
+            )
+            XCTAssertEqual(
+                pool.diagnostics
+                    .availableCount,
+                1
+            )
+            XCTAssertEqual(
+                pool.diagnostics
+                    .leasedCount,
+                0
+            )
+        }
+    }
+
+    func testUndeliverableFrameIsNotRetainedAndReturnsPoolCredit() throws {
+        let pool = IRFFFramePool(
+            capacity: 1,
+            frameClassName:
+                IRFFVideoFrame.self
+        ) {
+            IRFFVideoFrame()
+        }
+        let frame = try XCTUnwrap(
+            pool.leaseFrame()
+                as? IRFFVideoFrame
+        )
+
+        XCTAssertNil(
+            IRFFDecoder
+                .retainDeliveredDisplayFrame(
+                    frame,
+                    delivered: false
+                )
+        )
+        XCTAssertEqual(
+            pool.diagnostics.availableCount,
+            1
+        )
+        XCTAssertEqual(
+            pool.diagnostics.leasedCount,
+            0
+        )
+    }
+
     func testDisplayIdleSleepIntervalPrioritizesSeekingBufferingAndPausedReplay() {
         XCTAssertEqual(
             IRFFDecoder.displayIdleSleepInterval(

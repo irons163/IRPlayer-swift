@@ -11,17 +11,67 @@ import QuartzCore
 import simd
 
 final class IRGLViewRenderState {
+    typealias Fish2PanoTextureUpload = (
+        MTLDevice,
+        Int,
+        Int,
+        UnsafeBufferPointer<GLfloat>
+    ) -> MTLTexture?
+
+    enum FisheyeMeshKind: Equatable {
+        case single
+        case multi4P
+    }
+
+    struct FisheyeMeshCacheKey: Equatable {
+        let kind: FisheyeMeshKind
+        let textureWidth: Float
+        let textureHeight: Float
+        let radiusX: Float
+        let radiusY: Float
+        let centerX: Float
+        let centerY: Float
+        let isUp: Bool
+        let latitudeMaximum: Float
+        let projectionIdentifier: ObjectIdentifier?
+        let projectionGeneration: UInt64
+        let deviceIdentifier: ObjectIdentifier
+    }
+
+    struct VRMeshCacheKey: Equatable {
+        let modeIdentifier: ObjectIdentifier
+        let projectionIdentifier: ObjectIdentifier
+        let projectionGeneration: UInt64
+        let deviceIdentifier: ObjectIdentifier
+    }
+
     private(set) var fisheyeMesh: IRMetalFisheyeMesh?
     private(set) var vrMesh: IRMetalFisheyeMesh?
+    private(set) var vrMeshCacheKey: VRMeshCacheKey?
     private(set) var fisheyeController: IRGLTransformController3DFisheye?
     private(set) var fisheyeParameter: IRFisheyeParameter?
     private(set) var fisheyeLastSize: CGSize = .zero
+    private(set) var fisheyeMeshCacheKey:
+        FisheyeMeshCacheKey?
     private(set) var fish2PanoParams: IRGLFish2PanoShaderParams?
     private(set) var fish2PanoTextures: [MTLTexture] = []
     private(set) var fish2PanoLastOutputSize: CGSize = .zero
     private(set) var fish2PanoLastAntialias: Int = 0
     private(set) var distortionLeftMesh: IRMetalDistortionMesh?
     private(set) var distortionRightMesh: IRMetalDistortionMesh?
+    private let fish2PanoTextureUpload:
+        Fish2PanoTextureUpload
+    private var fish2PanoPixelMapReadyHandler:
+        (@Sendable () -> Void)?
+
+    init(
+        fish2PanoTextureUpload:
+            @escaping Fish2PanoTextureUpload =
+                IRGLViewRenderState.makeTexUVTexture
+    ) {
+        self.fish2PanoTextureUpload =
+            fish2PanoTextureUpload
+    }
 
     enum Fish2PanoTextureReadiness: Equatable {
         case invalid
@@ -31,10 +81,11 @@ final class IRGLViewRenderState {
 
     func reset() {
         fisheyeMesh = nil
-        vrMesh = nil
+        resetVR()
         fisheyeController = nil
         fisheyeParameter = nil
         fisheyeLastSize = .zero
+        fisheyeMeshCacheKey = nil
         resetFish2Pano()
         distortionLeftMesh = nil
         distortionRightMesh = nil
@@ -51,6 +102,39 @@ final class IRGLViewRenderState {
             resetFish2Pano()
         }
         fish2PanoParams = params
+        params.setPixelMapReadyHandler(
+            fish2PanoPixelMapReadyHandler
+        )
+    }
+
+    func configureVR(renderMode: IRGLRenderMode) {
+        guard let mode = renderMode as? IRGLRenderModeVR,
+              let program = mode.program as? IRGLProgramVR,
+              let projection =
+                program.mapProjection as? IRGLProjectionVR else {
+            resetVR()
+            return
+        }
+        guard let cacheKey = vrMeshCacheKey else {
+            return
+        }
+        let snapshot = projection.meshSnapshot()
+        guard cacheKey.modeIdentifier
+                == ObjectIdentifier(mode),
+              cacheKey.projectionIdentifier
+                == ObjectIdentifier(projection),
+              cacheKey.projectionGeneration
+                == snapshot.generation else {
+            resetVR()
+            return
+        }
+    }
+
+    func setFish2PanoPixelMapReadyHandler(
+        _ handler: (@Sendable () -> Void)?
+    ) {
+        fish2PanoPixelMapReadyHandler = handler
+        fish2PanoParams?.setPixelMapReadyHandler(handler)
     }
 
     func prepareFish2PanoTextures(device: MTLDevice?) -> Fish2PanoTextureReadiness? {
@@ -79,7 +163,7 @@ final class IRGLViewRenderState {
             return .invalid
         }
         if let device,
-           let pixelMap = params.takePixelMapIfReady() {
+           let pixelMap = params.pixelMapIfReady() {
             guard pixelMap.outputWidth == outputWidth,
                   pixelMap.outputHeight == outputHeight,
                   pixelMap.antialias == antialias,
@@ -87,6 +171,8 @@ final class IRGLViewRenderState {
                     == expectedTextureCount,
                   pixelMap.elementCountPerTexture
                     == expectedElementCount else {
+                params.acknowledgePixelMap(pixelMap)
+                params.updateOutputWH()
                 return .waitingForTextures
             }
             var newTextures: [MTLTexture] = []
@@ -96,12 +182,13 @@ final class IRGLViewRenderState {
                 let borrowed: Bool? =
                     pixelMap.withUnsafeMapBuffer(at: i) {
                         buffer in
-                        uploadedTexture = makeTexUVTexture(
-                            device: device,
-                            width: outputWidth,
-                            height: outputHeight,
-                            data: buffer
-                        )
+                        uploadedTexture =
+                            fish2PanoTextureUpload(
+                                device,
+                                outputWidth,
+                                outputHeight,
+                                buffer
+                            )
                         return true
                     }
                 guard borrowed == true,
@@ -111,6 +198,7 @@ final class IRGLViewRenderState {
                 newTextures.append(uploadedTexture)
             }
             fish2PanoTextures = newTextures
+            params.acknowledgePixelMap(pixelMap)
         }
 
         guard fish2PanoTextures.count == expectedTextureCount else {
@@ -166,8 +254,16 @@ final class IRGLViewRenderState {
                                renderer: IRGLRenderInternal,
                                drawable: CAMetalDrawable,
                                drawableSize: CGSize,
-                               device: MTLDevice?) -> Bool? {
-        guard let program = mode?.program as? IRGLProgramMulti4P else { return nil }
+                               device: MTLDevice?,
+                               completion:
+                                   @escaping IRGLRenderCompletion) -> Bool? {
+        guard mode is IRGLRenderModeMulti4P else {
+            return nil
+        }
+        guard let program =
+                mode?.program as? IRGLProgramMulti4P else {
+            return false
+        }
         if program.programs.first is IRGLProgram3DFisheye {
             let parameter = (mode?.parameter as? IRFisheyeParameter) ?? Self.defaultFisheyeParameter()
             let dimensions = frame.dimensionSnapshot()
@@ -178,29 +274,20 @@ final class IRGLViewRenderState {
                 ? parameter.height
                 : Float(dimensions.height)
             let meshSize = CGSize(width: CGFloat(textureWidth), height: CGFloat(textureHeight))
-
-            if fisheyeMesh == nil || fisheyeLastSize != meshSize {
-                let device = device ?? MTLCreateSystemDefaultDevice()
-                if let device = device {
-                    if let projection = program.programs.first?.mapProjection as? IRGLProjectionEquirectangular,
-                       let meshData = projection.exportMesh() {
-                        fisheyeMesh = IRMetalFisheyeMesh(device: device,
-                                                         positions: meshData.positions,
-                                                         texcoords: meshData.texcoords,
-                                                         indices: meshData.indices)
-                    } else {
-                        fisheyeMesh = IRMetalFisheyeMesh(device: device,
-                                                         textureWidth: textureWidth,
-                                                         textureHeight: textureHeight,
-                                                         centerX: parameter.cx,
-                                                         centerY: parameter.cy,
-                                                         radius: parameter.ry)
-                    }
-                    fisheyeLastSize = meshSize
-                }
+            let projection =
+                program.programs.first?.mapProjection
+                    as? IRGLProjectionEquirectangular
+            guard let mesh = prepareFisheyeMesh(
+                kind: .multi4P,
+                textureWidth: textureWidth,
+                textureHeight: textureHeight,
+                meshSize: meshSize,
+                parameter: parameter,
+                projection: projection,
+                device: device
+            ) else {
+                return false
             }
-
-            guard let mesh = fisheyeMesh else { return false }
             let texMatrix = IRMatrix4.makeScale(1, -1, 1)
             let viewports = program.programs.map { $0.viewprotRange }
             var mvps: [simd_float4x4] = []
@@ -219,7 +306,8 @@ final class IRGLViewRenderState {
                                                textureMatrix: texMatrix,
                                                to: drawable,
                                                drawableSize: drawableSize,
-                                               viewports: viewports)
+                                               viewports: viewports,
+                                               completion: completion)
         } else {
             let viewports = program.programs.map { $0.viewprotRange }
             let contentModes = program.programs.map { $0.contentMode }
@@ -235,7 +323,8 @@ final class IRGLViewRenderState {
                                         viewports: viewports,
                                         contentModes: contentModes,
                                         zoomScales: zoomScales,
-                                        translations: translations)
+                                        translations: translations,
+                                        completion: completion)
         }
     }
 
@@ -245,7 +334,9 @@ final class IRGLViewRenderState {
                                  drawable: CAMetalDrawable,
                                  drawableSize: CGSize,
                                  renderContentMode: IRGLRenderContentMode,
-                                 device: MTLDevice?) -> Bool? {
+                                 device: MTLDevice?,
+                                 completion:
+                                     @escaping IRGLRenderCompletion) -> Bool? {
         guard mode is IRGLRenderMode2DFisheye2Pano else { return nil }
         guard let readiness = prepareFish2PanoTextures(device: device) else { return false }
 
@@ -255,8 +346,10 @@ final class IRGLViewRenderState {
         case .invalid:
             return false
         case .waitingForTextures:
-            renderer.renderClear(to: drawable)
-            return true
+            return renderer.renderClear(
+                to: drawable,
+                completion: completion
+            )
         case let .ready(readyOutputSize, readyAntialias):
             outputSize = readyOutputSize
             antialias = readyAntialias
@@ -301,7 +394,8 @@ final class IRGLViewRenderState {
                                                 for: effectiveProgram?
                                                     .tramsformController?
                                                     .getScope()
-                                            ))
+                                            ),
+                                        completion: completion)
     }
 
     func renderDistortionIfNeeded(frame: IRFFVideoFrame,
@@ -310,7 +404,9 @@ final class IRGLViewRenderState {
                                   drawable: CAMetalDrawable,
                                   drawableSize: CGSize,
                                   renderContentMode: IRGLRenderContentMode,
-                                  device: MTLDevice?) -> Bool? {
+                                  device: MTLDevice?,
+                                  completion:
+                                      @escaping IRGLRenderCompletion) -> Bool? {
         guard mode is IRGLRenderModeDistortion else { return nil }
         if distortionLeftMesh == nil || distortionRightMesh == nil {
             guard let device = device ?? MTLCreateSystemDefaultDevice() else { return false }
@@ -324,7 +420,8 @@ final class IRGLViewRenderState {
                                          rightMesh: rightMesh,
                                          to: drawable,
                                          drawableSize: drawableSize,
-                                         contentMode: effectiveContentMode)
+                                         contentMode: effectiveContentMode,
+                                         completion: completion)
     }
 
     func renderFisheyeIfNeeded(frame: IRFFVideoFrame,
@@ -332,7 +429,9 @@ final class IRGLViewRenderState {
                                renderer: IRGLRenderInternal,
                                drawable: CAMetalDrawable,
                                drawableSize: CGSize,
-                               device: MTLDevice?) -> Bool? {
+                               device: MTLDevice?,
+                               completion:
+                                   @escaping IRGLRenderCompletion) -> Bool? {
         guard mode is IRGLRenderMode3DFisheye else { return nil }
         guard let controller = fisheyeController else { return false }
         guard let parameter = fisheyeParameter else { return false }
@@ -345,28 +444,20 @@ final class IRGLViewRenderState {
             ? parameter.height
             : Float(dimensions.height)
         let meshSize = CGSize(width: CGFloat(textureWidth), height: CGFloat(textureHeight))
-        if fisheyeMesh == nil || fisheyeLastSize != meshSize {
-            let device = device ?? MTLCreateSystemDefaultDevice()
-            if let device = device {
-                if let projection = mode?.program?.mapProjection as? IRGLProjectionEquirectangular,
-                   let meshData = projection.exportMesh() {
-                    fisheyeMesh = IRMetalFisheyeMesh(device: device,
-                                                     positions: meshData.positions,
-                                                     texcoords: meshData.texcoords,
-                                                     indices: meshData.indices)
-                } else {
-                    fisheyeMesh = IRMetalFisheyeMesh(device: device,
-                                                     textureWidth: textureWidth,
-                                                     textureHeight: textureHeight,
-                                                     centerX: parameter.cx,
-                                                     centerY: parameter.cy,
-                                                     radius: parameter.ry)
-                }
-                fisheyeLastSize = meshSize
-            }
+        let projection =
+            mode?.program?.mapProjection
+                as? IRGLProjectionEquirectangular
+        guard let mesh = prepareFisheyeMesh(
+            kind: .single,
+            textureWidth: textureWidth,
+            textureHeight: textureHeight,
+            meshSize: meshSize,
+            parameter: parameter,
+            projection: projection,
+            device: device
+        ) else {
+            return false
         }
-
-        guard let mesh = fisheyeMesh else { return false }
         let mvp = controller.getModelViewProjectionMatrix()
         let texMatrix = IRMatrix4.makeScale(1, -1, 1)
 
@@ -379,7 +470,8 @@ final class IRGLViewRenderState {
                                       textureMatrix: texMatrix,
                                       to: drawable,
                                       drawableSize: drawableSize,
-                                      viewport: viewportRect)
+                                      viewport: viewportRect,
+                                      completion: completion)
     }
 
     func renderVRIfNeeded(frame: IRFFVideoFrame,
@@ -387,28 +479,51 @@ final class IRGLViewRenderState {
                           renderer: IRGLRenderInternal,
                           drawable: CAMetalDrawable,
                           drawableSize: CGSize,
-                          device: MTLDevice?) -> Bool? {
-        guard mode is IRGLRenderModeVR else { return nil }
-        guard let program = mode?.program as? IRGLProgramVR else {
+                          device: MTLDevice?,
+                          completion:
+                              @escaping IRGLRenderCompletion) -> Bool? {
+        guard let mode = mode as? IRGLRenderModeVR else {
+            return nil
+        }
+        guard let program = mode.program as? IRGLProgramVR else {
             return false
         }
         guard let controller = program.tramsformController as? IRGLTransformControllerVR else {
             return false
         }
 
-        if vrMesh == nil {
-            if let projection = program.mapProjection as? IRGLProjectionVR,
-               let meshData = projection.exportMesh(),
-               let device = (device ?? MTLCreateSystemDefaultDevice()) {
-                vrMesh = IRMetalFisheyeMesh(device: device,
-                                            positions: meshData.positions,
-                                            texcoords: meshData.texcoords,
-                                            indices: meshData.indices)
-            }
-        }
-
-        guard let mesh = vrMesh else {
+        guard let projection =
+                program.mapProjection as? IRGLProjectionVR,
+              let device =
+                device ?? MTLCreateSystemDefaultDevice() else {
+            resetVR()
             return false
+        }
+        let snapshot = projection.meshSnapshot()
+        let cacheKey = VRMeshCacheKey(
+            modeIdentifier: ObjectIdentifier(mode),
+            projectionIdentifier:
+                ObjectIdentifier(projection),
+            projectionGeneration: snapshot.generation,
+            deviceIdentifier: ObjectIdentifier(device)
+        )
+        let mesh: IRMetalFisheyeMesh
+        if vrMeshCacheKey == cacheKey,
+           let cachedMesh = vrMesh {
+            mesh = cachedMesh
+        } else {
+            guard let candidate = IRMetalFisheyeMesh(
+                device: device,
+                positions: snapshot.mesh.positions,
+                texcoords: snapshot.mesh.texcoords,
+                indices: snapshot.mesh.indices
+            ) else {
+                resetVR()
+                return false
+            }
+            vrMesh = candidate
+            vrMeshCacheKey = cacheKey
+            mesh = candidate
         }
         let mvp = controller.getModelViewProjectionMatrix()
         let texMatrix = IRMatrix4.identity()
@@ -420,15 +535,22 @@ final class IRGLViewRenderState {
                                               textureMatrix: texMatrix,
                                               to: drawable,
                                               drawableSize: drawableSize,
-                                              viewport: viewportRect)
+                                              viewport: viewportRect,
+                                              completion: completion)
         return rendered
     }
 
     private func resetFish2Pano() {
+        fish2PanoParams?.setPixelMapReadyHandler(nil)
         fish2PanoParams = nil
         fish2PanoTextures = []
         fish2PanoLastOutputSize = .zero
         fish2PanoLastAntialias = 0
+    }
+
+    private func resetVR() {
+        vrMesh = nil
+        vrMeshCacheKey = nil
     }
 
     private func resetFisheye() {
@@ -436,12 +558,83 @@ final class IRGLViewRenderState {
         fisheyeMesh = nil
         fisheyeParameter = nil
         fisheyeLastSize = .zero
+        fisheyeMeshCacheKey = nil
     }
 
-    private func makeTexUVTexture(device: MTLDevice,
-                                  width: Int,
-                                  height: Int,
-                                  data: UnsafeBufferPointer<GLfloat>) -> MTLTexture? {
+    private func prepareFisheyeMesh(
+        kind: FisheyeMeshKind,
+        textureWidth: Float,
+        textureHeight: Float,
+        meshSize: CGSize,
+        parameter: IRFisheyeParameter,
+        projection: IRGLProjectionEquirectangular?,
+        device: MTLDevice?
+    ) -> IRMetalFisheyeMesh? {
+        guard let device =
+                device ?? MTLCreateSystemDefaultDevice() else {
+            fisheyeMesh = nil
+            fisheyeMeshCacheKey = nil
+            fisheyeLastSize = .zero
+            return nil
+        }
+
+        let projectionDiagnostics = projection?.diagnostics
+        let cacheKey = FisheyeMeshCacheKey(
+            kind: kind,
+            textureWidth: textureWidth,
+            textureHeight: textureHeight,
+            radiusX: parameter.rx,
+            radiusY: parameter.ry,
+            centerX: parameter.cx,
+            centerY: parameter.cy,
+            isUp: parameter.up,
+            latitudeMaximum: parameter.latmax,
+            projectionIdentifier:
+                projection.map(ObjectIdentifier.init),
+            projectionGeneration:
+                projectionDiagnostics?.generation ?? 0,
+            deviceIdentifier:
+                ObjectIdentifier(device)
+        )
+        if fisheyeMeshCacheKey == cacheKey,
+           let fisheyeMesh {
+            return fisheyeMesh
+        }
+
+        let candidate: IRMetalFisheyeMesh?
+        if let projection,
+           let meshData = projection.exportMesh() {
+            candidate = IRMetalFisheyeMesh(
+                device: device,
+                positions: meshData.positions,
+                texcoords: meshData.texcoords,
+                indices: meshData.indices
+            )
+        } else {
+            candidate = IRMetalFisheyeMesh(
+                device: device,
+                textureWidth: textureWidth,
+                textureHeight: textureHeight,
+                centerX: parameter.cx,
+                centerY: parameter.cy,
+                radius: parameter.ry
+            )
+        }
+
+        fisheyeMesh = candidate
+        fisheyeLastSize =
+            candidate == nil ? .zero : meshSize
+        fisheyeMeshCacheKey =
+            candidate == nil ? nil : cacheKey
+        return candidate
+    }
+
+    static func makeTexUVTexture(
+        device: MTLDevice,
+        width: Int,
+        height: Int,
+        data: UnsafeBufferPointer<GLfloat>
+    ) -> MTLTexture? {
         guard let layout = Self.texUVTextureLayout(
             width: width,
             height: height

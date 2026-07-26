@@ -8,7 +8,11 @@
 import CoreMedia
 import CoreVideo
 import Foundation
-import IRFFMpeg
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+#else
+@_implementationOnly import IRFFMpeg
+#endif
 import VideoToolbox
 
 enum IRFFVideoToolBoxErrorCode: Error, Equatable {
@@ -21,6 +25,18 @@ enum IRFFVideoToolBoxErrorCode: Error, Equatable {
 }
 
 final class IRFFVideoToolBox {
+    struct Output {
+        let imageBuffer: CVImageBuffer
+        let presentationTimeStamp: CMTime
+        let presentationDuration: CMTime
+    }
+
+    enum DecodeResult {
+        case notAvailable
+        case accepted(outputs: [Output])
+        case failed(status: OSStatus)
+    }
+
     struct Generation {
         let session: VTDecompressionSession
         let formatDescription: CMFormatDescription
@@ -32,6 +48,7 @@ final class IRFFVideoToolBox {
     typealias Diagnostics = IRFFVideoToolBoxSession<Generation>.Diagnostics
 
     private let codecContext: UnsafeMutablePointer<AVCodecContext>
+    private let timebase: TimeInterval
     private let operationLock = NSLock()
     private let session = IRFFVideoToolBoxSession<Generation>()
 
@@ -39,14 +56,24 @@ final class IRFFVideoToolBox {
         session.diagnostics
     }
 
-    init(codecContext: UnsafeMutablePointer<AVCodecContext>) {
+    init(
+        codecContext:
+            UnsafeMutablePointer<AVCodecContext>,
+        timebase: TimeInterval = 0
+    ) {
         self.codecContext = codecContext
+        self.timebase = timebase
     }
 
     static func videoToolBox(
-        with codecContext: UnsafeMutablePointer<AVCodecContext>
+        with codecContext:
+            UnsafeMutablePointer<AVCodecContext>,
+        timebase: TimeInterval = 0
     ) -> IRFFVideoToolBox {
-        IRFFVideoToolBox(codecContext: codecContext)
+        IRFFVideoToolBox(
+            codecContext: codecContext,
+            timebase: timebase
+        )
     }
 
     func trySetupVTSession() -> Bool {
@@ -78,14 +105,18 @@ final class IRFFVideoToolBox {
         }
     }
 
-    func sendPacket(_ packet: AVPacket) -> Bool {
+    func sendPacket(
+        _ packet: AVPacket
+    ) -> DecodeResult {
         withOperation {
             guard trySetupVTSessionLocked(),
                   let packetPayload = Self.packetPayload(for: packet) else {
-                return false
+                return .notAvailable
             }
 
-            return session.withResource(default: false) { generation in
+            return session.withResource(
+                default: DecodeResult.notAvailable
+            ) { generation in
                 generation.callbackState.reset()
                 guard let blockBuffer = makeBlockBuffer(
                     from: packetPayload,
@@ -94,9 +125,20 @@ final class IRFFVideoToolBox {
                 ),
                 let sampleBuffer = Self.makeSampleBuffer(
                     blockBuffer: blockBuffer,
-                    formatDescription: generation.formatDescription
+                    formatDescription:
+                        generation
+                            .formatDescription,
+                    timing:
+                        Self.sampleTiming(
+                            for: packet,
+                            timebase: timebase
+                        ),
+                    sampleSize:
+                        CMBlockBufferGetDataLength(
+                            blockBuffer
+                        )
                 ) else {
-                    return false
+                    return .notAvailable
                 }
 
                 let status = VTDecompressionSessionDecodeFrame(
@@ -106,14 +148,86 @@ final class IRFFVideoToolBox {
                     frameRefcon: nil,
                     infoFlagsOut: nil
                 )
-                let callback = generation.callbackState.snapshot
-                return Self.decodeFrameSucceeded(
+                return Self.classifyDecodeResult(
                     status: status,
-                    callbackStatus: callback.status,
-                    hasOutput: callback.imageBuffer != nil
+                    events:
+                        generation
+                            .callbackState
+                            .takeEvents()
                 )
             }
         }
+    }
+
+    func finishDelayedFrames() -> DecodeResult {
+        withOperation {
+            session.withResource(
+                default: DecodeResult.notAvailable
+            ) { generation in
+                generation.callbackState.reset()
+                let finishStatus =
+                    VTDecompressionSessionFinishDelayedFrames(
+                        generation.session
+                    )
+                guard finishStatus == noErr else {
+                    _ = generation
+                        .callbackState
+                        .takeEvents()
+                    return .failed(
+                        status: finishStatus
+                    )
+                }
+                let waitStatus =
+                    VTDecompressionSessionWaitForAsynchronousFrames(
+                        generation.session
+                    )
+                return Self.classifyDecodeResult(
+                    status: waitStatus,
+                    events:
+                        generation
+                            .callbackState
+                            .takeEvents()
+                )
+            }
+        }
+    }
+
+    static func classifyDecodeResult(
+        status: OSStatus,
+        events:
+            [IRFFVideoToolBoxCallbackState.Event]
+    ) -> DecodeResult {
+        guard status == noErr else {
+            return .failed(status: status)
+        }
+        if let failedEvent =
+                events.first(
+                    where: {
+                        $0.status != noErr
+                    }
+                ) {
+            return .failed(
+                status: failedEvent.status
+            )
+        }
+        return .accepted(
+            outputs:
+                events.compactMap { event in
+                    guard let imageBuffer =
+                            event.imageBuffer else {
+                        return nil
+                    }
+                    return Output(
+                        imageBuffer: imageBuffer,
+                        presentationTimeStamp:
+                            event
+                                .presentationTimeStamp,
+                        presentationDuration:
+                            event
+                                .presentationDuration
+                    )
+                }
+        )
     }
 
     func imageBuffer() -> CVImageBuffer? {
@@ -141,13 +255,24 @@ final class IRFFVideoToolBox {
     static func handleOutputCallback(
         refCon: UnsafeMutableRawPointer?,
         status: OSStatus,
-        imageBuffer: CVImageBuffer?
+        imageBuffer: CVImageBuffer?,
+        presentationTimeStamp: CMTime =
+            .invalid,
+        presentationDuration: CMTime =
+            .invalid
     ) {
         guard let refCon else { return }
         let callbackState = Unmanaged<IRFFVideoToolBoxCallbackState>
             .fromOpaque(refCon)
             .takeUnretainedValue()
-        callbackState.publish(status: status, imageBuffer: imageBuffer)
+        callbackState.publish(
+            status: status,
+            imageBuffer: imageBuffer,
+            presentationTimeStamp:
+                presentationTimeStamp,
+            presentationDuration:
+                presentationDuration
+        )
     }
 
     private func trySetupVTSessionLocked() -> Bool {
@@ -196,14 +321,29 @@ final class IRFFVideoToolBox {
         }
 
         let nalLength = Self.nalLengthSizeDecision(for: extradata[4])
-        extradata[4] = nalLength.normalizedMarker
-        guard let formatDescription = Self.createFormatDescription(
-            codecType: kCMVideoCodecType_H264,
-            width: codecContext.pointee.width,
-            height: codecContext.pointee.height,
-            extradata: extradata,
-            extradataSize: extradataSize
-        ) else {
+        var normalizedExtradata = Array(
+            UnsafeBufferPointer(
+                start: UnsafePointer(extradata),
+                count: Int(extradataSize)
+            )
+        )
+        normalizedExtradata[4] = nalLength.normalizedMarker
+        let formatDescription =
+            normalizedExtradata.withUnsafeBufferPointer {
+                buffer -> CMFormatDescription? in
+                guard let baseAddress =
+                        buffer.baseAddress else {
+                    return nil
+                }
+                return Self.createFormatDescription(
+                    codecType: kCMVideoCodecType_H264,
+                    width: codecContext.pointee.width,
+                    height: codecContext.pointee.height,
+                    extradata: baseAddress,
+                    extradataSize: Int32(buffer.count)
+                )
+            }
+        guard let formatDescription else {
             throw IRFFVideoToolBoxErrorCode.createFormatDescription
         }
 
@@ -264,19 +404,9 @@ final class IRFFVideoToolBox {
             return makeConvertedBlockBuffer(from: packetPayload)
         }
 
-        var blockBuffer: CMBlockBuffer?
-        let status = CMBlockBufferCreateWithMemoryBlock(
-            allocator: nil,
-            memoryBlock: packetPayload.data,
-            blockLength: Int(packetPayload.size),
-            blockAllocator: kCFAllocatorNull,
-            customBlockSource: nil,
-            offsetToData: 0,
-            dataLength: Int(packetPayload.size),
-            flags: 0,
-            blockBufferOut: &blockBuffer
+        return Self.makeOwnedBlockBuffer(
+            from: packetPayload
         )
-        return status == noErr ? blockBuffer : nil
     }
 
     private func makeConvertedBlockBuffer(
@@ -365,12 +495,16 @@ final class IRFFVideoToolBox {
         status,
         _,
         imageBuffer,
-        _,
-        _ in
+        presentationTimeStamp,
+        presentationDuration in
         handleOutputCallback(
             refCon: decompressionOutputRefCon,
             status: status,
-            imageBuffer: imageBuffer
+            imageBuffer: imageBuffer,
+            presentationTimeStamp:
+                presentationTimeStamp,
+            presentationDuration:
+                presentationDuration
         )
     }
 

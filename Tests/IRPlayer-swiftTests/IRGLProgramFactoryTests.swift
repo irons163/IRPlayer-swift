@@ -119,6 +119,51 @@ final class IRGLProgramFactoryTests: XCTestCase {
         XCTAssertEqual(fallback?.latmax, 0)
     }
 
+    func testFactoryAcceptsExplicitAutoDetectFisheyeGeometry()
+        throws
+    {
+        let parameter = IRFisheyeParameter(
+            width: 0,
+            height: 0,
+            up: false,
+            rx: 0,
+            ry: 0,
+            cx: 0,
+            cy: 0,
+            latmax: 80
+        )
+
+        XCTAssertTrue(
+            IRGLProgramFactory.fisheyeParameter(
+                from: parameter
+            ) === parameter
+        )
+        XCTAssertNotNil(
+            IRGLProgramFactory.createIRGLProgram3DFisheye(
+                pixelFormat: .YUV_IRPixelFormat,
+                viewportRange: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 320,
+                    height: 180
+                ),
+                parameter: parameter
+            )
+        )
+        XCTAssertNotNil(
+            IRGLProgramFactory.createIRGLProgram3DFisheye4P(
+                pixelFormat: .YUV_IRPixelFormat,
+                viewportRange: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 320,
+                    height: 180
+                ),
+                parameter: parameter
+            )
+        )
+    }
+
     func testFactorySemanticsRejectMalformedRangesAndDerivedOverflow() {
         let scaleRange = IRGLScaleRange(
             minScaleX: 1,
@@ -158,25 +203,53 @@ final class IRGLProgramFactoryTests: XCTestCase {
     }
 
     func testFactoryRejectsMalformedFisheyeParameter() {
-        let parameter = IRFisheyeParameter(
-            width: 0,
-            height: 1080,
-            up: false,
-            rx: 515,
-            ry: 515,
-            cx: 680,
-            cy: 545,
-            latmax: 80
-        )
-
-        XCTAssertNil(IRGLProgramFactory.fisheyeParameter(from: parameter))
-        XCTAssertNil(
-            IRGLProgramFactory.createIRGLProgram3DFisheye(
-                pixelFormat: .YUV_IRPixelFormat,
-                viewportRange: .zero,
-                parameter: parameter
+        let parameters = [
+            IRFisheyeParameter(
+                width: 0,
+                height: 1080,
+                up: false,
+                rx: 515,
+                ry: 515,
+                cx: 680,
+                cy: 545,
+                latmax: 80
+            ),
+            IRFisheyeParameter(
+                width: 1440,
+                height: 1080,
+                up: false,
+                rx: 515,
+                ry: 515,
+                cx: 0,
+                cy: 545,
+                latmax: 80
+            ),
+            IRFisheyeParameter(
+                width: 0,
+                height: 0,
+                up: false,
+                rx: 0,
+                ry: 0,
+                cx: 0,
+                cy: 0,
+                latmax: .nan
             )
-        )
+        ]
+
+        for parameter in parameters {
+            XCTAssertNil(
+                IRGLProgramFactory.fisheyeParameter(
+                    from: parameter
+                )
+            )
+            XCTAssertNil(
+                IRGLProgramFactory.createIRGLProgram3DFisheye(
+                    pixelFormat: .YUV_IRPixelFormat,
+                    viewportRange: .zero,
+                    parameter: parameter
+                )
+            )
+        }
     }
 
     func test2DProgramFactoryAttaches2DControllerAndOrthographicProjection() {
@@ -316,6 +389,66 @@ final class IRGLProgramFactoryTests: XCTestCase {
         XCTAssertTrue(program.programs.allSatisfy { $0.mapProjection is IRGLProjectionEquirectangular })
         XCTAssertEqual(program.programs.compactMap { $0.tramsformController?.scopeRange?.defaultLat }, [-40, -40, -40, -40])
         XCTAssertEqual(program.programs.compactMap { $0.tramsformController?.scopeRange?.defaultLng }, [90, 180, 270, 0])
+    }
+
+    func testFourPanelFisheyeProjectionUsesParameterGeometryConsistently()
+        throws
+    {
+        let parameter = IRFisheyeParameter(
+            width: 1280,
+            height: 720,
+            up: false,
+            rx: 250,
+            ry: 300,
+            cx: 640,
+            cy: 360,
+            latmax: 80
+        )
+        let program = try XCTUnwrap(
+            IRGLProgramFactory
+                .createIRGLProgram3DFisheye4P(
+                    pixelFormat: .YUV_IRPixelFormat,
+                    viewportRange: CGRect(
+                        x: 0,
+                        y: 0,
+                        width: 400,
+                        height: 200
+                    ),
+                    parameter: parameter
+                )
+        )
+        let projection = try XCTUnwrap(
+            program.programs.first?.mapProjection
+                as? IRGLProjectionEquirectangular
+        )
+        let initialMesh = try XCTUnwrap(
+            projection.exportMesh()
+        )
+        let expectedProjection =
+            IRGLProjectionEquirectangular(
+                textureWidth: parameter.width,
+                height: parameter.height,
+                centerX: parameter.cx,
+                centerY: parameter.cy,
+                radius: parameter.ry
+            )
+        let expectedMesh = try XCTUnwrap(
+            expectedProjection.exportMesh()
+        )
+
+        XCTAssertEqual(
+            initialMesh.texcoords,
+            expectedMesh.texcoords
+        )
+
+        projection.update(with: parameter)
+        let updatedMesh = try XCTUnwrap(
+            projection.exportMesh()
+        )
+        XCTAssertEqual(
+            updatedMesh.texcoords,
+            initialMesh.texcoords
+        )
     }
 
     func testFourPanelFisheyeFactoryKeepsChildProjectionsWhenViewportIsInvalid() throws {

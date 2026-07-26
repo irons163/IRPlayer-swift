@@ -20,22 +20,25 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
         XCTAssertNil(store.transition(to: .buffering))
     }
 
-    func testReplacementCreatesBackendOnceAndMakesItActiveBeforeReplace() {
+    func testReplacementCreatesOneActivationPerTransaction() {
         var createdKinds: [IRPlaybackBackendKind] = []
         var coordinator: IRPlaybackBackendCoordinator!
         let avBackend = PlaybackBackendSpy(kind: .avFoundation)
         avBackend.onReplace = {
             XCTAssertEqual(coordinator.activeKind, .avFoundation)
         }
-        coordinator = IRPlaybackBackendCoordinator { kind in
-            createdKinds.append(kind)
-            return avBackend
+        coordinator = IRPlaybackBackendCoordinator { activation in
+            createdKinds.append(activation.kind)
+            return IRPlaybackBackendProduct(backend: avBackend)
         }
 
         coordinator.replace(with: .avFoundation)
         coordinator.replace(with: .avFoundation)
 
-        XCTAssertEqual(createdKinds, [.avFoundation])
+        XCTAssertEqual(
+            createdKinds,
+            [.avFoundation, .avFoundation]
+        )
         XCTAssertEqual(avBackend.replaceCallCount, 2)
         XCTAssertTrue(coordinator.activeBackend === avBackend)
     }
@@ -43,7 +46,9 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
     func testFactoryFailureLeavesCoordinatorInactiveWithoutCrashing() {
         let coordinator = IRPlaybackBackendCoordinator { _ in nil }
 
-        XCTAssertNil(coordinator.replace(with: .ffmpeg))
+        XCTAssertNil(
+            coordinator.replace(with: .ffmpeg).activeBackend
+        )
         XCTAssertNil(coordinator.activeKind)
         XCTAssertEqual(coordinator.snapshot, .empty)
     }
@@ -58,12 +63,33 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.diagnostics.commandCount, 0)
     }
 
-    func testMismatchedFactoryResultIsRejected() {
+    func testSeekCompletionReentrancyDoesNotCompleteTwice() {
+        let backend = PlaybackBackendSpy(kind: .avFoundation)
         let coordinator = IRPlaybackBackendCoordinator { _ in
-            PlaybackBackendSpy(kind: .avFoundation)
+            IRPlaybackBackendProduct(backend: backend)
+        }
+        coordinator.replace(with: .avFoundation)
+        var results: [Bool] = []
+
+        coordinator.seek(to: 12) { result in
+            results.append(result)
+            coordinator.reset()
         }
 
-        XCTAssertNil(coordinator.replace(with: .ffmpeg))
+        XCTAssertEqual(results, [true])
+        XCTAssertNil(coordinator.activeBackend)
+    }
+
+    func testMismatchedFactoryResultIsRejected() {
+        let coordinator = IRPlaybackBackendCoordinator { _ in
+            IRPlaybackBackendProduct(
+                backend: PlaybackBackendSpy(kind: .avFoundation)
+            )
+        }
+
+        XCTAssertNil(
+            coordinator.replace(with: .ffmpeg).activeBackend
+        )
         XCTAssertFalse(coordinator.hasBackend(for: .ffmpeg))
         XCTAssertNil(coordinator.activeKind)
     }
@@ -116,7 +142,7 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
 
         coordinator.replace(with: .avFoundation)
         coordinator.replace(with: .ffmpeg)
-        coordinator.replace(with: nil)
+        coordinator.reset()
 
         XCTAssertNil(coordinator.activeKind)
         XCTAssertEqual(coordinator.snapshot, .empty)
@@ -125,8 +151,33 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
 
         coordinator.reset()
 
-        XCTAssertEqual(avBackend.stopCallCount, 2)
-        XCTAssertEqual(ffBackend.stopCallCount, 2)
+        XCTAssertEqual(avBackend.stopCallCount, 1)
+        XCTAssertEqual(ffBackend.stopCallCount, 1)
+    }
+
+    func testResetTransactionValidityChangesAtomicallyWithActivation() {
+        let backend = PlaybackBackendSpy(kind: .avFoundation)
+        let coordinator = IRPlaybackBackendCoordinator { _ in
+            IRPlaybackBackendProduct(backend: backend)
+        }
+
+        let firstReset = coordinator.reset()
+        XCTAssertTrue(
+            coordinator.isCurrentResetTransaction(firstReset)
+        )
+
+        coordinator.replace(with: .avFoundation)
+        XCTAssertFalse(
+            coordinator.isCurrentResetTransaction(firstReset)
+        )
+
+        let secondReset = coordinator.reset()
+        XCTAssertTrue(
+            coordinator.isCurrentResetTransaction(secondReset)
+        )
+        XCTAssertFalse(
+            coordinator.isCurrentResetTransaction(firstReset)
+        )
     }
 
     func testSnapshotReadsOnlyActiveBackend() {
@@ -156,7 +207,32 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
         )
     }
 
-    func testConfigurationRefreshesReachEveryConstructedBackend() {
+    func testSnapshotRetriesWhenActivationChangesDuringRead() {
+        let avBackend = PlaybackBackendSpy(kind: .avFoundation)
+        avBackend.state = .playing
+        avBackend.progress = 1
+        let ffBackend = PlaybackBackendSpy(kind: .ffmpeg)
+        ffBackend.state = .suspend
+        ffBackend.progress = 9
+        var coordinator: IRPlaybackBackendCoordinator!
+        coordinator = makeCoordinator(
+            avBackend: avBackend,
+            ffBackend: ffBackend
+        )
+        coordinator.replace(with: .avFoundation)
+        avBackend.onSnapshot = {
+            avBackend.onSnapshot = nil
+            _ = coordinator.replace(with: .ffmpeg)
+        }
+
+        let snapshot = coordinator.snapshot
+
+        XCTAssertEqual(snapshot.state, .suspend)
+        XCTAssertEqual(snapshot.progress, 9)
+        XCTAssertEqual(coordinator.activeKind, .ffmpeg)
+    }
+
+    func testConfigurationRefreshesReachOnlyActiveBackend() {
         let avBackend = PlaybackBackendSpy(kind: .avFoundation)
         let ffBackend = PlaybackBackendSpy(kind: .ffmpeg)
         let coordinator = makeCoordinator(avBackend: avBackend, ffBackend: ffBackend)
@@ -166,27 +242,29 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
         coordinator.reloadVolume()
         coordinator.reloadPlayableBufferInterval()
 
-        XCTAssertEqual(avBackend.reloadVolumeCallCount, 1)
+        XCTAssertEqual(avBackend.reloadVolumeCallCount, 0)
         XCTAssertEqual(ffBackend.reloadVolumeCallCount, 1)
-        XCTAssertEqual(avBackend.reloadBufferCallCount, 1)
+        XCTAssertEqual(avBackend.reloadBufferCallCount, 0)
         XCTAssertEqual(ffBackend.reloadBufferCallCount, 1)
     }
 
     func testDiagnosticsCountOneGenerationPerTransaction() {
         let backend = PlaybackBackendSpy(kind: .avFoundation)
-        let coordinator = IRPlaybackBackendCoordinator { _ in backend }
+        let coordinator = IRPlaybackBackendCoordinator { _ in
+            IRPlaybackBackendProduct(backend: backend)
+        }
 
         coordinator.replace(with: .avFoundation)
         coordinator.play()
         coordinator.pause()
         coordinator.seek(to: 1)
-        coordinator.replace(with: nil)
+        coordinator.reset()
         coordinator.reset()
 
         let diagnostics = coordinator.diagnostics
         XCTAssertEqual(diagnostics.replacementGeneration, 3)
-        XCTAssertEqual(diagnostics.replaceCount, 2)
-        XCTAssertEqual(diagnostics.resetCount, 1)
+        XCTAssertEqual(diagnostics.replaceCount, 1)
+        XCTAssertEqual(diagnostics.resetCount, 2)
         XCTAssertEqual(diagnostics.commandCount, 3)
         XCTAssertEqual(diagnostics.backendCount, 0)
     }
@@ -194,8 +272,13 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
     func testConcurrentReplacementAndCommandsRemainSerialized() {
         let avBackend = LockedCoordinatorBackend(kind: .avFoundation)
         let ffBackend = LockedCoordinatorBackend(kind: .ffmpeg)
-        let coordinator = IRPlaybackBackendCoordinator { kind in
-            kind == .avFoundation ? avBackend : ffBackend
+        let coordinator = IRPlaybackBackendCoordinator { activation in
+            IRPlaybackBackendProduct(
+                backend:
+                    activation.kind == .avFoundation
+                    ? avBackend
+                    : ffBackend
+            )
         }
 
         DispatchQueue.concurrentPerform(iterations: 500) { index in
@@ -232,21 +315,69 @@ final class IRPlaybackBackendCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.hasBackend(for: .avFoundation))
         XCTAssertFalse(coordinator.hasBackend(for: .ffmpeg))
         XCTAssertNil(coordinator.activeBackend)
-        XCTAssertEqual(avBackend.stopCallCount, 2)
+        XCTAssertEqual(avBackend.stopCallCount, 1)
         XCTAssertEqual(ffBackend.stopCallCount, 1)
+    }
+
+    func testReentrantReplacementSupersedesOuterTransaction() {
+        let avBackend = PlaybackBackendSpy(kind: .avFoundation)
+        let ffBackend = PlaybackBackendSpy(kind: .ffmpeg)
+        var coordinator: IRPlaybackBackendCoordinator!
+        avBackend.onReplace = {
+            _ = coordinator.replace(with: .ffmpeg)
+        }
+        coordinator = makeCoordinator(
+            avBackend: avBackend,
+            ffBackend: ffBackend
+        )
+
+        let result = coordinator.replace(with: .avFoundation)
+
+        guard case .superseded = result else {
+            return XCTFail("Expected the outer activation to be superseded")
+        }
+        XCTAssertEqual(coordinator.activeKind, .ffmpeg)
+        XCTAssertTrue(coordinator.activeBackend === ffBackend)
+        XCTAssertEqual(avBackend.stopCallCount, 1)
+        XCTAssertEqual(ffBackend.replaceCallCount, 1)
+    }
+
+    func testReentrantFactoryFailureSupersedesOuterTransaction() {
+        let ffBackend = PlaybackBackendSpy(kind: .ffmpeg)
+        var coordinator: IRPlaybackBackendCoordinator!
+        coordinator = IRPlaybackBackendCoordinator { activation in
+            switch activation.kind {
+            case .avFoundation:
+                _ = coordinator.replace(with: .ffmpeg)
+                return nil
+            case .ffmpeg:
+                return IRPlaybackBackendProduct(backend: ffBackend)
+            }
+        }
+
+        let result = coordinator.replace(with: .avFoundation)
+
+        guard case .superseded = result else {
+            return XCTFail("Expected the outer activation to be superseded")
+        }
+        XCTAssertEqual(coordinator.activeKind, .ffmpeg)
+        XCTAssertTrue(coordinator.activeBackend === ffBackend)
+        XCTAssertEqual(ffBackend.replaceCallCount, 1)
     }
 
     private func makeCoordinator(
         avBackend: PlaybackBackendSpy,
         ffBackend: PlaybackBackendSpy
     ) -> IRPlaybackBackendCoordinator {
-        IRPlaybackBackendCoordinator { kind in
-            switch kind {
+        IRPlaybackBackendCoordinator { activation in
+            let backend: any IRPlaybackBackend
+            switch activation.kind {
             case .avFoundation:
-                return avBackend
+                backend = avBackend
             case .ffmpeg:
-                return ffBackend
+                backend = ffBackend
             }
+            return IRPlaybackBackendProduct(backend: backend)
         }
     }
 }
@@ -271,6 +402,7 @@ private final class PlaybackBackendSpy: IRPlaybackBackend {
     private(set) var seekTimes: [TimeInterval] = []
     var onReplace: (() -> Void)?
     var onStop: (() -> Void)?
+    var onSnapshot: (() -> Void)?
 
     init(kind: IRPlaybackBackendKind) {
         self.kind = kind
@@ -295,6 +427,19 @@ private final class PlaybackBackendSpy: IRPlaybackBackend {
 
     func reloadVolume() { reloadVolumeCallCount += 1 }
     func reloadPlayableBufferInterval() { reloadBufferCallCount += 1 }
+
+    var snapshot: IRPlaybackBackendSnapshot {
+        onSnapshot?()
+        return IRPlaybackBackendSnapshot(
+            state: state,
+            presentationSize: presentationSize,
+            bitrate: bitrate,
+            progress: progress,
+            duration: duration,
+            playableTime: playableTime,
+            isSeeking: seeking
+        )
+    }
 }
 
 private final class LockedCoordinatorBackend:

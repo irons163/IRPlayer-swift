@@ -513,7 +513,6 @@ private func makeSessionTokens(
         return session.activate(
             asset: asset,
             automaticallyLoadedAssetKeys: nil,
-            contentHeaders: nil,
             itemEventHandler: { _, _, _ in },
             periodicTimeHandler: { _, _ in }
         )

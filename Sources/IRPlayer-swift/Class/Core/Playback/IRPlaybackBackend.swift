@@ -2,6 +2,8 @@ import CoreGraphics
 import Foundation
 
 protocol IRPlaybackBackendHost: AnyObject {
+    var activation: IRPlaybackBackendActivation? { get }
+    var isCurrentActivation: Bool { get }
     var contentURL: NSURL? { get }
     var contentHeaders: [String: String]? { get }
     var videoType: IRVideoType { get }
@@ -18,11 +20,78 @@ protocol IRPlaybackBackendHost: AnyObject {
     func playbackBackendDidUpdateProgress(current: TimeInterval, total: TimeInterval)
     func playbackBackendDidUpdatePlayableTime(current: TimeInterval, total: TimeInterval)
     func playbackBackendDidFail(_ error: IRError)
+
+    func playbackBackendDidChangeState(
+        previous: IRPlayerState,
+        current: IRPlayerState,
+        activation: IRPlaybackBackendActivation?
+    )
+    func playbackBackendDidUpdateProgress(
+        current: TimeInterval,
+        total: TimeInterval,
+        activation: IRPlaybackBackendActivation?
+    )
+    func playbackBackendDidUpdatePlayableTime(
+        current: TimeInterval,
+        total: TimeInterval,
+        activation: IRPlaybackBackendActivation?
+    )
+    func playbackBackendDidFail(
+        _ error: IRError,
+        activation: IRPlaybackBackendActivation?
+    )
 }
 
 enum IRPlaybackBackendKind: Hashable, Sendable {
     case avFoundation
     case ffmpeg
+}
+
+struct IRPlaybackBackendActivation: Hashable, Sendable {
+    let generation: UInt64
+    let kind: IRPlaybackBackendKind
+}
+
+extension IRPlaybackBackendHost {
+    var activation: IRPlaybackBackendActivation? { nil }
+    var isCurrentActivation: Bool { true }
+
+    func playbackBackendDidChangeState(
+        previous: IRPlayerState,
+        current: IRPlayerState,
+        activation: IRPlaybackBackendActivation?
+    ) {
+        playbackBackendDidChangeState(
+            previous: previous,
+            current: current
+        )
+    }
+
+    func playbackBackendDidUpdateProgress(
+        current: TimeInterval,
+        total: TimeInterval,
+        activation: IRPlaybackBackendActivation?
+    ) {
+        playbackBackendDidUpdateProgress(current: current, total: total)
+    }
+
+    func playbackBackendDidUpdatePlayableTime(
+        current: TimeInterval,
+        total: TimeInterval,
+        activation: IRPlaybackBackendActivation?
+    ) {
+        playbackBackendDidUpdatePlayableTime(
+            current: current,
+            total: total
+        )
+    }
+
+    func playbackBackendDidFail(
+        _ error: IRError,
+        activation: IRPlaybackBackendActivation?
+    ) {
+        playbackBackendDidFail(error)
+    }
 }
 
 final class IRPlayerStateStore {

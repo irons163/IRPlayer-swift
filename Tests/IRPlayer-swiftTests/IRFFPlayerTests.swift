@@ -219,7 +219,7 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertEqual(output, [0, 0, 0, 0])
     }
 
-    func testAudioOutputStopsFrameAndSilencesWhenCopyPlanIsInvalid() {
+    func testAudioOutputClearsInvalidLeaseAndSilencesWithoutMutatingFrameLifecycle() {
         let ffPlayer = makeFFPlayerWithoutAudioManager()
         let frame = makeAudioFrame(samples: [1, 2, 3, 4])
         frame.outputOffset = 1
@@ -237,7 +237,7 @@ final class IRFFPlayerTests: XCTestCase {
         }
 
         XCTAssertNil(ffPlayer.currentAudioFrame)
-        XCTAssertFalse(frame.playing)
+        XCTAssertTrue(frame.playing)
         XCTAssertEqual(output, [0, 0, 0, 0])
     }
 
@@ -262,7 +262,7 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertEqual(decoder.fetchCount, 1)
         XCTAssertEqual(output, [1, 2])
         XCTAssertTrue(ffPlayer.currentAudioFrame === frame)
-        XCTAssertTrue(frame.playing)
+        XCTAssertFalse(frame.playing)
     }
 
     func testAudioOutputCopiesPartialFrameAndPreservesRemainingOffset() throws {
@@ -283,10 +283,10 @@ final class IRFFPlayerTests: XCTestCase {
 
         XCTAssertEqual(output, [1, 2])
         XCTAssertTrue(ffPlayer.currentAudioFrame === frame)
-        XCTAssertEqual(frame.outputOffset, MemoryLayout<Float>.size * 2)
+        XCTAssertEqual(frame.outputOffset, 0)
     }
 
-    func testAudioOutputCopiesFinalFrameAndClearsCurrentFrame() throws {
+    func testAudioOutputCopiesFinalFrameAndClearsLeaseWithoutMutatingFrameLifecycle() throws {
         let ffPlayer = makeFFPlayerWithoutAudioManager()
         let frame = makeAudioFrame(samples: [1, 2, 3, 4])
         frame.outputOffset = MemoryLayout<Float>.size * 2
@@ -305,7 +305,7 @@ final class IRFFPlayerTests: XCTestCase {
 
         XCTAssertEqual(output, [3, 4, 0, 0])
         XCTAssertNil(ffPlayer.currentAudioFrame)
-        XCTAssertFalse(frame.playing)
+        XCTAssertTrue(frame.playing)
     }
 
     func testAudioOutputPropertiesReturnZeroWithoutAudioManager() {
@@ -624,9 +624,13 @@ private final class AudioFrameFFDecoder: IRFFDecoder {
         )
     }
 
-    override func fetchAudioFrame() -> IRFFAudioFrame? {
+    override func fetchAudioFrame() -> IRFFAudioRenderLease? {
         fetchCount += 1
-        return frame
+        guard let frame else { return nil }
+        return IRFFAudioRenderLease(
+            frame: frame,
+            byteCount: frame.size
+        )
     }
 }
 

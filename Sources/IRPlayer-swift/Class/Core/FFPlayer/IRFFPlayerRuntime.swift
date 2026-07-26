@@ -27,6 +27,12 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
         let nextLastPostTime: TimeInterval
     }
 
+    struct NormalizedPlaybackTime: Equatable, Sendable {
+        let current: TimeInterval
+        let total: TimeInterval
+        let boundedDuration: TimeInterval?
+    }
+
     let executor: IRFFPlayerExecutor
     let decoderSession: IRFFPlayerDecoderSession
     let audioRenderer: IRFFAudioRenderer
@@ -45,6 +51,8 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
     private var rejectedCommandCount = 0
     private var lifecycleGeneration: UInt64 = 0
     private var playbackCommandGeneration: UInt64 = 0
+    private var audioSeekGeneration: UInt64 = 0
+    private var activeAudioSeekGeneration: UInt64?
 
     init(
         host: any IRPlaybackBackendHost,
@@ -54,8 +62,9 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
             IRFFDecoder(
                 contentURL: $0,
                 videoFormat: $1,
-                videoOutput: $2,
-                audioOutput: $3
+                contentHeaders: $2,
+                videoOutput: $3,
+                audioOutput: $4
             )
         },
         audioRenderer: IRFFAudioRenderer = IRFFAudioRenderer()
@@ -130,6 +139,32 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
         )
     }
 
+    static func normalizedPlaybackTime(
+        _ value: TimeInterval,
+        duration: TimeInterval,
+        seekEnabled: Bool,
+        isLiveStream: Bool
+    ) -> NormalizedPlaybackTime {
+        let nonnegative =
+            IRPlaybackTimeValue.normalized(value) ?? 0
+        guard !isLiveStream,
+              seekEnabled,
+              let boundedDuration =
+                IRPlaybackTimeValue.normalized(duration),
+              boundedDuration > 0 else {
+            return NormalizedPlaybackTime(
+                current: nonnegative,
+                total: nonnegative,
+                boundedDuration: nil
+            )
+        }
+        return NormalizedPlaybackTime(
+            current: min(nonnegative, boundedDuration),
+            total: boundedDuration,
+            boundedDuration: boundedDuration
+        )
+    }
+
     var diagnostics: Diagnostics {
         executor.sync {
             Diagnostics(
@@ -178,7 +213,10 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
             executor.sync {
                 guard acceptCommandLocked() else { return }
                 stateMachine.setPlayRequested(newValue)
-                audioRenderer.setEnabled(newValue)
+                audioRenderer.setEnabled(
+                    newValue
+                        && activeAudioSeekGeneration == nil
+                )
             }
         }
     }
@@ -292,7 +330,9 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
             let commandGeneration = playbackCommandGeneration
             let expectedLifecycleGeneration = lifecycleGeneration
             stateMachine.setPlayRequested(true)
-            audioRenderer.setEnabled(true)
+            audioRenderer.setEnabled(
+                activeAudioSeekGeneration == nil
+            )
             _ = decoderSession.withCurrentDecoder(default: false) {
                 $0.resume()
                 return true
@@ -359,7 +399,35 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
                 return
             }
             commandCount += 1
-            decoderSession.seek(to: time, completion: completion)
+            audioSeekGeneration &+= 1
+            let seekGeneration = audioSeekGeneration
+            let expectedLifecycleGeneration =
+                lifecycleGeneration
+            activeAudioSeekGeneration = seekGeneration
+            storedAudioManager?.pause()
+            audioRenderer.suspendAndDrain()
+            decoderSession.seek(to: time) {
+                [weak self] finished in
+                guard let self else {
+                    completion?(false)
+                    return
+                }
+                self.executor.sync {
+                    guard self.lifecycleGeneration
+                            == expectedLifecycleGeneration else {
+                        completion?(false)
+                        return
+                    }
+                    guard self.activeAudioSeekGeneration
+                            == seekGeneration else {
+                        completion?(finished)
+                        return
+                    }
+                    self.activeAudioSeekGeneration = nil
+                    self.restoreAudioAfterSeekLocked()
+                    completion?(finished)
+                }
+            }
         }
     }
 
@@ -410,6 +478,7 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
             guard !closed else { return false }
             closed = true
             lifecycleGeneration &+= 1
+            activeAudioSeekGeneration = nil
             storedAudioManager?.pause()
             audioRenderer.reset()
             decoderSession.close()
@@ -477,6 +546,7 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
     @discardableResult
     private func resetLocked(notify: Bool) -> Bool {
         lifecycleGeneration &+= 1
+        activeAudioSeekGeneration = nil
         let audioDiagnostics = audioRenderer.diagnostics
         let hadRuntimeState =
             stateMachine.state != .none ||
@@ -519,18 +589,27 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
     }
 
     private func setProgressLocked(_ progress: TimeInterval) {
-        let oldProgress = storedProgress
-        guard progress != oldProgress else { return }
-        storedProgress = progress
-
         let decoder = decoderSession.currentDecoder
-        let decision = Self.progressPostDecision(
-            progress: progress,
-            oldProgress: oldProgress,
+        let normalized = Self.normalizedPlaybackTime(
+            progress,
             duration: decoder?.duration ?? 0,
+            seekEnabled: decoder?.seekEnable ?? false,
+            isLiveStream:
+                decoder?.isLiveStream
+                ?? host?.isLiveStream
+                ?? false
+        )
+        let oldProgress = storedProgress
+        guard normalized.current != oldProgress else { return }
+        storedProgress = normalized.current
+
+        let decision = Self.progressPostDecision(
+            progress: normalized.current,
+            oldProgress: oldProgress,
+            duration: normalized.boundedDuration ?? 0,
             lastPostTime: lastPostProgressTime,
             now: Date().timeIntervalSince1970,
-            seekEnabled: decoder?.seekEnable != false
+            seekEnabled: normalized.boundedDuration != nil
         )
         guard decision.shouldPost else { return }
         lastPostProgressTime = decision.nextLastPostTime
@@ -541,15 +620,23 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
     }
 
     private func setPlayableTimeLocked(_ playableTime: TimeInterval) {
-        let duration = currentDurationLocked()
-        let normalized =
-            IRPlaybackTimeRange(duration: duration)?
-                .clamped(playableTime) ?? 0
-        guard normalized != storedPlayableTime else { return }
-        storedPlayableTime = normalized
+        let decoder = decoderSession.currentDecoder
+        let normalized = Self.normalizedPlaybackTime(
+            playableTime,
+            duration: decoder?.duration ?? 0,
+            seekEnabled: decoder?.seekEnable ?? false,
+            isLiveStream:
+                decoder?.isLiveStream
+                ?? host?.isLiveStream
+                ?? false
+        )
+        guard normalized.current != storedPlayableTime else {
+            return
+        }
+        storedPlayableTime = normalized.current
         host?.playbackBackendDidUpdatePlayableTime(
-            current: normalized,
-            total: duration
+            current: normalized.current,
+            total: normalized.total
         )
     }
 
@@ -560,7 +647,8 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
         if transition.current != .failed {
             host?.error = nil
         }
-        if transition.current == .playing {
+        if transition.current == .playing,
+           activeAudioSeekGeneration == nil {
             audioRenderer.setEnabled(true)
             if storedAudioManager?.play(withDelegate: audioRenderer) == false {
                 audioRenderer.setEnabled(false)
@@ -574,6 +662,19 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
             previous: transition.previous,
             current: transition.current
         )
+    }
+
+    private func restoreAudioAfterSeekLocked() {
+        guard !closed,
+              stateMachine.playRequested,
+              stateMachine.state == .playing else {
+            audioRenderer.setEnabled(false)
+            return
+        }
+        audioRenderer.setEnabled(true)
+        if storedAudioManager?.play(withDelegate: audioRenderer) == false {
+            audioRenderer.setEnabled(false)
+        }
     }
 
     private func failLocked(_ error: NSError) {

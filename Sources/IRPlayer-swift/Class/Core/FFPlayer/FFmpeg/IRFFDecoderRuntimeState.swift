@@ -23,22 +23,88 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         let minBufferedDuration: TimeInterval
         let isLiveStream: Bool
         let hasError: Bool
+        let decodeGeneration: UInt64
     }
 
     struct BeginSeekResult {
         let progressChange: Change<TimeInterval>?
         let displacedCompletion: ((Bool) -> Void)?
+        let decodeGeneration: UInt64
+        let needsWorkerRestart: Bool
+    }
+
+    struct SeekCommitResult {
+        let bufferingChange: Change<Bool>?
+        let completion: ((Bool) -> Void)?
+    }
+
+    struct BufferedDurationCommit {
+        let bufferedDurationChange:
+            Change<TimeInterval>
+        let progressChange:
+            Change<TimeInterval>?
+        let didFinishPlayback: Bool
+        let bufferingChange: Change<Bool>?
+    }
+
+    struct AudioRenderSnapshot: Equatable {
+        let closed: Bool
+        let hasError: Bool
+        let seeking: Bool
+        let buffering: Bool
+        let paused: Bool
+        let playbackFinished: Bool
     }
 
     struct PendingSeek {
         fileprivate let id: UInt64
         let target: TimeInterval
+        let decodeGeneration: UInt64
     }
 
     private struct StoredSeek {
         let id: UInt64
         let target: TimeInterval
+        let decodeGeneration: UInt64
         let completion: ((Bool) -> Void)?
+    }
+
+    private struct PendingAudioProgress {
+        let value: TimeInterval
+        let decodeGeneration: UInt64
+    }
+
+    private struct AudioRetirementBuffer {
+        private var frames: [IRFFAudioFrame?]
+        private var readIndex = 0
+        private var storedCount = 0
+
+        init(capacity: Int) {
+            frames = Array(
+                repeating: nil,
+                count: max(1, capacity)
+            )
+        }
+
+        mutating func append(_ frame: IRFFAudioFrame) -> Bool {
+            guard storedCount < frames.count else {
+                return false
+            }
+            let writeIndex =
+                (readIndex + storedCount) % frames.count
+            frames[writeIndex] = frame
+            storedCount += 1
+            return true
+        }
+
+        mutating func popFirst() -> IRFFAudioFrame? {
+            guard storedCount > 0 else { return nil }
+            let frame = frames[readIndex]
+            frames[readIndex] = nil
+            readIndex = (readIndex + 1) % frames.count
+            storedCount -= 1
+            return frame
+        }
     }
 
     private struct Storage {
@@ -58,14 +124,26 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         var minBufferedDuration: TimeInterval = 0
         var isLiveStream = false
         var error: Error?
+        var decodeGeneration: UInt64 = 0
         var nextSeekID: UInt64 = 0
         var pendingSeek: StoredSeek?
         var activeSeek: StoredSeek?
         var currentVideoFrame: IRFFVideoFrame?
         var currentAudioFrame: IRFFAudioFrame?
+        var pendingAudioProgress:
+            PendingAudioProgress?
+        var activeAudioFrameID: ObjectIdentifier?
+        var activeAudioFrameDuration: TimeInterval = 0
+        var finishedAudioFrames =
+            AudioRetirementBuffer(
+                capacity:
+                    IRFFFramePool
+                        .audioMaximumCapacity
+            )
     }
 
     private let lock = NSLock()
+    private let transitionLock = NSRecursiveLock()
     private var storage = Storage()
 
     var snapshot: Snapshot {
@@ -86,14 +164,289 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
                 hardwareDecoderEnable: storage.hardwareDecoderEnable,
                 minBufferedDuration: storage.minBufferedDuration,
                 isLiveStream: storage.isLiveStream,
-                hasError: storage.error != nil
+                hasError: storage.error != nil,
+                decodeGeneration:
+                    storage.decodeGeneration
             )
         }
     }
 
+    func acceptsDecodeGeneration(
+        _ generation: UInt64
+    ) -> Bool {
+        withLock {
+            !storage.closed &&
+                storage.decodeGeneration == generation
+        }
+    }
+
     var error: Error? {
-        get { withLock { storage.error } }
-        set { withLock { storage.error = newValue } }
+        withLock { storage.error }
+    }
+
+    @discardableResult
+    func commitDecodeError(
+        _ error: Error,
+        generation: UInt64,
+        notification: () -> Void
+    ) -> Bool {
+        withTransitionLock {
+            let committed = withLock {
+                guard !storage.closed,
+                      storage.error == nil,
+                      !storage.endOfFile,
+                      storage.decodeGeneration ==
+                        generation else {
+                    return false
+                }
+                storage.error = error
+                return true
+            }
+            guard committed else { return false }
+            notification()
+            return true
+        }
+    }
+
+    @discardableResult
+    func commitEndOfFile(
+        generation: UInt64,
+        notification: () -> Void
+    ) -> Bool {
+        withTransitionLock {
+            let committed = withLock {
+                guard !storage.closed,
+                      storage.error == nil,
+                      !storage.endOfFile,
+                      storage.decodeGeneration ==
+                        generation else {
+                    return false
+                }
+                storage.endOfFile = true
+                return true
+            }
+            guard committed else { return false }
+            notification()
+            return true
+        }
+    }
+
+    /// Commits every state transition caused by a decoder worker's duration
+    /// update before publishing its first notification. The transition gate
+    /// keeps generation validation, mutation, and delivery ordered with seek
+    /// and close.
+    @discardableResult
+    func commitBufferedDuration(
+        _ requestedValue: TimeInterval,
+        playbackDuration: TimeInterval,
+        generation: UInt64,
+        currentTime: TimeInterval,
+        notification:
+            (BufferedDurationCommit) -> Void
+    ) -> Bool {
+        withTransitionLock {
+            let result: (
+                accepted: Bool,
+                commit:
+                    BufferedDurationCommit?
+            ) = withLock {
+                guard !storage.closed,
+                      !storage.seeking,
+                      storage.error == nil,
+                      storage.decodeGeneration ==
+                        generation else {
+                    return (false, nil)
+                }
+
+                let durationTransition =
+                    IRFFDecoder
+                        .bufferedDurationTransition(
+                            bufferedDuration:
+                                requestedValue,
+                            endOfFile:
+                                storage.endOfFile
+                        )
+                let previousDuration =
+                    storage.bufferedDuration
+                guard requestedValue !=
+                        previousDuration else {
+                    return (true, nil)
+                }
+                storage.bufferedDuration =
+                    durationTransition
+                        .bufferedDuration
+
+                var progressChange:
+                    Change<TimeInterval>?
+                var didFinishPlayback = false
+                if durationTransition
+                        .shouldFinishPlayback,
+                   !storage.playbackFinished {
+                    storage.playbackFinished = true
+                    didFinishPlayback = true
+                    if let normalizedProgress =
+                            IRFFDecoder
+                                .normalizedProgress(
+                                    playbackDuration,
+                                    duration:
+                                        playbackDuration
+                                ) {
+                        progressChange = change(
+                            from: storage.progress,
+                            to: normalizedProgress
+                        )
+                        storage.progress =
+                            normalizedProgress
+                    }
+                }
+
+                let bufferingTransition =
+                    IRFFDecoder
+                        .bufferingStatusTransition(
+                            buffering:
+                                storage.buffering,
+                            bufferedDuration:
+                                storage
+                                    .bufferedDuration,
+                            endOfFile:
+                                storage.endOfFile,
+                            isLiveStream:
+                                storage.isLiveStream,
+                            minBufferedDuration:
+                                storage
+                                    .minBufferedDuration,
+                            bufferingStartTime:
+                                storage
+                                    .bufferingStartTime,
+                            currentTime:
+                                currentTime
+                        )
+                let bufferingChange = change(
+                    from: storage.buffering,
+                    to: bufferingTransition
+                        .buffering
+                )
+                storage.buffering =
+                    bufferingTransition.buffering
+                storage.bufferingStartTime =
+                    bufferingTransition
+                        .bufferingStartTime
+
+                return (
+                    true,
+                    BufferedDurationCommit(
+                        bufferedDurationChange:
+                            Change(
+                                previous:
+                                    previousDuration,
+                                current:
+                                    durationTransition
+                                        .bufferedDuration
+                            ),
+                        progressChange:
+                            progressChange,
+                        didFinishPlayback:
+                            didFinishPlayback,
+                        bufferingChange:
+                            bufferingChange
+                    )
+                )
+            }
+            guard result.accepted else {
+                return false
+            }
+            if let commit = result.commit {
+                notification(commit)
+            }
+            return true
+        }
+    }
+
+    /// Recomputes and commits buffering from one generation-consistent
+    /// snapshot, then publishes the change while still holding the transition
+    /// gate.
+    @discardableResult
+    func commitVideoBufferingStatus(
+        generation: UInt64,
+        currentTime: TimeInterval,
+        notification:
+            (Change<Bool>) -> Void
+    ) -> Bool {
+        withTransitionLock {
+            let result: (
+                accepted: Bool,
+                change: Change<Bool>?
+            ) = withLock {
+                guard !storage.closed,
+                      !storage.seeking,
+                      storage.error == nil,
+                      storage.decodeGeneration ==
+                        generation else {
+                    return (false, nil)
+                }
+                let transition =
+                    IRFFDecoder
+                        .bufferingStatusTransition(
+                            buffering:
+                                storage.buffering,
+                            bufferedDuration:
+                                storage
+                                    .bufferedDuration,
+                            endOfFile:
+                                storage.endOfFile,
+                            isLiveStream:
+                                storage.isLiveStream,
+                            minBufferedDuration:
+                                storage
+                                    .minBufferedDuration,
+                            bufferingStartTime:
+                                storage
+                                    .bufferingStartTime,
+                            currentTime:
+                                currentTime
+                        )
+                let bufferingChange = change(
+                    from: storage.buffering,
+                    to: transition.buffering
+                )
+                storage.buffering =
+                    transition.buffering
+                storage.bufferingStartTime =
+                    transition
+                        .bufferingStartTime
+                return (true, bufferingChange)
+            }
+            guard result.accepted else {
+                return false
+            }
+            if let change = result.change {
+                notification(change)
+            }
+            return true
+        }
+    }
+
+    /// Revalidates between notifications from one multi-event transaction.
+    /// A delegate may synchronously seek or close because the transition lock
+    /// is recursive; any remaining events from the displaced generation are
+    /// suppressed when control returns.
+    @discardableResult
+    func notifyIfCurrentDecodeGeneration(
+        _ generation: UInt64,
+        notification: () -> Void
+    ) -> Bool {
+        withTransitionLock {
+            let accepted = withLock {
+                !storage.closed &&
+                    !storage.seeking &&
+                    storage.error == nil &&
+                    storage.decodeGeneration ==
+                        generation
+            }
+            guard accepted else { return false }
+            notification()
+            return true
+        }
     }
 
     var currentVideoFrame: IRFFVideoFrame? {
@@ -101,9 +454,268 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         set { withLock { storage.currentVideoFrame = newValue } }
     }
 
+    /// Runs external delivery while the transition gate excludes cross-thread
+    /// seek/close/error transitions, then revalidates after synchronous
+    /// delegate reentry before publishing the frame.
+    @discardableResult
+    func commitDeliveredVideoFrame(
+        _ frame: IRFFVideoFrame,
+        generation: UInt64,
+        progress: TimeInterval?,
+        playbackDuration: TimeInterval,
+        delivery: (IRFFVideoFrame) -> Bool,
+        notification:
+            (Change<TimeInterval>) -> Void
+    ) -> Bool {
+        withTransitionLock {
+            guard withLock({
+                acceptsDisplayGenerationLocked(
+                    generation
+                )
+            }) else {
+                return false
+            }
+            guard delivery(frame) else {
+                return false
+            }
+
+            let result: (
+                accepted: Bool,
+                progressChange:
+                    Change<TimeInterval>?
+            ) = withLock {
+                guard acceptsDisplayGenerationLocked(
+                    generation
+                ) else {
+                    return (false, nil)
+                }
+                storage.currentVideoFrame = frame
+                guard let progress,
+                      let normalizedProgress =
+                        IRFFDecoder
+                            .normalizedProgress(
+                                progress,
+                                duration:
+                                    playbackDuration
+                            ) else {
+                    return (true, nil)
+                }
+                let progressChange = change(
+                    from: storage.progress,
+                    to: normalizedProgress
+                )
+                storage.progress =
+                    normalizedProgress
+                return (true, progressChange)
+            }
+            guard result.accepted else {
+                return false
+            }
+            if let progressChange =
+                    result.progressChange {
+                notification(progressChange)
+            }
+            return true
+        }
+    }
+
+    /// Replays only a frame owned by the current runnable generation.
+    @discardableResult
+    func replayCurrentVideoFrame(
+        generation: UInt64,
+        delivery: (IRFFVideoFrame) -> Bool
+    ) -> Bool {
+        withTransitionLock {
+            guard let frame = withLock({ () -> IRFFVideoFrame? in
+                guard acceptsDisplayGenerationLocked(
+                    generation
+                ) else {
+                    return nil
+                }
+                return storage.currentVideoFrame
+            }) else {
+                return false
+            }
+            return delivery(frame)
+        }
+    }
+
+    /// A nil dequeue from a displaced worker must never clear a newer
+    /// generation's retained frame.
+    @discardableResult
+    func clearCurrentVideoFrame(
+        generation: UInt64
+    ) -> Bool {
+        withTransitionLock {
+            withLock {
+                guard acceptsDisplayGenerationLocked(
+                    generation
+                ) else {
+                    return false
+                }
+                storage.currentVideoFrame = nil
+                return true
+            }
+        }
+    }
+
     var currentAudioFrame: IRFFAudioFrame? {
         get { withLock { storage.currentAudioFrame } }
         set { withLock { storage.currentAudioFrame = newValue } }
+    }
+
+    /// Atomically admits and records a non-blocking audio dequeue.
+    ///
+    /// The callback runs while the state lock is held, so it must only attempt
+    /// non-waiting operations. Keeping admission and publication in one
+    /// transaction prevents a dequeued frame from becoming invisible to EOF
+    /// accounting when another worker briefly owns this state.
+    func tryFetchAudioFrame(
+        _ dequeue: (AudioRenderSnapshot) ->
+            IRFFAudioFrameTransfer?
+    ) -> IRFFAudioRenderLease? {
+        guard lock.try() else { return nil }
+        defer { lock.unlock() }
+        let snapshot = AudioRenderSnapshot(
+            closed: storage.closed,
+            hasError: storage.error != nil,
+            seeking: storage.seeking,
+            buffering: storage.buffering,
+            paused: storage.paused,
+            playbackFinished: storage.playbackFinished
+        )
+        guard storage.error == nil else {
+            return nil
+        }
+        guard storage.activeAudioFrameID == nil else {
+            return nil
+        }
+        guard let transfer = dequeue(snapshot) else {
+            return nil
+        }
+        let position = transfer.position.isFinite
+            ? transfer.position
+            : storage.audioTimeClock
+        let duration =
+            transfer.duration.isFinite
+                && transfer.duration > 0
+            ? transfer.duration
+            : 0
+        storage.currentAudioFrame = transfer.frame
+        storage.audioTimeClock = position
+        storage.pendingAudioProgress =
+            PendingAudioProgress(
+                value: position,
+                decodeGeneration:
+                    storage.decodeGeneration
+            )
+        storage.activeAudioFrameID =
+            ObjectIdentifier(transfer.frame)
+        storage.activeAudioFrameDuration = duration
+        return IRFFAudioRenderLease(
+            frame: transfer.frame,
+            byteCount: transfer.size
+        )
+    }
+
+    @discardableResult
+    func tryFinishAudioFrame(
+        _ identifier: ObjectIdentifier
+    ) -> Bool {
+        guard lock.try() else { return false }
+        defer { lock.unlock() }
+        return finishAudioFrameLocked(identifier)
+    }
+
+    func finishAudioFrame(
+        _ identifier: ObjectIdentifier
+    ) -> Bool {
+        withLock {
+            finishAudioFrameLocked(identifier)
+        }
+    }
+
+    private func finishAudioFrameLocked(
+        _ identifier: ObjectIdentifier
+    ) -> Bool {
+        guard storage.activeAudioFrameID == identifier else {
+            return true
+        }
+        if let frame = storage.currentAudioFrame {
+            guard storage.finishedAudioFrames
+                    .append(frame) else {
+                return false
+            }
+        }
+        storage.currentAudioFrame = nil
+        storage.activeAudioFrameID = nil
+        storage.activeAudioFrameDuration = 0
+        return true
+    }
+
+    func takeFinishedAudioFrame() -> IRFFAudioFrame? {
+        withLock {
+            storage.finishedAudioFrames.popFirst()
+        }
+    }
+
+    var activeAudioFrameDuration: TimeInterval {
+        withLock { storage.activeAudioFrameDuration }
+    }
+
+    @discardableResult
+    func commitPendingAudioProgress(
+        generation: UInt64,
+        playbackDuration: TimeInterval,
+        notification:
+            (Change<TimeInterval>) -> Void
+    ) -> Bool {
+        withTransitionLock {
+            let result: (
+                accepted: Bool,
+                change:
+                    Change<TimeInterval>?
+            ) = withLock {
+                guard !storage.closed,
+                      !storage.seeking,
+                      storage.error == nil,
+                      storage.decodeGeneration ==
+                        generation,
+                      let pendingProgress =
+                        storage
+                            .pendingAudioProgress,
+                      pendingProgress
+                        .decodeGeneration ==
+                        generation else {
+                    return (false, nil)
+                }
+                storage.pendingAudioProgress =
+                    nil
+                guard let normalizedProgress =
+                        IRFFDecoder
+                            .normalizedProgress(
+                                pendingProgress.value,
+                                duration:
+                                    playbackDuration
+                            ) else {
+                    return (true, nil)
+                }
+                let progressChange = change(
+                    from: storage.progress,
+                    to: normalizedProgress
+                )
+                storage.progress =
+                    normalizedProgress
+                return (true, progressChange)
+            }
+            guard result.accepted else {
+                return false
+            }
+            if let change = result.change {
+                notification(change)
+            }
+            return true
+        }
     }
 
     @discardableResult
@@ -203,10 +815,12 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
     }
 
     func beginClose() -> Bool {
-        withLock {
-            guard !storage.closed else { return false }
-            storage.closed = true
-            return true
+        withTransitionLock {
+            withLock {
+                guard !storage.closed else { return false }
+                storage.closed = true
+                return true
+            }
         }
     }
 
@@ -222,23 +836,39 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         to target: TimeInterval,
         completion: ((Bool) -> Void)?
     ) -> BeginSeekResult? {
-        withLock {
-            guard !storage.closed else { return nil }
+        withTransitionLock {
+            withLock {
+                guard !storage.closed else { return nil }
 
-            let displacedCompletion = storage.pendingSeek?.completion
-            let progressChange = change(from: storage.progress, to: target)
-            storage.nextSeekID &+= 1
-            storage.progress = target
-            storage.pendingSeek = StoredSeek(
-                id: storage.nextSeekID,
-                target: target,
-                completion: completion
-            )
-            storage.seeking = true
-            return BeginSeekResult(
-                progressChange: progressChange,
-                displacedCompletion: displacedCompletion
-            )
+                let displacedCompletion = storage.pendingSeek?.completion
+                let progressChange = change(from: storage.progress, to: target)
+                let needsWorkerRestart =
+                    storage.endOfFile ||
+                    storage.playbackFinished
+                storage.nextSeekID &+= 1
+                storage.decodeGeneration &+= 1
+                storage.progress = target
+                storage.pendingAudioProgress =
+                    nil
+                storage.endOfFile = false
+                storage.playbackFinished = false
+                storage.pendingSeek = StoredSeek(
+                    id: storage.nextSeekID,
+                    target: target,
+                    decodeGeneration:
+                        storage.decodeGeneration,
+                    completion: completion
+                )
+                storage.seeking = true
+                return BeginSeekResult(
+                    progressChange: progressChange,
+                    displacedCompletion: displacedCompletion,
+                    decodeGeneration:
+                        storage.decodeGeneration,
+                    needsWorkerRestart:
+                        needsWorkerRestart
+                )
+            }
         }
     }
 
@@ -251,7 +881,12 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
 
             storage.pendingSeek = nil
             storage.activeSeek = pendingSeek
-            return PendingSeek(id: pendingSeek.id, target: pendingSeek.target)
+            return PendingSeek(
+                id: pendingSeek.id,
+                target: pendingSeek.target,
+                decodeGeneration:
+                    pendingSeek.decodeGeneration
+            )
         }
     }
 
@@ -262,6 +897,47 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
             storage.activeSeek = nil
             storage.seeking = storage.pendingSeek != nil
             return completion
+        }
+    }
+
+    func commitSeek(
+        _ request: PendingSeek,
+        transition: IRFFDecoder.SeekCompletionTransition,
+        bufferingStartTime: TimeInterval
+    ) -> SeekCommitResult? {
+        withLock {
+            guard storage.activeSeek?.id ==
+                    request.id else {
+                return nil
+            }
+            let completion =
+                storage.activeSeek?.completion
+            let bufferingChange = change(
+                from: storage.buffering,
+                to: transition.buffering
+            )
+            storage.endOfFile =
+                transition.endOfFile
+            storage.playbackFinished =
+                transition.playbackFinished
+            storage.buffering =
+                transition.buffering
+            storage.bufferingStartTime =
+                transition.buffering
+                ? bufferingStartTime
+                : 0
+            storage.audioTimeClock =
+                transition.audioTimeClock
+            if transition.shouldClearFrames {
+                clearFramesLocked()
+            }
+            storage.activeSeek = nil
+            storage.seeking =
+                storage.pendingSeek != nil
+            return SeekCommitResult(
+                bufferingChange: bufferingChange,
+                completion: completion
+            )
         }
     }
 
@@ -280,9 +956,27 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
 
     func clearFrames() {
         withLock {
-            storage.currentVideoFrame = nil
+            clearFramesLocked()
+        }
+    }
+
+    private func clearFramesLocked() {
+        storage.currentVideoFrame = nil
+        if storage.activeAudioFrameID == nil {
             storage.currentAudioFrame = nil
         }
+        storage.pendingAudioProgress = nil
+        storage.activeAudioFrameDuration = 0
+    }
+
+    private func acceptsDisplayGenerationLocked(
+        _ generation: UInt64
+    ) -> Bool {
+        !storage.closed &&
+            !storage.seeking &&
+            storage.error == nil &&
+            storage.decodeGeneration ==
+                generation
     }
 
     private func set<Value: Equatable>(
@@ -310,6 +1004,14 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
     private func withLock<Result>(_ body: () -> Result) -> Result {
         lock.lock()
         defer { lock.unlock() }
+        return body()
+    }
+
+    private func withTransitionLock<Result>(
+        _ body: () -> Result
+    ) -> Result {
+        transitionLock.lock()
+        defer { transitionLock.unlock() }
         return body()
     }
 }

@@ -180,7 +180,25 @@ final class IRAVPlayerSemanticsTests: XCTestCase {
         )
     }
 
-    func testFiniteSecondsReturnsFinitePositiveAndNegativeValues() {
+    func testSeekTimeClampsKnownDurationAndPreservesUnknownDuration()
+        throws
+    {
+        let bounded = try XCTUnwrap(
+            IRAVPlayer.seekTime(for: 12, duration: 10)
+        )
+        let unknown = try XCTUnwrap(
+            IRAVPlayer.seekTime(for: 12, duration: 0)
+        )
+        let invalid = try XCTUnwrap(
+            IRAVPlayer.seekTime(for: 12, duration: .nan)
+        )
+
+        XCTAssertEqual(CMTimeGetSeconds(bounded), 10)
+        XCTAssertEqual(CMTimeGetSeconds(unknown), 12)
+        XCTAssertEqual(CMTimeGetSeconds(invalid), 12)
+    }
+
+    func testFiniteSecondsReturnsOnlySafeNonnegativeValues() {
         XCTAssertEqual(
             IRAVPlayer.finiteSeconds(
                 from: CMTimeMakeWithSeconds(
@@ -198,8 +216,16 @@ final class IRAVPlayerSemanticsTests: XCTestCase {
                     preferredTimescale: 1_000
                 )
             ),
-            -1.25,
-            accuracy: 0.0001
+            0
+        )
+        XCTAssertEqual(
+            IRAVPlayer.finiteSeconds(
+                from: CMTime(
+                    value: Int64.max,
+                    timescale: 1
+                )
+            ),
+            0
         )
     }
 
@@ -247,6 +273,17 @@ final class IRAVPlayerSemanticsTests: XCTestCase {
         )
     }
 
+    func testPlayableEndTimePreservesSafeRangeForUnknownDuration() {
+        XCTAssertEqual(
+            IRAVPlayer.playableEndTime(
+                start: 4,
+                duration: 3,
+                totalDuration: 0
+            ),
+            7
+        )
+    }
+
     func testPlayableEndTimeRejectsOverflowAndInvalidDuration() {
         XCTAssertEqual(
             IRAVPlayer.playableEndTime(
@@ -271,6 +308,32 @@ final class IRAVPlayerSemanticsTests: XCTestCase {
                 totalDuration: .nan
             ),
             0
+        )
+        XCTAssertEqual(
+            IRAVPlayer.playableEndTime(
+                start: 1,
+                duration: 2,
+                totalDuration: -1
+            ),
+            0
+        )
+    }
+
+    func testLoadedTimeRangeDecisionRecoversUnknownDurationPlayback() {
+        let playableTime = IRAVPlayer.playableEndTime(
+            start: 0,
+            duration: 5,
+            totalDuration: 0
+        )
+
+        XCTAssertEqual(
+            IRAVPlayer.loadedTimeRangeDecision(
+                playableTime: playableTime,
+                progress: 0,
+                totalDuration: 0,
+                playableBufferInterval: 2
+            ),
+            .playIfNeeded
         )
     }
 
@@ -417,86 +480,6 @@ final class IRAVPlayerSemanticsTests: XCTestCase {
                 trackStatus: nil
             ),
             .ignore
-        )
-    }
-
-    func testRedirectRequestAppliesHeadersAndPreservesPayload()
-        throws
-    {
-        var request = URLRequest(
-            url: URL(
-                string:
-                    "https://example.com/video.m3u8"
-            )!
-        )
-        request.httpMethod = "POST"
-        request.httpBody = Data("payload".utf8)
-
-        let redirectRequest = try XCTUnwrap(
-            IRAVPlayer.resourceLoaderRedirectRequest(
-                for: request,
-                headers: [
-                    "Authorization": "Bearer token",
-                    "X-Playback-Session": "abc"
-                ]
-            )
-        )
-
-        XCTAssertEqual(redirectRequest.url, request.url)
-        XCTAssertEqual(
-            redirectRequest.httpMethod,
-            request.httpMethod
-        )
-        XCTAssertEqual(
-            redirectRequest.httpBody,
-            request.httpBody
-        )
-        XCTAssertEqual(
-            redirectRequest.value(
-                forHTTPHeaderField: "Authorization"
-            ),
-            "Bearer token"
-        )
-        XCTAssertEqual(
-            redirectRequest.value(
-                forHTTPHeaderField: "X-Playback-Session"
-            ),
-            "abc"
-        )
-    }
-
-    func testRedirectRequestRejectsMissingHeaders() {
-        let request = httpsRequest()
-
-        XCTAssertNil(
-            IRAVPlayer.resourceLoaderRedirectRequest(
-                for: request,
-                headers: nil
-            )
-        )
-        XCTAssertNil(
-            IRAVPlayer.resourceLoaderRedirectRequest(
-                for: request,
-                headers: [:]
-            )
-        )
-    }
-
-    func testRedirectRequestRejectsNonHTTPSURL() {
-        let request = URLRequest(
-            url: URL(
-                string:
-                    "http://example.com/video.m3u8"
-            )!
-        )
-
-        XCTAssertNil(
-            IRAVPlayer.resourceLoaderRedirectRequest(
-                for: request,
-                headers: [
-                    "Authorization": "Bearer token"
-                ]
-            )
         )
     }
 

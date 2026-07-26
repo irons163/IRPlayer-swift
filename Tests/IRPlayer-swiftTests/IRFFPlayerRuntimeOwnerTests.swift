@@ -1,4 +1,5 @@
 import CoreGraphics
+import AVFoundation
 import Foundation
 import XCTest
 #if SWIFT_PACKAGE
@@ -135,13 +136,27 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         let videoOutput = FFPlayerVideoOutputProbe()
         let audioOutput = FFPlayerAudioOutputProbe()
         let recorder = FFPlayerEventRecorder()
+        let contentHeaders = [
+            "Authorization":
+                "Bearer value",
+            "X-Playback": "primary"
+        ]
         var session: IRFFPlayerDecoderSession!
         var factoryCallCount = 0
 
-        session = IRFFPlayerDecoderSession { url, format, video, audio in
+        session = IRFFPlayerDecoderSession {
+            url,
+            format,
+            headers,
+            video,
+            audio in
             factoryCallCount += 1
             XCTAssertEqual(url.path, "/tmp/runtime-owner.mp4")
             XCTAssertEqual(format, .mpeg4)
+            XCTAssertEqual(
+                headers,
+                contentHeaders
+            )
             XCTAssertTrue(video === videoOutput)
             XCTAssertTrue(audio === audioOutput)
             decoder.videoOutput = video
@@ -160,6 +175,8 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
 
         let token = session.activate(
             configuration: makeFFPlayerSessionConfiguration(
+                contentHeaders:
+                    contentHeaders,
                 source: source,
                 videoOutput: videoOutput,
                 audioOutput: audioOutput,
@@ -211,7 +228,8 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
     func testActivationRejectsDecoderWhoseCollaboratorsAreRevoked() {
         let decoder = ControlledFFPlayerDecoder()
         XCTAssertTrue(decoder.revokeCollaborators())
-        let session = IRFFPlayerDecoderSession { _, _, _, _ in
+        let session = IRFFPlayerDecoderSession {
+            _, _, _, _, _ in
             decoder
         }
 
@@ -236,7 +254,8 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
     func testFactoryReentrantCloseCannotResurrectSession() {
         let decoder = ControlledFFPlayerDecoder()
         var session: IRFFPlayerDecoderSession!
-        session = IRFFPlayerDecoderSession { _, _, _, _ in
+        session = IRFFPlayerDecoderSession {
+            _, _, _, _, _ in
             XCTAssertTrue(session.close())
             return decoder
         }
@@ -259,7 +278,8 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         let reentrant = ControlledFFPlayerDecoder()
         let displaced = ControlledFFPlayerDecoder()
         var session: IRFFPlayerDecoderSession!
-        session = IRFFPlayerDecoderSession { _, _, _, _ in
+        session = IRFFPlayerDecoderSession {
+            _, _, _, _, _ in
             XCTAssertNotNil(
                 session.adopt(reentrant, eventHandler: { _ in })
             )
@@ -369,7 +389,8 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         let videoOutput = FFPlayerVideoOutputProbe()
         let audioOutput = FFPlayerAudioOutputProbe()
         let decoder = ControlledFFPlayerDecoder()
-        let session = IRFFPlayerDecoderSession { _, _, video, audio in
+        let session = IRFFPlayerDecoderSession {
+            _, _, _, video, audio in
             decoder.videoOutput = video
             decoder.audioOutput = audio
             return decoder
@@ -417,7 +438,9 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
 
     func testReentrantActivationResetPreventsDecoderOpen() {
         let decoder = ControlledFFPlayerDecoder()
-        let session = IRFFPlayerDecoderSession { _, _, _, _ in decoder }
+        let session = IRFFPlayerDecoderSession {
+            _, _, _, _, _ in decoder
+        }
 
         let token = session.activate(
             configuration: makeFFPlayerSessionConfiguration(),
@@ -438,7 +461,8 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         let reentrant = ControlledFFPlayerDecoder()
         let displaced = ControlledFFPlayerDecoder()
         var factoryCallCount = 0
-        let session = IRFFPlayerDecoderSession { _, _, _, _ in
+        let session = IRFFPlayerDecoderSession {
+            _, _, _, _, _ in
             factoryCallCount += 1
             return displaced
         }
@@ -493,7 +517,8 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         let original = ControlledFFPlayerDecoder()
         let rejected = ControlledFFPlayerDecoder()
         var factoryCallCount = 0
-        let session = IRFFPlayerDecoderSession { _, _, _, _ in
+        let session = IRFFPlayerDecoderSession {
+            _, _, _, _, _ in
             factoryCallCount += 1
             return rejected
         }
@@ -520,6 +545,141 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
 }
 
 final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
+    func testPlaybackTimeNormalizationRejectsInvalidAndBoundsVOD() {
+        for value in [
+            TimeInterval.nan,
+            .infinity,
+            -.infinity,
+            .greatestFiniteMagnitude
+        ] {
+            XCTAssertEqual(
+                IRFFPlayerRuntime.normalizedPlaybackTime(
+                    value,
+                    duration: 10,
+                    seekEnabled: true,
+                    isLiveStream: false
+                ),
+                .init(
+                    current: 0,
+                    total: 10,
+                    boundedDuration: 10
+                )
+            )
+        }
+        XCTAssertEqual(
+            IRFFPlayerRuntime.normalizedPlaybackTime(
+                -2,
+                duration: 10,
+                seekEnabled: true,
+                isLiveStream: false
+            ),
+            .init(
+                current: 0,
+                total: 10,
+                boundedDuration: 10
+            )
+        )
+        XCTAssertEqual(
+            IRFFPlayerRuntime.normalizedPlaybackTime(
+                12,
+                duration: 10,
+                seekEnabled: true,
+                isLiveStream: false
+            ),
+            .init(
+                current: 10,
+                total: 10,
+                boundedDuration: 10
+            )
+        )
+    }
+
+    func testPlaybackTimeNormalizationPreservesIndefiniteValues() {
+        for normalized in [
+            IRFFPlayerRuntime.normalizedPlaybackTime(
+                12,
+                duration: 10,
+                seekEnabled: true,
+                isLiveStream: true
+            ),
+            IRFFPlayerRuntime.normalizedPlaybackTime(
+                12,
+                duration: 10,
+                seekEnabled: false,
+                isLiveStream: false
+            ),
+            IRFFPlayerRuntime.normalizedPlaybackTime(
+                12,
+                duration: 0,
+                seekEnabled: true,
+                isLiveStream: false
+            )
+        ] {
+            XCTAssertEqual(
+                normalized,
+                .init(
+                    current: 12,
+                    total: 12,
+                    boundedDuration: nil
+                )
+            )
+        }
+    }
+
+    func testRuntimeStoresOnlyNormalizedPlaybackTimes() {
+        let host = FFPlayerRuntimeHostSpy()
+        let runtime = IRFFPlayerRuntime(
+            host: host,
+            audioManager: nil
+        )
+        XCTAssertNotNil(
+            runtime.adopt(
+                ControlledFFPlayerDecoder(duration: 10)
+            )
+        )
+
+        runtime.progress = .nan
+        runtime.playableTime = .infinity
+        XCTAssertEqual(runtime.snapshot.progress, 0)
+        XCTAssertEqual(runtime.snapshot.playableTime, 0)
+
+        runtime.progress = -2
+        runtime.playableTime = -3
+        XCTAssertEqual(runtime.snapshot.progress, 0)
+        XCTAssertEqual(runtime.snapshot.playableTime, 0)
+
+        runtime.progress = 12
+        runtime.playableTime = 13
+        XCTAssertEqual(runtime.snapshot.progress, 10)
+        XCTAssertEqual(runtime.snapshot.playableTime, 10)
+        XCTAssertEqual(host.lastProgress?.current, 10)
+        XCTAssertEqual(host.lastProgress?.total, 10)
+        XCTAssertEqual(host.lastPlayable?.current, 10)
+        XCTAssertEqual(host.lastPlayable?.total, 10)
+    }
+
+    func testLiveRuntimePreservesTimesAndUsesCurrentAsTotal() {
+        let host = FFPlayerRuntimeHostSpy()
+        host.isLiveStream = true
+        let runtime = IRFFPlayerRuntime(
+            host: host,
+            audioManager: nil
+        )
+        let decoder = ControlledFFPlayerDecoder(duration: 0)
+        decoder.isLiveStream = true
+        XCTAssertNotNil(runtime.adopt(decoder))
+
+        runtime.progress = 7
+        runtime.playableTime = 9
+
+        XCTAssertEqual(runtime.snapshot.progress, 7)
+        XCTAssertEqual(runtime.snapshot.playableTime, 9)
+        XCTAssertEqual(host.lastProgress?.current, 7)
+        XCTAssertEqual(host.lastProgress?.total, 7)
+        XCTAssertEqual(host.lastPlayable?.current, 9)
+        XCTAssertEqual(host.lastPlayable?.total, 9)
+    }
+
     func testProgressDecisionPostsAtStartEndAndThrottleBoundary() {
         XCTAssertEqual(
             IRFFPlayerRuntime.progressPostDecision(
@@ -674,7 +834,12 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
             abstractPlayer: host,
             dependencies: IRFFPlayer.Dependencies(
                 executor: executor,
-                decoderFactory: { url, _, video, audio in
+                decoderFactory: {
+                    url,
+                    _,
+                    _,
+                    video,
+                    audio in
                     factoryURLs.append(url)
                     let decoder = ControlledFFPlayerDecoder(duration: 10)
                     decoder.videoOutput = video
@@ -798,6 +963,48 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
         XCTAssertTrue(player.seeking)
     }
 
+    func testSeekDrainsAudioAndOnlyLatestCompletionResumesGraph() {
+        let driver = TestAudioGraphDriver()
+        let manager = makeTestAudioManager(driver: driver)
+        let host = FFPlayerRuntimeHostSpy()
+        let runtime = IRFFPlayerRuntime(
+            host: host,
+            audioManager: manager
+        )
+        let decoder = ControlledFFPlayerDecoder(duration: 10)
+        XCTAssertNotNil(runtime.adopt(decoder))
+        runtime.playRequested = true
+        runtime.state = .playing
+        XCTAssertTrue(manager.playing)
+        let initialStartCount = driver.startCount
+
+        let frame = IRFFAudioFrame()
+        runtime.currentAudioFrame = frame
+        var results: [Bool] = []
+        runtime.seek(to: 2) { results.append($0) }
+        XCTAssertFalse(manager.playing)
+        XCTAssertNil(runtime.currentAudioFrame)
+
+        runtime.seek(to: 4) { results.append($0) }
+        decoder.finishSeek(at: 0, result: true)
+        XCTAssertTrue(
+            waitUntil(timeout: 1) {
+                results.count == 1
+            }
+        )
+        XCTAssertFalse(manager.playing)
+        XCTAssertEqual(driver.startCount, initialStartCount)
+
+        decoder.finishSeek(at: 1, result: true)
+        XCTAssertTrue(
+            waitUntil(timeout: 1) {
+                manager.playing && results.count == 2
+            }
+        )
+        XCTAssertEqual(driver.startCount, initialStartCount + 1)
+        XCTAssertEqual(results, [true, true])
+    }
+
     func testCloseIsSilentAndRejectsAllLaterCommandsAndEvents() throws {
         let host = FFPlayerRuntimeHostSpy()
         let runtime = IRFFPlayerRuntime(host: host, audioManager: nil)
@@ -886,7 +1093,9 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
         let runtime = IRFFPlayerRuntime(
             host: host,
             audioManager: nil,
-            decoderFactory: { _, _, _, _ in opening }
+            decoderFactory: {
+                _, _, _, _, _ in opening
+            }
         )
         opening.onOpen = {
             opening.delegate?.decoderWillOpenInputStream(opening)
@@ -1035,6 +1244,84 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
             50
         )
     }
+
+    func testRealAudioEOFIsReconciledOutsideRenderCallback()
+        throws
+    {
+        let url = try makeTinyPCM16WAVFile()
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: url)
+        }
+        let driver = TestAudioGraphDriver()
+        let manager = makeTestAudioManager(driver: driver)
+        let host = FFPlayerRuntimeHostSpy()
+        host.contentURL = url as NSURL
+        host.displayView = IRGLView(frame: .zero)
+        host.manager = manager
+        let player = IRFFPlayer.player(with: host)
+        addTeardownBlock {
+            player.stop()
+        }
+
+        player.replaceVideo()
+        XCTAssertTrue(
+            waitUntil(timeout: 5) {
+                player.decoder?.prepareToDecode == true &&
+                    player.decoder?.endOfFile == true
+            }
+        )
+
+        player.play()
+        XCTAssertTrue(
+            waitUntil(timeout: 2) {
+                manager.playing
+            }
+        )
+
+        let renderReturned = expectation(
+            description: "real audio render returned"
+        )
+        DispatchQueue.global(qos: .userInitiated).async {
+            var samples = [Float](
+                repeating: 0,
+                count: 2_048 * 2
+            )
+            withInterleavedAudioBufferList(
+                values: &samples,
+                channels: 2
+            ) { bufferList in
+                _ = manager.renderFrames(
+                    2_048,
+                    ioData: bufferList
+                )
+            }
+            renderReturned.fulfill()
+        }
+        wait(for: [renderReturned], timeout: 2)
+
+        XCTAssertTrue(
+            waitUntil(timeout: 2) {
+                player.state == .finished
+            }
+        )
+        XCTAssertFalse(manager.playing)
+    }
+
+    private func waitUntil(
+        timeout: TimeInterval,
+        _ predicate: () -> Bool
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if predicate() {
+                return true
+            }
+            RunLoop.current.run(
+                until: Date().addingTimeInterval(0.005)
+            )
+        }
+        return predicate()
+    }
 }
 
 final class IRFFPlayerPresentationOwnerTests: XCTestCase {
@@ -1088,6 +1375,8 @@ final class IRFFPlayerPresentationOwnerTests: XCTestCase {
 }
 
 private func makeFFPlayerSessionConfiguration(
+    contentHeaders:
+        [String: String] = [:],
     source: IRFFVideoInput? = nil,
     videoOutput: (any IRFFDecoderVideoOutput)? = nil,
     audioOutput: (any IRFFDecoderAudioOutput)? = nil,
@@ -1098,6 +1387,8 @@ private func makeFFPlayerSessionConfiguration(
     IRFFPlayerDecoderSession.Configuration(
         contentURL: URL(fileURLWithPath: "/tmp/runtime-owner.mp4"),
         videoFormat: .mpeg4,
+        contentHeaders:
+            contentHeaders,
         videoOutput: videoOutput,
         audioOutput: audioOutput,
         source: source,
@@ -1336,6 +1627,10 @@ private final class FFPlayerRuntimeHostSpy:
     private var storedStates: [IRPlayerState] = []
     private var storedProgressUpdates = 0
     private var storedPlayableUpdates = 0
+    private var storedLastProgress:
+        (current: TimeInterval, total: TimeInterval)?
+    private var storedLastPlayable:
+        (current: TimeInterval, total: TimeInterval)?
     private var storedFailures = 0
     var onStateChange: ((IRPlayerState) -> Void)?
 
@@ -1367,6 +1662,22 @@ private final class FFPlayerRuntimeHostSpy:
         return storedFailures
     }
 
+    var lastProgress:
+        (current: TimeInterval, total: TimeInterval)?
+    {
+        eventLock.lock()
+        defer { eventLock.unlock() }
+        return storedLastProgress
+    }
+
+    var lastPlayable:
+        (current: TimeInterval, total: TimeInterval)?
+    {
+        eventLock.lock()
+        defer { eventLock.unlock() }
+        return storedLastPlayable
+    }
+
     var states: [IRPlayerState] {
         eventLock.lock()
         defer { eventLock.unlock() }
@@ -1390,6 +1701,7 @@ private final class FFPlayerRuntimeHostSpy:
     ) {
         eventLock.lock()
         storedProgressUpdates += 1
+        storedLastProgress = (current, total)
         eventLock.unlock()
     }
 
@@ -1399,6 +1711,7 @@ private final class FFPlayerRuntimeHostSpy:
     ) {
         eventLock.lock()
         storedPlayableUpdates += 1
+        storedLastPlayable = (current, total)
         eventLock.unlock()
     }
 
@@ -1406,5 +1719,26 @@ private final class FFPlayerRuntimeHostSpy:
         eventLock.lock()
         storedFailures += 1
         eventLock.unlock()
+    }
+}
+
+private func withInterleavedAudioBufferList<Element>(
+    values: inout [Element],
+    channels: UInt32,
+    body: (UnsafeMutablePointer<AudioBufferList>) throws -> Void
+) rethrows {
+    try values.withUnsafeMutableBufferPointer { buffer in
+        guard let address = buffer.baseAddress else { return }
+        let list = AudioBufferList.allocate(maximumBuffers: 1)
+        defer { free(list.unsafeMutablePointer) }
+        list.count = 1
+        list[0] = AudioBuffer(
+            mNumberChannels: channels,
+            mDataByteSize: UInt32(
+                buffer.count * MemoryLayout<Element>.stride
+            ),
+            mData: address
+        )
+        try body(list.unsafeMutablePointer)
     }
 }

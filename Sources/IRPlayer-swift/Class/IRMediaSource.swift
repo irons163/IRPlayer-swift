@@ -32,17 +32,60 @@ public struct IRMediaSource {
     }
 
     func decoderType(using decoder: IRPlayerDecoder) -> IRDecoderType {
-        guard let url else { return .error }
+        switch backendResolution(using: decoder) {
+        case let .backend(kind):
+            return kind.decoderType
+        case .missingURL,
+             .unsupportedSource,
+             .unsupportedAVFoundation:
+            return .error
+        }
+    }
+
+    func backendResolution(
+        using decoder: IRPlayerDecoder
+    ) -> IRMediaSourceBackendResolution {
+        guard let url else { return .missingURL }
+        // AVFoundation cannot guarantee custom headers on every HLS
+        // playlist and segment request through a supported public API.
+        let requiresFFmpeg =
+            !headers.isEmpty
+            || videoInput != nil
+            || !Self.avFoundationVideoTypes.contains(videoType)
 
         switch backendPreference {
         case .automatic:
-            return decoder.decoderTypeForContentURL(contentURL: url as NSURL)
+            if requiresFFmpeg {
+                return .backend(.ffmpeg)
+            }
+            guard let kind = decoder
+                .decoderTypeForContentURL(contentURL: url as NSURL)
+                .playbackBackendKind else {
+                return .unsupportedSource
+            }
+            return .backend(kind)
+
         case .avFoundation:
-            return .avPlayer
+            return requiresFFmpeg
+                ? .unsupportedAVFoundation
+                : .backend(.avFoundation)
+
         case .ffmpeg:
-            return .ffmpeg
+            return .backend(.ffmpeg)
         }
     }
+
+    private static let avFoundationVideoTypes: Set<IRVideoType> = [
+        .normal,
+        .vr
+    ]
+}
+
+enum IRMediaSourceBackendResolution: Equatable {
+    case backend(IRPlaybackBackendKind)
+    case missingURL
+    case unsupportedSource
+    case unsupportedAVFoundation
 }
 
 /// Preferred Swift name for the 2.x player facade.

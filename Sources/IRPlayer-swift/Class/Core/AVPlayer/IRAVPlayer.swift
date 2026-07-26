@@ -11,6 +11,7 @@ import UIKit
 private final class IRAVPlayerSeekRequest: @unchecked Sendable {
     let token: IRAVPlayerSession.Token
     let item: AVPlayerItem
+    let backendActivation: IRPlaybackBackendActivation?
 
     private let lock = NSLock()
     private var completion: ((Bool) -> Void)?
@@ -18,10 +19,12 @@ private final class IRAVPlayerSeekRequest: @unchecked Sendable {
     init(
         token: IRAVPlayerSession.Token,
         item: AVPlayerItem,
+        backendActivation: IRPlaybackBackendActivation?,
         completion: ((Bool) -> Void)?
     ) {
         self.token = token
         self.item = item
+        self.backendActivation = backendActivation
         self.completion = completion
     }
 
@@ -35,6 +38,12 @@ private final class IRAVPlayerSeekRequest: @unchecked Sendable {
 }
 
 class IRAVPlayer: NSObject {
+    typealias ItemSeekExecutor = (
+        AVPlayerItem,
+        CMTime,
+        @escaping (Bool) -> Void
+    ) -> Void
+
     static let pixelBufferRequestInterval: CGFloat = 0.03
     static let avMediaSelectionOptionTrackIDKey =
         "MediaSelectionOptionsPersistentID"
@@ -55,14 +64,23 @@ class IRAVPlayer: NSObject {
         case ignore
     }
 
+    enum LoadedTimeRangeDecision: Equatable {
+        case playIfNeeded
+        case buffer
+        case ignore
+    }
+
     weak var abstractPlayer: (any IRPlaybackBackendHost)?
 
     private let stateStore = IRPlayerStateStore()
     let session: IRAVPlayerSession
     let presentationLoop:
         IRAVPlayerPresentationLoop
+    private let itemSeekExecutor: ItemSeekExecutor
     private let seekLock = NSLock()
     private var pendingSeekRequest: IRAVPlayerSeekRequest?
+    private let playableTimeLock = NSLock()
+    private var storedPlayableTime: TimeInterval = 0
 
     var readyToPlayTime: TimeInterval = 0
     var needPlay = false
@@ -104,25 +122,36 @@ class IRAVPlayer: NSObject {
                   let abstractPlayer else {
                 return
             }
+            let activation = abstractPlayer.activation
             if transition.current != .failed {
                 abstractPlayer.error = nil
             }
             abstractPlayer.playbackBackendDidChangeState(
                 previous: transition.previous,
-                current: transition.current
+                current: transition.current,
+                activation: activation
             )
         }
     }
 
-    var playableTime: TimeInterval = 0 {
-        didSet {
-            guard playableTime != oldValue,
-                  let abstractPlayer else {
-                return
-            }
+    var playableTime: TimeInterval {
+        get {
+            playableTimeLock.lock()
+            defer { playableTimeLock.unlock() }
+            return storedPlayableTime
+        }
+        set {
+            let normalized =
+                IRPlaybackTimeValue.normalizedOrZero(newValue)
+            playableTimeLock.lock()
+            let changed = storedPlayableTime != normalized
+            storedPlayableTime = normalized
+            playableTimeLock.unlock()
+            guard changed, let abstractPlayer else { return }
             abstractPlayer.playbackBackendDidUpdatePlayableTime(
-                current: playableTime,
-                total: duration
+                current: normalized,
+                total: duration,
+                activation: abstractPlayer.activation
             )
         }
     }
@@ -131,11 +160,22 @@ class IRAVPlayer: NSObject {
         abstractPlayer: any IRPlaybackBackendHost,
         session: IRAVPlayerSession = IRAVPlayerSession(),
         presentationLoop:
-            IRAVPlayerPresentationLoop = .system()
+            IRAVPlayerPresentationLoop = .system(),
+        itemSeekExecutor:
+            @escaping ItemSeekExecutor = {
+                item,
+                time,
+                completion in
+                item.seek(
+                    to: time,
+                    completionHandler: completion
+                )
+            }
     ) {
         self.abstractPlayer = abstractPlayer
         self.session = session
         self.presentationLoop = presentationLoop
+        self.itemSeekExecutor = itemSeekExecutor
         super.init()
         abstractPlayer.displayView?.irPixelFormat = .NV12_IRPixelFormat
         presentationLoop.install {
@@ -147,7 +187,9 @@ class IRAVPlayer: NSObject {
     deinit {
         presentationLoop.close()
         cancelPendingSeek()
-        abstractPlayer?.displayView?.setAVPlayer(nil)
+        if abstractPlayer?.isCurrentActivation != false {
+            abstractPlayer?.displayView?.setAVPlayer(nil)
+        }
         session.close()
     }
 }
@@ -229,15 +271,23 @@ extension IRAVPlayer {
         }
     }
 
-    static func seekTime(for time: TimeInterval) -> CMTime? {
-        guard time.isFinite, time >= 0 else { return nil }
-        let timescale = Int32(NSEC_PER_SEC)
-        guard time <=
-            Double(Int64.max) / Double(timescale) else {
+    static func seekTime(
+        for time: TimeInterval,
+        duration: TimeInterval = 0
+    ) -> CMTime? {
+        guard let requestedTime =
+                IRPlaybackTimeValue.normalized(time) else {
             return nil
         }
+        let boundedDuration =
+            IRPlaybackTimeValue.normalized(duration) ?? 0
+        let targetTime =
+            boundedDuration > 0
+            ? min(requestedTime, boundedDuration)
+            : requestedTime
+        let timescale = Int32(NSEC_PER_SEC)
         let seekTime = CMTimeMakeWithSeconds(
-            time,
+            targetTime,
             preferredTimescale: timescale
         )
         guard seekTime.isValid else { return nil }
@@ -245,8 +295,9 @@ extension IRAVPlayer {
     }
 
     static func finiteSeconds(from time: CMTime) -> TimeInterval {
-        let seconds = CMTimeGetSeconds(time)
-        return seconds.isFinite ? seconds : 0
+        IRPlaybackTimeValue.normalizedOrZero(
+            CMTimeGetSeconds(time)
+        )
     }
 
     static func playableEndTime(
@@ -254,14 +305,47 @@ extension IRAVPlayer {
         duration: TimeInterval,
         totalDuration: TimeInterval
     ) -> TimeInterval {
-        let end = start + duration
-        guard start.isFinite,
-              duration.isFinite,
-              end.isFinite else {
+        guard let start = IRPlaybackTimeValue.normalized(start),
+              let duration = IRPlaybackTimeValue.normalized(duration),
+              let totalDuration =
+                IRPlaybackTimeValue.normalized(totalDuration),
+              let end =
+                IRPlaybackTimeValue.normalized(start + duration) else {
             return 0
         }
-        return IRPlaybackTimeRange(duration: totalDuration)?
-            .clamped(end) ?? 0
+        guard totalDuration > 0 else { return end }
+        return min(end, totalDuration)
+    }
+
+    static func loadedTimeRangeDecision(
+        playableTime: TimeInterval,
+        progress: TimeInterval,
+        totalDuration: TimeInterval,
+        playableBufferInterval: TimeInterval
+    ) -> LoadedTimeRangeDecision {
+        guard let playableTime =
+                IRPlaybackTimeValue.normalized(playableTime),
+              let progress =
+                IRPlaybackTimeValue.normalized(progress),
+              let totalDuration =
+                IRPlaybackTimeValue.normalized(totalDuration),
+              let playableBufferInterval =
+                IRPlaybackTimeValue.normalized(
+                    playableBufferInterval
+                ) else {
+            return .ignore
+        }
+
+        let playableInterval = playableTime - progress
+        if playableInterval > playableBufferInterval {
+            return .playIfNeeded
+        }
+
+        let remainingDuration = totalDuration - progress
+        if playableInterval < 0.3 && remainingDuration > 1.5 {
+            return .buffer
+        }
+        return .ignore
     }
 
     static func avAssetLoadDecision(
@@ -274,15 +358,6 @@ extension IRAVPlayer {
         )
     }
 
-    static func resourceLoaderRedirectRequest(
-        for request: URLRequest,
-        headers: [String: String]?
-    ) -> URLRequest? {
-        IRAVPlayerSession.resourceLoaderRedirectRequest(
-            for: request,
-            headers: headers
-        )
-    }
 }
 
 // MARK: - Playback commands
@@ -296,6 +371,9 @@ extension IRAVPlayer {
         tryReplaceVideo()
         guard let token = session.currentToken else { return }
 
+        if state == .none {
+            needPlay = true
+        }
         if let nextState = Self.nextStateAfterPlay(from: state) {
             state = nextState
         }
@@ -364,15 +442,28 @@ extension IRAVPlayer {
         to time: TimeInterval,
         completionHandler: ((Bool) -> Void)? = nil
     ) {
-        guard let seekTime = Self.seekTime(for: time),
-              let target = session.withResources(
+        guard let target = session.withResources(
                 default:
-                    Optional<(IRAVPlayerSession.Token, AVPlayerItem)>.none,
+                    Optional<(
+                        token: IRAVPlayerSession.Token,
+                        item: AVPlayerItem,
+                        seekTime: CMTime
+                    )>.none,
                 { resources in
-                    guard resources.item.status == .readyToPlay else {
+                    guard resources.item.status == .readyToPlay,
+                          let seekTime = Self.seekTime(
+                              for: time,
+                              duration: Self.finiteSeconds(
+                                  from: resources.item.duration
+                              )
+                          ) else {
                         return nil
                     }
-                    return (resources.token, resources.item)
+                    return (
+                        token: resources.token,
+                        item: resources.item,
+                        seekTime: seekTime
+                    )
                 }
               ) else {
             completionHandler?(false)
@@ -382,8 +473,8 @@ extension IRAVPlayer {
         DispatchQueue.main.async { [weak self] in
             guard let self,
                   self.session.isCurrent(
-                    target.0,
-                    item: target.1
+                    target.token,
+                    item: target.item
                   ) else {
                 completionHandler?(false)
                 return
@@ -391,20 +482,29 @@ extension IRAVPlayer {
 
             self.setPlayIfNeeded()
             guard self.session.isCurrent(
-                target.0,
-                item: target.1
+                target.token,
+                item: target.item
             ) else {
                 completionHandler?(false)
                 return
             }
 
             let request = IRAVPlayerSeekRequest(
-                token: target.0,
-                item: target.1,
+                token: target.token,
+                item: target.item,
+                backendActivation:
+                    self.abstractPlayer?.activation,
                 completion: completionHandler
             )
-            self.installPendingSeek(request)
-            target.1.seek(to: seekTime) { [weak self, weak request] finished in
+            guard self.installPendingSeek(request),
+                  self.isSeekRequestCurrent(request) else {
+                request.finish(false)
+                return
+            }
+            self.itemSeekExecutor(
+                target.item,
+                target.seekTime
+            ) { [weak self, weak request] finished in
                 DispatchQueue.main.async {
                     guard let request else { return }
                     self?.completeSeek(request, finished: finished)
@@ -414,7 +514,7 @@ extension IRAVPlayer {
     }
 
     func stop() {
-        replaceEmpty()
+        replaceEmpty(allowInactiveCleanup: true)
     }
 
     var progress: TimeInterval {
@@ -431,12 +531,62 @@ extension IRAVPlayer {
 
     var bitrate: TimeInterval { 0 }
 
-    private func installPendingSeek(_ request: IRAVPlayerSeekRequest) {
+    var snapshot: IRPlaybackBackendSnapshot {
+        for _ in 0..<3 {
+            let token = session.currentToken
+            let resourceSnapshot = session.withResources(
+                default:
+                    Optional<(
+                        presentationSize: CGSize,
+                        progress: TimeInterval,
+                        duration: TimeInterval
+                    )>.none
+            ) { resources in
+                guard resources.token == token else { return nil }
+                return (
+                    presentationSize: resources.item.presentationSize,
+                    progress: Self.finiteSeconds(
+                        from: resources.item.currentTime()
+                    ),
+                    duration: Self.finiteSeconds(
+                        from: resources.item.duration
+                    )
+                )
+            }
+            let snapshot = IRPlaybackBackendSnapshot(
+                state: stateStore.value,
+                presentationSize:
+                    resourceSnapshot?.presentationSize ?? .zero,
+                bitrate: 0,
+                progress: resourceSnapshot?.progress ?? 0,
+                duration: resourceSnapshot?.duration ?? 0,
+                playableTime: playableTime,
+                isSeeking: seeking
+            )
+            guard session.currentToken == token else { continue }
+            return snapshot
+        }
+        return .empty
+    }
+
+    private func installPendingSeek(
+        _ request: IRAVPlayerSeekRequest
+    ) -> Bool {
         seekLock.lock()
         let displacedRequest = pendingSeekRequest
         pendingSeekRequest = request
         seekLock.unlock()
         displacedRequest?.finish(false)
+        guard isSeekRequestCurrent(request) else {
+            seekLock.lock()
+            if pendingSeekRequest === request {
+                pendingSeekRequest = nil
+            }
+            seekLock.unlock()
+            request.finish(false)
+            return false
+        }
+        return true
     }
 
     private func completeSeek(
@@ -455,11 +605,22 @@ extension IRAVPlayer {
         guard session.isCurrent(
             request.token,
             item: request.item
+        ), isBackendActivationCurrent(
+            request.backendActivation
         ) else {
             request.finish(false)
             return
         }
         playIfNeeded()
+        guard session.isCurrent(
+            request.token,
+            item: request.item
+        ), isBackendActivationCurrent(
+            request.backendActivation
+        ) else {
+            request.finish(false)
+            return
+        }
         request.finish(finished)
     }
 
@@ -469,5 +630,31 @@ extension IRAVPlayer {
         pendingSeekRequest = nil
         seekLock.unlock()
         request?.finish(false)
+    }
+
+    private func isSeekRequestCurrent(
+        _ request: IRAVPlayerSeekRequest
+    ) -> Bool {
+        seekLock.lock()
+        let isPending = pendingSeekRequest === request
+        seekLock.unlock()
+        return isPending
+            && session.isCurrent(
+                request.token,
+                item: request.item
+            )
+            && isBackendActivationCurrent(
+                request.backendActivation
+            )
+    }
+
+    private func isBackendActivationCurrent(
+        _ activation: IRPlaybackBackendActivation?
+    ) -> Bool {
+        guard let abstractPlayer,
+              abstractPlayer.activation == activation else {
+            return false
+        }
+        return abstractPlayer.isCurrentActivation
     }
 }

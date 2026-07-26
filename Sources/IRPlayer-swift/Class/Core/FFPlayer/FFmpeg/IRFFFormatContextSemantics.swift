@@ -1,7 +1,12 @@
 import CoreGraphics
 import Foundation
-import IRFFMpeg
-import IRPlayerObjc
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+internal import IRPlayerObjc
+#else
+@_implementationOnly import IRFFMpeg
+@_implementationOnly import IRPlayerObjc
+#endif
 
 extension IRFFFormatContext {
     static func stream(

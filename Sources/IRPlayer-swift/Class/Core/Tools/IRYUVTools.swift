@@ -6,7 +6,11 @@
 //
 
 import Foundation
-import IRFFMpeg
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+#else
+@_implementationOnly import IRFFMpeg
+#endif
 
 func IRYUVChannelFilterNeedSizeChecked(linesize: Int, width: Int, height: Int, channelCount: Int) -> Int? {
     guard linesize > 0,

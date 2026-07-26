@@ -1,5 +1,11 @@
 # 2.0 Release Prep Implementation Plan
 
+> Historical note: this preliminary release-prep plan predates the completed
+> 2.0 API and runtime redesign. Its sample release body is retained as an
+> execution record, but is superseded by `docs/releases/2.0.md` and
+> `docs/releases/2.0-migration.md`; in particular, its statement that no public
+> API rename was planned is no longer the 2.0 compatibility contract.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Prepare a reviewed and verified `2.0` release candidate without publishing the final tag prematurely.

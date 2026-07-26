@@ -195,6 +195,71 @@ final class IRGLProjectionEquirectangularTests: XCTestCase {
         XCTAssertEqual(geometry.radius, 540)
     }
 
+    func testGeometryNormalizationContainsLeftAndTopEdges()
+        throws {
+        let leftOverflow = try XCTUnwrap(
+            IRGLProjectionMeshBuilder
+                .normalizedEquirectangularGeometry(
+                    textureWidth: 100,
+                    textureHeight: 100,
+                    centerX: 10,
+                    centerY: 50,
+                    radius: 20
+                )
+        )
+        let topOverflow = try XCTUnwrap(
+            IRGLProjectionMeshBuilder
+                .normalizedEquirectangularGeometry(
+                    textureWidth: 100,
+                    textureHeight: 100,
+                    centerX: 50,
+                    centerY: 10,
+                    radius: 20
+                )
+        )
+
+        for geometry in [leftOverflow, topOverflow] {
+            XCTAssertEqual(geometry.centerX, 50)
+            XCTAssertEqual(geometry.centerY, 50)
+            XCTAssertEqual(geometry.radius, 50)
+            let mesh = try XCTUnwrap(
+                IRGLProjectionMeshBuilder
+                    .makeEquirectangularMesh(
+                        geometry: geometry
+                    )
+            )
+            XCTAssertTrue(
+                mesh.texcoords.allSatisfy {
+                    (0...1).contains($0.x)
+                        && (-1...0).contains($0.y)
+                }
+            )
+        }
+    }
+
+    func testGeometryValidationRejectsLeftAndTopOverflow() {
+        XCTAssertFalse(
+            IRGLProjectionMeshBuilder
+                .isValidEquirectangularGeometry(
+                    textureWidth: 100,
+                    textureHeight: 100,
+                    centerX: 10,
+                    centerY: 50,
+                    radius: 20
+                )
+        )
+        XCTAssertFalse(
+            IRGLProjectionMeshBuilder
+                .isValidEquirectangularGeometry(
+                    textureWidth: 100,
+                    textureHeight: 100,
+                    centerX: 50,
+                    centerY: 10,
+                    radius: 20
+                )
+        )
+    }
+
     func testGeometryNormalizationRejectsUnavailableDimensions() {
         XCTAssertNil(
             IRGLProjectionMeshBuilder

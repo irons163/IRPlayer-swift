@@ -207,6 +207,163 @@ final class IRFFAudioDecoderTests: XCTestCase {
         XCTAssertFalse(IRFFAudioDecoder.canUseDirectOutput(sampleFormat: AV_SAMPLE_FMT_NONE))
     }
 
+    func testPacketAdmissionDefersWithoutSendingOrClosingPacketAndRecoversAfterSlotRelease() throws {
+        let pool = IRFFFramePool(
+            capacity: 16,
+            frameClassName: IRFFAudioFrame.self
+        ) {
+            IRFFAudioFrame()
+        }
+        var heldFrames: [IRFFFrame] = try (0..<9).map { _ in
+            try XCTUnwrap(pool.leaseFrame())
+        }
+        var codecContext = AVCodecContext()
+        let delegate = AudioDecoderDelegateSpy(
+            samplingRate: 48_000,
+            channelCount: 2
+        )
+
+        withUnsafeMutablePointer(to: &codecContext) {
+            codecContextPointer in
+            let decoder = IRFFAudioDecoder(
+                codecContext: codecContextPointer,
+                timebase: 0.001,
+                delegate: delegate,
+                framePool: pool,
+                packetAdmissionHeadroom: 8
+            )
+            defer { decoder.destroy() }
+
+            XCTAssertEqual(
+                decoder.decodeAdmission.capacity
+                    .availableCredits,
+                7
+            )
+            XCTAssertFalse(
+                decoder.hasPacketAdmissionCapacity
+            )
+
+            var byte: UInt8 = 1
+            withUnsafeMutablePointer(to: &byte) {
+                bytePointer in
+                let packet = IRFFPacket(
+                    runtime: IRFFPacketRuntime(
+                        moveReference: {
+                            destination,
+                            source in
+                            destination = source
+                            source = AVPacket()
+                        },
+                        unreference: { packet in
+                            packet = AVPacket()
+                        }
+                    )
+                )
+                XCTAssertEqual(
+                    packet.fill { rawPacket in
+                        rawPacket.data = bytePointer
+                        rawPacket.size = 1
+                        return 0
+                    },
+                    0
+                )
+
+                XCTAssertEqual(
+                    decoder.putPacket(
+                        packet,
+                        generation: 0
+                    ),
+                    .deferred
+                )
+                XCTAssertEqual(
+                    packet.diagnostics.phase,
+                    .ready
+                )
+                XCTAssertTrue(
+                    packet.diagnostics.hasData
+                )
+
+                heldFrames.removeLast().cancel()
+                XCTAssertEqual(
+                    decoder.decodeAdmission.capacity
+                        .availableCredits,
+                    8
+                )
+                XCTAssertFalse(
+                    decoder.hasPacketAdmissionCapacity
+                )
+                heldFrames.removeLast().cancel()
+                XCTAssertEqual(
+                    decoder.decodeAdmission.capacity
+                        .availableCredits,
+                    9
+                )
+                XCTAssertTrue(
+                    decoder.hasPacketAdmissionCapacity
+                )
+
+                XCTAssertTrue(packet.close())
+            }
+
+            decoder.destroy()
+            XCTAssertEqual(
+                decoder.decodeAdmission.capacity.phase,
+                .closed
+            )
+            XCTAssertFalse(
+                decoder.hasPacketAdmissionCapacity
+            )
+        }
+
+        heldFrames.forEach { $0.cancel() }
+    }
+
+    func testPacketAdmissionAlwaysDerivesCapacityFromTheBackingPool() throws {
+        let pool = IRFFFramePool(
+            capacity: 4,
+            frameClassName: IRFFAudioFrame.self
+        ) {
+            IRFFAudioFrame()
+        }
+        let heldFrames: [IRFFFrame] = try (0..<4).map {
+            _ in
+            try XCTUnwrap(pool.leaseFrame())
+        }
+        var codecContext = AVCodecContext()
+        withUnsafeMutablePointer(to: &codecContext) {
+            codecContextPointer in
+            let decoder = IRFFAudioDecoder(
+                codecContext: codecContextPointer,
+                timebase: 0.001,
+                delegate: AudioDecoderDelegateSpy(
+                    samplingRate: 48_000,
+                    channelCount: 2
+                ),
+                framePool: pool,
+                packetAdmissionHeadroom: Int.max
+            )
+            defer { decoder.destroy() }
+
+            let admission =
+                decoder.decodeAdmission.capacity
+            XCTAssertEqual(
+                admission.limits.frameCapacity,
+                4
+            )
+            XCTAssertEqual(
+                admission.limits.packetHeadroom,
+                4
+            )
+            XCTAssertEqual(
+                admission.availableCredits,
+                0
+            )
+            XCTAssertFalse(admission.canResumeOutput)
+            XCTAssertFalse(admission.canAdmitPacket)
+        }
+        heldFrames.forEach { $0.cancel() }
+    }
+
     func testInstanceQueueLifecycleAndInvalidPacketRemainCallable() {
         var codecContext = AVCodecContext()
         let delegate = AudioDecoderDelegateSpy(samplingRate: 48_000, channelCount: 2)
@@ -223,7 +380,10 @@ final class IRFFAudioDecoderTests: XCTestCase {
             XCTAssertEqual(decoder.duration(), 0)
 
             let packet = IRFFPacket()
-            XCTAssertEqual(decoder.putPacket(packet), 0)
+            XCTAssertEqual(
+                decoder.putPacket(packet),
+                .consumed(.needsInput)
+            )
             XCTAssertEqual(
                 packet.diagnostics.phase,
                 .closed
@@ -285,7 +445,10 @@ final class IRFFAudioDecoderTests: XCTestCase {
                 continue
             }
 
-            XCTAssertEqual(decoder.putPacket(packet), 0)
+            XCTAssertEqual(
+                decoder.putPacket(packet),
+                .consumed(.needsInput)
+            )
             XCTAssertEqual(
                 packet.diagnostics.phase,
                 .closed
@@ -315,6 +478,256 @@ final class IRFFAudioDecoderTests: XCTestCase {
         decoder.flush()
         XCTAssertTrue(decoder.isEmpty())
     }
+
+    func testInvalidateWaitsForLastAdmittedEnqueueThenFlushesTheStaleFrame() throws {
+        let url = try makeTinyPCM16WAVFile()
+        addTeardownBlock {
+            try? FileManager.default
+                .removeItem(at: url)
+        }
+        let context = IRFFFormatContext(
+            contentURL: url,
+            videoFormat: .mpeg4
+        )
+        addTeardownBlock {
+            context.destroy()
+        }
+        context.setupSync()
+        let codecContext = try XCTUnwrap(
+            context.audioCodecContext
+        )
+        let audioTrackIndex = try XCTUnwrap(
+            context.audioTrack?.index
+        )
+
+        let reachedLastEnqueueWindow =
+            DispatchSemaphore(value: 0)
+        let releaseLastEnqueue =
+            DispatchSemaphore(value: 0)
+        let publishedInvalidation =
+            DispatchSemaphore(value: 0)
+        let pool = IRFFFramePool(
+            capacity: 4,
+            frameClassName: IRFFAudioFrame.self
+        ) {
+            IRFFAudioFrame()
+        }
+        let decoder = IRFFAudioDecoder(
+            codecContext: codecContext,
+            timebase: context.audioTimebase,
+            delegate: AudioDecoderDelegateSpy(
+                samplingRate: 48_000,
+                channelCount: 2
+            ),
+            framePool: pool,
+            packetAdmissionHeadroom: 1,
+            hooks: IRFFAudioDecoderHooks(
+                willEnqueueFrame: {
+                    reachedLastEnqueueWindow.signal()
+                    releaseLastEnqueue.wait()
+                },
+                didPublishInvalidation: {
+                    generation in
+                    if generation == 1 {
+                        publishedInvalidation.signal()
+                    }
+                }
+            )
+        )
+        addTeardownBlock {
+            releaseLastEnqueue.signal()
+            decoder.destroy()
+        }
+
+        var packetToDecode: IRFFPacket?
+        for _ in 0..<32
+            where packetToDecode == nil {
+            var rawPacket = AVPacket()
+            guard context.readFrame(&rawPacket) >= 0 else {
+                break
+            }
+            let packet = IRFFPacket(
+                consuming: &rawPacket
+            )
+            if packet.snapshot?.streamIndex ==
+                Int32(audioTrackIndex) {
+                packetToDecode = packet
+            } else {
+                packet.close()
+            }
+        }
+        let packet = try XCTUnwrap(packetToDecode)
+        let packetResult =
+            LockedDecoderResourceValue<
+                IRFFAudioPacketDecodeResult?
+            >(nil)
+        let packetFinished =
+            DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            let result = decoder.putPacket(
+                packet,
+                generation: 0
+            )
+            packetResult.withValue {
+                $0 = result
+            }
+            packetFinished.signal()
+        }
+        XCTAssertEqual(
+            reachedLastEnqueueWindow.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+
+        let invalidateResult =
+            LockedDecoderResourceValue<
+                Bool?
+            >(nil)
+        let invalidateFinished =
+            DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            let result = decoder.invalidate(
+                generation: 1
+            )
+            invalidateResult.withValue {
+                $0 = result
+            }
+            invalidateFinished.signal()
+        }
+        XCTAssertEqual(
+            publishedInvalidation.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        XCTAssertEqual(
+            invalidateFinished.wait(
+                timeout: .now() + 0.05
+            ),
+            .timedOut
+        )
+
+        releaseLastEnqueue.signal()
+        XCTAssertEqual(
+            packetFinished.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        XCTAssertEqual(
+            invalidateFinished.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+
+        XCTAssertEqual(
+            packetResult.value,
+            .consumed(.canceled)
+        )
+        XCTAssertEqual(
+            invalidateResult.value,
+            true
+        )
+        XCTAssertEqual(
+            packet.diagnostics.phase,
+            .closed
+        )
+        XCTAssertTrue(decoder.isEmpty())
+        XCTAssertEqual(
+            pool.diagnostics.leasedCount,
+            0
+        )
+    }
+
+    func testLongAudioBackpressureMatchesUnboundedDecodeWithoutDroppingOutput() throws {
+        let inputFrameCount = 131_072
+        let url = try makeAudioAdmissionWAVFile(
+            frameCount: inputFrameCount
+        )
+        addTeardownBlock {
+            try? FileManager.default
+                .removeItem(at: url)
+        }
+        let baseline =
+            try decodeAudioAdmissionFixture(
+                at: url,
+                poolCapacity: 500,
+                packetHeadroom: 8
+            )
+        let bounded =
+            try decodeAudioAdmissionFixture(
+                at: url,
+                poolCapacity: 4,
+                packetHeadroom: 2
+            )
+
+        XCTAssertEqual(
+            baseline.audioPacketCount,
+            baseline.acceptedPacketCount
+        )
+        XCTAssertEqual(
+            bounded.audioPacketCount,
+            bounded.acceptedPacketCount
+        )
+        XCTAssertEqual(
+            bounded.audioPacketCount,
+            baseline.audioPacketCount
+        )
+        XCTAssertEqual(
+            baseline.acceptedPacketCount,
+            baseline.packetCloseVerificationCount
+        )
+        XCTAssertEqual(
+            bounded.acceptedPacketCount,
+            bounded.packetCloseVerificationCount
+        )
+        XCTAssertEqual(
+            bounded.decodedFrameCount,
+            baseline.decodedFrameCount
+        )
+        XCTAssertEqual(
+            bounded.decodedSampleCount,
+            baseline.decodedSampleCount
+        )
+        XCTAssertEqual(
+            bounded.decodedSampleCount,
+            inputFrameCount * 2
+        )
+        XCTAssertEqual(
+            bounded.decodedDuration,
+            baseline.decodedDuration,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            bounded.decodedDuration,
+            Double(inputFrameCount) / 48_000,
+            accuracy: 0.000_001
+        )
+        XCTAssertGreaterThan(
+            bounded.deferredSubmissionCount,
+            0
+        )
+        XCTAssertGreaterThan(
+            bounded.backpressureReleaseCount,
+            0
+        )
+        XCTAssertEqual(
+            baseline.endingLeasedCount,
+            0
+        )
+        XCTAssertEqual(
+            baseline.endingPlayingCount,
+            0
+        )
+        XCTAssertEqual(bounded.endingLeasedCount, 0)
+        XCTAssertEqual(bounded.endingPlayingCount, 0)
+        XCTAssertLessThanOrEqual(
+            bounded.maximumPoolCount,
+            4
+        )
+    }
 }
 
 private final class AudioDecoderDelegateSpy: IRFFAudioDecoderDelegate {
@@ -336,5 +749,359 @@ private final class AudioDecoderDelegateSpy: IRFFAudioDecoderDelegate {
     func audioDecoder(_ audioDecoder: IRFFAudioDecoder, channelCount: inout UInt32) {
         channelCountRequestCount += 1
         channelCount = self.channelCount
+    }
+}
+
+private struct AudioAdmissionDecodeStatistics {
+    var audioPacketCount = 0
+    var acceptedPacketCount = 0
+    var packetCloseVerificationCount = 0
+    var deferredSubmissionCount = 0
+    var backpressureReleaseCount = 0
+    var decodedFrameCount = 0
+    var decodedSampleCount = 0
+    var decodedDuration: TimeInterval = 0
+    var maximumPoolCount = 0
+    var endingLeasedCount = 0
+    var endingPlayingCount = 0
+}
+
+private enum AudioAdmissionFixtureError:
+    Error
+{
+    case invalidContext
+    case unexpectedReadResult(Int32)
+    case unexpectedPumpResult(
+        IRFFAudioCodecPumpResult
+    )
+    case missingBackpressureFrame
+    case missingSamples
+    case retryLimitExceeded
+}
+
+private func decodeAudioAdmissionFixture(
+    at url: URL,
+    poolCapacity: Int,
+    packetHeadroom: Int
+) throws -> AudioAdmissionDecodeStatistics {
+    let context = IRFFFormatContext(
+        contentURL: url,
+        videoFormat: .mpeg4
+    )
+    defer { context.destroy() }
+    context.setupSync()
+    guard context.error == nil,
+          let codecContext =
+            context.audioCodecContext,
+          let audioTrackIndex =
+            context.audioTrack?.index else {
+        throw AudioAdmissionFixtureError
+            .invalidContext
+    }
+
+    let pool = IRFFFramePool(
+        capacity: poolCapacity,
+        frameClassName: IRFFAudioFrame.self
+    ) {
+        IRFFAudioFrame()
+    }
+    let decoder = IRFFAudioDecoder(
+        codecContext: codecContext,
+        timebase: context.audioTimebase,
+        delegate: AudioDecoderDelegateSpy(
+            samplingRate: 48_000,
+            channelCount: 2
+        ),
+        framePool: pool,
+        packetAdmissionHeadroom:
+            packetHeadroom
+    )
+    defer { decoder.destroy() }
+
+    var statistics =
+        AudioAdmissionDecodeStatistics()
+    var pendingPacket: IRFFPacket?
+    var reachedEndOfInput = false
+    var iterationCount = 0
+    let maximumIterationCount = 100_000
+
+    func consumeOneFrame() throws {
+        guard let transfer =
+                decoder.tryDequeueFrame() else {
+            throw AudioAdmissionFixtureError
+                .missingBackpressureFrame
+        }
+        defer { transfer.frame.cancel() }
+        guard let samples =
+                transfer.frame.sampleSnapshot() else {
+            throw AudioAdmissionFixtureError
+                .missingSamples
+        }
+        statistics.decodedFrameCount += 1
+        statistics.decodedSampleCount +=
+            samples.count
+        statistics.decodedDuration +=
+            transfer.duration
+        statistics.backpressureReleaseCount += 1
+    }
+
+    func recordConsumedPacket(
+        _ packet: IRFFPacket,
+        result: IRFFAudioCodecPumpResult
+    ) throws {
+        switch result {
+        case .needsInput,
+             .backpressured:
+            break
+        case .endOfStream,
+             .canceled,
+             .failed:
+            throw AudioAdmissionFixtureError
+                .unexpectedPumpResult(result)
+        }
+        statistics.acceptedPacketCount += 1
+        guard packet.diagnostics.phase ==
+                .closed,
+              !packet.close() else {
+            throw AudioAdmissionFixtureError
+                .unexpectedPumpResult(.failed(-1))
+        }
+        statistics
+            .packetCloseVerificationCount += 1
+    }
+
+    while !reachedEndOfInput ||
+            pendingPacket != nil {
+        iterationCount += 1
+        guard iterationCount <=
+                maximumIterationCount else {
+            throw AudioAdmissionFixtureError
+                .retryLimitExceeded
+        }
+
+        if let packet = pendingPacket {
+            let resumeResult =
+                decoder.resumePendingOutput(
+                    generation: 0
+                )
+            switch resumeResult {
+            case .needsInput:
+                break
+            case .backpressured:
+                try consumeOneFrame()
+                continue
+            case .endOfStream,
+                 .canceled,
+                 .failed:
+                throw AudioAdmissionFixtureError
+                    .unexpectedPumpResult(
+                        resumeResult
+                    )
+            }
+            guard decoder
+                    .hasPacketAdmissionCapacity else {
+                try consumeOneFrame()
+                continue
+            }
+
+            switch decoder.putPacket(
+                packet,
+                generation: 0
+            ) {
+            case let .consumed(result):
+                try recordConsumedPacket(
+                    packet,
+                    result: result
+                )
+                pendingPacket = nil
+            case .deferred:
+                statistics
+                    .deferredSubmissionCount += 1
+                guard packet.diagnostics.phase ==
+                        .ready else {
+                    throw AudioAdmissionFixtureError
+                        .unexpectedPumpResult(
+                            .failed(-1)
+                        )
+                }
+                try consumeOneFrame()
+            }
+            continue
+        }
+
+        guard !reachedEndOfInput else {
+            break
+        }
+        var rawPacket = AVPacket()
+        let readResult =
+            context.readFrame(&rawPacket)
+        if readResult == AVERROR(EAGAIN) {
+            continue
+        }
+        if readResult == IR_AVERROR_EOF {
+            reachedEndOfInput = true
+            continue
+        }
+        guard readResult >= 0 else {
+            throw AudioAdmissionFixtureError
+                .unexpectedReadResult(readResult)
+        }
+
+        let packet = IRFFPacket(
+            consuming: &rawPacket
+        )
+        guard packet.snapshot?.streamIndex ==
+                Int32(audioTrackIndex) else {
+            packet.close()
+            continue
+        }
+        statistics.audioPacketCount += 1
+
+        switch decoder.putPacket(
+            packet,
+            generation: 0
+        ) {
+        case let .consumed(result):
+            try recordConsumedPacket(
+                packet,
+                result: result
+            )
+        case .deferred:
+            statistics
+                .deferredSubmissionCount += 1
+            guard packet.diagnostics.phase ==
+                    .ready else {
+                throw AudioAdmissionFixtureError
+                    .unexpectedPumpResult(
+                        .failed(-1)
+                    )
+            }
+            pendingPacket = packet
+        }
+        statistics.maximumPoolCount = max(
+            statistics.maximumPoolCount,
+            pool.diagnostics.totalCount
+        )
+    }
+
+    var drainIterationCount = 0
+    drainLoop: while true {
+        drainIterationCount += 1
+        guard drainIterationCount <=
+                maximumIterationCount else {
+            throw AudioAdmissionFixtureError
+                .retryLimitExceeded
+        }
+        let result = decoder.drain(
+            generation: 0
+        )
+        switch result {
+        case .endOfStream:
+            break drainLoop
+        case .backpressured:
+            try consumeOneFrame()
+        case .needsInput,
+             .canceled,
+             .failed:
+            throw AudioAdmissionFixtureError
+                .unexpectedPumpResult(result)
+        }
+    }
+
+    while !decoder.isEmpty() {
+        try consumeOneFrame()
+    }
+    let endingPool = pool.diagnostics
+    statistics.maximumPoolCount = max(
+        statistics.maximumPoolCount,
+        endingPool.totalCount
+    )
+    statistics.endingLeasedCount =
+        endingPool.leasedCount
+    statistics.endingPlayingCount =
+        endingPool.playingCount
+    return statistics
+}
+
+private func makeAudioAdmissionWAVFile(
+    frameCount: Int
+) throws -> URL {
+    let url = URL(
+        fileURLWithPath: NSTemporaryDirectory()
+    ).appendingPathComponent(
+        "irff-audio-admission-\(UUID().uuidString).wav"
+    )
+    let channelCount: UInt16 = 2
+    let sampleRate: UInt32 = 48_000
+    let bitsPerSample: UInt16 = 16
+    let blockAlign =
+        channelCount * bitsPerSample / 8
+    let byteRate =
+        sampleRate * UInt32(blockAlign)
+    var samples = Data()
+    samples.reserveCapacity(
+        max(0, frameCount) * Int(blockAlign)
+    )
+    for index in 0..<max(0, frameCount) {
+        let left = Int16(
+            truncatingIfNeeded: index * 31
+        )
+        samples.appendAudioAdmissionLittleEndian(
+            left
+        )
+        samples.appendAudioAdmissionLittleEndian(
+            0 &- left
+        )
+    }
+
+    var data = Data()
+    data.append(contentsOf: "RIFF".utf8)
+    data.appendAudioAdmissionLittleEndian(
+        UInt32(36 + samples.count)
+    )
+    data.append(contentsOf: "WAVE".utf8)
+    data.append(contentsOf: "fmt ".utf8)
+    data.appendAudioAdmissionLittleEndian(
+        UInt32(16)
+    )
+    data.appendAudioAdmissionLittleEndian(
+        UInt16(1)
+    )
+    data.appendAudioAdmissionLittleEndian(
+        channelCount
+    )
+    data.appendAudioAdmissionLittleEndian(
+        sampleRate
+    )
+    data.appendAudioAdmissionLittleEndian(
+        byteRate
+    )
+    data.appendAudioAdmissionLittleEndian(
+        blockAlign
+    )
+    data.appendAudioAdmissionLittleEndian(
+        bitsPerSample
+    )
+    data.append(contentsOf: "data".utf8)
+    data.appendAudioAdmissionLittleEndian(
+        UInt32(samples.count)
+    )
+    data.append(samples)
+    try data.write(to: url, options: .atomic)
+    return url
+}
+
+private extension Data {
+    mutating func appendAudioAdmissionLittleEndian<
+        Value: FixedWidthInteger
+    >(
+        _ value: Value
+    ) {
+        var littleEndianValue = value.littleEndian
+        Swift.withUnsafeBytes(
+            of: &littleEndianValue
+        ) { bytes in
+            append(contentsOf: bytes)
+        }
     }
 }

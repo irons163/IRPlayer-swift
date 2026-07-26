@@ -186,10 +186,6 @@ struct IRSmoothScrollDiagnostics: Equatable {
             _ = dependencies.displayLink.setActive(false)
             return
         }
-        if tick.isFinished {
-            _ = dependencies.displayLink.setActive(false)
-        }
-
         if tick.isPaned {
             let configuredScale = dependencies.screenScale()
             let scale =
@@ -213,6 +209,9 @@ struct IRSmoothScrollDiagnostics: Equatable {
             delegate?.glViewDidEndDecelerating(
                 targetView
             )
+        }
+        if tick.isFinished {
+            _ = dependencies.displayLink.setActive(false)
         }
     }
 

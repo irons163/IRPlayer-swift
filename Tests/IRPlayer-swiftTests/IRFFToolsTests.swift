@@ -1,4 +1,5 @@
 import IRFFMpeg
+import IRPlayerObjc
 import XCTest
 #if SWIFT_PACKAGE
 @testable import IRPlayerSwift
@@ -110,6 +111,143 @@ final class IRFFToolsTests: XCTestCase {
         let error = try XCTUnwrap(IRFFCheckError(-1))
         XCTAssertEqual(error.code, -1)
         XCTAssertTrue(error.domain.contains("ffmpeg code: -1"))
+    }
+
+    func testCodecPumpReceivesBeforeRetryingSamePacketAfterSendEAGAIN() {
+        var sendResults: [Int32] = [
+            AVERROR(EAGAIN),
+            0
+        ]
+        var receiveResults: [Int32] = [
+            0,
+            AVERROR(EAGAIN),
+            0,
+            0,
+            AVERROR(EAGAIN)
+        ]
+        var events: [String] = []
+
+        let outcome = IRFFCodecPump.run(
+            input: .packet,
+            send: {
+                events.append("send")
+                return sendResults.removeFirst()
+            },
+            receive: {
+                events.append("receive")
+                return receiveResults.removeFirst()
+            },
+            didReceiveFrame: {
+                events.append("frame")
+            }
+        )
+
+        XCTAssertEqual(
+            outcome,
+            .needsInput(frameCount: 3)
+        )
+        XCTAssertEqual(
+            events,
+            [
+                "send",
+                "receive",
+                "frame",
+                "receive",
+                "send",
+                "receive",
+                "frame",
+                "receive",
+                "frame",
+                "receive"
+            ]
+        )
+        XCTAssertTrue(sendResults.isEmpty)
+        XCTAssertTrue(receiveResults.isEmpty)
+    }
+
+    func testCodecPumpDrainsDelayedAndMultipleFramesUntilEOF() {
+        var receiveResults: [Int32] = [
+            0,
+            0,
+            IR_AVERROR_EOF
+        ]
+        var sendCount = 0
+        var frameCount = 0
+
+        let outcome = IRFFCodecPump.run(
+            input: .drain,
+            send: {
+                sendCount += 1
+                return 0
+            },
+            receive: {
+                receiveResults.removeFirst()
+            },
+            didReceiveFrame: {
+                frameCount += 1
+            }
+        )
+
+        XCTAssertEqual(
+            outcome,
+            .endOfStream(frameCount: 2)
+        )
+        XCTAssertEqual(sendCount, 1)
+        XCTAssertEqual(frameCount, 2)
+        XCTAssertTrue(receiveResults.isEmpty)
+    }
+
+    func testCodecPumpReportsHardCodecError() {
+        var receiveCallCount = 0
+
+        let outcome = IRFFCodecPump.run(
+            input: .packet,
+            send: { -123 },
+            receive: {
+                receiveCallCount += 1
+                return 0
+            },
+            didReceiveFrame: {
+                XCTFail(
+                    "A hard send failure cannot emit a frame"
+                )
+            }
+        )
+
+        XCTAssertEqual(
+            outcome,
+            .failed(code: -123, frameCount: 0)
+        )
+        XCTAssertEqual(receiveCallCount, 0)
+    }
+
+    func testCodecPumpCancelsBeforeOldGenerationCanReceiveAnotherFrame() {
+        var generationIsCurrent = true
+        var receiveCallCount = 0
+        var frameCount = 0
+
+        let outcome = IRFFCodecPump.run(
+            input: .packet,
+            send: { 0 },
+            receive: {
+                receiveCallCount += 1
+                return 0
+            },
+            isGenerationCurrent: {
+                generationIsCurrent
+            },
+            didReceiveFrame: {
+                frameCount += 1
+                generationIsCurrent = false
+            }
+        )
+
+        XCTAssertEqual(
+            outcome,
+            .canceled(frameCount: 1)
+        )
+        XCTAssertEqual(receiveCallCount, 1)
+        XCTAssertEqual(frameCount, 1)
     }
 
     func testFinitePositiveValueUsesFallbackForInvalidValues() {

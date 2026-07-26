@@ -12,6 +12,9 @@ final class IRFFFramePool:
     IRFFFrameDelegate,
     @unchecked Sendable
 {
+    static let videoMaximumCapacity = 60
+    static let audioMaximumCapacity = 500
+
     enum Phase:
         Equatable,
         Hashable,
@@ -27,15 +30,18 @@ final class IRFFFramePool:
         Sendable
     {
         let phase: Phase
+        let maximumCapacity: Int
         let availableCount: Int
         let leasedCount: Int
         let hasPlayingFrame: Bool
+        let playingCount: Int
         let totalCount: Int
         let revision: UInt64
     }
 
     private let frameClassName: AnyClass
     private let frameFactory: () -> IRFFFrame?
+    private let maximumCapacity: Int
     private let factoryLock = NSLock()
     private let lock = NSLock()
     private var phase: Phase = .open
@@ -45,7 +51,8 @@ final class IRFFFramePool:
         Set<ObjectIdentifier> = []
     private var leasedIDs:
         Set<ObjectIdentifier> = []
-    private var playingID: ObjectIdentifier?
+    private var playingIDs:
+        Set<ObjectIdentifier> = []
     private var revision: UInt64 = 0
 
     init(
@@ -59,17 +66,19 @@ final class IRFFFramePool:
             ?? Self.makeFrameFactory(
                 for: frameClassName
             )
+        self.maximumCapacity = max(0, capacity)
         super.init()
 
-        let reserveCapacity = max(0, capacity)
+        let reserveCapacity = maximumCapacity
         ownedFrames.reserveCapacity(reserveCapacity)
         availableIDs.reserveCapacity(reserveCapacity)
         leasedIDs.reserveCapacity(reserveCapacity)
+        playingIDs.reserveCapacity(reserveCapacity)
     }
 
     static func videoPool() -> IRFFFramePool {
         IRFFFramePool(
-            capacity: 60,
+            capacity: videoMaximumCapacity,
             frameClassName: IRFFAVYUVVideoFrame.self
         ) {
             IRFFAVYUVVideoFrame()
@@ -78,7 +87,7 @@ final class IRFFFramePool:
 
     static func audioPool() -> IRFFFramePool {
         IRFFFramePool(
-            capacity: 500,
+            capacity: audioMaximumCapacity,
             frameClassName: IRFFAudioFrame.self
         ) {
             IRFFAudioFrame()
@@ -104,9 +113,35 @@ final class IRFFFramePool:
             lock.unlock()
             return frame
         }
+        guard ownedFrames.count < maximumCapacity else {
+            lock.unlock()
+            return nil
+        }
         lock.unlock()
 
         factoryLock.lock()
+        // Another lease may have created or returned a frame while this
+        // caller waited for serialized factory access.
+        lock.lock()
+        guard phase == .open else {
+            lock.unlock()
+            factoryLock.unlock()
+            return nil
+        }
+        if let identifier = availableIDs.popFirst(),
+           let frame = ownedFrames[identifier] {
+            leasedIDs.insert(identifier)
+            advanceRevisionLocked()
+            lock.unlock()
+            factoryLock.unlock()
+            return frame
+        }
+        guard ownedFrames.count < maximumCapacity else {
+            lock.unlock()
+            factoryLock.unlock()
+            return nil
+        }
+        lock.unlock()
         let createdFrame = frameFactory()
         factoryLock.unlock()
 
@@ -118,6 +153,7 @@ final class IRFFFramePool:
 
         lock.lock()
         guard phase == .open,
+              ownedFrames.count < maximumCapacity,
               ownedFrames[identifier] == nil else {
             lock.unlock()
             return nil
@@ -134,34 +170,12 @@ final class IRFFFramePool:
     @discardableResult
     func flush() -> Int {
         lock.lock()
-        guard phase == .open else {
-            lock.unlock()
-            return 0
-        }
-
-        let leased = leasedIDs
-        let playing = playingID
-        let returnedCount =
-            leased.count + (playing == nil ? 0 : 1)
-        guard returnedCount > 0 else {
-            lock.unlock()
-            return 0
-        }
-
-        for identifier in leased {
-            ownedFrames[identifier]?.prepareForReuse()
-            availableIDs.insert(identifier)
-        }
-        leasedIDs.removeAll(keepingCapacity: true)
-        if let playing,
-           let frame = ownedFrames[playing] {
-            frame.prepareForReuse()
-            availableIDs.insert(playing)
-            playingID = nil
-        }
-        advanceRevisionLocked()
         lock.unlock()
-        return returnedCount
+        // A flush is not an ownership revocation. Queue drains and consumers
+        // return their own leases through cancel/stop callbacks. Reclaiming
+        // them here can let a decoder overwrite memory still being copied by
+        // an audio callback or read by an in-flight GPU command.
+        return 0
     }
 
     @discardableResult
@@ -174,13 +188,12 @@ final class IRFFFramePool:
 
         phase = .closed
         for frame in ownedFrames.values {
-            frame.prepareForReuse()
             frame.clearDelegate(ifOwnedBy: self)
         }
         ownedFrames.removeAll()
         availableIDs.removeAll()
         leasedIDs.removeAll()
-        playingID = nil
+        playingIDs.removeAll()
         advanceRevisionLocked()
         lock.unlock()
         return true
@@ -245,16 +258,9 @@ final class IRFFFramePool:
             return
         }
 
-        if let previousID = playingID,
-           previousID != identifier,
-           let previousFrame =
-               ownedFrames[previousID] {
-            previousFrame.prepareForReuse()
-            availableIDs.insert(previousID)
-        }
         leasedIDs.remove(identifier)
         availableIDs.remove(identifier)
-        playingID = identifier
+        playingIDs.insert(identifier)
         advanceRevisionLocked()
         lock.unlock()
     }
@@ -265,13 +271,13 @@ final class IRFFFramePool:
         lock.lock()
         guard phase == .open,
               ownedFrames[identifier] === frame,
-              playingID == identifier else {
+              playingIDs.contains(identifier) else {
             lock.unlock()
             return
         }
         frame.prepareForReuse()
         availableIDs.insert(identifier)
-        playingID = nil
+        playingIDs.remove(identifier)
         advanceRevisionLocked()
         lock.unlock()
     }
@@ -283,15 +289,13 @@ final class IRFFFramePool:
         guard phase == .open,
               ownedFrames[identifier] === frame,
               leasedIDs.contains(identifier)
-                || playingID == identifier else {
+                || playingIDs.contains(identifier) else {
             return
         }
 
         frame.prepareForReuse()
         leasedIDs.remove(identifier)
-        if playingID == identifier {
-            playingID = nil
-        }
+        playingIDs.remove(identifier)
         availableIDs.insert(identifier)
         advanceRevisionLocked()
     }
@@ -299,9 +303,11 @@ final class IRFFFramePool:
     private func diagnosticsLocked() -> Diagnostics {
         Diagnostics(
             phase: phase,
+            maximumCapacity: maximumCapacity,
             availableCount: availableIDs.count,
             leasedCount: leasedIDs.count,
-            hasPlayingFrame: playingID != nil,
+            hasPlayingFrame: !playingIDs.isEmpty,
+            playingCount: playingIDs.count,
             totalCount: ownedFrames.count,
             revision: revision
         )

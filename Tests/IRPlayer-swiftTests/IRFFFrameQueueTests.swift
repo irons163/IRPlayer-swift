@@ -59,6 +59,29 @@ final class IRFFFrameQueueTests: XCTestCase {
         }
     }
 
+    private final class OneShotRemovalGate:
+        @unchecked Sendable
+    {
+        private let lock = NSLock()
+        private var shouldPause = true
+
+        func pause(
+            reached: DispatchSemaphore,
+            release: DispatchSemaphore
+        ) {
+            lock.lock()
+            let pausesThisRemoval =
+                shouldPause
+            shouldPause = false
+            lock.unlock()
+            guard pausesThisRemoval else {
+                return
+            }
+            reached.signal()
+            release.wait()
+        }
+    }
+
     func testFrameTimePositionUsesCheckedTimestampAndTimebase() {
         XCTAssertEqual(
             IRFFFrameTime.position(
@@ -133,10 +156,20 @@ final class IRFFFrameQueueTests: XCTestCase {
         )
 
         XCTAssertEqual(queue.enqueue(first), .accepted)
-        XCTAssertEqual(queue.enqueue(second), .accepted)
+        XCTAssertEqual(
+            queue.enqueue(
+                second,
+                capacityClass: .nonPooled
+            ),
+            .accepted
+        )
         var diagnostics = queue.diagnostics
         XCTAssertEqual(diagnostics.phase, .open)
         XCTAssertEqual(diagnostics.count, 2)
+        XCTAssertEqual(
+            diagnostics.nonPooledCount,
+            1
+        )
         XCTAssertEqual(
             diagnostics.duration,
             0.75,
@@ -148,6 +181,10 @@ final class IRFFFrameQueueTests: XCTestCase {
         diagnostics = queue.diagnostics
         XCTAssertEqual(diagnostics.count, 1)
         XCTAssertEqual(
+            diagnostics.nonPooledCount,
+            1
+        )
+        XCTAssertEqual(
             diagnostics.duration,
             0.5,
             accuracy: 0.0001
@@ -155,8 +192,48 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertEqual(diagnostics.size, 20)
         XCTAssertTrue(queue.waitForFrame() === second)
         XCTAssertEqual(queue.diagnostics.count, 0)
+        XCTAssertEqual(
+            queue.diagnostics
+                .nonPooledCount,
+            0
+        )
         XCTAssertEqual(queue.diagnostics.duration, 0)
         XCTAssertEqual(queue.diagnostics.size, 0)
+    }
+
+    func testTryDequeueTransfersReadyFrameAndNeverWaitsForData() {
+        let queue = IRFFFrameQueue()
+        let frame = makeFrame(
+            position: 0,
+            duration: 0.25,
+            size: 10
+        )
+
+        XCTAssertNil(queue.tryDequeue())
+        XCTAssertEqual(queue.enqueue(frame), .accepted)
+        XCTAssertTrue(queue.tryDequeue() === frame)
+        XCTAssertNil(queue.tryDequeue())
+        XCTAssertEqual(queue.diagnostics.count, 0)
+    }
+
+    func testTryDequeueTransferUsesImmutableAdmissionMetadata() {
+        let queue = IRFFFrameQueue()
+        let frame = makeFrame(
+            position: 1.5,
+            duration: 0.25,
+            size: 10
+        )
+        XCTAssertEqual(queue.enqueue(frame), .accepted)
+
+        frame.position = 99
+        frame.duration = 50
+        frame.size = Int.max
+
+        let transfer = queue.tryDequeueTransfer()
+        XCTAssertTrue(transfer?.frame === frame)
+        XCTAssertEqual(transfer?.position, 1.5)
+        XCTAssertEqual(transfer?.duration, 0.25)
+        XCTAssertEqual(transfer?.size, 10)
     }
 
     func testAdmissionFreezesAccountingAgainstLaterFrameMutation() {
@@ -240,6 +317,89 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertTrue(queue.dequeue() === second)
         XCTAssertTrue(queue.dequeue() === malformed1)
         XCTAssertTrue(queue.dequeue() === malformed2)
+    }
+
+    func testCircularFIFOStoragePreservesOrderAcrossWrapAndGrowth() {
+        let queue = IRFFFrameQueue()
+        let frames = (0..<40).map {
+            makeFrame(
+                position: TimeInterval($0),
+                duration: 0.01,
+                size: 1
+            )
+        }
+
+        for frame in frames.prefix(12) {
+            XCTAssertEqual(queue.enqueue(frame), .accepted)
+        }
+        for expected in frames.prefix(8) {
+            XCTAssertTrue(queue.tryDequeue() === expected)
+        }
+        for frame in frames.dropFirst(12) {
+            XCTAssertEqual(queue.enqueue(frame), .accepted)
+        }
+
+        for expected in frames.dropFirst(8) {
+            XCTAssertTrue(queue.tryDequeue() === expected)
+        }
+        XCTAssertNil(queue.tryDequeue())
+        XCTAssertEqual(queue.diagnostics.count, 0)
+    }
+
+    func testSortedInsertionRemainsCorrectAfterCircularWrap() {
+        let queue = IRFFFrameQueue()
+        let initial = (0..<12).map {
+            makeFrame(
+                position: TimeInterval($0),
+                duration: 0.01,
+                size: 1
+            )
+        }
+        initial.forEach {
+            XCTAssertEqual(
+                queue.enqueueSorted($0),
+                .accepted
+            )
+        }
+        initial.prefix(8).forEach {
+            XCTAssertTrue(queue.dequeue() === $0)
+        }
+
+        let sevenPointFive = makeFrame(
+            position: 7.5,
+            duration: 0.01,
+            size: 1
+        )
+        let ninePointFive = makeFrame(
+            position: 9.5,
+            duration: 0.01,
+            size: 1
+        )
+        let twelve = makeFrame(
+            position: 12,
+            duration: 0.01,
+            size: 1
+        )
+        [twelve, sevenPointFive, ninePointFive].forEach {
+            XCTAssertEqual(
+                queue.enqueueSorted($0),
+                .accepted
+            )
+        }
+
+        let expected = [
+            sevenPointFive,
+            initial[8],
+            initial[9],
+            ninePointFive,
+            initial[10],
+            initial[11],
+            twelve
+        ]
+        expected.forEach {
+            XCTAssertTrue(queue.dequeue() === $0)
+        }
+        XCTAssertNil(queue.dequeue())
     }
 
     func testNegativeAndNonFiniteAccountingContributesZero() {
@@ -336,6 +496,120 @@ final class IRFFFrameQueueTests: XCTestCase {
         XCTAssertEqual(probe.cancelCount, 1)
     }
 
+    func testNonPooledCreditSerializesSameIdentityPopAndReadmission() {
+        let reachedRemoval =
+            DispatchSemaphore(value: 0)
+        let releaseRemoval =
+            DispatchSemaphore(value: 0)
+        let readmissionStarted =
+            DispatchSemaphore(value: 0)
+        let readmissionFinished =
+            DispatchSemaphore(value: 0)
+        let dequeueFinished =
+            DispatchSemaphore(value: 0)
+        let removalGate =
+            OneShotRemovalGate()
+        let queue = IRFFFrameQueue(
+            willRemoveEntryObserver: {
+                removalGate.pause(
+                    reached:
+                        reachedRemoval,
+                    release:
+                        releaseRemoval
+                )
+            }
+        )
+        let frame = IRFFFrame()
+        let dequeuedFrames =
+            ResultBox()
+        defer {
+            releaseRemoval.signal()
+            queue.close()
+        }
+
+        XCTAssertEqual(
+            queue.enqueue(
+                frame,
+                capacityClass: .nonPooled
+            ),
+            .accepted
+        )
+        XCTAssertEqual(
+            queue.diagnostics
+                .nonPooledCount,
+            1
+        )
+
+        DispatchQueue.global().async {
+            dequeuedFrames.append(
+                queue.dequeue()
+            )
+            dequeueFinished.signal()
+        }
+        XCTAssertEqual(
+            reachedRemoval.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+
+        DispatchQueue.global().async {
+            readmissionStarted.signal()
+            _ = queue.enqueue(
+                frame,
+                capacityClass: .nonPooled
+            )
+            readmissionFinished.signal()
+        }
+        XCTAssertEqual(
+            readmissionStarted.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        XCTAssertEqual(
+            readmissionFinished.wait(
+                timeout: .now() + 0.05
+            ),
+            .timedOut
+        )
+
+        releaseRemoval.signal()
+        XCTAssertEqual(
+            dequeueFinished.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        XCTAssertEqual(
+            readmissionFinished.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        XCTAssertTrue(
+            dequeuedFrames.snapshot.first!
+                === frame
+        )
+        XCTAssertEqual(
+            queue.diagnostics.count,
+            1
+        )
+        XCTAssertEqual(
+            queue.diagnostics
+                .nonPooledCount,
+            1
+        )
+        XCTAssertTrue(
+            queue.dequeue() === frame
+        )
+        XCTAssertEqual(
+            queue.diagnostics
+                .nonPooledCount,
+            0
+        )
+    }
+
     func testNilAdmissionHasNoOwnershipSideEffects() {
         let queue = IRFFFrameQueue()
 
@@ -378,6 +652,87 @@ final class IRFFFrameQueueTests: XCTestCase {
             timeout: 1
         )
         XCTAssertTrue(result.snapshot.first! === frame)
+    }
+
+    func testEndOfStreamWakesEmptyWaiterAndResumeReopensAdmission() {
+        let queue = IRFFFrameQueue()
+        let waiterStarted = expectation(
+            description: "waiter started"
+        )
+        let waiterFinished = expectation(
+            description: "EOF wakes waiter"
+        )
+        let result = ResultBox()
+
+        DispatchQueue.global(
+            qos: .userInitiated
+        ).async {
+            waiterStarted.fulfill()
+            result.append(queue.waitForFrame())
+            waiterFinished.fulfill()
+        }
+        wait(for: [waiterStarted], timeout: 1)
+
+        XCTAssertTrue(queue.finish())
+        XCTAssertFalse(queue.finish())
+        wait(for: [waiterFinished], timeout: 1)
+        XCTAssertEqual(result.snapshot.count, 1)
+        XCTAssertNil(result.snapshot[0])
+
+        let lateFrame = IRFFFrame()
+        let lateProbe = CancelProbe()
+        lateFrame.delegate = lateProbe
+        XCTAssertEqual(
+            queue.enqueue(lateFrame),
+            .rejectedEndOfStream
+        )
+        XCTAssertEqual(lateProbe.cancelCount, 1)
+
+        XCTAssertTrue(queue.resume())
+        XCTAssertFalse(queue.resume())
+        let replacement = IRFFFrame()
+        XCTAssertEqual(
+            queue.enqueue(replacement),
+            .accepted
+        )
+        XCTAssertTrue(
+            queue.waitForFrame() === replacement
+        )
+    }
+
+    func testEmptyFlushInterruptsWaiterWithoutMakingQueueTerminal() {
+        let queue = IRFFFrameQueue()
+        let waiterStarted = expectation(
+            description: "waiter started"
+        )
+        let waiterFinished = expectation(
+            description: "flush interrupts waiter"
+        )
+        let result = ResultBox()
+
+        DispatchQueue.global().async {
+            waiterStarted.fulfill()
+            result.append(
+                queue.waitForFrame()
+            )
+            waiterFinished.fulfill()
+        }
+        wait(for: [waiterStarted], timeout: 1)
+
+        XCTAssertEqual(queue.flush(), 0)
+        wait(for: [waiterFinished], timeout: 1)
+        XCTAssertEqual(result.snapshot.count, 1)
+        XCTAssertNil(result.snapshot[0])
+
+        let replacement = IRFFFrame()
+        XCTAssertEqual(
+            queue.enqueue(replacement),
+            .accepted
+        )
+        XCTAssertTrue(
+            queue.waitForFrame()
+                === replacement
+        )
     }
 
     func testCloseWakesEveryWaiterAndIsTerminalRepeatable() {
@@ -585,6 +940,7 @@ final class IRFFFrameQueueTests: XCTestCase {
             .init(
                 phase: .open,
                 count: 0,
+                nonPooledCount: 0,
                 duration: 0,
                 size: 0,
                 revision: queue.diagnostics.revision

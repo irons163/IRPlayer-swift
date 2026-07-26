@@ -25,12 +25,43 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
     struct Configuration {
         let contentURL: URL
         let videoFormat: IRVideoFormat
+        let contentHeaders:
+            [String: String]
         let videoOutput: (any IRFFDecoderVideoOutput)?
         let audioOutput: (any IRFFDecoderAudioOutput)?
         let source: IRFFVideoInput?
         let hardwareDecoderEnabled: Bool
         let isLiveStream: Bool
         let minimumBufferedDuration: TimeInterval
+
+        init(
+            contentURL: URL,
+            videoFormat: IRVideoFormat,
+            contentHeaders:
+                [String: String] = [:],
+            videoOutput:
+                (any IRFFDecoderVideoOutput)?,
+            audioOutput:
+                (any IRFFDecoderAudioOutput)?,
+            source: IRFFVideoInput?,
+            hardwareDecoderEnabled: Bool,
+            isLiveStream: Bool,
+            minimumBufferedDuration:
+                TimeInterval
+        ) {
+            self.contentURL = contentURL
+            self.videoFormat = videoFormat
+            self.contentHeaders =
+                contentHeaders
+            self.videoOutput = videoOutput
+            self.audioOutput = audioOutput
+            self.source = source
+            self.hardwareDecoderEnabled =
+                hardwareDecoderEnabled
+            self.isLiveStream = isLiveStream
+            self.minimumBufferedDuration =
+                minimumBufferedDuration
+        }
     }
 
     struct Diagnostics: Equatable {
@@ -50,6 +81,7 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
     typealias DecoderFactory = (
         URL,
         IRVideoFormat,
+        [String: String],
         (any IRFFDecoderVideoOutput)?,
         (any IRFFDecoderAudioOutput)?
     ) -> IRFFDecoder
@@ -180,8 +212,9 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
             IRFFDecoder(
                 contentURL: $0,
                 videoFormat: $1,
-                videoOutput: $2,
-                audioOutput: $3
+                contentHeaders: $2,
+                videoOutput: $3,
+                audioOutput: $4
             )
         }
     ) {
@@ -243,6 +276,7 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
             let decoder = decoderFactory(
                 configuration.contentURL,
                 configuration.videoFormat,
+                configuration.contentHeaders,
                 configuration.videoOutput,
                 configuration.audioOutput
             )

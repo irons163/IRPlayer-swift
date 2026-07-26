@@ -1,6 +1,10 @@
 import CoreGraphics
 import Foundation
-import IRFFMpeg
+#if SWIFT_PACKAGE || DEBUG
+internal import IRFFMpeg
+#else
+@_implementationOnly import IRFFMpeg
+#endif
 
 final class IRFFFormatContextInterruptState: @unchecked Sendable {
     struct Diagnostics: Equatable {
@@ -56,18 +60,27 @@ final class IRFFFormatContextInterruptState: @unchecked Sendable {
 
     func shouldInterrupt() -> Bool {
         lock.lock()
-        let closeRequested = closeRequested
+        let closeWasRequested = closeRequested
         let context = context
         let delegate = delegate
         lock.unlock()
 
-        if closeRequested {
+        if closeWasRequested {
             return true
         }
         guard let context else {
             return true
         }
-        return delegate?.formatContextNeedInterrupt(context) == true
+        let delegateRequestedInterrupt =
+            delegate?.formatContextNeedInterrupt(context) == true
+
+        // The delegate may reenter the facade and request close. Observe
+        // that transition before returning to the in-flight FFmpeg call.
+        lock.lock()
+        let closeRequestedAfterDelegate = closeRequested
+        lock.unlock()
+        return closeRequestedAfterDelegate
+            || delegateRequestedInterrupt
     }
 
     func makeRetainedCallbackReference() -> UnsafeMutableRawPointer {

@@ -118,6 +118,34 @@ final class IRMetalCommandResourcesTests: XCTestCase {
         XCTAssertNil(weakToken)
     }
 
+    func testSubmissionCompletionRunsOnlyWhenRegistrarCompletes()
+    {
+        let resources = IRMetalCommandResources()
+        var registeredCompletion:
+            (@Sendable () -> Void)?
+        let completionCount =
+            LockedDecoderResourceValue(0)
+
+        XCTAssertTrue(
+            resources.submit(
+                registerCompletion: {
+                    registeredCompletion = $0
+                },
+                completion: {
+                    completionCount.withValue {
+                        $0 += 1
+                    }
+                }
+            )
+        )
+        XCTAssertEqual(completionCount.value, 0)
+
+        registeredCompletion?()
+        registeredCompletion?()
+
+        XCTAssertEqual(completionCount.value, 1)
+    }
+
     func testSubmissionAndCancellationAreTerminal() {
         let submitted = IRMetalCommandResources()
         XCTAssertTrue(submitted.submit { completion in

@@ -1,4 +1,6 @@
 import XCTest
+import IRFFMpeg
+import IRPlayerObjc
 #if SWIFT_PACKAGE
 @testable import IRPlayerSwift
 #else
@@ -6,6 +8,49 @@ import XCTest
 #endif
 
 final class IRFFDecoderPacketSemanticsTests: XCTestCase {
+
+    func testProgressNormalizationRejectsNonFiniteAndClampsKnownBounds() {
+        XCTAssertNil(
+            IRFFDecoder.normalizedProgress(
+                .nan,
+                duration: 10
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoder.normalizedProgress(
+                .infinity,
+                duration: 10
+            )
+        )
+        XCTAssertEqual(
+            IRFFDecoder.normalizedProgress(
+                -4,
+                duration: 10
+            ),
+            0
+        )
+        XCTAssertEqual(
+            IRFFDecoder.normalizedProgress(
+                12,
+                duration: 10
+            ),
+            10
+        )
+        XCTAssertEqual(
+            IRFFDecoder.normalizedProgress(
+                12,
+                duration: 0
+            ),
+            12
+        )
+        XCTAssertEqual(
+            IRFFDecoder.normalizedProgress(
+                12,
+                duration: .infinity
+            ),
+            12
+        )
+    }
 
     func testPacketBufferBackpressureSleepIntervalUsesConfiguredThresholdAndPauseState() {
         XCTAssertNil(
@@ -81,20 +126,28 @@ final class IRFFDecoderPacketSemanticsTests: XCTestCase {
         )
     }
 
-    func testReadPacketEOFTransitionOnlyAppliesForNegativeReadResults() {
+    func testReadPacketEOFTransitionOnlyAppliesForFFmpegEOF() {
         XCTAssertNil(IRFFDecoder.readPacketEOFTransition(readFrameResult: 0))
         XCTAssertNil(IRFFDecoder.readPacketEOFTransition(readFrameResult: 1))
-        XCTAssertEqual(
-            IRFFDecoder.readPacketEOFTransition(readFrameResult: nil),
-            IRFFDecoder.ReadPacketEOFTransition(
-                endOfFile: true,
-                videoEndOfFile: true,
-                shouldFinishReadLoop: true,
-                shouldNotifyDelegate: true
+        XCTAssertNil(
+            IRFFDecoder.readPacketEOFTransition(
+                readFrameResult: nil
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoder.readPacketEOFTransition(
+                readFrameResult: AVERROR(EAGAIN)
+            )
+        )
+        XCTAssertNil(
+            IRFFDecoder.readPacketEOFTransition(
+                readFrameResult: -1
             )
         )
         XCTAssertEqual(
-            IRFFDecoder.readPacketEOFTransition(readFrameResult: -1),
+            IRFFDecoder.readPacketEOFTransition(
+                readFrameResult: IR_AVERROR_EOF
+            ),
             IRFFDecoder.ReadPacketEOFTransition(
                 endOfFile: true,
                 videoEndOfFile: true,

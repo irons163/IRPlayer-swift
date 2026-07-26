@@ -2,6 +2,7 @@ import AVFoundation
 import CoreVideo
 import Foundation
 import IRFFMpeg
+import IRPlayerObjc
 import XCTest
 #if SWIFT_PACKAGE
 @testable import IRPlayerSwift
@@ -10,6 +11,183 @@ import XCTest
 #endif
 
 final class IRFFFormatContextTests: XCTestCase {
+
+    func testHTTPHeaderSerializationDistinguishesEmptyInput() {
+        XCTAssertEqual(
+            IRFFFormatContextBuilder
+                .serializeHTTPHeaders([:]),
+            .empty
+        )
+    }
+
+    func testHTTPHeaderSerializationIsStableTrimsOWSAndPreservesEmptyValues() {
+        XCTAssertEqual(
+            IRFFFormatContextBuilder
+                .serializeHTTPHeaders([
+                    "z-last": "\t final \t",
+                    "Authorization": "Bearer token",
+                    "X-Empty": " \t"
+                ]),
+            .serialized(
+                "Authorization: Bearer token\r\n"
+                    + "X-Empty:\r\n"
+                    + "z-last: final\r\n"
+            )
+        )
+    }
+
+    func testHTTPHeaderSerializationRejectsInvalidAndDuplicateNames() {
+        let invalidNames = [
+            "",
+            " Header",
+            "Header ",
+            "Bad:Name",
+            "Bad\nName",
+            "Tést"
+        ]
+        for name in invalidNames {
+            XCTAssertEqual(
+                IRFFFormatContextBuilder
+                    .serializeHTTPHeaders([
+                        name: "value"
+                    ]),
+                .invalid(.invalidName),
+                "name must be an exact RFC token"
+            )
+        }
+        XCTAssertEqual(
+            IRFFFormatContextBuilder
+                .serializeHTTPHeaders([
+                    "Host": "one",
+                    "host": "two"
+                ]),
+            .invalid(.duplicateName)
+        )
+    }
+
+    func testHTTPHeaderSerializationRejectsC0AndDELButAllowsHTABWithinValue() {
+        let rejectedValues = [
+            "line\rbreak",
+            "line\nbreak",
+            "nul\u{0000}",
+            "control\u{0001}",
+            "delete\u{007F}"
+        ]
+        for value in rejectedValues {
+            XCTAssertEqual(
+                IRFFFormatContextBuilder
+                    .serializeHTTPHeaders([
+                        "X-Test": value
+                    ]),
+                .invalid(.invalidValue)
+            )
+        }
+        XCTAssertEqual(
+            IRFFFormatContextBuilder
+                .serializeHTTPHeaders([
+                    "X-Test": "one\ttwo",
+                    "X-Unicode": "台灣"
+                ]),
+            .serialized(
+                "X-Test: one\ttwo\r\n"
+                    + "X-Unicode: 台灣\r\n"
+            )
+        )
+    }
+
+    func testHTTPHeaderSerializationEnforcesExactUTF8ByteLimit() {
+        let maximum =
+            IRFFFormatContextBuilder
+                .maximumSerializedHTTPHeaderByteCount
+        let exactValue = String(
+            repeating: "x",
+            count: maximum - 5
+        )
+        let oversizedValue =
+            exactValue + "x"
+
+        guard case let .serialized(value) =
+                IRFFFormatContextBuilder
+                    .serializeHTTPHeaders([
+                        "A": exactValue
+                    ]) else {
+            return XCTFail(
+                "Expected exact boundary to serialize"
+            )
+        }
+        XCTAssertEqual(
+            value.utf8.count,
+            maximum
+        )
+        XCTAssertEqual(
+            IRFFFormatContextBuilder
+                .serializeHTTPHeaders([
+                    "A": oversizedValue
+                ]),
+            .invalid(.sizeLimitExceeded)
+        )
+    }
+
+    func testInputOptionsWireHeadersAndRTSPTransportIntoOwnedDictionary() throws {
+        let options = try XCTUnwrap(
+            IRFFFormatContextBuilder
+                .makeInputOptions(
+                    videoFormat: .rtsp,
+                    serializedHTTPHeaders:
+                        "X-Test: value\r\n"
+                )
+        )
+
+        XCTAssertEqual(
+            options.values,
+            [
+                "headers":
+                    "X-Test: value\r\n",
+                "rtsp_transport": "tcp"
+            ]
+        )
+    }
+
+    func testInvalidHeadersFailBeforeOpeningInputWithoutDisclosingFields() {
+        let result =
+            IRFFFormatContextBuilder
+                .makeGeneration(
+                    contentURL: URL(
+                        string:
+                            "https://example.invalid/stream"
+                    )!,
+                    videoFormat: .mpeg4,
+                    contentHeaders: [
+                        "Secret\nHeader":
+                            "private-value"
+                    ],
+                    interruptState:
+                        IRFFFormatContextInterruptState()
+                )
+
+        guard case let .failure(error) =
+                result else {
+            return XCTFail(
+                "Expected invalid configuration failure"
+            )
+        }
+        XCTAssertEqual(
+            error.code,
+            IRFFDecoderErrorCode
+                .formatInvalidHeaders
+                .rawValue
+        )
+        XCTAssertFalse(
+            error.description.contains(
+                "Secret"
+            )
+        )
+        XCTAssertFalse(
+            error.description.contains(
+                "private-value"
+            )
+        )
+    }
 
     func testStreamLookupRejectsMissingContextStreamsAndOutOfRangeIndex() {
         XCTAssertNil(IRFFFormatContext.stream(at: 0, in: nil))
@@ -176,6 +354,59 @@ final class IRFFFormatContextTests: XCTestCase {
         XCTAssertEqual(context.duration, 0)
     }
 
+    func testRuntimeReceivesImmutableContentHeaderConfiguration() {
+        let expected = [
+            "Authorization": "Bearer value",
+            "X-Playback": "primary"
+        ]
+        let observed =
+            LockedFormatContextRuntimeValue<
+                [String: String]?
+            >(nil)
+        let closeCount =
+            LockedFormatContextRuntimeValue(0)
+        let runtime =
+            IRFFFormatContextRuntime(
+                makeGeneration: {
+                    _,
+                    _,
+                    headers,
+                    interruptState in
+                    observed.withValue {
+                        $0 = headers
+                    }
+                    return .success(
+                        makeFormatContextGeneration(
+                            interruptState:
+                                interruptState,
+                            closeCount:
+                                closeCount
+                        )
+                    )
+                },
+                seekFrame: { _, _ in 0 },
+                readFrame: { _, _ in
+                    IR_AVERROR_EOF
+                }
+            )
+        let context = IRFFFormatContext(
+            contentURL:
+                URL(fileURLWithPath:
+                        "/tmp/headers.mp4"),
+            videoFormat: .mpeg4,
+            contentHeaders: expected,
+            runtime: runtime
+        )
+        defer { context.destroy() }
+
+        context.setupSync()
+
+        XCTAssertEqual(
+            observed.value,
+            expected
+        )
+    }
+
     func testSetupSyncOpensGeneratedVideoFileAndInitializesVideoTrack() throws {
         let url = try makeTinyVideoFile()
         addTeardownBlock {
@@ -281,6 +512,169 @@ final class IRFFFormatContextTests: XCTestCase {
 
         delegate.shouldInterrupt = false
         XCTAssertEqual(ffmpeg_interrupt_callback(ctx: refCon), 0)
+    }
+
+    func testInterruptCallbackCanReadSnapshotRejectNestedSeekAndDeferDestroyUntilReadReturns() {
+        let closeCount = LockedFormatContextRuntimeValue(0)
+        let callbackResult = LockedFormatContextRuntimeValue<Int32>(0)
+        let resourceClosedBeforeReadReturned =
+            LockedFormatContextRuntimeValue(false)
+        let seekCallCount = LockedFormatContextRuntimeValue(0)
+        let runtime = makeFormatContextRuntime(
+            closeCount: closeCount,
+            seekFrame: { _, _ in
+                seekCallCount.withValue { $0 += 1 }
+                return 0
+            },
+            readFrame: { formatContext, _ in
+                let result = ffmpeg_interrupt_callback(
+                    ctx: formatContext.pointee
+                        .interrupt_callback.opaque
+                )
+                callbackResult.withValue { $0 = result }
+                resourceClosedBeforeReadReturned.withValue {
+                    $0 = closeCount.value != 0
+                }
+                return -451
+            }
+        )
+        let context = IRFFFormatContext(
+            contentURL: URL(fileURLWithPath: "/tmp/injected.mp4"),
+            videoFormat: .mpeg4,
+            runtime: runtime
+        )
+        let delegate = ReentrantFormatContextInterruptDelegate(
+            closeCount: closeCount
+        )
+        context.delegate = delegate
+        context.setupSync()
+        XCTAssertEqual(context.diagnostics.phase, .active)
+
+        var packet = AVPacket()
+        let readResult = context.readFrame(&packet)
+
+        XCTAssertEqual(readResult, -451)
+        XCTAssertEqual(callbackResult.value, 1)
+        XCTAssertEqual(
+            delegate.observedMetadata["title"] as? String,
+            "published"
+        )
+        XCTAssertEqual(delegate.observedDuration, 2)
+        XCTAssertFalse(delegate.nestedSeekWasAccepted)
+        XCTAssertFalse(delegate.resourceWasClosedInsideCallback)
+        XCTAssertFalse(resourceClosedBeforeReadReturned.value)
+        XCTAssertEqual(seekCallCount.value, 0)
+        XCTAssertEqual(closeCount.value, 1)
+        XCTAssertEqual(context.diagnostics.phase, .closed)
+        XCTAssertFalse(context.diagnostics.hasGeneration)
+        XCTAssertTrue(
+            context.diagnostics.interruptCloseRequested
+        )
+    }
+
+    func testBlockedReadAllowsSnapshotMetadataAndSerializesSeekUntilReadExits() {
+        let readEntered = DispatchSemaphore(value: 0)
+        let releaseRead = DispatchSemaphore(value: 0)
+        let readFinished = DispatchSemaphore(value: 0)
+        let metadataFinished = DispatchSemaphore(value: 0)
+        let seekAttempted = DispatchSemaphore(value: 0)
+        let seekFinished = DispatchSemaphore(value: 0)
+        let closeCount = LockedFormatContextRuntimeValue(0)
+        let readResult = LockedFormatContextRuntimeValue<Int32>(0)
+        let observedMetadata =
+            LockedFormatContextRuntimeValue<(String?, TimeInterval, TimeInterval)>(
+                (nil, 0, 0)
+            )
+        let seekResult = LockedFormatContextRuntimeValue(false)
+        let seekTimestamps =
+            LockedFormatContextRuntimeValue<[Int64]>([])
+        let runtime = makeFormatContextRuntime(
+            closeCount: closeCount,
+            seekFrame: { _, timestamp in
+                seekTimestamps.withValue { $0.append(timestamp) }
+                return 0
+            },
+            readFrame: { formatContext, _ in
+                // A getter must use the setup snapshot, not touch this
+                // raw context while the read operation owns it.
+                formatContext.pointee.duration =
+                    9 * Int64(AV_TIME_BASE)
+                readEntered.signal()
+                guard releaseRead.wait(timeout: .now() + 3)
+                        == .success else {
+                    return -452
+                }
+                return 37
+            }
+        )
+        let context = IRFFFormatContext(
+            contentURL: URL(fileURLWithPath: "/tmp/injected.mp4"),
+            videoFormat: .mpeg4,
+            runtime: runtime
+        )
+        context.setupSync()
+        XCTAssertEqual(context.duration, 2)
+
+        DispatchQueue.global().async {
+            var packet = AVPacket()
+            let result = context.readFrame(&packet)
+            readResult.withValue { $0 = result }
+            readFinished.signal()
+        }
+        XCTAssertEqual(
+            readEntered.wait(timeout: .now() + 1),
+            .success
+        )
+
+        DispatchQueue.global().async {
+            observedMetadata.withValue {
+                $0 = (
+                    context.metadata["title"] as? String,
+                    context.duration,
+                    context.bitrate
+                )
+            }
+            metadataFinished.signal()
+        }
+        XCTAssertEqual(
+            metadataFinished.wait(timeout: .now() + 1),
+            .success
+        )
+        XCTAssertEqual(observedMetadata.value.0, "published")
+        XCTAssertEqual(observedMetadata.value.1, 2)
+        XCTAssertEqual(observedMetadata.value.2, 8)
+
+        DispatchQueue.global().async {
+            seekAttempted.signal()
+            let result = context.seekFile(withFFTimebase: 1)
+            seekResult.withValue { $0 = result }
+            seekFinished.signal()
+        }
+        XCTAssertEqual(
+            seekAttempted.wait(timeout: .now() + 1),
+            .success
+        )
+        XCTAssertEqual(
+            seekFinished.wait(timeout: .now() + 0.05),
+            .timedOut
+        )
+        XCTAssertTrue(seekTimestamps.value.isEmpty)
+
+        releaseRead.signal()
+        XCTAssertEqual(
+            readFinished.wait(timeout: .now() + 1),
+            .success
+        )
+        XCTAssertEqual(
+            seekFinished.wait(timeout: .now() + 1),
+            .success
+        )
+        XCTAssertEqual(readResult.value, 37)
+        XCTAssertTrue(seekResult.value)
+        XCTAssertEqual(seekTimestamps.value, [Int64(AV_TIME_BASE)])
+
+        context.destroy()
+        XCTAssertEqual(closeCount.value, 1)
     }
 
     func testFailedSetupPublishesNoPartialGenerationAndIsNotRetried() {
@@ -390,6 +784,127 @@ final class IRFFFormatContextTests: XCTestCase {
 
         XCTAssertEqual(output, "")
     }
+}
+
+private final class ReentrantFormatContextInterruptDelegate:
+    IRFFFormatContextDelegate
+{
+    private let closeCount: LockedFormatContextRuntimeValue<Int>
+
+    private(set) var observedMetadata: [AnyHashable: Any] = [:]
+    private(set) var observedDuration: TimeInterval = 0
+    private(set) var nestedSeekWasAccepted = true
+    private(set) var resourceWasClosedInsideCallback = true
+
+    init(closeCount: LockedFormatContextRuntimeValue<Int>) {
+        self.closeCount = closeCount
+    }
+
+    func formatContextNeedInterrupt(
+        _ formatContext: IRFFFormatContext
+    ) -> Bool {
+        observedMetadata = formatContext.metadata
+        observedDuration = formatContext.duration
+        nestedSeekWasAccepted = formatContext.seekFile(
+            withFFTimebase: 1
+        )
+        formatContext.destroy()
+        resourceWasClosedInsideCallback = closeCount.value != 0
+        return false
+    }
+}
+
+private final class LockedFormatContextRuntimeValue<Value>:
+    @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var storage: Value
+
+    init(_ value: Value) {
+        storage = value
+    }
+
+    var value: Value {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+
+    func withValue(_ body: (inout Value) -> Void) {
+        lock.lock()
+        body(&storage)
+        lock.unlock()
+    }
+}
+
+private func makeFormatContextRuntime(
+    closeCount: LockedFormatContextRuntimeValue<Int>,
+    seekFrame: @escaping (
+        UnsafeMutablePointer<AVFormatContext>,
+        Int64
+    ) -> Int32,
+    readFrame: @escaping (
+        UnsafeMutablePointer<AVFormatContext>,
+        UnsafeMutablePointer<AVPacket>
+    ) -> Int32
+) -> IRFFFormatContextRuntime {
+    IRFFFormatContextRuntime(
+        makeGeneration: {
+            _,
+            _,
+            _,
+            interruptState in
+            .success(
+                makeFormatContextGeneration(
+                    interruptState: interruptState,
+                    closeCount: closeCount
+                )
+            )
+        },
+        seekFrame: seekFrame,
+        readFrame: readFrame
+    )
+}
+
+private func makeFormatContextGeneration(
+    interruptState: IRFFFormatContextInterruptState,
+    closeCount: LockedFormatContextRuntimeValue<Int>
+) -> IRFFFormatContextGeneration {
+    let formatContext =
+        UnsafeMutablePointer<AVFormatContext>.allocate(capacity: 1)
+    formatContext.initialize(to: AVFormatContext())
+    formatContext.pointee.duration = 2 * Int64(AV_TIME_BASE)
+    formatContext.pointee.bit_rate = 8_000
+
+    let callbackReference =
+        interruptState.makeRetainedCallbackReference()
+    formatContext.pointee.interrupt_callback.callback =
+        ffmpeg_interrupt_callback
+    formatContext.pointee.interrupt_callback.opaque =
+        callbackReference
+
+    let resourceRuntime = IRFFFormatContextResourceRuntime(
+        freeCodecContext: { $0 = nil },
+        closeInputContext: { context in
+            if let context {
+                closeCount.withValue { $0 += 1 }
+                context.deinitialize(count: 1)
+                context.deallocate()
+            }
+            context = nil
+        },
+        releaseCallbackReference: {
+            IRFFFormatContextInterruptState
+                .releaseRetainedCallbackReference($0)
+        }
+    )
+    let generation = IRFFFormatContextGeneration(
+        formatContext: formatContext,
+        callbackReference: callbackReference,
+        runtime: resourceRuntime
+    )
+    generation.metadata = ["title": "published"]
+    return generation
 }
 
 func makeTinyVideoFile() throws -> URL {
