@@ -1,9 +1,30 @@
 import Foundation
 
 final class IRFFDecoderRuntimeState: @unchecked Sendable {
+    struct TestingHooks {
+        let willAttemptBeginSeek: (() -> Void)?
+        let didAcquireBeginSeekTransition: (() -> Void)?
+
+        init(
+            willAttemptBeginSeek: (() -> Void)? = nil,
+            didAcquireBeginSeekTransition:
+                (() -> Void)? = nil
+        ) {
+            self.willAttemptBeginSeek =
+                willAttemptBeginSeek
+            self.didAcquireBeginSeekTransition =
+                didAcquireBeginSeekTransition
+        }
+    }
+
     struct Change<Value: Equatable>: Equatable {
         let previous: Value
         let current: Value
+    }
+
+    struct GenerationStampedChange<Value: Equatable> {
+        let change: Change<Value>
+        let decodeGeneration: UInt64
     }
 
     struct Snapshot: Equatable {
@@ -144,7 +165,12 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
 
     private let lock = NSLock()
     private let transitionLock = NSRecursiveLock()
+    private let testingHooks: TestingHooks
     private var storage = Storage()
+
+    init(testingHooks: TestingHooks = TestingHooks()) {
+        self.testingHooks = testingHooks
+    }
 
     var snapshot: Snapshot {
         withLock {
@@ -184,12 +210,20 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         withLock { storage.error }
     }
 
+    var decodeGeneration: UInt64 {
+        withLock { storage.decodeGeneration }
+    }
+
     @discardableResult
     func commitDecodeError(
         _ error: Error,
         generation: UInt64,
         notification: () -> Void
     ) -> Bool {
+        // Keep the winning commit and its internal delegate-bridge publication
+        // ordered against seek/close. The bridge is part of this boundary: an
+        // off-executor bridge must enqueue without waiting for the player
+        // executor. It must not perform arbitrary user work here.
         withTransitionLock {
             let committed = withLock {
                 guard !storage.closed,
@@ -720,7 +754,13 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
 
     @discardableResult
     func setProgress(_ value: TimeInterval) -> Change<TimeInterval>? {
-        set(\.progress, to: value)
+        setProgressWithGeneration(value)?.change
+    }
+
+    func setProgressWithGeneration(
+        _ value: TimeInterval
+    ) -> GenerationStampedChange<TimeInterval>? {
+        setWithGeneration(\.progress, to: value)
     }
 
     @discardableResult
@@ -733,17 +773,39 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         requestedValue: TimeInterval,
         normalizedValue: TimeInterval
     ) -> Change<TimeInterval>? {
+        applyBufferedDurationWithGeneration(
+            requestedValue: requestedValue,
+            normalizedValue: normalizedValue
+        )?.change
+    }
+
+    func applyBufferedDurationWithGeneration(
+        requestedValue: TimeInterval,
+        normalizedValue: TimeInterval
+    ) -> GenerationStampedChange<TimeInterval>? {
         withLock {
             let previous = storage.bufferedDuration
             guard requestedValue != previous else { return nil }
             storage.bufferedDuration = normalizedValue
-            return Change(previous: previous, current: normalizedValue)
+            return GenerationStampedChange(
+                change: Change(
+                    previous: previous,
+                    current: normalizedValue
+                ),
+                decodeGeneration: storage.decodeGeneration
+            )
         }
     }
 
     @discardableResult
     func setBuffering(_ value: Bool) -> Change<Bool>? {
-        set(\.buffering, to: value)
+        setBufferingWithGeneration(value)?.change
+    }
+
+    func setBufferingWithGeneration(
+        _ value: Bool
+    ) -> GenerationStampedChange<Bool>? {
+        setWithGeneration(\.buffering, to: value)
     }
 
     @discardableResult
@@ -751,17 +813,37 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         _ value: Bool,
         startTime: TimeInterval
     ) -> Change<Bool>? {
+        applyBufferingWithGeneration(
+            value,
+            startTime: startTime
+        )?.change
+    }
+
+    func applyBufferingWithGeneration(
+        _ value: Bool,
+        startTime: TimeInterval
+    ) -> GenerationStampedChange<Bool>? {
         withLock {
             let bufferingChange = change(from: storage.buffering, to: value)
             storage.buffering = value
             storage.bufferingStartTime = startTime
-            return bufferingChange
+            guard let bufferingChange else { return nil }
+            return GenerationStampedChange(
+                change: bufferingChange,
+                decodeGeneration: storage.decodeGeneration
+            )
         }
     }
 
     @discardableResult
     func setPlaybackFinished(_ value: Bool) -> Change<Bool>? {
-        set(\.playbackFinished, to: value)
+        setPlaybackFinishedWithGeneration(value)?.change
+    }
+
+    func setPlaybackFinishedWithGeneration(
+        _ value: Bool
+    ) -> GenerationStampedChange<Bool>? {
+        setWithGeneration(\.playbackFinished, to: value)
     }
 
     @discardableResult
@@ -836,9 +918,15 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         to target: TimeInterval,
         completion: ((Bool) -> Void)?
     ) -> BeginSeekResult? {
-        withTransitionLock {
-            withLock {
-                guard !storage.closed else { return nil }
+        testingHooks.willAttemptBeginSeek?()
+        return withTransitionLock {
+            testingHooks
+                .didAcquireBeginSeekTransition?()
+            return withLock {
+                guard !storage.closed,
+                      storage.error == nil else {
+                    return nil
+                }
 
                 let displacedCompletion = storage.pendingSeek?.completion
                 let progressChange = change(from: storage.progress, to: target)
@@ -983,13 +1071,23 @@ final class IRFFDecoderRuntimeState: @unchecked Sendable {
         _ keyPath: WritableKeyPath<Storage, Value>,
         to value: Value
     ) -> Change<Value>? {
+        setWithGeneration(keyPath, to: value)?.change
+    }
+
+    private func setWithGeneration<Value: Equatable>(
+        _ keyPath: WritableKeyPath<Storage, Value>,
+        to value: Value
+    ) -> GenerationStampedChange<Value>? {
         withLock {
             let previous = storage[keyPath: keyPath]
             guard let change = change(from: previous, to: value) else {
                 return nil
             }
             storage[keyPath: keyPath] = value
-            return change
+            return GenerationStampedChange(
+                change: change,
+                decodeGeneration: storage.decodeGeneration
+            )
         }
     }
 

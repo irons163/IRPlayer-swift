@@ -25,10 +25,48 @@ enum IRFFVideoToolBoxErrorCode: Error, Equatable {
 }
 
 final class IRFFVideoToolBox {
+    struct PacketTiming:
+        Equatable,
+        Sendable
+    {
+        let pts: Int64
+        let dts: Int64
+        let duration: Int64
+
+        init(
+            pts: Int64,
+            dts: Int64,
+            duration: Int64
+        ) {
+            self.pts = pts
+            self.dts = dts
+            self.duration = duration
+        }
+
+        init(packet: AVPacket) {
+            self.init(
+                pts: packet.pts,
+                dts: packet.dts,
+                duration: packet.duration
+            )
+        }
+    }
+
+    final class SubmissionContext:
+        @unchecked Sendable
+    {
+        let packetTiming: PacketTiming
+
+        init(packetTiming: PacketTiming) {
+            self.packetTiming = packetTiming
+        }
+    }
+
     struct Output {
         let imageBuffer: CVImageBuffer
         let presentationTimeStamp: CMTime
         let presentationDuration: CMTime
+        let packetTiming: PacketTiming?
     }
 
     enum DecodeResult {
@@ -46,6 +84,10 @@ final class IRFFVideoToolBox {
     }
 
     typealias Diagnostics = IRFFVideoToolBoxSession<Generation>.Diagnostics
+
+    static let decodeFrameFlags:
+        VTDecodeFrameFlags =
+            ._EnableTemporalProcessing
 
     private let codecContext: UnsafeMutablePointer<AVCodecContext>
     private let timebase: TimeInterval
@@ -100,7 +142,7 @@ final class IRFFVideoToolBox {
     func cleanDecodeInfo() {
         withOperation {
             session.withResource(default: ()) {
-                $0.callbackState.reset()
+                $0.callbackState.clearSnapshot()
             }
         }
     }
@@ -117,7 +159,6 @@ final class IRFFVideoToolBox {
             return session.withResource(
                 default: DecodeResult.notAvailable
             ) { generation in
-                generation.callbackState.reset()
                 guard let blockBuffer = makeBlockBuffer(
                     from: packetPayload,
                     convertsThreeByteNALUnits:
@@ -141,13 +182,22 @@ final class IRFFVideoToolBox {
                     return .notAvailable
                 }
 
-                let status = VTDecompressionSessionDecodeFrame(
-                    generation.session,
-                    sampleBuffer: sampleBuffer,
-                    flags: [],
-                    frameRefcon: nil,
-                    infoFlagsOut: nil
-                )
+                let status = Self.submitFrame(
+                    packetTiming:
+                        PacketTiming(
+                            packet: packet
+                        )
+                ) { sourceFrameRefCon in
+                    VTDecompressionSessionDecodeFrame(
+                        generation.session,
+                        sampleBuffer: sampleBuffer,
+                        flags:
+                            Self.decodeFrameFlags,
+                        frameRefcon:
+                            sourceFrameRefCon,
+                        infoFlagsOut: nil
+                    )
+                }
                 return Self.classifyDecodeResult(
                     status: status,
                     events:
@@ -164,32 +214,73 @@ final class IRFFVideoToolBox {
             session.withResource(
                 default: DecodeResult.notAvailable
             ) { generation in
-                generation.callbackState.reset()
-                let finishStatus =
-                    VTDecompressionSessionFinishDelayedFrames(
-                        generation.session
-                    )
-                guard finishStatus == noErr else {
-                    _ = generation
-                        .callbackState
-                        .takeEvents()
-                    return .failed(
-                        status: finishStatus
-                    )
-                }
-                let waitStatus =
+                Self.drainDelayedFrames(
+                    callbackState:
+                        generation.callbackState
+                ) {
                     VTDecompressionSessionWaitForAsynchronousFrames(
                         generation.session
                     )
-                return Self.classifyDecodeResult(
-                    status: waitStatus,
-                    events:
-                        generation
-                            .callbackState
-                            .takeEvents()
-                )
+                }
             }
         }
+    }
+
+    static func drainDelayedFrames(
+        callbackState:
+            IRFFVideoToolBoxCallbackState,
+        waitForFrames: () -> OSStatus
+    ) -> DecodeResult {
+        let status = waitForFrames()
+        return classifyDecodeResult(
+            status: status,
+            events: callbackState.takeEvents()
+        )
+    }
+
+    static func submitFrame(
+        packetTiming: PacketTiming,
+        decode:
+            (UnsafeMutableRawPointer)
+                -> OSStatus
+    ) -> OSStatus {
+        let reference =
+            Unmanaged.passRetained(
+                SubmissionContext(
+                    packetTiming:
+                        packetTiming
+                )
+            )
+            .toOpaque()
+        let status = decode(reference)
+        if status != noErr {
+            releaseSubmissionReference(
+                reference
+            )
+        }
+        return status
+    }
+
+    private static func consumeSubmissionTiming(
+        _ reference:
+            UnsafeMutableRawPointer?
+    ) -> PacketTiming? {
+        guard let reference else {
+            return nil
+        }
+        return Unmanaged<SubmissionContext>
+            .fromOpaque(reference)
+            .takeRetainedValue()
+            .packetTiming
+    }
+
+    private static func releaseSubmissionReference(
+        _ reference:
+            UnsafeMutableRawPointer
+    ) {
+        Unmanaged<SubmissionContext>
+            .fromOpaque(reference)
+            .release()
     }
 
     static func classifyDecodeResult(
@@ -213,7 +304,15 @@ final class IRFFVideoToolBox {
         return .accepted(
             outputs:
                 events.compactMap { event in
-                    guard let imageBuffer =
+                    guard !event.infoFlags
+                            .contains(
+                                .frameInterrupted
+                            ),
+                          !event.infoFlags
+                            .contains(
+                                .frameDropped
+                            ),
+                          let imageBuffer =
                             event.imageBuffer else {
                         return nil
                     }
@@ -224,7 +323,9 @@ final class IRFFVideoToolBox {
                                 .presentationTimeStamp,
                         presentationDuration:
                             event
-                                .presentationDuration
+                                .presentationDuration,
+                        packetTiming:
+                            event.packetTiming
                     )
                 }
         )
@@ -235,7 +336,17 @@ final class IRFFVideoToolBox {
             default: Optional<CVImageBuffer>.none
         ) { generation in
             let callback = generation.callbackState.snapshot
-            guard callback.status == noErr else { return nil }
+            guard callback.status == noErr,
+                  !callback.infoFlags
+                    .contains(
+                        .frameInterrupted
+                    ),
+                  !callback.infoFlags
+                    .contains(
+                        .frameDropped
+                    ) else {
+                return nil
+            }
             return callback.imageBuffer
         }
     }
@@ -254,20 +365,29 @@ final class IRFFVideoToolBox {
 
     static func handleOutputCallback(
         refCon: UnsafeMutableRawPointer?,
+        sourceFrameRefCon:
+            UnsafeMutableRawPointer? = nil,
         status: OSStatus,
+        infoFlags: VTDecodeInfoFlags = [],
         imageBuffer: CVImageBuffer?,
         presentationTimeStamp: CMTime =
             .invalid,
         presentationDuration: CMTime =
             .invalid
     ) {
+        let packetTiming =
+            consumeSubmissionTiming(
+                sourceFrameRefCon
+            )
         guard let refCon else { return }
         let callbackState = Unmanaged<IRFFVideoToolBoxCallbackState>
             .fromOpaque(refCon)
             .takeUnretainedValue()
         callbackState.publish(
             status: status,
+            infoFlags: infoFlags,
             imageBuffer: imageBuffer,
+            packetTiming: packetTiming,
             presentationTimeStamp:
                 presentationTimeStamp,
             presentationDuration:
@@ -473,12 +593,41 @@ final class IRFFVideoToolBox {
     }
 
     private static func tearDown(_ generation: Generation) {
-        VTDecompressionSessionWaitForAsynchronousFrames(generation.session)
-        VTDecompressionSessionInvalidate(generation.session)
-        generation.callbackState.reset()
-        Unmanaged<IRFFVideoToolBoxCallbackState>
-            .fromOpaque(generation.callbackReference)
-            .release()
+        tearDownGeneration(
+            waitForFrames: {
+                _ =
+                    VTDecompressionSessionWaitForAsynchronousFrames(
+                        generation.session
+                    )
+            },
+            invalidateSession: {
+                VTDecompressionSessionInvalidate(
+                    generation.session
+                )
+            },
+            discardCallbacks: {
+                generation.callbackState.reset()
+            },
+            releaseCallbackReference: {
+                Unmanaged<IRFFVideoToolBoxCallbackState>
+                    .fromOpaque(
+                        generation.callbackReference
+                    )
+                    .release()
+            }
+        )
+    }
+
+    static func tearDownGeneration(
+        waitForFrames: () -> Void,
+        invalidateSession: () -> Void,
+        discardCallbacks: () -> Void,
+        releaseCallbackReference: () -> Void
+    ) {
+        waitForFrames()
+        invalidateSession()
+        discardCallbacks()
+        releaseCallbackReference()
     }
 
     private func withOperation<Result>(_ body: () throws -> Result) rethrows
@@ -491,15 +640,18 @@ final class IRFFVideoToolBox {
 
     private static let outputCallback: VTDecompressionOutputCallback = {
         decompressionOutputRefCon,
-        _,
+        sourceFrameRefCon,
         status,
-        _,
+        infoFlags,
         imageBuffer,
         presentationTimeStamp,
         presentationDuration in
         handleOutputCallback(
             refCon: decompressionOutputRefCon,
+            sourceFrameRefCon:
+                sourceFrameRefCon,
             status: status,
+            infoFlags: infoFlags,
             imageBuffer: imageBuffer,
             presentationTimeStamp:
                 presentationTimeStamp,

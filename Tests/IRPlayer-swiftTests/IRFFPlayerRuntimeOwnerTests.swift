@@ -323,11 +323,17 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         XCTAssertEqual(first.collaboratorDiagnostics.revokeCount, 1)
         XCTAssertEqual(second.collaboratorDiagnostics.phase, .active)
 
-        staleBridge.decoder(first, didChangeValueOfProgress: 99)
+        staleBridge.decoder(
+            first,
+            didChangeValueOfProgress: 99,
+            generation: first.decodeGeneration
+        )
         second.delegate?.decoder(
             second,
-            didChangeValueOfProgress: 7
+            didChangeValueOfProgress: 7,
+            generation: second.decodeGeneration
         )
+        session.executor.sync {}
 
         XCTAssertEqual(firstRecorder.events, [])
         XCTAssertEqual(secondRecorder.events, ["progress:7.0"])
@@ -343,10 +349,382 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         XCTAssertNotNil(session.adopt(owned, eventHandler: recorder.record))
         let bridge = try XCTUnwrap(owned.delegate)
 
-        bridge.decoder(unknown, didChangeValueOfProgress: 11)
+        bridge.decoder(
+            unknown,
+            didChangeValueOfProgress: 11,
+            generation: unknown.decodeGeneration
+        )
 
         XCTAssertEqual(recorder.events, [])
         XCTAssertEqual(session.diagnostics.rejectedEventCount, 1)
+    }
+
+    func testQueuedEventWhoseDecoderWasReleasedIsRejected() throws {
+        let session = IRFFPlayerDecoderSession()
+        var decoder: ControlledFFPlayerDecoder? =
+            ControlledFFPlayerDecoder()
+        let recorder = FFPlayerEventRecorder()
+        XCTAssertNotNil(
+            session.adopt(
+                try XCTUnwrap(decoder),
+                eventHandler: recorder.record
+            )
+        )
+        let bridge = try XCTUnwrap(decoder?.delegate)
+        let originGeneration = try XCTUnwrap(
+            decoder?.decodeGeneration
+        )
+        let releasedDecoder =
+            WeakFFPlayerDecoderBox(decoder)
+        let executorEntered =
+            DispatchSemaphore(value: 0)
+        let releaseExecutor =
+            DispatchSemaphore(value: 0)
+        let callbackReturned =
+            DispatchSemaphore(value: 0)
+        let callbackQueue = DispatchQueue(
+            label: "irplayer.tests.queued-release-callback"
+        )
+
+        session.executor.async {
+            executorEntered.signal()
+            _ = releaseExecutor.wait(
+                timeout: .now() + 10
+            )
+        }
+        XCTAssertEqual(
+            executorEntered.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+
+        session.executor.async {
+            _ = session.reset()
+        }
+        callbackQueue.async {
+            if let callbackDecoder =
+                    releasedDecoder.value {
+                bridge.decoder(
+                    callbackDecoder,
+                    didChangeValueOfProgress: 11,
+                    generation: originGeneration
+                )
+            }
+            callbackReturned.signal()
+        }
+        let returnedWhileExecutorWasBlocked =
+            callbackReturned.wait(
+                timeout: .now() + 2
+            ) == .success
+        if returnedWhileExecutorWasBlocked {
+            callbackQueue.sync {}
+        }
+        decoder = nil
+        releaseExecutor.signal()
+        if !returnedWhileExecutorWasBlocked {
+            XCTAssertEqual(
+                callbackReturned.wait(
+                    timeout: .now() + 2
+                ),
+                .success
+            )
+        }
+        callbackQueue.sync {}
+        session.executor.sync {}
+
+        XCTAssertTrue(
+            returnedWhileExecutorWasBlocked,
+            "The decoder callback waited for the blocked player executor"
+        )
+        XCTAssertNil(releasedDecoder.value)
+        XCTAssertEqual(recorder.events, [])
+        XCTAssertEqual(
+            session.diagnostics.rejectedEventCount,
+            1
+        )
+    }
+
+    func testSameExecutorDecoderEventIsDeliveredImmediately() throws {
+        let session = IRFFPlayerDecoderSession()
+        let decoder = ControlledFFPlayerDecoder()
+        let recorder = FFPlayerEventRecorder()
+        XCTAssertNotNil(
+            session.adopt(decoder, eventHandler: recorder.record)
+        )
+        let bridge = try XCTUnwrap(decoder.delegate)
+
+        session.executor.sync {
+            bridge.decoder(
+                decoder,
+                didChangeValueOfProgress: 3,
+                generation: decoder.decodeGeneration
+            )
+            XCTAssertEqual(
+                recorder.events,
+                ["progress:3.0"]
+            )
+        }
+
+        XCTAssertEqual(session.diagnostics.acceptedEventCount, 1)
+        XCTAssertEqual(session.diagnostics.rejectedEventCount, 0)
+    }
+
+    func testOffExecutorDecoderEventsAreNonblockingAndFIFO() throws {
+        let session = IRFFPlayerDecoderSession()
+        let decoder = ControlledFFPlayerDecoder()
+        let recorder = FFPlayerEventRecorder()
+        XCTAssertNotNil(
+            session.adopt(decoder, eventHandler: recorder.record)
+        )
+        let bridge = try XCTUnwrap(decoder.delegate)
+        let executorEntered = DispatchSemaphore(value: 0)
+        let releaseExecutor = DispatchSemaphore(value: 0)
+        let callbacksReturned = DispatchSemaphore(value: 0)
+
+        session.executor.async {
+            executorEntered.signal()
+            _ = releaseExecutor.wait(timeout: .now() + 2)
+        }
+        XCTAssertEqual(
+            executorEntered.wait(timeout: .now() + 2),
+            .success
+        )
+
+        DispatchQueue.global().async {
+            bridge.decoder(
+                decoder,
+                didChangeValueOfProgress: 1,
+                generation: decoder.decodeGeneration
+            )
+            bridge.decoder(
+                decoder,
+                didChangeValueOfBuffering: true,
+                generation: decoder.decodeGeneration
+            )
+            bridge.decoder(
+                decoder,
+                didChangeValueOfProgress: 2,
+                generation: decoder.decodeGeneration
+            )
+            callbacksReturned.signal()
+        }
+        let returnedWhileExecutorWasBlocked =
+            callbacksReturned.wait(timeout: .now() + 1)
+                == .success
+        releaseExecutor.signal()
+        if !returnedWhileExecutorWasBlocked {
+            XCTAssertEqual(
+                callbacksReturned.wait(timeout: .now() + 2),
+                .success
+            )
+        }
+        session.executor.sync {}
+
+        XCTAssertTrue(
+            returnedWhileExecutorWasBlocked,
+            "Cross-domain decoder callbacks must not wait for the player executor"
+        )
+        XCTAssertEqual(
+            recorder.events,
+            [
+                "progress:1.0",
+                "buffering:true",
+                "progress:2.0"
+            ]
+        )
+        XCTAssertEqual(session.diagnostics.acceptedEventCount, 3)
+        XCTAssertEqual(session.diagnostics.rejectedEventCount, 0)
+    }
+
+    func testQueuedDecodeEventsRejectOldGenerationTail() throws {
+        let session = IRFFPlayerDecoderSession()
+        let decoder =
+            ReentrantSeekGenerationFFPlayerDecoder()
+        let recorder = FFPlayerEventRecorder()
+        XCTAssertNotNil(
+            session.adopt(
+                decoder,
+                eventHandler: { [weak session] event in
+                    recorder.record(event)
+                    if case .bufferedDurationChanged = event {
+                        session?.seek(
+                            to: 2,
+                            completion: nil
+                        )
+                    }
+                }
+            )
+        )
+        let bridge = try XCTUnwrap(decoder.delegate)
+        let executorEntered = DispatchSemaphore(value: 0)
+        let releaseExecutor = DispatchSemaphore(value: 0)
+        let callbacksReturned =
+            DispatchSemaphore(value: 0)
+
+        session.executor.async {
+            executorEntered.signal()
+            _ = releaseExecutor.wait(timeout: .now() + 10)
+        }
+        XCTAssertEqual(
+            executorEntered.wait(timeout: .now() + 2),
+            .success
+        )
+
+        let originGeneration =
+            decoder.decodeGeneration
+        DispatchQueue.global().async {
+            bridge.decoder(
+                decoder,
+                didChangeValueOfBufferedDuration: 4,
+                generation: originGeneration
+            )
+            bridge.decoderDidPlaybackFinished(
+                decoder,
+                generation: originGeneration
+            )
+            callbacksReturned.signal()
+        }
+        let returnedWhileExecutorWasBlocked =
+            callbacksReturned.wait(
+                timeout: .now() + 2
+            ) == .success
+        releaseExecutor.signal()
+        if !returnedWhileExecutorWasBlocked {
+            XCTAssertEqual(
+                callbacksReturned.wait(
+                    timeout: .now() + 2
+                ),
+                .success
+            )
+        }
+        session.executor.sync {}
+
+        XCTAssertTrue(
+            returnedWhileExecutorWasBlocked,
+            "Queued generation events waited for the player executor"
+        )
+        XCTAssertEqual(
+            recorder.events,
+            ["bufferedDuration:4.0"]
+        )
+        XCTAssertEqual(decoder.decodeGeneration, 1)
+        XCTAssertEqual(decoder.seekCount, 1)
+        XCTAssertEqual(session.diagnostics.acceptedEventCount, 1)
+        XCTAssertEqual(session.diagnostics.rejectedEventCount, 1)
+    }
+
+    func testPreparedEventSurvivesDecodeGenerationChange() throws {
+        let session = IRFFPlayerDecoderSession()
+        let decoder = ControlledFFPlayerDecoder()
+        let recorder = FFPlayerEventRecorder()
+        XCTAssertNotNil(
+            session.adopt(decoder, eventHandler: recorder.record)
+        )
+        let bridge = try XCTUnwrap(decoder.delegate)
+        let executorEntered = DispatchSemaphore(value: 0)
+        let releaseExecutor = DispatchSemaphore(value: 0)
+        let callbackReturned =
+            DispatchSemaphore(value: 0)
+
+        session.executor.async {
+            executorEntered.signal()
+            _ = releaseExecutor.wait(timeout: .now() + 10)
+        }
+        XCTAssertEqual(
+            executorEntered.wait(timeout: .now() + 2),
+            .success
+        )
+
+        DispatchQueue.global().async {
+            bridge.decoderDidPrepareToDecodeFrames(
+                decoder
+            )
+            callbackReturned.signal()
+        }
+        let returnedWhileExecutorWasBlocked =
+            callbackReturned.wait(
+                timeout: .now() + 2
+            ) == .success
+        decoder.advanceDecodeGeneration()
+        releaseExecutor.signal()
+        if !returnedWhileExecutorWasBlocked {
+            XCTAssertEqual(
+                callbackReturned.wait(
+                    timeout: .now() + 2
+                ),
+                .success
+            )
+        }
+        session.executor.sync {}
+
+        XCTAssertTrue(
+            returnedWhileExecutorWasBlocked,
+            "Prepared callback waited for the player executor"
+        )
+        XCTAssertEqual(recorder.events, ["prepared"])
+        XCTAssertEqual(session.diagnostics.acceptedEventCount, 1)
+        XCTAssertEqual(session.diagnostics.rejectedEventCount, 0)
+    }
+
+    func testFailedEventSurvivesDecodeGenerationChange() throws {
+        let session = IRFFPlayerDecoderSession()
+        let decoder = ControlledFFPlayerDecoder()
+        let recorder = FFPlayerEventRecorder()
+        XCTAssertNotNil(
+            session.adopt(decoder, eventHandler: recorder.record)
+        )
+        let bridge = try XCTUnwrap(decoder.delegate)
+        let executorEntered = DispatchSemaphore(value: 0)
+        let releaseExecutor = DispatchSemaphore(value: 0)
+        let callbackReturned =
+            DispatchSemaphore(value: 0)
+
+        session.executor.async {
+            executorEntered.signal()
+            _ = releaseExecutor.wait(timeout: .now() + 10)
+        }
+        XCTAssertEqual(
+            executorEntered.wait(timeout: .now() + 2),
+            .success
+        )
+
+        let originGeneration =
+            decoder.decodeGeneration
+        DispatchQueue.global().async {
+            bridge.decoder(
+                decoder,
+                didError: NSError(
+                    domain: "terminal-generation",
+                    code: 17
+                ),
+                generation: originGeneration
+            )
+            callbackReturned.signal()
+        }
+        let returnedWhileExecutorWasBlocked =
+            callbackReturned.wait(
+                timeout: .now() + 2
+            ) == .success
+        decoder.advanceDecodeGeneration()
+        releaseExecutor.signal()
+        if !returnedWhileExecutorWasBlocked {
+            XCTAssertEqual(
+                callbackReturned.wait(
+                    timeout: .now() + 2
+                ),
+                .success
+            )
+        }
+        session.executor.sync {}
+
+        XCTAssertTrue(
+            returnedWhileExecutorWasBlocked,
+            "Failed callback waited for the player executor"
+        )
+        XCTAssertEqual(recorder.events, ["failed:17"])
+        XCTAssertEqual(session.diagnostics.acceptedEventCount, 1)
+        XCTAssertEqual(session.diagnostics.rejectedEventCount, 0)
     }
 
     func testSuccessfulSeekCompletesExactlyOnce() {
@@ -422,6 +800,36 @@ final class IRFFPlayerDecoderSessionOwnerTests: XCTestCase {
         XCTAssertFalse(decoder.collaboratorDiagnostics.hasSource)
         XCTAssertFalse(decoder.collaboratorDiagnostics.hasVideoOutput)
         XCTAssertFalse(decoder.collaboratorDiagnostics.hasAudioOutput)
+    }
+
+    func testResetDoesNotInvertPlayerExecutorAndDecoderTransition() throws {
+        let session = IRFFPlayerDecoderSession()
+        let decoder = TransitionCallbackFFPlayerDecoder()
+        let recorder = FFPlayerEventRecorder()
+        XCTAssertNotNil(
+            session.adopt(decoder, eventHandler: recorder.record)
+        )
+        let bridge = try XCTUnwrap(decoder.delegate)
+        XCTAssertTrue(
+            decoder.beginProgressCallbackHoldingTransition(bridge)
+        )
+
+        XCTAssertTrue(session.reset())
+        XCTAssertTrue(decoder.waitForCallbackReturn())
+        session.executor.sync {}
+
+        XCTAssertTrue(decoder.closeAcquiredTransition)
+        XCTAssertEqual(
+            decoder.transitionEvents,
+            [
+                "callback-started",
+                "callback-returned",
+                "close-acquired"
+            ]
+        )
+        XCTAssertEqual(recorder.events, [])
+        XCTAssertEqual(session.diagnostics.rejectedEventCount, 1)
+        XCTAssertEqual(session.diagnostics.acceptedEventCount, 0)
     }
 
     func testSeekWithoutDecoderCompletesFalse() {
@@ -914,16 +1322,25 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
 
         XCTAssertNotNil(runtime.adopt(first))
         let staleBridge = try XCTUnwrap(first.delegate)
-        first.delegate?.decoder(first, didChangeValueOfProgress: 3)
+        first.delegate?.decoder(
+            first,
+            didChangeValueOfProgress: 3,
+            generation: first.decodeGeneration
+        )
         XCTAssertEqual(runtime.progress, 3)
 
         XCTAssertNotNil(runtime.adopt(second))
-        staleBridge.decoder(first, didChangeValueOfProgress: 99)
+        staleBridge.decoder(
+            first,
+            didChangeValueOfProgress: 99,
+            generation: first.decodeGeneration
+        )
         XCTAssertEqual(runtime.progress, 0)
 
         second.delegate?.decoder(
             second,
-            didChangeValueOfProgress: 7
+            didChangeValueOfProgress: 7,
+            generation: second.decodeGeneration
         )
         XCTAssertEqual(runtime.progress, 7)
         XCTAssertEqual(
@@ -1017,7 +1434,11 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
 
         XCTAssertTrue(runtime.close())
         XCTAssertFalse(runtime.close())
-        staleBridge.decoder(decoder, didChangeValueOfProgress: 9)
+        staleBridge.decoder(
+            decoder,
+            didChangeValueOfProgress: 9,
+            generation: decoder.decodeGeneration
+        )
         runtime.play()
         runtime.pause()
         runtime.progress = 8
@@ -1053,7 +1474,8 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
 
         failedBridge.decoder(
             failed,
-            didError: NSError(domain: "stale.failure", code: 7)
+            didError: NSError(domain: "stale.failure", code: 7),
+            generation: failed.decodeGeneration
         )
 
         XCTAssertTrue(runtime.currentDecoder === replacement)
@@ -1126,7 +1548,8 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
         decoder.onResume = {
             decoder.delegate?.decoder(
                 decoder,
-                didChangeValueOfBuffering: false
+                didChangeValueOfBuffering: false,
+                generation: decoder.decodeGeneration
             )
         }
 
@@ -1221,7 +1644,8 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
             default:
                 delegate?.decoder(
                     decoder,
-                    didChangeValueOfProgress: TimeInterval(index)
+                    didChangeValueOfProgress: TimeInterval(index),
+                    generation: decoder.decodeGeneration
                 )
             }
             _ = runtime.snapshot
@@ -1410,6 +1834,7 @@ private final class ControlledFFPlayerDecoder:
     private var storedCloseCount = 0
     private var storedPauseCount = 0
     private var storedResumeCount = 0
+    private var storedDecodeGeneration: UInt64 = 0
     private var seekCompletions: [((Bool) -> Void)?] = []
 
     var onOpen: (() -> Void)?
@@ -1443,6 +1868,12 @@ private final class ControlledFFPlayerDecoder:
 
     override var bitrate: TimeInterval {
         fixedBitrate
+    }
+
+    override var decodeGeneration: UInt64 {
+        controlLock.lock()
+        defer { controlLock.unlock() }
+        return storedDecodeGeneration
     }
 
     var openCount: Int {
@@ -1511,6 +1942,164 @@ private final class ControlledFFPlayerDecoder:
             : nil
         controlLock.unlock()
         completion?(result)
+    }
+
+    func advanceDecodeGeneration() {
+        controlLock.lock()
+        storedDecodeGeneration &+= 1
+        controlLock.unlock()
+    }
+}
+
+private final class WeakFFPlayerDecoderBox:
+    @unchecked Sendable
+{
+    weak var value: IRFFDecoder?
+
+    init(_ value: IRFFDecoder?) {
+        self.value = value
+    }
+}
+
+private final class ReentrantSeekGenerationFFPlayerDecoder:
+    IRFFDecoder,
+    @unchecked Sendable
+{
+    private let controlLock = NSLock()
+    private var storedDecodeGeneration: UInt64 = 0
+    private var storedSeekCount = 0
+
+    init() {
+        super.init(
+            contentURL: URL(
+                fileURLWithPath:
+                    "/tmp/reentrant-seek-generation.mp4"
+            ),
+            videoFormat: .mpeg4,
+            videoOutput: nil,
+            audioOutput: nil
+        )
+    }
+
+    override var decodeGeneration: UInt64 {
+        controlLock.lock()
+        defer { controlLock.unlock() }
+        return storedDecodeGeneration
+    }
+
+    var seekCount: Int {
+        controlLock.lock()
+        defer { controlLock.unlock() }
+        return storedSeekCount
+    }
+
+    override func seek(
+        to time: TimeInterval,
+        completeHandler: ((Bool) -> Void)? = nil
+    ) {
+        controlLock.lock()
+        storedSeekCount += 1
+        storedDecodeGeneration &+= 1
+        controlLock.unlock()
+    }
+}
+
+private final class TransitionCallbackFFPlayerDecoder:
+    IRFFDecoder,
+    @unchecked Sendable
+{
+    private let transitionLock = NSLock()
+    private let stateLock = NSLock()
+    private let callbackOwnsTransition =
+        DispatchSemaphore(value: 0)
+    private let allowCallback =
+        DispatchSemaphore(value: 0)
+    private let callbackStarted =
+        DispatchSemaphore(value: 0)
+    private let callbackReturned =
+        DispatchSemaphore(value: 0)
+    private var storedTransitionEvents: [String] = []
+    private var storedCloseAcquiredTransition = false
+
+    init() {
+        super.init(
+            contentURL: URL(
+                fileURLWithPath:
+                    "/tmp/transition-callback.mp4"
+            ),
+            videoFormat: .mpeg4,
+            videoOutput: nil,
+            audioOutput: nil
+        )
+    }
+
+    var transitionEvents: [String] {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return storedTransitionEvents
+    }
+
+    var closeAcquiredTransition: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return storedCloseAcquiredTransition
+    }
+
+    func beginProgressCallbackHoldingTransition(
+        _ delegate: IRFFDecoderDelegate
+    ) -> Bool {
+        DispatchQueue.global().async { [self] in
+            transitionLock.lock()
+            callbackOwnsTransition.signal()
+            allowCallback.wait()
+            record("callback-started")
+            callbackStarted.signal()
+            delegate.decoder(
+                self,
+                didChangeValueOfProgress: 1,
+                generation: decodeGeneration
+            )
+            record("callback-returned")
+            transitionLock.unlock()
+            callbackReturned.signal()
+        }
+        return callbackOwnsTransition.wait(
+            timeout: .now() + 2
+        ) == .success
+    }
+
+    override func closeFile() {
+        allowCallback.signal()
+        guard callbackStarted.wait(
+            timeout: .now() + 2
+        ) == .success else {
+            record("callback-timeout")
+            return
+        }
+        let acquired = transitionLock.lock(
+            before: Date(timeIntervalSinceNow: 2)
+        )
+        stateLock.lock()
+        storedCloseAcquiredTransition = acquired
+        storedTransitionEvents.append(
+            acquired ? "close-acquired" : "close-timeout"
+        )
+        stateLock.unlock()
+        if acquired {
+            transitionLock.unlock()
+        }
+    }
+
+    func waitForCallbackReturn() -> Bool {
+        callbackReturned.wait(
+            timeout: .now() + 2
+        ) == .success
+    }
+
+    private func record(_ event: String) {
+        stateLock.lock()
+        storedTransitionEvents.append(event)
+        stateLock.unlock()
     }
 }
 

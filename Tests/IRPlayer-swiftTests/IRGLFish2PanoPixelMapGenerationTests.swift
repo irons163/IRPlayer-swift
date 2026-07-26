@@ -14,6 +14,8 @@ final class IRGLFish2PanoPixelMapGenerationTests:
         let generation = try XCTUnwrap(
             IRGLFish2PanoPixelMapGeneration(
                 requestGeneration: 7,
+                inputTextureWidth: 4,
+                inputTextureHeight: 3,
                 outputWidth: 2,
                 outputHeight: 1,
                 antialias: 2,
@@ -43,6 +45,14 @@ final class IRGLFish2PanoPixelMapGenerationTests:
             },
             [8, 9, 10, 11]
         )
+        XCTAssertEqual(
+            generation.inputTextureWidth,
+            4
+        )
+        XCTAssertEqual(
+            generation.inputTextureHeight,
+            3
+        )
         XCTAssertNil(
             generation.withUnsafeMapBuffer(at: -1) {
                 $0.count
@@ -61,6 +71,8 @@ final class IRGLFish2PanoPixelMapGenerationTests:
         XCTAssertNil(
             IRGLFish2PanoPixelMapGeneration(
                 requestGeneration: 0,
+                inputTextureWidth: 2,
+                inputTextureHeight: 1,
                 outputWidth: 2,
                 outputHeight: 1,
                 antialias: 1,
@@ -70,6 +82,8 @@ final class IRGLFish2PanoPixelMapGenerationTests:
         XCTAssertNil(
             IRGLFish2PanoPixelMapGeneration(
                 requestGeneration: 1,
+                inputTextureWidth: 2,
+                inputTextureHeight: 1,
                 outputWidth: 0,
                 outputHeight: 1,
                 antialias: 1,
@@ -79,6 +93,8 @@ final class IRGLFish2PanoPixelMapGenerationTests:
         XCTAssertNil(
             IRGLFish2PanoPixelMapGeneration(
                 requestGeneration: 1,
+                inputTextureWidth: 2,
+                inputTextureHeight: 1,
                 outputWidth: 2,
                 outputHeight: 1,
                 antialias: 2,
@@ -88,6 +104,8 @@ final class IRGLFish2PanoPixelMapGenerationTests:
         XCTAssertNil(
             IRGLFish2PanoPixelMapGeneration(
                 requestGeneration: 1,
+                inputTextureWidth: 2,
+                inputTextureHeight: 1,
                 outputWidth: 2,
                 outputHeight: 1,
                 antialias: 1,
@@ -103,6 +121,8 @@ final class IRGLFish2PanoPixelMapGenerationTests:
         let generation = try XCTUnwrap(
             IRGLFish2PanoPixelMapGeneration(
                 requestGeneration: 1,
+                inputTextureWidth: 2,
+                inputTextureHeight: 1,
                 outputWidth: 2,
                 outputHeight: 1,
                 antialias: 1,
@@ -161,6 +181,8 @@ final class IRGLFish2PanoPixelMapGenerationTests:
         let generation = try XCTUnwrap(
             IRGLFish2PanoPixelMapGeneration(
                 requestGeneration: 1,
+                inputTextureWidth: 2,
+                inputTextureHeight: 1,
                 outputWidth: 2,
                 outputHeight: 1,
                 antialias: 1,

@@ -1602,6 +1602,163 @@ private func makeRenderableSnapshotImage() -> UIImage {
 }
 
 final class IRGLViewRuntimeOwnerTests: XCTestCase {
+    func testFrameUpdatePreservesCurrentSoftwarePresentation()
+        throws
+    {
+        let renderSession = IRGLRenderSession(
+            frameRenderOperation: { input in
+                .init(
+                    currentImage: input.currentImage,
+                    didCompleteRender: true
+                )
+            }
+        )
+        let pool = IRFFFramePool(
+            capacity: 1,
+            frameClassName: IRFFAVYUVVideoFrame.self
+        ) {
+            IRFFAVYUVVideoFrame()
+        }
+        let frame = try XCTUnwrap(
+            pool.leaseFrame() as? IRFFAVYUVVideoFrame
+        )
+        let (container, view) = IRMainThreadExecutor.sync {
+            let container = UIView(
+                frame: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 320,
+                    height: 180
+                )
+            )
+            let view = IRGLView(
+                frame: container.bounds,
+                runtimeDependencies: IRGLViewRuntimeDependencies(
+                    renderSession: renderSession,
+                    snapshotSession: IRGLSnapshotSession(),
+                    avPlayerLayerSession:
+                        IRGLAVPlayerLayerSession()
+                )
+            )
+            container.addSubview(view)
+            return (container, view)
+        }
+
+        view.send(videoFrame: frame)
+        let before = view.renderDiagnostics
+        XCTAssertTrue(frame.playing)
+        XCTAssertTrue(before.frames.hasCurrentFrame)
+        XCTAssertEqual(before.frames.presentationLeaseCount, 1)
+
+        IRMainThreadExecutor.sync {
+            container.frame = CGRect(
+                x: 0,
+                y: 0,
+                width: 240,
+                height: 180
+            )
+            view.update(frame: container.bounds)
+        }
+
+        let after = view.renderDiagnostics
+        XCTAssertEqual(
+            after.frames.clearCount,
+            before.frames.clearCount
+        )
+        XCTAssertEqual(
+            after.prepareCount,
+            before.prepareCount
+        )
+        XCTAssertTrue(after.frames.hasCurrentFrame)
+        XCTAssertEqual(after.frames.presentationLeaseCount, 1)
+        XCTAssertTrue(frame.playing)
+        XCTAssertEqual(pool.diagnostics.playingCount, 1)
+        if before.surface.hasCompleteResources {
+            XCTAssertGreaterThan(
+                after.frames.redrawCount,
+                before.frames.redrawCount
+            )
+        }
+
+        view.close()
+        withExtendedLifetime(container) {}
+    }
+
+    func testFrameUpdateKeepsAVPlayerLayerAttachedAndFullySized() {
+        let renderSession = IRGLRenderSession(
+            frameRenderOperation: { input in
+                .init(
+                    currentImage: input.currentImage,
+                    didCompleteRender: true
+                )
+            }
+        )
+        let layerSession = IRGLAVPlayerLayerSession()
+        let player = AVPlayer()
+        let (container, view) = IRMainThreadExecutor.sync {
+            let container = UIView(
+                frame: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 320,
+                    height: 180
+                )
+            )
+            let view = IRGLView(
+                frame: container.bounds,
+                runtimeDependencies: IRGLViewRuntimeDependencies(
+                    renderSession: renderSession,
+                    snapshotSession: IRGLSnapshotSession(),
+                    avPlayerLayerSession: layerSession
+                )
+            )
+            container.addSubview(view)
+            view.rendererType = .AVPlayerLayer
+            view.setAVPlayer(player)
+            view.aspect = 2
+            container.layoutIfNeeded()
+            view.layoutIfNeeded()
+            return (container, view)
+        }
+        let layer = layerSession.layerSnapshot
+        let beforeLayer = layerSession.diagnostics
+        let beforeRender = view.renderDiagnostics
+        XCTAssertNotNil(layer)
+
+        IRMainThreadExecutor.sync {
+            container.frame = CGRect(
+                x: 0,
+                y: 0,
+                width: 300,
+                height: 300
+            )
+            view.update(frame: container.bounds)
+        }
+
+        let afterLayer = layerSession.diagnostics
+        let afterRender = view.renderDiagnostics
+        XCTAssertTrue(layerSession.layerSnapshot === layer)
+        XCTAssertEqual(
+            afterLayer.layerGeneration,
+            beforeLayer.layerGeneration
+        )
+        XCTAssertEqual(
+            afterLayer.detachCount,
+            beforeLayer.detachCount
+        )
+        XCTAssertEqual(
+            afterRender.frames.clearCount,
+            beforeRender.frames.clearCount
+        )
+        XCTAssertEqual(
+            layerSession.layerSnapshot?.frame,
+            view.bounds
+        )
+
+        view.close()
+        withExtendedLifetime((container, player)) {}
+    }
+
     func testCloseFromRenderExecutorIsDeadlockSafeAndTerminal() {
         let renderSession = IRGLRenderSession(
             surfaceDependencies: IRGLMetalSurfaceDependencies(

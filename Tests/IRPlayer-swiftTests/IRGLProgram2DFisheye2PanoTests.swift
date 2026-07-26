@@ -340,9 +340,57 @@ final class IRGLProgram2DFisheye2PanoTests: XCTestCase {
             pixelMap.antialias,
             Int(params.antialias)
         )
+        XCTAssertEqual(
+            pixelMap.configurationKey,
+            params.requiredPixelMapConfigurationKey()
+        )
+        XCTAssertEqual(
+            pixelMap.inputTextureWidth,
+            32
+        )
+        XCTAssertEqual(
+            pixelMap.inputTextureHeight,
+            24
+        )
         XCTAssertEqual(params.textureWidth, 32)
         XCTAssertEqual(params.textureHeight, 24)
         XCTAssertNil(params.takePixelMapIfReady())
+    }
+
+    func testPanoShaderParamsDistinguishesSameWidthDifferentHeightConfigurations()
+        throws
+    {
+        let params = IRGLFish2PanoShaderParams()
+
+        params.updateTextureWidth(32, height: 24)
+        let firstMap = try waitForPixelMap(
+            from: params
+        )
+        params.updateTextureWidth(32, height: 30)
+        let secondMap = try waitForPixelMap(
+            from: params
+        )
+
+        XCTAssertEqual(
+            firstMap.outputWidth,
+            secondMap.outputWidth
+        )
+        XCTAssertEqual(
+            firstMap.outputHeight,
+            secondMap.outputHeight
+        )
+        XCTAssertEqual(
+            firstMap.inputTextureWidth,
+            secondMap.inputTextureWidth
+        )
+        XCTAssertNotEqual(
+            firstMap.inputTextureHeight,
+            secondMap.inputTextureHeight
+        )
+        XCTAssertNotEqual(
+            firstMap.configurationKey,
+            secondMap.configurationKey
+        )
     }
 
     func testPanoShaderParamsInvalidUpdateRevokesPublishedMap()

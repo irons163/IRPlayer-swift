@@ -982,7 +982,10 @@ private final class DecoderDelegateSpy: IRFFDecoderDelegate {
         callback?()
     }
 
-    func decoderDidEndOfFile(_ decoder: IRFFDecoder) {
+    func decoderDidEndOfFile(
+        _ decoder: IRFFDecoder,
+        generation: UInt64
+    ) {
         let callback = withLock {
             storedEndOfFileCount += 1
             return storedOnEndOfFile
@@ -990,13 +993,20 @@ private final class DecoderDelegateSpy: IRFFDecoderDelegate {
         callback?()
     }
 
-    func decoderDidPlaybackFinished(_ decoder: IRFFDecoder) {
+    func decoderDidPlaybackFinished(
+        _ decoder: IRFFDecoder,
+        generation: UInt64
+    ) {
         withLock {
             storedPlaybackFinishedCount += 1
         }
     }
 
-    func decoder(_ decoder: IRFFDecoder, didError error: Error) {
+    func decoder(
+        _ decoder: IRFFDecoder,
+        didError error: Error,
+        generation: UInt64
+    ) {
         let callback = withLock {
             storedErrors.append(error as NSError)
             return storedOnError
@@ -1004,19 +1014,31 @@ private final class DecoderDelegateSpy: IRFFDecoderDelegate {
         callback?()
     }
 
-    func decoder(_ decoder: IRFFDecoder, didChangeValueOfBuffering buffering: Bool) {
+    func decoder(
+        _ decoder: IRFFDecoder,
+        didChangeValueOfBuffering buffering: Bool,
+        generation: UInt64
+    ) {
         withLock {
             storedBufferingValues.append(buffering)
         }
     }
 
-    func decoder(_ decoder: IRFFDecoder, didChangeValueOfBufferedDuration bufferedDuration: TimeInterval) {
+    func decoder(
+        _ decoder: IRFFDecoder,
+        didChangeValueOfBufferedDuration bufferedDuration: TimeInterval,
+        generation: UInt64
+    ) {
         withLock {
             storedBufferedDurations.append(bufferedDuration)
         }
     }
 
-    func decoder(_ decoder: IRFFDecoder, didChangeValueOfProgress progress: TimeInterval) {
+    func decoder(
+        _ decoder: IRFFDecoder,
+        didChangeValueOfProgress progress: TimeInterval,
+        generation: UInt64
+    ) {
         withLock {
             storedProgressValues.append(progress)
         }

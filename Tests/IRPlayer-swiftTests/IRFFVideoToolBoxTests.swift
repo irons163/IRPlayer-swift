@@ -48,6 +48,20 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         )
     }
 
+    func testDecodeFrameFlagsEnableTemporalProcessingWithoutAsyncDecode() {
+        XCTAssertEqual(
+            IRFFVideoToolBox.decodeFrameFlags,
+            ._EnableTemporalProcessing
+        )
+        XCTAssertFalse(
+            IRFFVideoToolBox
+                .decodeFrameFlags
+                .contains(
+                    ._EnableAsynchronousDecompression
+                )
+        )
+    }
+
     func testNALLengthSizeDecisionNormalizesThreeByteMarker() {
         let threeByteDecision = IRFFVideoToolBox
             .nalLengthSizeDecision(for: 0xFE)
@@ -92,6 +106,30 @@ final class IRFFVideoToolBoxTests: XCTestCase {
             XCTAssertEqual(payload?.data, buffer.baseAddress)
             XCTAssertEqual(payload?.size, Int32(buffer.count))
         }
+    }
+
+    func testPacketTimingCopiesValuesBeforePacketMutation() {
+        var packet = AVPacket()
+        packet.pts = 100
+        packet.dts = 90
+        packet.duration = 40
+
+        let timing =
+            IRFFVideoToolBox.PacketTiming(
+                packet: packet
+            )
+        packet.pts = 200
+        packet.dts = 190
+        packet.duration = 50
+
+        XCTAssertEqual(
+            timing,
+            .init(
+                pts: 100,
+                dts: 90,
+                duration: 40
+            )
+        )
     }
 
     func testOwnedPacketBlockBufferDoesNotBorrowPacketMemory() throws {
@@ -392,10 +430,20 @@ final class IRFFVideoToolBoxTests: XCTestCase {
         IRFFVideoToolBox.handleOutputCallback(
             refCon: refCon,
             status: -2,
+            infoFlags:
+                .frameInterrupted,
             imageBuffer: nil
         )
 
         XCTAssertEqual(callbackState.snapshot.status, -2)
+        XCTAssertTrue(
+            callbackState
+                .snapshot
+                .infoFlags
+                .contains(
+                    .frameInterrupted
+                )
+        )
         XCTAssertNil(callbackState.snapshot.imageBuffer)
     }
 
@@ -761,6 +809,506 @@ final class IRFFVideoToolBoxTests: XCTestCase {
                 )
             },
             [1, 2, 3]
+        )
+    }
+
+    func testTypedDecodeResultDropsInterruptedAndDroppedPixelBuffers() throws {
+        let interrupted = try makePixelBuffer()
+        let dropped = try makePixelBuffer()
+        let valid = try makePixelBuffer()
+        let callbackState =
+            IRFFVideoToolBoxCallbackState()
+        let callbackReference =
+            Unmanaged.passRetained(
+                callbackState
+            )
+            .toOpaque()
+        defer {
+            Unmanaged<IRFFVideoToolBoxCallbackState>
+                .fromOpaque(
+                    callbackReference
+                )
+                .release()
+        }
+        weak var interruptedContext:
+            IRFFVideoToolBox
+                .SubmissionContext?
+        weak var droppedContext:
+            IRFFVideoToolBox
+                .SubmissionContext?
+
+        XCTAssertEqual(
+            IRFFVideoToolBox.submitFrame(
+                packetTiming:
+                    .init(
+                        pts: 1,
+                        dts: 1,
+                        duration: 1
+                    )
+            ) { reference in
+                interruptedContext =
+                    Unmanaged<
+                        IRFFVideoToolBox
+                            .SubmissionContext
+                    >
+                    .fromOpaque(reference)
+                    .takeUnretainedValue()
+                IRFFVideoToolBox
+                    .handleOutputCallback(
+                        refCon:
+                            callbackReference,
+                        sourceFrameRefCon:
+                            reference,
+                        status: noErr,
+                        infoFlags:
+                            .frameInterrupted,
+                        imageBuffer:
+                            interrupted
+                    )
+                return noErr
+            },
+            noErr
+        )
+        XCTAssertNil(interruptedContext)
+        XCTAssertEqual(
+            IRFFVideoToolBox.submitFrame(
+                packetTiming:
+                    .init(
+                        pts: 2,
+                        dts: 2,
+                        duration: 1
+                    )
+            ) { reference in
+                droppedContext =
+                    Unmanaged<
+                        IRFFVideoToolBox
+                            .SubmissionContext
+                    >
+                    .fromOpaque(reference)
+                    .takeUnretainedValue()
+                IRFFVideoToolBox
+                    .handleOutputCallback(
+                        refCon:
+                            callbackReference,
+                        sourceFrameRefCon:
+                            reference,
+                        status: noErr,
+                        infoFlags:
+                            .frameDropped,
+                        imageBuffer: dropped
+                    )
+                return noErr
+            },
+            noErr
+        )
+        XCTAssertNil(droppedContext)
+        callbackState.publish(
+            status: noErr,
+            imageBuffer: valid,
+            presentationTimeStamp:
+                CMTime(
+                    value: 3,
+                    timescale: 1
+                )
+        )
+
+        let result =
+            IRFFVideoToolBox
+                .classifyDecodeResult(
+                    status: noErr,
+                    events:
+                        callbackState
+                            .takeEvents()
+                )
+
+        guard case let .accepted(outputs) =
+                result else {
+            return XCTFail(
+                "Expected interrupted and dropped frames to be consumed"
+            )
+        }
+        XCTAssertEqual(outputs.count, 1)
+        XCTAssertTrue(
+            outputs[0].imageBuffer === valid
+        )
+    }
+
+    func testDelayedFrameDrainWaitsBeforeTakingGenerationMailbox() throws {
+        let callbackState =
+            IRFFVideoToolBoxCallbackState()
+        let beforeWait = try makePixelBuffer()
+        let duringWait = try makePixelBuffer()
+        callbackState.publish(
+            status: noErr,
+            imageBuffer: beforeWait,
+            presentationTimeStamp:
+                CMTime(
+                    value: 1,
+                    timescale: 1
+                )
+        )
+
+        let result =
+            IRFFVideoToolBox
+                .drainDelayedFrames(
+                    callbackState:
+                        callbackState
+                ) {
+                    callbackState.publish(
+                        status: noErr,
+                        imageBuffer: duringWait,
+                        presentationTimeStamp:
+                            CMTime(
+                                value: 2,
+                                timescale: 1
+                            )
+                    )
+                    return noErr
+                }
+
+        guard case let .accepted(outputs) =
+                result else {
+            return XCTFail(
+                "Expected every delayed callback after the wait barrier"
+            )
+        }
+        XCTAssertEqual(outputs.count, 2)
+        XCTAssertTrue(
+            outputs[0].imageBuffer === beforeWait
+        )
+        XCTAssertTrue(
+            outputs[1].imageBuffer === duringWait
+        )
+        XCTAssertTrue(
+            callbackState.takeEvents().isEmpty
+        )
+    }
+
+    func testDelayedCallbacksKeepEachPacketTimingAndReleaseSubmissionContexts()
+        throws
+    {
+        let callbackState =
+            IRFFVideoToolBoxCallbackState()
+        let callbackReference =
+            Unmanaged.passRetained(
+                callbackState
+            )
+            .toOpaque()
+        defer {
+            Unmanaged<IRFFVideoToolBoxCallbackState>
+                .fromOpaque(
+                    callbackReference
+                )
+                .release()
+        }
+        let firstTiming =
+            IRFFVideoToolBox.PacketTiming(
+                pts: 100,
+                dts: 90,
+                duration: 40
+            )
+        let secondTiming =
+            IRFFVideoToolBox.PacketTiming(
+                pts: 200,
+                dts: 190,
+                duration: 50
+            )
+        var firstReference:
+            UnsafeMutableRawPointer?
+        var secondReference:
+            UnsafeMutableRawPointer?
+        weak var firstContext:
+            IRFFVideoToolBox
+                .SubmissionContext?
+        weak var secondContext:
+            IRFFVideoToolBox
+                .SubmissionContext?
+
+        XCTAssertEqual(
+            IRFFVideoToolBox.submitFrame(
+                packetTiming: firstTiming
+            ) { reference in
+                firstReference = reference
+                firstContext =
+                    Unmanaged<
+                        IRFFVideoToolBox
+                            .SubmissionContext
+                    >
+                    .fromOpaque(reference)
+                    .takeUnretainedValue()
+                return noErr
+            },
+            noErr
+        )
+        XCTAssertEqual(
+            IRFFVideoToolBox.submitFrame(
+                packetTiming: secondTiming
+            ) { reference in
+                secondReference = reference
+                secondContext =
+                    Unmanaged<
+                        IRFFVideoToolBox
+                            .SubmissionContext
+                    >
+                    .fromOpaque(reference)
+                    .takeUnretainedValue()
+                return noErr
+            },
+            noErr
+        )
+        XCTAssertNotNil(firstContext)
+        XCTAssertNotNil(secondContext)
+
+        let firstImage = try makePixelBuffer()
+        let secondImage = try makePixelBuffer()
+        IRFFVideoToolBox.handleOutputCallback(
+            refCon: callbackReference,
+            sourceFrameRefCon:
+                try XCTUnwrap(
+                    secondReference
+                ),
+            status: noErr,
+            imageBuffer: secondImage,
+            presentationTimeStamp:
+                .invalid,
+            presentationDuration:
+                .invalid
+        )
+        XCTAssertNotNil(firstContext)
+        XCTAssertNil(secondContext)
+        IRFFVideoToolBox.handleOutputCallback(
+            refCon: callbackReference,
+            sourceFrameRefCon:
+                try XCTUnwrap(
+                    firstReference
+                ),
+            status: noErr,
+            imageBuffer: firstImage,
+            presentationTimeStamp:
+                .invalid,
+            presentationDuration:
+                .invalid
+        )
+        XCTAssertNil(firstContext)
+
+        let result =
+            IRFFVideoToolBox
+                .classifyDecodeResult(
+                    status: noErr,
+                    events:
+                        callbackState
+                            .takeEvents()
+                )
+        guard case let .accepted(outputs) =
+                result else {
+            return XCTFail(
+                "Expected both delayed callbacks"
+            )
+        }
+        XCTAssertEqual(outputs.count, 2)
+        XCTAssertTrue(
+            outputs[0].imageBuffer ===
+                secondImage
+        )
+        XCTAssertEqual(
+            outputs[0].packetTiming,
+            secondTiming
+        )
+        XCTAssertTrue(
+            outputs[1].imageBuffer ===
+                firstImage
+        )
+        XCTAssertEqual(
+            outputs[1].packetTiming,
+            firstTiming
+        )
+        XCTAssertFalse(
+            outputs[0]
+                .presentationTimeStamp
+                .isValid
+        )
+        XCTAssertFalse(
+            outputs[1]
+                .presentationTimeStamp
+                .isValid
+        )
+    }
+
+    func testDecodeErrorReleasesSubmissionReferenceWithoutCallback() {
+        weak var context:
+            IRFFVideoToolBox
+                .SubmissionContext?
+        let status =
+            IRFFVideoToolBox.submitFrame(
+                packetTiming:
+                    .init(
+                        pts: 7,
+                        dts: 6,
+                        duration: 1
+                    )
+            ) { reference in
+                context =
+                    Unmanaged<
+                        IRFFVideoToolBox
+                            .SubmissionContext
+                    >
+                    .fromOpaque(reference)
+                    .takeUnretainedValue()
+                return -123
+            }
+
+        XCTAssertEqual(status, -123)
+        XCTAssertNil(context)
+    }
+
+    func testGenerationTeardownWaitConsumesOutstandingSubmissionBeforeInvalidation()
+        throws
+    {
+        let callbackState =
+            IRFFVideoToolBoxCallbackState()
+        let callbackReference =
+            Unmanaged.passRetained(
+                callbackState
+            )
+            .toOpaque()
+        var didReleaseCallbackReference =
+            false
+        defer {
+            if !didReleaseCallbackReference {
+                Unmanaged<
+                    IRFFVideoToolBoxCallbackState
+                >
+                .fromOpaque(
+                    callbackReference
+                )
+                .release()
+            }
+        }
+        var sourceFrameReference:
+            UnsafeMutableRawPointer?
+        weak var submissionContext:
+            IRFFVideoToolBox
+                .SubmissionContext?
+        XCTAssertEqual(
+            IRFFVideoToolBox.submitFrame(
+                packetTiming:
+                    .init(
+                        pts: 7,
+                        dts: 6,
+                        duration: 1
+                    )
+            ) { reference in
+                sourceFrameReference =
+                    reference
+                submissionContext =
+                    Unmanaged<
+                        IRFFVideoToolBox
+                            .SubmissionContext
+                    >
+                    .fromOpaque(reference)
+                    .takeUnretainedValue()
+                return noErr
+            },
+            noErr
+        )
+        XCTAssertNotNil(submissionContext)
+        let retainedSourceReference =
+            try XCTUnwrap(
+                sourceFrameReference
+            )
+        var operations: [String] = []
+
+        IRFFVideoToolBox
+            .tearDownGeneration(
+                waitForFrames: {
+                    operations.append("wait")
+                    IRFFVideoToolBox
+                        .handleOutputCallback(
+                            refCon:
+                                callbackReference,
+                            sourceFrameRefCon:
+                                retainedSourceReference,
+                            status: noErr,
+                            imageBuffer: nil
+                        )
+                    XCTAssertNil(
+                        submissionContext
+                    )
+                },
+                invalidateSession: {
+                    operations.append(
+                        "invalidate"
+                    )
+                    XCTAssertNil(
+                        submissionContext
+                    )
+                },
+                discardCallbacks: {
+                    operations.append(
+                        "discard"
+                    )
+                    callbackState.reset()
+                },
+                releaseCallbackReference: {
+                    operations.append(
+                        "release"
+                    )
+                    Unmanaged<
+                        IRFFVideoToolBoxCallbackState
+                    >
+                    .fromOpaque(
+                        callbackReference
+                    )
+                    .release()
+                    didReleaseCallbackReference =
+                        true
+                }
+            )
+
+        XCTAssertNil(submissionContext)
+        XCTAssertTrue(
+            callbackState
+                .takeEvents()
+                .isEmpty
+        )
+        XCTAssertEqual(
+            operations,
+            [
+                "wait",
+                "invalidate",
+                "discard",
+                "release"
+            ]
+        )
+    }
+
+    func testGenerationTeardownOrdersCallbackOwnershipFence() {
+        var operations: [String] = []
+
+        IRFFVideoToolBox
+            .tearDownGeneration(
+                waitForFrames: {
+                    operations.append("wait")
+                },
+                invalidateSession: {
+                    operations.append("invalidate")
+                },
+                discardCallbacks: {
+                    operations.append("discard")
+                },
+                releaseCallbackReference: {
+                    operations.append("release")
+                }
+            )
+
+        XCTAssertEqual(
+            operations,
+            [
+                "wait",
+                "invalidate",
+                "discard",
+                "release"
+            ]
         )
     }
 

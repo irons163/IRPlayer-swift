@@ -378,23 +378,36 @@ private final class CollaboratorFixture {
 private final class CollaboratorDelegateProbe: IRFFDecoderDelegate {
     func decoderWillOpenInputStream(_ decoder: IRFFDecoder) {}
     func decoderDidPrepareToDecodeFrames(_ decoder: IRFFDecoder) {}
-    func decoderDidEndOfFile(_ decoder: IRFFDecoder) {}
-    func decoderDidPlaybackFinished(_ decoder: IRFFDecoder) {}
-    func decoder(_ decoder: IRFFDecoder, didError error: Error) {}
-
+    func decoderDidEndOfFile(
+        _ decoder: IRFFDecoder,
+        generation: UInt64
+    ) {}
+    func decoderDidPlaybackFinished(
+        _ decoder: IRFFDecoder,
+        generation: UInt64
+    ) {}
     func decoder(
         _ decoder: IRFFDecoder,
-        didChangeValueOfBuffering buffering: Bool
+        didError error: Error,
+        generation: UInt64
     ) {}
 
     func decoder(
         _ decoder: IRFFDecoder,
-        didChangeValueOfBufferedDuration bufferedDuration: TimeInterval
+        didChangeValueOfBuffering buffering: Bool,
+        generation: UInt64
     ) {}
 
     func decoder(
         _ decoder: IRFFDecoder,
-        didChangeValueOfProgress progress: TimeInterval
+        didChangeValueOfBufferedDuration bufferedDuration: TimeInterval,
+        generation: UInt64
+    ) {}
+
+    func decoder(
+        _ decoder: IRFFDecoder,
+        didChangeValueOfProgress progress: TimeInterval,
+        generation: UInt64
     ) {}
 }
 

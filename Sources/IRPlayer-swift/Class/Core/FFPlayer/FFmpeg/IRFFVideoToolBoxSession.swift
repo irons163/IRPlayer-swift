@@ -188,13 +188,37 @@ final class IRFFVideoToolBoxSession<Resource>: @unchecked Sendable {
 final class IRFFVideoToolBoxCallbackState: @unchecked Sendable {
     struct Event {
         let status: OSStatus
+        let infoFlags: VTDecodeInfoFlags
         let imageBuffer: CVImageBuffer?
+        let packetTiming:
+            IRFFVideoToolBox.PacketTiming?
         let presentationTimeStamp: CMTime
         let presentationDuration: CMTime
+
+        init(
+            status: OSStatus,
+            infoFlags: VTDecodeInfoFlags = [],
+            imageBuffer: CVImageBuffer?,
+            packetTiming:
+                IRFFVideoToolBox
+                    .PacketTiming? = nil,
+            presentationTimeStamp: CMTime,
+            presentationDuration: CMTime
+        ) {
+            self.status = status
+            self.infoFlags = infoFlags
+            self.imageBuffer = imageBuffer
+            self.packetTiming = packetTiming
+            self.presentationTimeStamp =
+                presentationTimeStamp
+            self.presentationDuration =
+                presentationDuration
+        }
     }
 
     struct Snapshot {
         let status: OSStatus
+        let infoFlags: VTDecodeInfoFlags
         let imageBuffer: CVImageBuffer?
     }
 
@@ -207,6 +231,8 @@ final class IRFFVideoToolBoxCallbackState: @unchecked Sendable {
         defer { lock.unlock() }
         return Snapshot(
             status: lastEvent?.status ?? noErr,
+            infoFlags:
+                lastEvent?.infoFlags ?? [],
             imageBuffer: lastEvent?.imageBuffer
         )
     }
@@ -220,9 +246,19 @@ final class IRFFVideoToolBoxCallbackState: @unchecked Sendable {
         lock.unlock()
     }
 
+    func clearSnapshot() {
+        lock.lock()
+        lastEvent = nil
+        lock.unlock()
+    }
+
     func publish(
         status: OSStatus,
+        infoFlags: VTDecodeInfoFlags = [],
         imageBuffer: CVImageBuffer?,
+        packetTiming:
+            IRFFVideoToolBox.PacketTiming? =
+                nil,
         presentationTimeStamp: CMTime =
             .invalid,
         presentationDuration: CMTime =
@@ -231,7 +267,9 @@ final class IRFFVideoToolBoxCallbackState: @unchecked Sendable {
         lock.lock()
         let event = Event(
             status: status,
+            infoFlags: infoFlags,
             imageBuffer: imageBuffer,
+            packetTiming: packetTiming,
             presentationTimeStamp:
                 presentationTimeStamp,
             presentationDuration:

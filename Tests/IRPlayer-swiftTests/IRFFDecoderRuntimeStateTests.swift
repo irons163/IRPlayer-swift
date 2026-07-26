@@ -225,6 +225,142 @@ final class IRFFDecoderRuntimeStateTests: XCTestCase {
         XCTAssertFalse(state.snapshot.hasError)
     }
 
+    func testCommittedErrorSerializesWithAndRejectsRacingSeek() {
+        let notificationEntered =
+            DispatchSemaphore(value: 0)
+        let releaseNotification =
+            DispatchSemaphore(value: 0)
+        let errorCommitFinished =
+            DispatchSemaphore(value: 0)
+        let seekAttempted =
+            DispatchSemaphore(value: 0)
+        let allowSeekAttempt =
+            DispatchSemaphore(value: 0)
+        let seekAcquiredTransition =
+            DispatchSemaphore(value: 0)
+        let seekFinished =
+            DispatchSemaphore(value: 0)
+        let seekAdmission = LockedOptionalBool()
+        let state = IRFFDecoderRuntimeState(
+            testingHooks: .init(
+                willAttemptBeginSeek: {
+                    seekAttempted.signal()
+                    _ = allowSeekAttempt.wait(
+                        timeout: .now() + 2
+                    )
+                },
+                didAcquireBeginSeekTransition: {
+                    seekAcquiredTransition.signal()
+                }
+            )
+        )
+
+        DispatchQueue.global().async {
+            _ = state.commitDecodeError(
+                NSError(
+                    domain: "error-before-seek",
+                    code: 1
+                ),
+                generation: 0,
+                notification: {
+                    notificationEntered.signal()
+                    _ = releaseNotification.wait(
+                        timeout: .now() + 2
+                    )
+                }
+            )
+            errorCommitFinished.signal()
+        }
+
+        XCTAssertEqual(
+            notificationEntered.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+
+        DispatchQueue.global().async {
+            seekAdmission.set(
+                state.beginSeek(
+                    to: 5,
+                    completion: nil
+                ) != nil
+            )
+            seekFinished.signal()
+        }
+
+        XCTAssertEqual(
+            seekAttempted.wait(timeout: .now() + 2),
+            .success
+        )
+        allowSeekAttempt.signal()
+        XCTAssertEqual(
+            seekAcquiredTransition.wait(
+                timeout: .now() + 0.1
+            ),
+            .timedOut,
+            "Seek acquired the transition gate before the terminal notification returned"
+        )
+
+        releaseNotification.signal()
+        XCTAssertEqual(
+            errorCommitFinished.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        XCTAssertEqual(
+            seekAcquiredTransition.wait(
+                timeout: .now() + 2
+            ),
+            .success
+        )
+        XCTAssertEqual(
+            seekFinished.wait(timeout: .now() + 2),
+            .success
+        )
+        XCTAssertEqual(seekAdmission.value, false)
+        XCTAssertTrue(state.snapshot.hasError)
+        XCTAssertEqual(
+            state.snapshot.decodeGeneration,
+            0
+        )
+    }
+
+    func testAdmittedSeekRejectsErrorFromPreviousGeneration() {
+        let state = IRFFDecoderRuntimeState()
+        let staleGeneration =
+            state.decodeGeneration
+        let seek = state.beginSeek(
+            to: 5,
+            completion: nil
+        )
+        var notificationCount = 0
+
+        XCTAssertEqual(
+            seek?.decodeGeneration,
+            staleGeneration + 1
+        )
+        XCTAssertFalse(
+            state.commitDecodeError(
+                NSError(
+                    domain: "seek-before-error",
+                    code: 2
+                ),
+                generation: staleGeneration,
+                notification: {
+                    notificationCount += 1
+                }
+            )
+        )
+        XCTAssertEqual(notificationCount, 0)
+        XCTAssertFalse(state.snapshot.hasError)
+        XCTAssertEqual(
+            state.snapshot.decodeGeneration,
+            staleGeneration + 1
+        )
+    }
+
     func testTerminalCommitIsFirstWinsInBothDirections() {
         let errorFirst = IRFFDecoderRuntimeState()
         var errorNotificationCount = 0
@@ -1130,6 +1266,23 @@ private final class LockedFailureCount: @unchecked Sendable {
     func increment() {
         lock.lock()
         count += 1
+        lock.unlock()
+    }
+}
+
+private final class LockedOptionalBool: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValue: Bool?
+
+    var value: Bool? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedValue
+    }
+
+    func set(_ value: Bool) {
+        lock.lock()
+        storedValue = value
         lock.unlock()
     }
 }

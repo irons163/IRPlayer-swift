@@ -22,6 +22,28 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
         case progressChanged(TimeInterval)
     }
 
+    private enum EventFence {
+        // Opening and preparation describe the installed decoder lifetime.
+        // A committed error is also terminal for that lifetime because
+        // IRFFDecoder rejects seek admission while the error remains stored.
+        case decoderLifetime
+        case decodeGeneration(UInt64)
+    }
+
+    private struct EventEnvelope {
+        let event: Event
+        let fence: EventFence
+
+        func isCurrent(for decoder: IRFFDecoder) -> Bool {
+            switch fence {
+            case .decoderLifetime:
+                return true
+            case .decodeGeneration(let origin):
+                return decoder.decodeGeneration == origin
+            }
+        }
+    }
+
     struct Configuration {
         let contentURL: URL
         let videoFormat: IRVideoFormat
@@ -115,59 +137,96 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
         }
 
         func decoderWillOpenInputStream(_ decoder: IRFFDecoder) {
-            session?.deliver(.willOpenInput, from: decoder, token: token)
+            session?.deliver(
+                .willOpenInput,
+                from: decoder,
+                token: token,
+                fence: .decoderLifetime
+            )
         }
 
         func decoderDidPrepareToDecodeFrames(_ decoder: IRFFDecoder) {
-            session?.deliver(.prepared, from: decoder, token: token)
-        }
-
-        func decoderDidEndOfFile(_ decoder: IRFFDecoder) {
-            session?.deliver(.endOfFile, from: decoder, token: token)
-        }
-
-        func decoderDidPlaybackFinished(_ decoder: IRFFDecoder) {
-            session?.deliver(.playbackFinished, from: decoder, token: token)
-        }
-
-        func decoder(_ decoder: IRFFDecoder, didError error: Error) {
             session?.deliver(
-                .failed(error as NSError),
+                .prepared,
                 from: decoder,
-                token: token
+                token: token,
+                fence: .decoderLifetime
+            )
+        }
+
+        func decoderDidEndOfFile(
+            _ decoder: IRFFDecoder,
+            generation: UInt64
+        ) {
+            session?.deliver(
+                .endOfFile,
+                from: decoder,
+                token: token,
+                fence: .decodeGeneration(generation)
+            )
+        }
+
+        func decoderDidPlaybackFinished(
+            _ decoder: IRFFDecoder,
+            generation: UInt64
+        ) {
+            session?.deliver(
+                .playbackFinished,
+                from: decoder,
+                token: token,
+                fence: .decodeGeneration(generation)
             )
         }
 
         func decoder(
             _ decoder: IRFFDecoder,
-            didChangeValueOfBuffering buffering: Bool
+            didError error: Error,
+            generation: UInt64
+        ) {
+            session?.deliver(
+                .failed(error as NSError),
+                from: decoder,
+                token: token,
+                fence: .decoderLifetime
+            )
+        }
+
+        func decoder(
+            _ decoder: IRFFDecoder,
+            didChangeValueOfBuffering buffering: Bool,
+            generation: UInt64
         ) {
             session?.deliver(
                 .bufferingChanged(buffering),
                 from: decoder,
-                token: token
+                token: token,
+                fence: .decodeGeneration(generation)
             )
         }
 
         func decoder(
             _ decoder: IRFFDecoder,
-            didChangeValueOfBufferedDuration bufferedDuration: TimeInterval
+            didChangeValueOfBufferedDuration bufferedDuration: TimeInterval,
+            generation: UInt64
         ) {
             session?.deliver(
                 .bufferedDurationChanged(bufferedDuration),
                 from: decoder,
-                token: token
+                token: token,
+                fence: .decodeGeneration(generation)
             )
         }
 
         func decoder(
             _ decoder: IRFFDecoder,
-            didChangeValueOfProgress progress: TimeInterval
+            didChangeValueOfProgress progress: TimeInterval,
+            generation: UInt64
         ) {
             session?.deliver(
                 .progressChanged(progress),
                 from: decoder,
-                token: token
+                token: token,
+                fence: .decodeGeneration(generation)
             )
         }
     }
@@ -447,17 +506,60 @@ final class IRFFPlayerDecoderSession: @unchecked Sendable {
     private func deliver(
         _ event: Event,
         from decoder: IRFFDecoder,
-        token: Token
+        token: Token,
+        fence: EventFence
     ) {
-        executor.sync {
-            guard isCurrentLocked(token, decoder: decoder),
-                  let generation else {
-                rejectedEventCount += 1
+        let envelope = EventEnvelope(
+            event: event,
+            fence: fence
+        )
+        if executor.isCurrentExecutor {
+            executor.sync {
+                deliverLocked(
+                    envelope,
+                    from: decoder,
+                    token: token
+                )
+            }
+            return
+        }
+
+        // Decoder callbacks may be emitted while the decoder transition gate
+        // is held. Never wait for the player executor from that domain: reset,
+        // close, or a reentrant seek may need the same transition gate.
+        // Identity and decode-generation checks run when the queued event is
+        // admitted, after any command already executing on this executor.
+        executor.async { [weak self, weak decoder] in
+            guard let self else { return }
+            guard let decoder else {
+                self.rejectEventLocked()
                 return
             }
-            acceptedEventCount += 1
-            generation.eventHandler(event)
+            self.deliverLocked(
+                envelope,
+                from: decoder,
+                token: token
+            )
         }
+    }
+
+    private func deliverLocked(
+        _ envelope: EventEnvelope,
+        from decoder: IRFFDecoder,
+        token: Token
+    ) {
+        guard isCurrentLocked(token, decoder: decoder),
+              envelope.isCurrent(for: decoder),
+              let generation else {
+            rejectEventLocked()
+            return
+        }
+        acceptedEventCount += 1
+        generation.eventHandler(envelope.event)
+    }
+
+    private func rejectEventLocked() {
+        rejectedEventCount += 1
     }
 
     private func finishSeek(

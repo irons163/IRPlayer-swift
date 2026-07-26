@@ -45,6 +45,21 @@ final class IRGLViewRenderState {
         let deviceIdentifier: ObjectIdentifier
     }
 
+    struct Fish2PanoTextureCacheKey: Equatable {
+        let paramsIdentifier: ObjectIdentifier
+        let deviceIdentifier: ObjectIdentifier
+        let pixelMapConfiguration:
+            IRGLFish2PanoPixelMapConfigurationKey
+
+        var inputTextureWidth: Int {
+            pixelMapConfiguration.inputTextureWidth
+        }
+
+        var inputTextureHeight: Int {
+            pixelMapConfiguration.inputTextureHeight
+        }
+    }
+
     private(set) var fisheyeMesh: IRMetalFisheyeMesh?
     private(set) var vrMesh: IRMetalFisheyeMesh?
     private(set) var vrMeshCacheKey: VRMeshCacheKey?
@@ -57,6 +72,8 @@ final class IRGLViewRenderState {
     private(set) var fish2PanoTextures: [MTLTexture] = []
     private(set) var fish2PanoLastOutputSize: CGSize = .zero
     private(set) var fish2PanoLastAntialias: Int = 0
+    private(set) var fish2PanoTextureCacheKey:
+        Fish2PanoTextureCacheKey?
     private(set) var distortionLeftMesh: IRMetalDistortionMesh?
     private(set) var distortionRightMesh: IRMetalDistortionMesh?
     private let fish2PanoTextureUpload:
@@ -105,6 +122,7 @@ final class IRGLViewRenderState {
         params.setPixelMapReadyHandler(
             fish2PanoPixelMapReadyHandler
         )
+        params.ensurePixelMapRequested()
     }
 
     func configureVR(renderMode: IRGLRenderMode) {
@@ -147,6 +165,7 @@ final class IRGLViewRenderState {
         let outputSize = CGSize(width: outputWidth, height: outputHeight)
         if outputSize != fish2PanoLastOutputSize || antialias != fish2PanoLastAntialias {
             fish2PanoTextures = []
+            fish2PanoTextureCacheKey = nil
             fish2PanoLastOutputSize = outputSize
             fish2PanoLastAntialias = antialias
         }
@@ -162,18 +181,62 @@ final class IRGLViewRenderState {
                 ) else {
             return .invalid
         }
+        let cachedReadiness = Fish2PanoTextureReadiness.ready(
+            outputSize: outputSize,
+            antialias: antialias
+        )
+        let requiredConfiguration =
+            params.requiredPixelMapConfigurationKey()
+        let requiredConfigurationMatchesLiveLayout: Bool
+        if let requiredConfiguration {
+            requiredConfigurationMatchesLiveLayout =
+                requiredConfiguration.inputTextureWidth
+                    == Int(params.textureWidth)
+                    && requiredConfiguration.inputTextureHeight
+                    == Int(params.textureHeight)
+                    && requiredConfiguration.outputWidth
+                    == outputWidth
+                    && requiredConfiguration.outputHeight
+                    == outputHeight
+                    && requiredConfiguration.antialias
+                    == antialias
+        } else {
+            requiredConfigurationMatchesLiveLayout = false
+        }
+        let currentCacheKey = device.flatMap {
+            device -> Fish2PanoTextureCacheKey? in
+            guard let requiredConfiguration,
+                  requiredConfigurationMatchesLiveLayout else {
+                return nil
+            }
+            return Self.fish2PanoTextureCacheKey(
+                params: params,
+                device: device,
+                pixelMapConfiguration:
+                    requiredConfiguration
+            )
+        }
+        let hasCoherentTextureCache =
+            currentCacheKey != nil
+                && fish2PanoTextures.count == expectedTextureCount
+                && fish2PanoTextureCacheKey == currentCacheKey
         if let device,
            let pixelMap = params.pixelMapIfReady() {
-            guard pixelMap.outputWidth == outputWidth,
+            guard requiredConfigurationMatchesLiveLayout,
+                  pixelMap.outputWidth == outputWidth,
                   pixelMap.outputHeight == outputHeight,
                   pixelMap.antialias == antialias,
+                  pixelMap.configurationKey
+                    == requiredConfiguration,
                   pixelMap.textureCount
                     == expectedTextureCount,
                   pixelMap.elementCountPerTexture
                     == expectedElementCount else {
                 params.acknowledgePixelMap(pixelMap)
                 params.updateOutputWH()
-                return .waitingForTextures
+                return hasCoherentTextureCache
+                    ? cachedReadiness
+                    : .waitingForTextures
             }
             var newTextures: [MTLTexture] = []
             newTextures.reserveCapacity(expectedTextureCount)
@@ -193,15 +256,28 @@ final class IRGLViewRenderState {
                     }
                 guard borrowed == true,
                       let uploadedTexture else {
-                    return .waitingForTextures
+                    return hasCoherentTextureCache
+                        ? cachedReadiness
+                        : .waitingForTextures
                 }
                 newTextures.append(uploadedTexture)
             }
+            let installedCacheKey =
+                Self.fish2PanoTextureCacheKey(
+                    params: params,
+                    device: device,
+                    pixelMapConfiguration:
+                        pixelMap.configurationKey
+                )
             fish2PanoTextures = newTextures
+            fish2PanoTextureCacheKey =
+                installedCacheKey
             params.acknowledgePixelMap(pixelMap)
         }
 
-        guard fish2PanoTextures.count == expectedTextureCount else {
+        guard currentCacheKey != nil,
+              fish2PanoTextures.count == expectedTextureCount,
+              fish2PanoTextureCacheKey == currentCacheKey else {
             return .waitingForTextures
         }
 
@@ -346,10 +422,7 @@ final class IRGLViewRenderState {
         case .invalid:
             return false
         case .waitingForTextures:
-            return renderer.renderClear(
-                to: drawable,
-                completion: completion
-            )
+            return false
         case let .ready(readyOutputSize, readyAntialias):
             outputSize = readyOutputSize
             antialias = readyAntialias
@@ -544,8 +617,23 @@ final class IRGLViewRenderState {
         fish2PanoParams?.setPixelMapReadyHandler(nil)
         fish2PanoParams = nil
         fish2PanoTextures = []
+        fish2PanoTextureCacheKey = nil
         fish2PanoLastOutputSize = .zero
         fish2PanoLastAntialias = 0
+    }
+
+    private static func fish2PanoTextureCacheKey(
+        params: IRGLFish2PanoShaderParams,
+        device: MTLDevice,
+        pixelMapConfiguration:
+            IRGLFish2PanoPixelMapConfigurationKey
+    ) -> Fish2PanoTextureCacheKey {
+        Fish2PanoTextureCacheKey(
+            paramsIdentifier: ObjectIdentifier(params),
+            deviceIdentifier: ObjectIdentifier(device),
+            pixelMapConfiguration:
+                pixelMapConfiguration
+        )
     }
 
     private func resetVR() {

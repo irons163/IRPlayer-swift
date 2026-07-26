@@ -383,19 +383,37 @@ final class IRFFPlayerTests: XCTestCase {
         delegate.decoderDidPrepareToDecodeFrames(decoder)
         XCTAssertEqual(ffPlayer.state, .readyToPlay)
 
-        delegate.decoder(decoder, didChangeValueOfBuffering: false)
+        delegate.decoder(
+            decoder,
+            didChangeValueOfBuffering: false,
+            generation: decoder.decodeGeneration
+        )
         XCTAssertEqual(ffPlayer.state, .playing)
 
-        delegate.decoder(decoder, didChangeValueOfBufferedDuration: 3)
+        delegate.decoder(
+            decoder,
+            didChangeValueOfBufferedDuration: 3,
+            generation: decoder.decodeGeneration
+        )
         XCTAssertEqual(ffPlayer.playableTime, 5)
 
-        delegate.decoder(decoder, didChangeValueOfProgress: 4)
+        delegate.decoder(
+            decoder,
+            didChangeValueOfProgress: 4,
+            generation: decoder.decodeGeneration
+        )
         XCTAssertEqual(ffPlayer.progress, 4)
 
-        delegate.decoderDidEndOfFile(decoder)
+        delegate.decoderDidEndOfFile(
+            decoder,
+            generation: decoder.decodeGeneration
+        )
         XCTAssertEqual(ffPlayer.playableTime, 10)
 
-        delegate.decoderDidPlaybackFinished(decoder)
+        delegate.decoderDidPlaybackFinished(
+            decoder,
+            generation: decoder.decodeGeneration
+        )
         XCTAssertEqual(ffPlayer.state, .finished)
 
         withExtendedLifetime(abstractPlayer) {}
@@ -410,7 +428,11 @@ final class IRFFPlayerTests: XCTestCase {
         ffPlayer.decoder = decoder
         let delegate = try XCTUnwrap(decoder.delegate)
 
-        delegate.decoder(decoder, didError: error)
+        delegate.decoder(
+            decoder,
+            didError: error,
+            generation: decoder.decodeGeneration
+        )
 
         XCTAssertEqual(ffPlayer.state, .failed)
         XCTAssertEqual(abstractPlayer.error?.error.domain, "ff-test")

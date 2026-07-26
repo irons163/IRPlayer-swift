@@ -38,6 +38,7 @@ final class IRGLViewRenderStateTests: XCTestCase {
         XCTAssertNil(state.fish2PanoParams)
         XCTAssertEqual(state.fish2PanoLastOutputSize, CGSize.zero)
         XCTAssertEqual(state.fish2PanoLastAntialias, 0)
+        XCTAssertNil(state.fish2PanoTextureCacheKey)
         XCTAssertNil(state.fisheyeController)
         XCTAssertNil(state.fisheyeParameter)
     }
@@ -51,6 +52,59 @@ final class IRGLViewRenderStateTests: XCTestCase {
         state.configureFish2Pano(renderMode: mode)
 
         XCTAssertTrue(state.fish2PanoParams === params)
+    }
+
+    func testConfigureFish2PanoRequestsLookupAgainAfterReset()
+        throws
+    {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        let state = IRGLViewRenderState()
+        let mode = makePanoMode()
+        let program = try XCTUnwrap(
+            mode.program as? IRGLProgram2DFisheye2Pano
+        )
+        let params = try XCTUnwrap(
+            program.metalFish2PanoParams
+        )
+
+        state.configureFish2Pano(renderMode: mode)
+        params.updateTextureWidth(16, height: 12)
+        let firstPixelMap = try waitForPublishedPixelMap(
+            in: params
+        )
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .ready(
+                outputSize: CGSize(
+                    width: Int(params.outputWidth),
+                    height: Int(params.outputHeight)
+                ),
+                antialias: Int(params.antialias)
+            )
+        )
+        XCTAssertNil(params.pixelMapIfReady())
+
+        state.reset()
+        state.configureFish2Pano(renderMode: mode)
+
+        let replacementPixelMap =
+            try waitForPublishedPixelMap(in: params)
+        XCTAssertGreaterThan(
+            replacementPixelMap.requestGeneration,
+            firstPixelMap.requestGeneration
+        )
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .ready(
+                outputSize: CGSize(
+                    width: Int(params.outputWidth),
+                    height: Int(params.outputHeight)
+                ),
+                antialias: Int(params.antialias)
+            )
+        )
     }
 
     func testConfigureFish2PanoClearsStateForNonPanoMode() throws {
@@ -122,6 +176,8 @@ final class IRGLViewRenderStateTests: XCTestCase {
         let mode = InjectedPanoRenderMode(program: StubFish2PanoProgram(params: params))
 
         state.configureFish2Pano(renderMode: mode)
+        params.textureWidth = 4
+        params.textureHeight = 2
         params.queuePixelMap(
             outputWidth: 2,
             outputHeight: 2,
@@ -157,8 +213,13 @@ final class IRGLViewRenderStateTests: XCTestCase {
             outputHeight: 2,
             antialias: 1
         )
-        XCTAssertEqual(state.prepareFish2PanoTextures(device: device), .waitingForTextures)
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .waitingForTextures
+        )
 
+        XCTAssertEqual(params.acknowledgedCount, 2)
+        XCTAssertNil(params.pixelMapIfReady())
         XCTAssertEqual(state.fish2PanoTextures.count, installedTextures.count)
         XCTAssertTrue(zip(state.fish2PanoTextures, installedTextures).allSatisfy {
             ($0 as AnyObject) === ($1 as AnyObject)
@@ -230,6 +291,226 @@ final class IRGLViewRenderStateTests: XCTestCase {
         XCTAssertEqual(uploadAttemptCount, 2)
         XCTAssertEqual(params.acknowledgedCount, 1)
         XCTAssertNil(params.pixelMapIfReady())
+    }
+
+    func testPrepareFish2PanoTexturesKeepsCoherentCacheReadyWhileReplacementUploadRetries()
+        throws
+    {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        var failNextUpload = false
+        let state = IRGLViewRenderState(
+            fish2PanoTextureUpload: {
+                device,
+                width,
+                height,
+                data in
+                if failNextUpload {
+                    failNextUpload = false
+                    return nil
+                }
+                return IRGLViewRenderState.makeTexUVTexture(
+                    device: device,
+                    width: width,
+                    height: height,
+                    data: data
+                )
+            }
+        )
+        let params = StubFish2PanoShaderParams(
+            elementCapacity: 2 * 2 * 2
+        )
+        params.outputWidth = 2
+        params.outputHeight = 2
+        params.antialias = 1
+        let mode = InjectedPanoRenderMode(
+            program: StubFish2PanoProgram(
+                params: params
+            )
+        )
+        state.configureFish2Pano(renderMode: mode)
+        params.queuePixelMap(
+            outputWidth: 2,
+            outputHeight: 2,
+            antialias: 1
+        )
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .ready(
+                outputSize: CGSize(width: 2, height: 2),
+                antialias: 1
+            )
+        )
+        let installedTextures = state.fish2PanoTextures
+        XCTAssertEqual(params.acknowledgedCount, 1)
+
+        params.queuePixelMap(
+            outputWidth: 2,
+            outputHeight: 2,
+            antialias: 1
+        )
+        failNextUpload = true
+
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .ready(
+                outputSize: CGSize(width: 2, height: 2),
+                antialias: 1
+            )
+        )
+        XCTAssertEqual(params.acknowledgedCount, 1)
+        XCTAssertNotNil(params.pixelMapIfReady())
+        XCTAssertTrue(
+            zip(
+                state.fish2PanoTextures,
+                installedTextures
+            ).allSatisfy {
+                ($0 as AnyObject) === ($1 as AnyObject)
+            }
+        )
+
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .ready(
+                outputSize: CGSize(width: 2, height: 2),
+                antialias: 1
+            )
+        )
+        XCTAssertEqual(params.acknowledgedCount, 2)
+        XCTAssertNil(params.pixelMapIfReady())
+        XCTAssertFalse(
+            zip(
+                state.fish2PanoTextures,
+                installedTextures
+            ).allSatisfy {
+                ($0 as AnyObject) === ($1 as AnyObject)
+            }
+        )
+    }
+
+    func testPrepareFish2PanoTexturesDoesNotReuseCacheForSameWidthDifferentHeight()
+        throws
+    {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal device unavailable")
+        }
+        var failNextUpload = false
+        let state = IRGLViewRenderState(
+            fish2PanoTextureUpload: {
+                device,
+                width,
+                height,
+                data in
+                if failNextUpload {
+                    failNextUpload = false
+                    return nil
+                }
+                return IRGLViewRenderState.makeTexUVTexture(
+                    device: device,
+                    width: width,
+                    height: height,
+                    data: data
+                )
+            }
+        )
+        let params = StubFish2PanoShaderParams(
+            elementCapacity: 2 * 2 * 2
+        )
+        params.outputWidth = 2
+        params.outputHeight = 2
+        params.antialias = 1
+        let mode = InjectedPanoRenderMode(
+            program: StubFish2PanoProgram(
+                params: params
+            )
+        )
+        state.configureFish2Pano(renderMode: mode)
+        params.textureWidth = 4
+        params.textureHeight = 2
+        params.queuePixelMap(
+            outputWidth: 2,
+            outputHeight: 2,
+            antialias: 1
+        )
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .ready(
+                outputSize: CGSize(width: 2, height: 2),
+                antialias: 1
+            )
+        )
+        let installedTextures = state.fish2PanoTextures
+        XCTAssertEqual(
+            state.fish2PanoTextureCacheKey?
+                .inputTextureWidth,
+            4
+        )
+        XCTAssertEqual(
+            state.fish2PanoTextureCacheKey?
+                .inputTextureHeight,
+            2
+        )
+
+        params.textureHeight = 3
+
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .waitingForTextures
+        )
+        XCTAssertTrue(
+            zip(
+                state.fish2PanoTextures,
+                installedTextures
+            ).allSatisfy {
+                ($0 as AnyObject) === ($1 as AnyObject)
+            }
+        )
+
+        params.queuePixelMap(
+            outputWidth: 2,
+            outputHeight: 2,
+            antialias: 1
+        )
+        failNextUpload = true
+
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .waitingForTextures
+        )
+        XCTAssertEqual(params.acknowledgedCount, 1)
+        XCTAssertNotNil(params.pixelMapIfReady())
+        XCTAssertTrue(
+            zip(
+                state.fish2PanoTextures,
+                installedTextures
+            ).allSatisfy {
+                ($0 as AnyObject) === ($1 as AnyObject)
+            }
+        )
+
+        XCTAssertEqual(
+            state.prepareFish2PanoTextures(device: device),
+            .ready(
+                outputSize: CGSize(width: 2, height: 2),
+                antialias: 1
+            )
+        )
+        XCTAssertEqual(params.acknowledgedCount, 2)
+        XCTAssertNil(params.pixelMapIfReady())
+        XCTAssertEqual(
+            state.fish2PanoTextureCacheKey?
+                .inputTextureHeight,
+            3
+        )
+        XCTAssertFalse(
+            zip(
+                state.fish2PanoTextures,
+                installedTextures
+            ).allSatisfy {
+                ($0 as AnyObject) === ($1 as AnyObject)
+            }
+        )
     }
 
     func testConfigureFisheyeUsesProgramControllerAndParameter() throws {
@@ -611,6 +892,25 @@ final class IRGLViewRenderStateTests: XCTestCase {
         return mode
     }
 
+    private func waitForPublishedPixelMap(
+        in params: IRGLFish2PanoShaderParams,
+        timeout: TimeInterval = 2
+    ) throws -> IRGLFish2PanoPixelMapGeneration {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let pixelMap = params.pixelMapIfReady() {
+                return pixelMap
+            }
+            RunLoop.current.run(
+                until: Date().addingTimeInterval(0.005)
+            )
+        }
+        return try XCTUnwrap(
+            params.pixelMapIfReady(),
+            "Timed out waiting for fish2pano lookup map"
+        )
+    }
+
     private func makeFisheyeMode(
         parameter: IRFisheyeParameter =
             IRFisheyeParameter(
@@ -719,6 +1019,8 @@ private final class StubFish2PanoShaderParams: IRGLFish2PanoShaderParams {
     private var requestGeneration = 0
     private var queuedPixelMaps:
         [IRGLFish2PanoPixelMapGeneration] = []
+    private var requiredConfiguration:
+        IRGLFish2PanoPixelMapConfigurationKey?
     private(set) var acknowledgedCount = 0
 
     init(elementCapacity: Int) {
@@ -732,6 +1034,36 @@ private final class StubFish2PanoShaderParams: IRGLFish2PanoShaderParams {
         antialias: Int
     ) {
         requestGeneration += 1
+        let inputTextureWidth =
+            max(Int(textureWidth), 1)
+        let inputTextureHeight =
+            max(Int(textureHeight), 1)
+        if textureWidth <= 0 {
+            textureWidth = GLint(inputTextureWidth)
+        }
+        if textureHeight <= 0 {
+            textureHeight = GLint(inputTextureHeight)
+        }
+        let configuration =
+            IRGLFish2PanoPixelMapConfigurationKey(
+                inputTextureWidth: inputTextureWidth,
+                inputTextureHeight:
+                    inputTextureHeight,
+                outputWidth: outputWidth,
+                outputHeight: outputHeight,
+                antialias: antialias,
+                fishAperture: fishaperture,
+                fishCenterX: Int(fishcenterx),
+                fishCenterY: Int(fishcentery),
+                fishRadiusH: Int(fishradiush),
+                latitudeStart: lat1,
+                latitudeEnd: lat2,
+                longitudeStart: long1,
+                longitudeEnd: long2,
+                transformX: transformX,
+                transformY: transformY,
+                transformZ: transformZ
+            )
         let textureCount =
             IRGLFish2PanoPixelMapGeneration.textureCount(
                 antialias: antialias
@@ -747,14 +1079,20 @@ private final class StubFish2PanoShaderParams: IRGLFish2PanoShaderParams {
                 IRGLFish2PanoPixelMapGeneration(
                     requestGeneration:
                         requestGeneration,
-                    outputWidth: outputWidth,
-                    outputHeight: outputHeight,
-                    antialias: antialias,
+                    configurationKey:
+                        configuration,
                     maps: maps
                 ) else {
             return
         }
+        requiredConfiguration = configuration
         queuedPixelMaps.append(pixelMap)
+    }
+
+    override func requiredPixelMapConfigurationKey()
+        -> IRGLFish2PanoPixelMapConfigurationKey?
+    {
+        requiredConfiguration
     }
 
     override func pixelMapIfReady()

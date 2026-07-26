@@ -1,3 +1,4 @@
+import CoreMedia
 import IRFFMpeg
 import IRPlayerObjc
 import XCTest
@@ -158,6 +159,68 @@ final class IRFFVideoDecoderTests: XCTestCase {
                 backend: .videoToolBox,
                 route: .fail
             )
+        )
+    }
+
+    func testVideoToolBoxInvalidCallbackTimingUsesEachSubmissionPacket() {
+        let first =
+            IRFFVideoToolBox.PacketTiming(
+                pts: 100,
+                dts: 90,
+                duration: 40
+            )
+        let second =
+            IRFFVideoToolBox.PacketTiming(
+                pts: IR_AV_NOPTS_VALUE,
+                dts: 250,
+                duration: 60
+            )
+
+        XCTAssertEqual(
+            IRFFVideoDecoder
+                .videoToolBoxFramePosition(
+                    presentationTimeStamp:
+                        .invalid,
+                    packetTiming: first,
+                    timebase: 0.001
+                ),
+            0.1,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder
+                .videoToolBoxFramePosition(
+                    presentationTimeStamp:
+                        .invalid,
+                    packetTiming: second,
+                    timebase: 0.001
+                ),
+            0.25,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder
+                .videoToolBoxFrameDuration(
+                    presentationDuration:
+                        .invalid,
+                    packetTiming: first,
+                    timebase: 0.001,
+                    fps: 30
+                ),
+            0.04,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            IRFFVideoDecoder
+                .videoToolBoxFrameDuration(
+                    presentationDuration:
+                        .invalid,
+                    packetTiming: second,
+                    timebase: 0.001,
+                    fps: 30
+                ),
+            0.06,
+            accuracy: 0.000_001
         )
     }
 

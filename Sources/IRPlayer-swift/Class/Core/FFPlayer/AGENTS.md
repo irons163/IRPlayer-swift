@@ -26,6 +26,16 @@ FFmpeg-based player and decoder pipeline.
 - Supports hardware decoding via VideoToolBox and software decoding.
 - Handles custom video input (`IRFFVideoInput`) for direct frame injection.
 - Route commands and decoder events through `IRFFPlayerExecutor`.
+- A callback arriving from the decoder domain must never synchronously wait
+  for `IRFFPlayerExecutor`: enqueue it when off-executor, while callbacks
+  already on the executor may be delivered immediately.
+- Decode-bound events (EOF, playback-finished, buffering, buffered duration,
+  and progress) must carry the emitter's origin decode generation. Fence that
+  generation together with decoder identity and the player token when the
+  event actually executes; never infer origin from the decoder at bridge time.
+- Opening and preparation are decoder-lifecycle events, so they are token-only.
+  Failure is terminal and also token-only after commit because decoder state
+  rejects any later seek admission while the stored error remains.
 - Fence multi-step activation, play/pause, failure, and presentation work
   across synchronous callbacks so the newest reentrant command wins.
 - Every installed decoder needs its own token and delegate bridge. Reject stale

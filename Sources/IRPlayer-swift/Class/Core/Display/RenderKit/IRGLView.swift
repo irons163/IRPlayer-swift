@@ -65,6 +65,81 @@ private final class IRGLViewPresentationState {
     }
 }
 
+#if DEBUG
+enum IRGLFrameStorageAccessibilityMarker:
+    String,
+    Equatable,
+    Sendable
+{
+    case coreVideoPixelBuffer = "frame-storage.cv-pixel-buffer"
+    case softwareYUV = "frame-storage.software-yuv"
+    case rgb = "frame-storage.rgb"
+
+    init?(frame: IRFFVideoFrame) {
+        if frame is IRFFCVYUVVideoFrame {
+            self = .coreVideoPixelBuffer
+        } else if frame is IRFFAVYUVVideoFrame {
+            self = .softwareYUV
+        } else if frame is IRVideoFrameRGB {
+            self = .rgb
+        } else {
+            return nil
+        }
+    }
+}
+
+private final class IRGLViewDebugAccessibilityState:
+    @unchecked Sendable
+{
+    struct Diagnostics: Equatable, Sendable {
+        let detectedMarker: IRGLFrameStorageAccessibilityMarker?
+        let publishedMarker: IRGLFrameStorageAccessibilityMarker?
+        let publishCount: Int
+    }
+
+    private let lock = NSLock()
+    private var detectedMarker:
+        IRGLFrameStorageAccessibilityMarker?
+    private var publishedMarker:
+        IRGLFrameStorageAccessibilityMarker?
+    private var publishCount = 0
+
+    func detect(
+        _ marker: IRGLFrameStorageAccessibilityMarker
+    ) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard detectedMarker != marker else { return false }
+        detectedMarker = marker
+        return true
+    }
+
+    func claimPublish(
+        _ marker: IRGLFrameStorageAccessibilityMarker
+    ) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard detectedMarker == marker,
+              publishedMarker != marker else {
+            return false
+        }
+        publishedMarker = marker
+        publishCount += 1
+        return true
+    }
+
+    var diagnostics: Diagnostics {
+        lock.lock()
+        defer { lock.unlock() }
+        return Diagnostics(
+            detectedMarker: detectedMarker,
+            publishedMarker: publishedMarker,
+            publishCount: publishCount
+        )
+    }
+}
+#endif
+
 public class IRGLView: UIView, IRFFDecoderVideoOutput {
     typealias FittedImageTransform =
         IRGLFrameSubmissionSession.FittedImageTransform
@@ -75,6 +150,10 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     private let snapshotSession: IRGLSnapshotSession
     private let avPlayerLayerSession: IRGLAVPlayerLayerSession
     private let presentationState = IRGLViewPresentationState()
+    #if DEBUG
+    private let debugAccessibilityState =
+        IRGLViewDebugAccessibilityState()
+    #endif
 
     var irPixelFormat: IRPixelFormat {
         get { renderSession.currentPixelFormat }
@@ -149,6 +228,18 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     {
         avPlayerLayerSession.diagnostics
     }
+
+    #if DEBUG
+    var frameStorageAccessibilityMarker:
+        IRGLFrameStorageAccessibilityMarker?
+    {
+        debugAccessibilityState.diagnostics.publishedMarker
+    }
+
+    var frameStorageAccessibilityPublishCount: Int {
+        debugAccessibilityState.diagnostics.publishCount
+    }
+    #endif
 
     required init?(coder: NSCoder) {
         let dependencies = IRGLViewRuntimeDependencies.system
@@ -316,6 +407,13 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
     }
 
     func render(_ frame: IRFFVideoFrame?) {
+        #if DEBUG
+        if let frame {
+            publishFrameStorageAccessibilityMarker(
+                for: frame
+            )
+        }
+        #endif
         _ = renderSession.submit(frame)
     }
 
@@ -474,49 +572,27 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
         performUIKitMutation { [weak self] in
             guard let self else { return }
             self.frame = frame
-            reloadViewOnMain()
+            layoutCurrentRendererOnMain()
         }
     }
 
     func cleanView() {
-        cleanViewCleanAVPlayerLayer(
-            true,
-            cleanAVPlayerView: true,
-            cleanFFPlayerView: true
+        cleanRendererState(
+            detachAVPlayerLayer: true
         )
     }
 
     func cleanViewIgnore() {
-        switch rendererType {
-        case .empty:
-            cleanView()
-        case .AVPlayerLayer:
-            cleanViewCleanAVPlayerLayer(
-                false,
-                cleanAVPlayerView: true,
-                cleanFFPlayerView: true
-            )
-        case .AVPlayerPixelBufferVR:
-            cleanViewCleanAVPlayerLayer(
-                true,
-                cleanAVPlayerView: false,
-                cleanFFPlayerView: true
-            )
-        case .FFmpegPixelBuffer, .FFmpegPixelBufferVR:
-            cleanViewCleanAVPlayerLayer(
-                true,
-                cleanAVPlayerView: true,
-                cleanFFPlayerView: false
-            )
-        }
+        cleanRendererState(
+            detachAVPlayerLayer:
+                rendererType != .AVPlayerLayer
+        )
     }
 
-    func cleanViewCleanAVPlayerLayer(
-        _ cleanAVPlayerLayer: Bool,
-        cleanAVPlayerView: Bool,
-        cleanFFPlayerView: Bool
+    private func cleanRendererState(
+        detachAVPlayerLayer: Bool
     ) {
-        if cleanAVPlayerLayer {
+        if detachAVPlayerLayer {
             let layerSession = avPlayerLayerSession
             performUIKitMutation {
                 layerSession.reset()
@@ -590,10 +666,14 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
 
     private func reloadViewOnMain() {
         cleanViewIgnore()
+        layoutCurrentRendererOnMain()
+    }
+
+    private func layoutCurrentRendererOnMain() {
+        reloadViewFrameOnMain()
         if rendererType == .AVPlayerLayer {
             avPlayerLayerSession.layout(bounds: bounds)
         }
-        reloadViewFrameOnMain()
         updateViewPort(1)
     }
 
@@ -642,6 +722,29 @@ public class IRGLView: UIView, IRFFDecoderVideoOutput {
             return .resizeAspect
         }
     }
+
+    #if DEBUG
+    private func publishFrameStorageAccessibilityMarker(
+        for frame: IRFFVideoFrame
+    ) {
+        guard let marker =
+                IRGLFrameStorageAccessibilityMarker(frame: frame),
+              debugAccessibilityState.detect(marker) else {
+            return
+        }
+        // This diagnostic can be emitted while the decoder transition gate is
+        // held. Never synchronously wait for UIKit from that domain.
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  self.debugAccessibilityState.claimPublish(
+                    marker
+                  ) else {
+                return
+            }
+            self.accessibilityValue = marker.rawValue
+        }
+    }
+    #endif
 
     private func performUIKitMutation(
         _ mutation: @escaping () -> Void

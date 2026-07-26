@@ -7,6 +7,28 @@
 
 import Foundation
 
+struct IRGLFish2PanoPixelMapConfigurationKey:
+    Equatable,
+    Sendable
+{
+    let inputTextureWidth: Int
+    let inputTextureHeight: Int
+    let outputWidth: Int
+    let outputHeight: Int
+    let antialias: Int
+    let fishAperture: GLfloat
+    let fishCenterX: Int
+    let fishCenterY: Int
+    let fishRadiusH: Int
+    let latitudeStart: GLfloat
+    let latitudeEnd: GLfloat
+    let longitudeStart: GLfloat
+    let longitudeEnd: GLfloat
+    let transformX: GLfloat
+    let transformY: GLfloat
+    let transformZ: GLfloat
+}
+
 struct IRGLFish2PanoPixelMapDiagnostics: Equatable {
     let requestGeneration: Int
     let outputWidth: Int
@@ -20,6 +42,10 @@ final class IRGLFish2PanoPixelMapGeneration:
     @unchecked Sendable
 {
     let requestGeneration: Int
+    let configurationKey:
+        IRGLFish2PanoPixelMapConfigurationKey
+    let inputTextureWidth: Int
+    let inputTextureHeight: Int
     let outputWidth: Int
     let outputHeight: Int
     let antialias: Int
@@ -30,18 +56,21 @@ final class IRGLFish2PanoPixelMapGeneration:
 
     init?(
         requestGeneration: Int,
-        outputWidth: Int,
-        outputHeight: Int,
-        antialias: Int,
+        configurationKey:
+            IRGLFish2PanoPixelMapConfigurationKey,
         maps: [[GLfloat]]
     ) {
         guard requestGeneration > 0,
+              configurationKey.inputTextureWidth > 0,
+              configurationKey.inputTextureHeight > 0,
               let textureCount = Self.textureCount(
-                  antialias: antialias
+                  antialias: configurationKey.antialias
               ),
               let elementCount = Self.elementCount(
-                  outputWidth: outputWidth,
-                  outputHeight: outputHeight
+                  outputWidth:
+                      configurationKey.outputWidth,
+                  outputHeight:
+                      configurationKey.outputHeight
               ),
               maps.count == textureCount,
               maps.allSatisfy({
@@ -51,12 +80,56 @@ final class IRGLFish2PanoPixelMapGeneration:
         }
 
         self.requestGeneration = requestGeneration
-        self.outputWidth = outputWidth
-        self.outputHeight = outputHeight
-        self.antialias = antialias
+        self.configurationKey = configurationKey
+        inputTextureWidth =
+            configurationKey.inputTextureWidth
+        inputTextureHeight =
+            configurationKey.inputTextureHeight
+        outputWidth = configurationKey.outputWidth
+        outputHeight = configurationKey.outputHeight
+        antialias = configurationKey.antialias
         self.textureCount = textureCount
         elementCountPerTexture = elementCount
         self.maps = maps
+    }
+
+    convenience init?(
+        requestGeneration: Int,
+        inputTextureWidth: Int,
+        inputTextureHeight: Int,
+        outputWidth: Int,
+        outputHeight: Int,
+        antialias: Int,
+        maps: [[GLfloat]]
+    ) {
+        self.init(
+            requestGeneration: requestGeneration,
+            configurationKey:
+                IRGLFish2PanoPixelMapConfigurationKey(
+                    inputTextureWidth:
+                        inputTextureWidth,
+                    inputTextureHeight:
+                        inputTextureHeight,
+                    outputWidth: outputWidth,
+                    outputHeight: outputHeight,
+                    antialias: antialias,
+                    fishAperture: 180,
+                    fishCenterX:
+                        inputTextureWidth / 2,
+                    fishCenterY:
+                        inputTextureHeight / 2,
+                    fishRadiusH:
+                        inputTextureWidth / 2,
+                    latitudeStart: 0,
+                    latitudeEnd: 60,
+                    longitudeStart: 0,
+                    longitudeEnd: 360,
+                    transformX: 0,
+                    transformY: 0,
+                    transformZ: -90
+                ),
+            maps: maps
+        )
     }
 
     var diagnostics: IRGLFish2PanoPixelMapDiagnostics {

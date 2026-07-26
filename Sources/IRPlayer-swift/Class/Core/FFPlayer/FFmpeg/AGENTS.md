@@ -99,9 +99,25 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
 - The VideoToolbox callback context is retained per session generation. Do not
   point callbacks at an unretained facade or release the context before session
   invalidation.
-- Decode currently uses empty Videotoolbox flags and depends on the documented
-  synchronous callback-before-return contract. If async or temporal flags are
-  introduced, redesign result correlation before enabling them.
+- Decode opts into VideoToolbox temporal processing, but not asynchronous
+  decompression, so B-frames may be emitted in display order. Temporal callbacks
+  may still arrive after `DecodeFrame` returns: retain them in the generation
+  mailbox across packets, wait before the end-of-stream drain, and never release
+  the callback reference before wait and session invalidation complete.
+- Never block future temporal `DecodeFrame` input on frame credits, and never
+  call `FinishDelayedFrames` or its wait barrier midstream. A future B-frame may
+  precede an already-decoded reference frame in display order, so forcing that
+  reference frame out early cannot be repaired after display dequeues it.
+  Delayed submissions are codec-owned reorder buffering; drain them only at EOS
+  or teardown with the documented wait fence.
+- Preserve callback `VTDecodeInfoFlags`; interrupted or dropped callbacks are
+  consumed without publishing their image buffers because VideoToolbox may
+  attach an all-black buffer to an interrupted frame.
+- Each temporal decode submission owns a retained `sourceFrameRefCon` containing
+  only packet timing values. Consume it exactly once in the callback, release it
+  immediately when `DecodeFrame` returns an error, and use those values—not the
+  packet that happened to trigger a later mailbox drain—for invalid callback
+  timestamp or duration fallback.
 - `IRFFVideoInput` allows bypassing the decode pipeline entirely for custom
   frame sources. Build one immutable `IRFFVideoCodecDescriptor` for the
   decoder generation, then route each borrowed packet through the
@@ -121,8 +137,13 @@ FFmpeg decode pipeline — format context, decoders, frames, and utilities.
   active. Generation-advancing invalidation cancels old work and wakes all
   capacity and deferred-completion waiters.
 - The first terminal decode error must reject new packet/output/custom
-  admission, cancel every pending completion, and notify the delegate exactly
-  once outside transition/runtime/custom locks.
+  admission, cancel every pending completion, and publish exactly once to the
+  internal decoder delegate bridge. Keep that bridge publication inside the
+  recursive decoder transition gate so seek/close cannot overtake the winning
+  commit, but never synchronously wait for the player executor there:
+  off-executor bridges enqueue and revalidate token, decoder identity, and
+  event fence when they run. The bridge is an ordering boundary, not permission
+  to run arbitrary user callbacks while decoder/custom locks are held.
 - Custom source and output bindings are synchronized weak references. Detaching
   a decoder generation must propagate the nil source into an installed video
   decoder before teardown; an input must never own its display/decoder target.

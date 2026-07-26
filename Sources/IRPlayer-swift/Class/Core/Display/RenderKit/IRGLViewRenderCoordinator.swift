@@ -51,10 +51,11 @@ final class IRGLViewRenderCoordinator {
                                                                       drawable: drawable,
                                                                       drawableSize: drawableSize,
                                                                       device: context.device,
-                                                                      completion: context.renderDidComplete) {
+                                                                      completion: context.renderDidComplete),
+               result {
                 return Result(
                     currentImage: context.currentImage,
-                    didSubmitRender: result
+                    didSubmitRender: true
                 )
             }
             if let result = context.renderState.renderFish2PanoIfNeeded(frame: frame,
@@ -64,10 +65,11 @@ final class IRGLViewRenderCoordinator {
                                                                        drawableSize: drawableSize,
                                                                        renderContentMode: context.renderContentMode,
                                                                        device: context.device,
-                                                                       completion: context.renderDidComplete) {
+                                                                       completion: context.renderDidComplete),
+               result {
                 return Result(
                     currentImage: context.currentImage,
-                    didSubmitRender: result
+                    didSubmitRender: true
                 )
             }
             if let result = context.renderState.renderDistortionIfNeeded(frame: frame,
@@ -77,10 +79,11 @@ final class IRGLViewRenderCoordinator {
                                                                         drawableSize: drawableSize,
                                                                         renderContentMode: context.renderContentMode,
                                                                         device: context.device,
-                                                                        completion: context.renderDidComplete) {
+                                                                        completion: context.renderDidComplete),
+               result {
                 return Result(
                     currentImage: context.currentImage,
-                    didSubmitRender: result
+                    didSubmitRender: true
                 )
             }
             if let result = context.renderState.renderFisheyeIfNeeded(frame: frame,
@@ -89,10 +92,11 @@ final class IRGLViewRenderCoordinator {
                                                                      drawable: drawable,
                                                                      drawableSize: drawableSize,
                                                                      device: context.device,
-                                                                     completion: context.renderDidComplete) {
+                                                                     completion: context.renderDidComplete),
+               result {
                 return Result(
                     currentImage: context.currentImage,
-                    didSubmitRender: result
+                    didSubmitRender: true
                 )
             }
             if let result = context.renderState.renderVRIfNeeded(frame: frame,
@@ -101,10 +105,11 @@ final class IRGLViewRenderCoordinator {
                                                                 drawable: drawable,
                                                                 drawableSize: drawableSize,
                                                                 device: context.device,
-                                                                completion: context.renderDidComplete) {
+                                                                completion: context.renderDidComplete),
+               result {
                 return Result(
                     currentImage: context.currentImage,
-                    didSubmitRender: result
+                    didSubmitRender: true
                 )
             }
 

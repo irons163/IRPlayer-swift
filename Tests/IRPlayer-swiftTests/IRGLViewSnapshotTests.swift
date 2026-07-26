@@ -92,6 +92,138 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(view.lastFrameHeight, 45)
     }
 
+    #if DEBUG
+    func testFrameStorageAccessibilityMarkerPublishesOnlyOnKindChange()
+        throws
+    {
+        let renderSession = IRGLRenderSession(
+            frameRenderOperation: { input in
+                .init(
+                    currentImage: input.currentImage,
+                    didCompleteRender: true
+                )
+            }
+        )
+        let view = IRMainThreadExecutor.sync {
+            IRGLView(
+                frame: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: 12,
+                    height: 8
+                ),
+                runtimeDependencies: IRGLViewRuntimeDependencies(
+                    renderSession: renderSession,
+                    snapshotSession: IRGLSnapshotSession(),
+                    avPlayerLayerSession:
+                        IRGLAVPlayerLayerSession()
+                )
+            )
+        }
+        let cvFrame = IRFFCVYUVVideoFrame(
+            pixelBuffer: try makePixelBuffer(width: 2, height: 2)
+        )
+        let softwareFrame = IRFFAVYUVVideoFrame()
+        let rgbFrame = try XCTUnwrap(
+            IRVideoFrameRGB(
+                width: 1,
+                height: 1,
+                pixelFormat: .rgb24,
+                bytesPerRow: 3,
+                data: Data([0xff, 0, 0])
+            )
+        )
+
+        func sendFromBackground(
+            _ frame: IRFFVideoFrame,
+            label: String,
+            useDirectRender: Bool = false
+        ) {
+            let finished = expectation(description: label)
+            DispatchQueue.global(qos: .userInitiated).async {
+                if useDirectRender {
+                    view.render(frame)
+                } else {
+                    view.send(videoFrame: frame)
+                }
+                // The marker publication is queued on main before this
+                // sentinel. Waiting for it keeps the asynchronous diagnostic
+                // assertion deterministic without making render wait on UI.
+                DispatchQueue.main.async {
+                    finished.fulfill()
+                }
+            }
+            wait(for: [finished], timeout: 2)
+        }
+
+        sendFromBackground(
+            cvFrame,
+            label: "direct Core Video frame",
+            useDirectRender: true
+        )
+        XCTAssertEqual(
+            view.frameStorageAccessibilityMarker,
+            .coreVideoPixelBuffer
+        )
+        XCTAssertEqual(
+            view.frameStorageAccessibilityPublishCount,
+            1
+        )
+        XCTAssertEqual(
+            IRMainThreadExecutor.sync {
+                view.accessibilityValue
+            },
+            IRGLFrameStorageAccessibilityMarker
+                .coreVideoPixelBuffer.rawValue
+        )
+
+        sendFromBackground(cvFrame, label: "second Core Video frame")
+        XCTAssertEqual(
+            view.frameStorageAccessibilityPublishCount,
+            1
+        )
+
+        sendFromBackground(
+            softwareFrame,
+            label: "first software YUV frame"
+        )
+        XCTAssertEqual(
+            view.frameStorageAccessibilityMarker,
+            .softwareYUV
+        )
+        XCTAssertEqual(
+            view.frameStorageAccessibilityPublishCount,
+            2
+        )
+        sendFromBackground(
+            softwareFrame,
+            label: "second software YUV frame"
+        )
+        XCTAssertEqual(
+            view.frameStorageAccessibilityPublishCount,
+            2
+        )
+
+        sendFromBackground(rgbFrame, label: "RGB frame")
+        XCTAssertEqual(
+            view.frameStorageAccessibilityMarker,
+            .rgb
+        )
+        XCTAssertEqual(
+            view.frameStorageAccessibilityPublishCount,
+            3
+        )
+        XCTAssertEqual(
+            IRMainThreadExecutor.sync {
+                view.accessibilityValue
+            },
+            IRGLFrameStorageAccessibilityMarker.rgb.rawValue
+        )
+
+        view.close()
+    }
+    #endif
+
     func testRenderImageFallbackHandlesRGBCVAndUnsupportedFrames() throws {
         let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 12, height: 8))
         let rgbFrame = try XCTUnwrap(
@@ -176,7 +308,7 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(renderer.renderDistortionCallCount, 1)
     }
 
-    func testSpecializedRenderFailureDoesNotFallBackToGenericRenderer() {
+    func testSpecializedRenderFailureFallsBackToGenericRenderer() {
         let view = IRGLView(
             frame: CGRect(
                 x: 0,
@@ -197,10 +329,10 @@ final class IRGLViewSnapshotTests: XCTestCase {
             renderer.renderDistortionCallCount,
             1
         )
-        XCTAssertEqual(renderer.renderCallCount, 0)
+        XCTAssertEqual(renderer.renderCallCount, 1)
     }
 
-    func testMissingMultiProgramDoesNotFallBackToGenericRenderer() {
+    func testMissingMultiProgramFallsBackToGenericRenderer() {
         let view = IRGLView(
             frame: CGRect(
                 x: 0,
@@ -218,7 +350,7 @@ final class IRGLViewSnapshotTests: XCTestCase {
 
         XCTAssertNil(mode.program)
         XCTAssertEqual(renderer.renderMultiCallCount, 0)
-        XCTAssertEqual(renderer.renderCallCount, 0)
+        XCTAssertEqual(renderer.renderCallCount, 1)
     }
 
     func testRenderRoutesFisheyeFrameThroughRenderer() {
@@ -246,7 +378,9 @@ final class IRGLViewSnapshotTests: XCTestCase {
         XCTAssertEqual(renderer.renderFisheyeCallCount, 1)
     }
 
-    func testRenderClearsFish2PanoUntilLookupTexturesAreReady() throws {
+    func testRenderDoesNotClearFish2PanoWhileLookupTexturesArePending()
+        throws
+    {
         let view = IRGLView(frame: CGRect(x: 0, y: 0, width: 12, height: 8))
         let mode = IRGLRenderMode2DFisheye2Pano()
         let renderer = ViewRenderRecorder()
@@ -259,8 +393,9 @@ final class IRGLViewSnapshotTests: XCTestCase {
 
         view.send(videoFrame: IRFFVideoFrame())
 
-        XCTAssertEqual(renderer.renderClearCallCount, 1)
+        XCTAssertEqual(renderer.renderClearCallCount, 0)
         XCTAssertEqual(renderer.renderFish2PanoCallCount, 0)
+        XCTAssertEqual(renderer.renderCallCount, 1)
     }
 
     func testRenderUploadsFish2PanoLookupTextureWhenPixelMapIsReady() throws {

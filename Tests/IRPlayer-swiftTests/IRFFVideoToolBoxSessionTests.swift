@@ -254,6 +254,34 @@ final class IRFFVideoToolBoxSessionTests: XCTestCase {
         XCTAssertTrue(state.takeEvents().isEmpty)
     }
 
+    func testClearingCompatibilitySnapshotPreservesPendingCallbacks() {
+        let state =
+            IRFFVideoToolBoxCallbackState()
+        state.publish(
+            status: -7,
+            imageBuffer: nil,
+            presentationTimeStamp:
+                CMTime(
+                    value: 10,
+                    timescale: 1
+                )
+        )
+
+        state.clearSnapshot()
+
+        XCTAssertEqual(state.snapshot.status, noErr)
+        XCTAssertNil(state.snapshot.imageBuffer)
+        let events = state.takeEvents()
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events[0].status, -7)
+        XCTAssertEqual(
+            CMTimeGetSeconds(
+                events[0].presentationTimeStamp
+            ),
+            10
+        )
+    }
+
     func testCallbackStateSupportsConcurrentPublishResetAndSnapshots() {
         let state = IRFFVideoToolBoxCallbackState()
         let invalidSnapshots = LockedVideoToolBoxTestValue(0)

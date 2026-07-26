@@ -43,6 +43,9 @@ class PlayerViewController: UIViewController {
     }()
     var modes: [IRGLRenderMode]?
     var playerNotification: IRPlayerNotification?
+    #if DEBUG
+    private var layoutStressTimer: Timer?
+    #endif
 
     @IBOutlet weak var mainView: UIView!
     @IBOutlet weak var stateLabel: UILabel!
@@ -52,6 +55,9 @@ class PlayerViewController: UIViewController {
     @IBOutlet weak var modesButton: UIButton!
 
     deinit {
+        #if DEBUG
+        layoutStressTimer?.invalidate()
+        #endif
         player.removePlayerNotification(target: self)
     }
 
@@ -67,6 +73,8 @@ class PlayerViewController: UIViewController {
             print("player display view did click!")
         }
         if let playerView = self.player.view {
+            playerView.accessibilityIdentifier = "player.display"
+            playerView.isAccessibilityElement = true
             self.mainView.insertSubview(playerView, at: 0)
         }
 
@@ -114,6 +122,25 @@ class PlayerViewController: UIViewController {
             self.player.replaceVideoWithURL(contentURL: PlayerViewController.fisheyeVideo as NSURL, videoType: .custom)
             self.modesButton.isHidden = false
         }
+
+        #if DEBUG
+        if ProcessInfo.processInfo.environment[
+            "IRPLAYER_UI_TEST_LAYOUT_STRESS"
+        ] == "1" {
+            modesButton.accessibilityIdentifier =
+                "player.render-mode"
+            progressSilder.accessibilityIdentifier =
+                "player.progress"
+            publishSelectedRenderModeForUITesting()
+            layoutStressTimer = Timer.scheduledTimer(
+                withTimeInterval: 0.05,
+                repeats: true
+            ) { [weak self] _ in
+                self?.view.setNeedsLayout()
+                self?.view.layoutIfNeeded()
+            }
+        }
+        #endif
     }
 
     override func viewDidLayoutSubviews() {
@@ -209,6 +236,9 @@ extension PlayerViewController {
 
                 let itemAction = UIAlertAction(title: renderModeStr, style: .default) { [weak self] _ in
                     self?.player.selectRenderMode(renderMode: mode)
+                    #if DEBUG
+                    self?.publishSelectedRenderModeForUITesting()
+                    #endif
                 }
 
                 alertView.addAction(itemAction)
@@ -217,6 +247,18 @@ extension PlayerViewController {
             present(alertView, animated: true, completion: nil)
         }
     }
+
+    #if DEBUG
+    private func publishSelectedRenderModeForUITesting() {
+        guard ProcessInfo.processInfo.environment[
+            "IRPLAYER_UI_TEST_LAYOUT_STRESS"
+        ] == "1" else {
+            return
+        }
+        modesButton.accessibilityValue =
+            player.renderMode?.name
+    }
+    #endif
 }
 
 extension PlayerViewController {

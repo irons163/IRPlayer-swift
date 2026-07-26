@@ -901,7 +901,6 @@ class IRFFVideoDecoder {
             ):
                 enqueueVideoToolBoxOutputs(
                     outputs,
-                    packet: packet,
                     generation: generation
                 )
                 return
@@ -976,7 +975,6 @@ class IRFFVideoDecoder {
             ):
                 enqueueVideoToolBoxOutputs(
                     outputs,
-                    packet: nil,
                     generation: generation
                 )
             case let (.fail, .failed(status)):
@@ -1327,14 +1325,12 @@ class IRFFVideoDecoder {
 
     private func enqueueVideoToolBoxOutputs(
         _ outputs: [IRFFVideoToolBox.Output],
-        packet: AVPacket?,
         generation: UInt64
     ) {
         for output in outputs {
             enqueueDecodedFrame(
                 videoFrame(
-                    fromVideoToolBox: output,
-                    packet: packet
+                    fromVideoToolBox: output
                 ),
                 generation: generation
             )
@@ -1343,48 +1339,79 @@ class IRFFVideoDecoder {
 
     private func videoFrame(
         fromVideoToolBox output:
-            IRFFVideoToolBox.Output,
-        packet: AVPacket?
+            IRFFVideoToolBox.Output
     ) -> IRFFVideoFrame {
         let videoFrame = IRFFCVYUVVideoFrame(
             pixelBuffer: output.imageBuffer
         )
+        videoFrame.position =
+            Self.videoToolBoxFramePosition(
+                presentationTimeStamp:
+                    output
+                        .presentationTimeStamp,
+                packetTiming:
+                    output.packetTiming,
+                timebase: timebase
+            )
+        videoFrame.duration =
+            Self.videoToolBoxFrameDuration(
+                presentationDuration:
+                    output
+                        .presentationDuration,
+                packetTiming:
+                    output.packetTiming,
+                timebase: timebase,
+                fps: fps
+            )
+        return videoFrame
+    }
+
+    static func videoToolBoxFramePosition(
+        presentationTimeStamp: CMTime,
+        packetTiming:
+            IRFFVideoToolBox.PacketTiming?,
+        timebase: TimeInterval
+    ) -> TimeInterval {
         let callbackPosition =
             CMTimeGetSeconds(
-                output.presentationTimeStamp
+                presentationTimeStamp
             )
-        if callbackPosition.isFinite,
-           callbackPosition >= 0 {
-            videoFrame.position =
-                callbackPosition
-        } else if let packet {
-            videoFrame.position =
-                IRFFFrameTime.packetPosition(
-                    pts: packet.pts,
-                    dts: packet.dts,
-                    timebase: timebase
-                )
+        guard !callbackPosition.isFinite ||
+                callbackPosition < 0 else {
+            return callbackPosition
         }
+        guard let packetTiming else {
+            return 0
+        }
+        return IRFFFrameTime.packetPosition(
+            pts: packetTiming.pts,
+            dts: packetTiming.dts,
+            timebase: timebase
+        )
+    }
 
+    static func videoToolBoxFrameDuration(
+        presentationDuration: CMTime,
+        packetTiming:
+            IRFFVideoToolBox.PacketTiming?,
+        timebase: TimeInterval,
+        fps: TimeInterval
+    ) -> TimeInterval {
         let callbackDuration =
             CMTimeGetSeconds(
-                output.presentationDuration
+                presentationDuration
             )
-        if callbackDuration.isFinite,
-           callbackDuration > 0 {
-            videoFrame.duration =
-                callbackDuration
-        } else {
-            videoFrame.duration =
-                Self.frameDuration(
-                    ticks:
-                        packet?.duration ?? 0,
-                    repeatPicture: 0,
-                    timebase: timebase,
-                    fps: fps
-                )
+        guard !callbackDuration.isFinite ||
+                callbackDuration <= 0 else {
+            return callbackDuration
         }
-        return videoFrame
+        return frameDuration(
+            ticks:
+                packetTiming?.duration ?? 0,
+            repeatPicture: 0,
+            timebase: timebase,
+            fps: fps
+        )
     }
 
     @discardableResult

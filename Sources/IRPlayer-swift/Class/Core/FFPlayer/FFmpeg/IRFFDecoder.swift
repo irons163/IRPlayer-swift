@@ -19,12 +19,34 @@ internal import IRPlayerObjc
 protocol IRFFDecoderDelegate: AnyObject {
     func decoderWillOpenInputStream(_ decoder: IRFFDecoder)
     func decoderDidPrepareToDecodeFrames(_ decoder: IRFFDecoder)
-    func decoderDidEndOfFile(_ decoder: IRFFDecoder)
-    func decoderDidPlaybackFinished(_ decoder: IRFFDecoder)
-    func decoder(_ decoder: IRFFDecoder, didError error: Error)
-    func decoder(_ decoder: IRFFDecoder, didChangeValueOfBuffering buffering: Bool)
-    func decoder(_ decoder: IRFFDecoder, didChangeValueOfBufferedDuration bufferedDuration: TimeInterval)
-    func decoder(_ decoder: IRFFDecoder, didChangeValueOfProgress progress: TimeInterval)
+    func decoderDidEndOfFile(
+        _ decoder: IRFFDecoder,
+        generation: UInt64
+    )
+    func decoderDidPlaybackFinished(
+        _ decoder: IRFFDecoder,
+        generation: UInt64
+    )
+    func decoder(
+        _ decoder: IRFFDecoder,
+        didError error: Error,
+        generation: UInt64
+    )
+    func decoder(
+        _ decoder: IRFFDecoder,
+        didChangeValueOfBuffering buffering: Bool,
+        generation: UInt64
+    )
+    func decoder(
+        _ decoder: IRFFDecoder,
+        didChangeValueOfBufferedDuration bufferedDuration: TimeInterval,
+        generation: UInt64
+    )
+    func decoder(
+        _ decoder: IRFFDecoder,
+        didChangeValueOfProgress progress: TimeInterval,
+        generation: UInt64
+    )
 }
 
 @objc public protocol IRFFDecoderVideoOutput: AnyObject {
@@ -113,6 +135,9 @@ protocol IRFFDecoderDelegate: AnyObject {
     var error: Error? {
         runtimeState.error
     }
+    var decodeGeneration: UInt64 {
+        runtimeState.decodeGeneration
+    }
     private(set) var contentURL: URL
     private(set) var videoFormat: IRVideoFormat
     private(set) var contentHeaders:
@@ -125,8 +150,8 @@ protocol IRFFDecoderDelegate: AnyObject {
                         newValue,
                         duration: duration
                     ),
-                  let change =
-                    runtimeState.setProgress(
+                  let commit =
+                    runtimeState.setProgressWithGeneration(
                         normalizedProgress
                     ) else {
                 return
@@ -134,7 +159,10 @@ protocol IRFFDecoderDelegate: AnyObject {
             notifyDelegate {
                 $0.decoder(
                     self,
-                    didChangeValueOfProgress: change.current
+                    didChangeValueOfProgress:
+                        commit.change.current,
+                    generation:
+                        commit.decodeGeneration
                 )
             }
         }
@@ -146,14 +174,18 @@ protocol IRFFDecoderDelegate: AnyObject {
                 bufferedDuration: newValue,
                 endOfFile: endOfFile
             )
-            guard let change = runtimeState.applyBufferedDuration(
+            guard let commit =
+                    runtimeState.applyBufferedDurationWithGeneration(
                 requestedValue: newValue,
                 normalizedValue: transition.bufferedDuration
             ) else { return }
             notifyDelegate {
                 $0.decoder(
                     self,
-                    didChangeValueOfBufferedDuration: change.current
+                    didChangeValueOfBufferedDuration:
+                        commit.change.current,
+                    generation:
+                        commit.decodeGeneration
                 )
             }
             if transition.shouldFinishPlayback {
@@ -165,11 +197,19 @@ protocol IRFFDecoderDelegate: AnyObject {
     private(set) var buffering: Bool {
         get { runtimeState.snapshot.buffering }
         set {
-            guard let change = runtimeState.setBuffering(newValue) else { return }
+            guard let commit =
+                    runtimeState.setBufferingWithGeneration(
+                        newValue
+                    ) else {
+                return
+            }
             notifyDelegate {
                 $0.decoder(
                     self,
-                    didChangeValueOfBuffering: change.current
+                    didChangeValueOfBuffering:
+                        commit.change.current,
+                    generation:
+                        commit.decodeGeneration
                 )
             }
         }
@@ -177,11 +217,20 @@ protocol IRFFDecoderDelegate: AnyObject {
     private(set) var playbackFinished: Bool {
         get { runtimeState.snapshot.playbackFinished }
         set {
-            guard let change = runtimeState.setPlaybackFinished(newValue),
-                  change.current else { return }
+            guard let commit =
+                    runtimeState.setPlaybackFinishedWithGeneration(
+                        newValue
+                    ),
+                  commit.change.current else {
+                return
+            }
             progress = duration
             notifyDelegate {
-                $0.decoderDidPlaybackFinished(self)
+                $0.decoderDidPlaybackFinished(
+                    self,
+                    generation:
+                        commit.decodeGeneration
+                )
             }
         }
     }
@@ -388,10 +437,10 @@ protocol IRFFDecoderDelegate: AnyObject {
         deferIfRunning: Bool = false,
         includeRead: Bool = true
     ) {
-        if error != nil {
-            delegateErrorCallback()
-            return
-        }
+        // The winning commitDecodeError call owns the one delegate
+        // notification. A later scheduling attempt only observes that
+        // terminal state; publishing it again would duplicate the failure.
+        guard error == nil else { return }
         let resources = session.workerResources
         let includeAudio =
             resources.formatContext?.audioEnable == true &&
@@ -947,7 +996,10 @@ protocol IRFFDecoderDelegate: AnyObject {
                 formatError,
                 generation: openGeneration,
                 notification: {
-                    delegateErrorCallback()
+                    delegateErrorCallback(
+                        generation:
+                            openGeneration
+                    )
                 }
             )
             return
@@ -1036,7 +1088,10 @@ protocol IRFFDecoderDelegate: AnyObject {
                 error,
                 generation: generation,
                 notification: {
-                    delegateErrorCallback()
+                    delegateErrorCallback(
+                        generation:
+                            generation
+                    )
                 }
             )
         }
@@ -1089,7 +1144,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                         $0.decoder(
                             self,
                             didChangeValueOfBuffering:
-                                bufferingChange.current
+                                bufferingChange.current,
+                            generation:
+                                seekRequest.decodeGeneration
                         )
                     }
                 }
@@ -1168,7 +1225,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                                 .shouldNotifyDelegate {
                                 notifyDelegate {
                                     $0.decoderDidEndOfFile(
-                                        self
+                                        self,
+                                        generation:
+                                            pendingEnd.generation
                                     )
                                 }
                             }
@@ -1448,7 +1507,10 @@ protocol IRFFDecoderDelegate: AnyObject {
                        generation:
                            readGeneration,
                        notification: {
-                           delegateErrorCallback()
+                           delegateErrorCallback(
+                               generation:
+                                   readGeneration
+                           )
                        }
                    ) {
                     finished = true
@@ -1796,7 +1858,10 @@ protocol IRFFDecoderDelegate: AnyObject {
             notifyDelegate {
                 $0.decoder(
                     self,
-                    didChangeValueOfProgress: progressChange.current
+                    didChangeValueOfProgress:
+                        progressChange.current,
+                    generation:
+                        seekResult.decodeGeneration
                 )
             }
         }
@@ -1887,7 +1952,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                                 self,
                                 didChangeValueOfBuffering:
                                     bufferingChange
-                                        .current
+                                        .current,
+                                generation:
+                                    generation
                             )
                         }
                     }
@@ -1904,14 +1971,19 @@ protocol IRFFDecoderDelegate: AnyObject {
             bufferingStartTime: runtimeSnapshot.bufferingStartTime,
             currentTime: Date().timeIntervalSince1970
         )
-        if let bufferingChange = runtimeState.applyBuffering(
-            transition.buffering,
-            startTime: transition.bufferingStartTime
-        ) {
+        if let bufferingCommit =
+                runtimeState.applyBufferingWithGeneration(
+                    transition.buffering,
+                    startTime:
+                        transition.bufferingStartTime
+                ) {
             notifyDelegate {
                 $0.decoder(
                     self,
-                    didChangeValueOfBuffering: bufferingChange.current
+                    didChangeValueOfBuffering:
+                        bufferingCommit.change.current,
+                    generation:
+                        bufferingCommit.decodeGeneration
                 )
             }
         }
@@ -1997,7 +2069,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                         didChangeValueOfBufferedDuration:
                             commit
                                 .bufferedDurationChange
-                                .current
+                                .current,
+                        generation:
+                            generation
                     )
                 }
                 if let progressChange =
@@ -2011,7 +2085,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                                         self,
                                         didChangeValueOfProgress:
                                             progressChange
-                                                .current
+                                                .current,
+                                        generation:
+                                            generation
                                     )
                                 }
                             }
@@ -2024,7 +2100,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                             notification: {
                                 notifyDelegate {
                                     $0.decoderDidPlaybackFinished(
-                                        self
+                                        self,
+                                        generation:
+                                            generation
                                     )
                                 }
                             }
@@ -2041,7 +2119,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                                         self,
                                         didChangeValueOfBuffering:
                                             bufferingChange
-                                                .current
+                                                .current,
+                                        generation:
+                                            generation
                                     )
                                 }
                             }
@@ -2076,7 +2156,9 @@ protocol IRFFDecoderDelegate: AnyObject {
                     $0.decoder(
                         self,
                         didChangeValueOfProgress:
-                            progressChange.current
+                            progressChange.current,
+                        generation:
+                            generation
                     )
                 }
             }
@@ -2099,20 +2181,28 @@ protocol IRFFDecoderDelegate: AnyObject {
                     $0.decoder(
                         self,
                         didChangeValueOfProgress:
-                            progressChange.current
+                            progressChange.current,
+                        generation:
+                            generation
                     )
                 }
             }
         )
     }
 
-    private func delegateErrorCallback() {
+    private func delegateErrorCallback(
+        generation: UInt64
+    ) {
         let runtimeSnapshot = runtimeState.snapshot
         guard !runtimeSnapshot.closed,
               runtimeSnapshot.hasError,
               let error = error else { return }
         notifyDelegate {
-            $0.decoder(self, didError: error)
+            $0.decoder(
+                self,
+                didError: error,
+                generation: generation
+            )
         }
     }
 
@@ -2170,7 +2260,10 @@ extension IRFFDecoder: IRFFVideoDecoderDelegate {
             error,
             generation: generation,
             notification: {
-                delegateErrorCallback()
+                delegateErrorCallback(
+                    generation:
+                        generation
+                )
             }
         )
     }
