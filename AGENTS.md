@@ -66,6 +66,15 @@ xcodebuild test -project IRPlayer-swift.xcodeproj -scheme IRPlayer-swift -destin
 
 If the scheme name differs locally, use the output of `-list`.
 
+Run the complete release acceptance suite locally with:
+
+```bash
+Scripts/ci/run-acceptance.sh all
+```
+
+See `docs/releases/release-process.md` for CI gates, result artifacts, branch
+protection, tag validation, and the automated GitHub Release flow.
+
 ## Agent Working Rules
 
 - Make the smallest safe change needed for the request.

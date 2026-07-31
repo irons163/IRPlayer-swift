@@ -1,0 +1,84 @@
+name: Acceptance
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  framework:
+    name: Framework build and tests
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run framework acceptance
+        env:
+          IRPLAYER_RESULT_DIR: ${{ runner.temp }}/irplayer-framework-results
+          IRPLAYER_DERIVED_DATA_DIR: ${{ runner.temp }}/irplayer-framework-derived-data
+        run: Scripts/ci/run-acceptance.sh framework
+
+      - name: Upload framework diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: framework-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/irplayer-framework-results/*.xcresult
+            ${{ runner.temp }}/irplayer-framework-results/*.log
+            ${{ runner.temp }}/irplayer-framework-results/environment.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  playback-ui:
+    name: Eight-mode playback UI tests
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run playback UI acceptance
+        env:
+          IRPLAYER_RESULT_DIR: ${{ runner.temp }}/irplayer-ui-results
+          IRPLAYER_DERIVED_DATA_DIR: ${{ runner.temp }}/irplayer-ui-derived-data
+        run: Scripts/ci/run-acceptance.sh ui
+
+      - name: Upload playback diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playback-ui-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/irplayer-ui-results/*.xcresult
+            ${{ runner.temp }}/irplayer-ui-results/*.log
+            ${{ runner.temp }}/irplayer-ui-results/environment.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release-acceptance:
+    name: Release acceptance
+    if: ${{ always() }}
+    needs:
+      - framework
+      - playback-ui
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce every acceptance suite
+        env:
+          FRAMEWORK_RESULT: ${{ needs.framework.result }}
+          PLAYBACK_UI_RESULT: ${{ needs.playback-ui.result }}
+        run: |
+          if [[ "$FRAMEWORK_RESULT" != "success" || "$PLAYBACK_UI_RESULT" != "success" ]]; then
+            echo "Framework: $FRAMEWORK_RESULT"
+            echo "Playback UI: $PLAYBACK_UI_RESULT"
+            exit 1
+          fi
+          echo "All release acceptance suites passed."

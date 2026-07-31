@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*.[0-9]*"
+      - "[0-9]*.[0-9]*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-tag:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm tag format and main ancestry
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: Scripts/ci/validate-release-tag.sh "$RELEASE_TAG" origin/main "$RELEASE_COMMIT"
+
+  acceptance:
+    name: Acceptance
+    needs: validate-tag
+    uses: ./.github/workflows/acceptance.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish GitHub release
+    needs:
+      - validate-tag
+      - acceptance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          release_args=(
+            release create "$RELEASE_TAG"
+            --verify-tag
+            --generate-notes
+            --title "IRPlayer $version"
+          )
+          if [[ "$version" == *-* ]]; then
+            release_args+=(--prerelease)
+          fi
+          gh "${release_args[@]}"

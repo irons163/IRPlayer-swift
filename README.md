@@ -1,4 +1,4 @@
-![Build Status](https://img.shields.io/badge/build-%20passing%20-brightgreen.svg)
+[![CI](https://github.com/irons163/IRPlayer-swift/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/irons163/IRPlayer-swift/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/Platform-%20iOS%20-blue.svg)
 
 # IRPlayer-swift
@@ -39,6 +39,13 @@
 ## Install
 ### SPM
 - Add package: https://github.com/irons163/IRPlayer-swift
+
+## CI and releases
+
+Run the complete release acceptance suite with
+`Scripts/ci/run-acceptance.sh all`. See the
+[release process](docs/releases/release-process.md) for the enforced GitHub
+Actions gates and automated tag-to-Release flow.
 
 ## Usage
 
