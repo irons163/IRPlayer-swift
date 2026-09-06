@@ -27,7 +27,12 @@ commit SHAs and Dependabot proposes weekly updates.
 3. `Swift package and SDK documentation`
    - builds the SwiftPM iOS device target graph;
    - compiles the complete SwiftPM iOS Simulator test graph;
-   - builds the SDK DocC archive with documentation warnings treated as errors.
+   - builds the SDK DocC archive with documentation warnings treated as errors;
+   - packages the complete DocC archive as `sdk-documentation.tar.gz` for
+     artifact upload, preserving Swift symbol filenames containing colons.
+     Extract with `tar -xzf sdk-documentation.tar.gz` on macOS to open the
+     resulting `.doccarchive` in Xcode. The Ubuntu validation job tests archive
+     round-tripping and rejects missing documentation or output overwrites.
 4. `Thread Sanitizer`
    - executes the framework tests with Thread Sanitizer enabled, covering
      first-party instrumented code (the bundled prebuilt FFmpeg binaries are

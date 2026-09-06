@@ -142,6 +142,10 @@ run_package_acceptance() {
         -derivedDataPath "$derived_data_directory/documentation" \
         CODE_SIGNING_ALLOWED=NO \
         OTHER_DOCC_FLAGS="--warnings-as-errors"
+
+    bash "$repository_root/Scripts/ci/package-sdk-documentation.sh" \
+        "$derived_data_directory/documentation/Build/Products" \
+        "$result_directory/sdk-documentation.tar.gz"
 }
 
 run_sanitizer_acceptance() {

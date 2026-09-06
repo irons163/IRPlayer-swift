@@ -30,6 +30,7 @@ jobs:
             bash -n "$script"
           done
           bash Scripts/ci/test-release-tag.sh
+          python3 Scripts/ci/test-package-sdk-documentation.py
           python3 Scripts/dependencies/tests/test_isolated_pkg_config.py
           python3 Scripts/dependencies/tests/test_dependency_provenance.py
           python3 Scripts/dependencies/tests/test_probe_layout.py
@@ -154,7 +155,7 @@ jobs:
           path: |
             ${{ runner.temp }}/irplayer-package-results/*.log
             ${{ runner.temp }}/irplayer-package-results/environment.txt
-            ${{ runner.temp }}/irplayer-package-derived-data/documentation/Build/Products/**/*.doccarchive
+            ${{ runner.temp }}/irplayer-package-results/sdk-documentation.tar.gz
           if-no-files-found: ignore
           retention-days: 14
 
