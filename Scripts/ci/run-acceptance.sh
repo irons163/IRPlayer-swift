@@ -118,7 +118,8 @@ run_ui_acceptance() {
         -derivedDataPath "$derived_data_directory/playback-ui-tests" \
         -resultBundlePath "$result_bundle" \
         -parallel-testing-enabled NO \
-        -only-testing:SPMDemoUITests/SPMDemoUITests
+        -only-testing:SPMDemoUITests/SPMDemoUITests \
+        -only-testing:SPMDemoTests
 }
 
 run_package_acceptance() {

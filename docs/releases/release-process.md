@@ -24,6 +24,11 @@ commit SHAs and Dependabot proposes weekly updates.
    - runs the demo app's eight playback/rendering regression tests;
    - covers AVPlayer normal, VR, VR Box, FFmpeg software and hardware,
      fisheye, panorama, and multi-view playback.
+   - uses a 60-second stream-copy repetition of the original six-second fisheye
+     clip for UI automation only; DEBUG launch configuration selects it while
+     ordinary demo playback retains the original clip. The tests verify its
+     duration and reject reaching EOF during sampling. Regeneration and payload
+     verification are documented in `Scripts/ci/fisheye-ui-fixture.md`.
 3. `Swift package and SDK documentation`
    - builds the SwiftPM iOS device target graph;
    - compiles the complete SwiftPM iOS Simulator test graph;

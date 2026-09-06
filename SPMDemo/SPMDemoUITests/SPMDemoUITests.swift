@@ -112,6 +112,7 @@ final class SPMDemoUITests: XCTestCase {
         app.launchEnvironment[
             "IRPLAYER_UI_TEST_LAYOUT_STRESS"
         ] = "1"
+        app.launchEnvironment["IRPLAYER_UI_TEST_LONG_FISHEYE"] = "1"
         app.launch()
 
         let menuItem = app.staticTexts[menuTitle]
@@ -172,6 +173,21 @@ final class SPMDemoUITests: XCTestCase {
             )
         }
 
+        if menuTitle.hasPrefix("fisheye-demo") {
+            let duration = app.staticTexts["player.duration"]
+            let longFixtureLoaded = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label == %@", "01:00"),
+                object: duration
+            )
+            XCTAssertEqual(
+                XCTWaiter.wait(for: [longFixtureLoaded], timeout: 5),
+                .completed,
+                "Expected the 60-second UI fixture before frame sampling",
+                file: file,
+                line: line
+            )
+        }
+
         // Skip initial attachment and sample the same bright portion of the
         // bundled fixture. A renderer regression that presents empty
         // drawables produces near-black samples between valid frames.
@@ -192,6 +208,15 @@ final class SPMDemoUITests: XCTestCase {
                 )
             )
             Thread.sleep(forTimeInterval: 0.08)
+        }
+
+        if menuTitle.hasPrefix("fisheye-demo") {
+            XCTAssertFalse(
+                app.staticTexts["Finished"].exists,
+                "Fixture ended during sampling; final-frame retention is not a renderer freeze",
+                file: file,
+                line: line
+            )
         }
 
         let luminances = samples.map(\.averageLuminance)
@@ -310,10 +335,9 @@ final class SPMDemoUITests: XCTestCase {
             line: line
         )
 
-        // The bundled fisheye fixture is only six seconds long and the
-        // action-sheet interaction can consume most of it. Restart from zero
-        // after proving that Fourlens was actually selected so the temporal
-        // samples cover active Multi4P playback, not its valid final frame.
+        // Restart after proving Fourlens was selected. The 60-second test
+        // fixture leaves room for action-sheet, seek and screenshot latency;
+        // the ordinary six-second demo fixture is not suitable for this test.
         let progressSlider =
             app.sliders["player.progress"]
         XCTAssertTrue(

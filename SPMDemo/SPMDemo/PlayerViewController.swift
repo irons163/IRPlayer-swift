@@ -34,7 +34,19 @@ class PlayerViewController: UIViewController {
 
     static let normalVideo = URL.init(fileURLWithPath: Bundle.main.path(forResource: "i-see-fire", ofType: "mp4") ?? "")
     static let vrVideo = URL.init(fileURLWithPath: Bundle.main.path(forResource: "google-help-vr", ofType: "mp4") ?? "")
-    static let fisheyeVideo = URL.init(fileURLWithPath: Bundle.main.path(forResource: "fisheye-demo", ofType: "mp4") ?? "")
+    static let fisheyeVideo: URL = {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["IRPLAYER_UI_TEST_LONG_FISHEYE"] == "1" {
+            // Keep automation latency inside the fixture's playback window.
+            // Missing test resources must fail loudly, not fall back to 6s.
+            guard let url = Bundle.main.url(forResource: "fisheye-ui-test", withExtension: "mp4") else {
+                preconditionFailure("Missing long fisheye UI-test fixture")
+            }
+            return url
+        }
+        #endif
+        return URL(fileURLWithPath: Bundle.main.path(forResource: "fisheye-demo", ofType: "mp4") ?? "")
+    }()
 
     var demoType: DemoType = .avPlayerNormal
     var progressSilderTouching: Bool = false
@@ -131,6 +143,7 @@ class PlayerViewController: UIViewController {
                 "player.render-mode"
             progressSilder.accessibilityIdentifier =
                 "player.progress"
+            totalTimeLabel.accessibilityIdentifier = "player.duration"
             publishSelectedRenderModeForUITesting()
             layoutStressTimer = Timer.scheduledTimer(
                 withTimeInterval: 0.05,
@@ -266,8 +279,13 @@ extension PlayerViewController {
     @objc func stateAction(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
         let state = IRState.state(fromUserInfo: userInfo)
+        applyPlaybackState(state.current) { self.player.play() }
+    }
+
+    func applyPlaybackState(_ state: IRPlayerState, startPlayback: () -> Void) {
         var text: String?
-        switch state.current {
+        var shouldStartPlayback = false
+        switch state {
         case .none:
             text = "None"
         case .buffering:
@@ -275,7 +293,7 @@ extension PlayerViewController {
         case .readyToPlay:
             text = "Prepare"
             self.totalTimeLabel.text = self.timeString(from: self.player.duration)
-            self.player.play()
+            shouldStartPlayback = true
         case .playing:
             text = "Playing"
         case .suspend:
@@ -288,6 +306,9 @@ extension PlayerViewController {
             text = "@unknown"
         }
         self.stateLabel.text = text
+        // play() can synchronously publish Playing. Publish Prepare first so
+        // this older callback cannot overwrite the nested, newer state label.
+        if shouldStartPlayback { startPlayback() }
     }
 
     @objc func progressAction(_ notification: Notification) {
