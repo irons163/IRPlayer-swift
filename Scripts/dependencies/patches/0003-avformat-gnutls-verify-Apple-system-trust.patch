@@ -1,0 +1,291 @@
+diff --git a/configure b/configure
+index 3c39ff3..787cef4 100755
+--- a/configure
++++ b/configure
+@@ -6698,7 +6698,15 @@ enabled decklink          && { require_headers DeckLinkAPI.h &&
+                                { test_cpp_condition DeckLinkAPIVersion.h "BLACKMAGIC_DECKLINK_API_VERSION >= 0x0a0b0000" || die "ERROR: Decklink API version must be >= 10.11"; } }
+ enabled frei0r            && require_headers "frei0r.h"
+ enabled gmp               && require gmp gmp.h mpz_export -lgmp
+-enabled gnutls            && require_pkg_config gnutls gnutls gnutls/gnutls.h gnutls_global_init
++enabled gnutls            && {
++    require_pkg_config gnutls gnutls gnutls/gnutls.h gnutls_global_init
++    if test "$target_os" = darwin; then
++        require apple_gnutls_trust "Security/Security.h" \
++            "SecPolicyCreateRevocation SecTrustEvaluateWithError SecTrustSetNetworkFetchAllowed" \
++            "-Wl,-framework,CoreFoundation -Wl,-framework,Security"
++        append gnutls_extralibs "$apple_gnutls_trust_extralibs"
++    fi
++}
+ enabled jni               && { [ $target_os = "android" ] && check_headers jni.h && enabled pthreads || die "ERROR: jni not found"; }
+ enabled ladspa            && require_headers "ladspa.h dlfcn.h"
+ enabled lcms2             && require_pkg_config lcms2 "lcms2 >= 2.13" lcms2.h cmsCreateContext
+diff --git a/libavformat/tls_gnutls.c b/libavformat/tls_gnutls.c
+index 2ab38a1..0c8a585 100644
+--- a/libavformat/tls_gnutls.c
++++ b/libavformat/tls_gnutls.c
+@@ -24,6 +24,10 @@
+ #include <gnutls/gnutls.h>
+ #include <gnutls/x509.h>
+ 
++#ifdef __APPLE__
++#include <Security/Security.h>
++#endif
++
+ #include "avformat.h"
+ #include "internal.h"
+ #include "network.h"
+@@ -120,8 +124,11 @@ static ssize_t gnutls_url_pull(gnutls_transport_ptr_t transport,
+     int ret = ffurl_read(c->tls_shared.tcp, buf, len);
+     if (ret >= 0)
+         return ret;
+-    if (ret == AVERROR_EXIT)
+-        return 0;
++    if (ret == AVERROR_EXIT) {
++        errno = EINTR;
++        c->io_err = ret;
++        return -1;
++    }
+     if (ret == AVERROR(EAGAIN)) {
+         errno = EAGAIN;
+     } else {
+@@ -138,8 +145,11 @@ static ssize_t gnutls_url_push(gnutls_transport_ptr_t transport,
+     int ret = ffurl_write(c->tls_shared.tcp, buf, len);
+     if (ret >= 0)
+         return ret;
+-    if (ret == AVERROR_EXIT)
+-        return 0;
++    if (ret == AVERROR_EXIT) {
++        errno = EINTR;
++        c->io_err = ret;
++        return -1;
++    }
+     if (ret == AVERROR(EAGAIN)) {
+         errno = EAGAIN;
+     } else {
+@@ -149,6 +159,165 @@ static ssize_t gnutls_url_push(gnutls_transport_ptr_t transport,
+     return -1;
+ }
+ 
++#ifdef __APPLE__
++/* GnuTLS owns the handshake, preserving TLS 1.3 support. For the default
++ * client trust policy, Apple owns certificate-chain and hostname validation.
++ * No application bytes may be read or written before this succeeds. */
++static int tls_verify_apple_system_trust(URLContext *h)
++{
++    TLSContext *p = h->priv_data;
++    TLSShared *c = &p->tls_shared;
++    const gnutls_datum_t *peers;
++    unsigned int count, i;
++    CFMutableArrayRef certificates = NULL;
++    CFArrayRef policies = NULL;
++    CFStringRef hostname = NULL;
++    SecPolicyRef ssl_policy = NULL;
++    SecPolicyRef revocation_policy = NULL;
++    SecTrustRef trust = NULL;
++    int ret = AVERROR(EIO);
++
++    if (ff_check_interrupt(&h->interrupt_callback))
++        return AVERROR_EXIT;
++    if (!c->host || !c->host[0] ||
++        gnutls_certificate_type_get(p->session) != GNUTLS_CRT_X509)
++        goto end;
++    peers = gnutls_certificate_get_peers(p->session, &count);
++    if (!peers || !count)
++        goto end;
++
++    certificates = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
++    hostname = CFStringCreateWithCString(NULL, c->host, kCFStringEncodingUTF8);
++    if (!certificates || !hostname) {
++        ret = AVERROR(ENOMEM);
++        goto end;
++    }
++    for (i = 0; i < count; i++) {
++        CFDataRef data;
++        SecCertificateRef certificate;
++
++        if (!peers[i].data || !peers[i].size)
++            goto end;
++        data = CFDataCreate(NULL, peers[i].data, peers[i].size);
++        if (!data) {
++            ret = AVERROR(ENOMEM);
++            goto end;
++        }
++        certificate = SecCertificateCreateWithData(NULL, data);
++        CFRelease(data);
++        if (!certificate)
++            goto end;
++        CFArrayAppendValue(certificates, certificate);
++        CFRelease(certificate);
++    }
++
++    ssl_policy = SecPolicyCreateSSL(true, hostname);
++    revocation_policy = SecPolicyCreateRevocation(
++        kSecRevocationUseAnyAvailableMethod |
++        kSecRevocationNetworkAccessDisabled);
++    if (!ssl_policy || !revocation_policy) {
++        ret = AVERROR(ENOMEM);
++        goto end;
++    }
++    {
++        const void *values[] = { ssl_policy, revocation_policy };
++        policies = CFArrayCreate(NULL, values, 2,
++                                 &kCFTypeArrayCallBacks);
++    }
++    if (!policies) {
++        ret = AVERROR(ENOMEM);
++        goto end;
++    }
++    if (SecTrustCreateWithCertificates(certificates, policies, &trust) != errSecSuccess)
++        goto end;
++    /* Keep trust evaluation independent of additional network requests that
++     * cannot be cancelled by FFmpeg's I/O interrupt callback. The revocation
++     * policy limits checks to cached replies, while this call also disables
++     * missing-intermediate fetching. Servers should supply their chain. */
++    if (SecTrustSetNetworkFetchAllowed(trust, false) != errSecSuccess)
++        goto end;
++    if (ff_check_interrupt(&h->interrupt_callback)) {
++        ret = AVERROR_EXIT;
++        goto end;
++    }
++    if (SecTrustEvaluateWithError(trust, NULL))
++        ret = 0;
++    if (ff_check_interrupt(&h->interrupt_callback))
++        ret = AVERROR_EXIT;
++
++end:
++    if (trust)
++        CFRelease(trust);
++    if (policies)
++        CFRelease(policies);
++    if (revocation_policy)
++        CFRelease(revocation_policy);
++    if (ssl_policy)
++        CFRelease(ssl_policy);
++    if (hostname)
++        CFRelease(hostname);
++    if (certificates)
++        CFRelease(certificates);
++    if (ret < 0 && ret != AVERROR_EXIT)
++        av_log(h, AV_LOG_ERROR, "Apple system certificate verification failed\n");
++    return ret;
++}
++#endif
++
++static int tls_should_verify_peer(const TLSShared *c)
++{
++    return c->verify && !c->listen;
++}
++
++static int tls_verify_gnutls_peer(URLContext *h)
++{
++    TLSContext *p = h->priv_data;
++    TLSShared *c = &p->tls_shared;
++    unsigned int status, cert_list_size;
++    gnutls_x509_crt_t cert = NULL;
++    const gnutls_datum_t *cert_list;
++    int ret;
++
++    if ((ret = gnutls_certificate_verify_peers2(p->session, &status)) < 0) {
++        av_log(h, AV_LOG_ERROR, "Unable to verify peer certificate: %s\n",
++               gnutls_strerror(ret));
++        return AVERROR(EIO);
++    }
++    if (status & GNUTLS_CERT_INVALID) {
++        av_log(h, AV_LOG_ERROR, "Peer certificate failed verification\n");
++        return AVERROR(EIO);
++    }
++    if (gnutls_certificate_type_get(p->session) != GNUTLS_CRT_X509) {
++        av_log(h, AV_LOG_ERROR, "Unsupported certificate type\n");
++        return AVERROR(EIO);
++    }
++    cert_list = gnutls_certificate_get_peers(p->session, &cert_list_size);
++    if (!cert_list || !cert_list_size) {
++        av_log(h, AV_LOG_ERROR, "Peer did not provide a certificate\n");
++        return AVERROR(EIO);
++    }
++    if ((ret = gnutls_x509_crt_init(&cert)) < 0) {
++        av_log(h, AV_LOG_ERROR, "Unable to initialize peer certificate: %s\n",
++               gnutls_strerror(ret));
++        return AVERROR(EIO);
++    }
++    if ((ret = gnutls_x509_crt_import(cert, &cert_list[0],
++                                      GNUTLS_X509_FMT_DER)) < 0) {
++        av_log(h, AV_LOG_ERROR, "Unable to import peer certificate: %s\n",
++               gnutls_strerror(ret));
++        gnutls_x509_crt_deinit(cert);
++        return AVERROR(EIO);
++    }
++    ret = gnutls_x509_crt_check_hostname(cert, c->host);
++    gnutls_x509_crt_deinit(cert);
++    if (!ret) {
++        av_log(h, AV_LOG_ERROR,
++               "The certificate's owner does not match hostname %s\n", c->host);
++        return AVERROR(EIO);
++    }
++    return 0;
++}
++
+ static int tls_open(URLContext *h, const char *uri, int flags, AVDictionary **options)
+ {
+     TLSContext *p = h->priv_data;
+@@ -166,8 +335,11 @@ static int tls_open(URLContext *h, const char *uri, int flags, AVDictionary **op
+     gnutls_certificate_allocate_credentials(&p->cred);
+     if (c->ca_file) {
+         ret = gnutls_certificate_set_x509_trust_file(p->cred, c->ca_file, GNUTLS_X509_FMT_PEM);
+-        if (ret < 0)
+-            av_log(h, AV_LOG_ERROR, "%s\n", gnutls_strerror(ret));
++        if (ret <= 0) {
++            av_log(h, AV_LOG_ERROR, "Unable to load explicit certificate authorities\n");
++            ret = AVERROR(EIO);
++            goto fail;
++        }
+     }
+ #if GNUTLS_VERSION_NUMBER >= 0x030020
+     else
+@@ -206,37 +378,17 @@ static int tls_open(URLContext *h, const char *uri, int flags, AVDictionary **op
+         }
+     } while (ret);
+     p->need_shutdown = 1;
+-    if (c->verify) {
+-        unsigned int status, cert_list_size;
+-        gnutls_x509_crt_t cert;
+-        const gnutls_datum_t *cert_list;
+-        if ((ret = gnutls_certificate_verify_peers2(p->session, &status)) < 0) {
+-            av_log(h, AV_LOG_ERROR, "Unable to verify peer certificate: %s\n",
+-                                    gnutls_strerror(ret));
+-            ret = AVERROR(EIO);
+-            goto fail;
+-        }
+-        if (status & GNUTLS_CERT_INVALID) {
+-            av_log(h, AV_LOG_ERROR, "Peer certificate failed verification\n");
+-            ret = AVERROR(EIO);
+-            goto fail;
+-        }
+-        if (gnutls_certificate_type_get(p->session) != GNUTLS_CRT_X509) {
+-            av_log(h, AV_LOG_ERROR, "Unsupported certificate type\n");
+-            ret = AVERROR(EIO);
++#ifdef __APPLE__
++    if (tls_should_verify_peer(c) && !c->ca_file) {
++        ret = tls_verify_apple_system_trust(h);
++        if (ret < 0)
+             goto fail;
+-        }
+-        gnutls_x509_crt_init(&cert);
+-        cert_list = gnutls_certificate_get_peers(p->session, &cert_list_size);
+-        gnutls_x509_crt_import(cert, cert_list, GNUTLS_X509_FMT_DER);
+-        ret = gnutls_x509_crt_check_hostname(cert, c->host);
+-        gnutls_x509_crt_deinit(cert);
+-        if (!ret) {
+-            av_log(h, AV_LOG_ERROR,
+-                   "The certificate's owner does not match hostname %s\n", c->host);
+-            ret = AVERROR(EIO);
++    } else
++#endif
++    if (tls_should_verify_peer(c)) {
++        ret = tls_verify_gnutls_peer(h);
++        if (ret < 0)
+             goto fail;
+-        }
+     }
+ 
+     return 0;

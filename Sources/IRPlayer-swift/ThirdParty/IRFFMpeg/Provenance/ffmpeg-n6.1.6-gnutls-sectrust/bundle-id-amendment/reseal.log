@@ -1,0 +1,8 @@
+mode=metadata-signature-only-reseal
+date=2026-09-06
+package=/private/tmp/irplayer-ffmpeg-review.final5.X92f0K/artifacts/ffmpeg-n6.1.6-gnutls-sectrust-bundleid-fixed
+recipe_sha256=d06ae2b3eab95aa4c5e821905a7d511833551efdcc141e79b57a5a166268bb44
+operations=write_package_license_checksums,write_package_artifact_checksums,verify_package_artifact_checksums
+prepare_or_build_dispatch_performed=no
+slice_fingerprints_restamped=no
+note=This static invocation record is included in the final seal. Final manifest hash and verification result are recorded in external finalization-result.log so the manifest never hashes a file that is still being written.

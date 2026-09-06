@@ -7,13 +7,80 @@ permissions:
   contents: read
 
 jobs:
+  workflow-validation:
+    name: Workflow and release script validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up workflow validator runtime
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.26.x'
+          cache: false
+
+      - name: Validate workflows and release tag behavior
+        run: |
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck=
+          for script in Scripts/ci/*.sh Scripts/dependencies/*.sh; do
+            bash -n "$script"
+          done
+          bash Scripts/ci/test-release-tag.sh
+          python3 Scripts/dependencies/tests/test_isolated_pkg_config.py
+          python3 Scripts/dependencies/tests/test_dependency_provenance.py
+          python3 Scripts/dependencies/tests/test_probe_layout.py
+          python3 Scripts/dependencies/tests/test_probe_results.py
+          python3 Scripts/dependencies/tests/test_transport_gate.py
+          python3 Scripts/dependencies/tests/test_apple_framework_dependency.py
+          python3 Scripts/dependencies/tests/test_package_integrity.py
+          python3 Scripts/dependencies/tests/test_framework_metadata.py
+          go -C Scripts/dependencies/source-verifier test ./...
+          go -C Scripts/dependencies/source-verifier vet ./...
+          go -C Scripts/dependencies/source-verifier run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+
+      - name: Check out pinned transport source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: FFmpeg/FFmpeg
+          ref: f1e3a2bf7a2f2cde936d1ed97f09a26853d20125 # n6.1.6
+          path: .ci-transport-source
+          persist-credentials: false
+
+      - name: Apply transport patches and execute compiled TLS regressions
+        run: |
+          test "$(git -C .ci-transport-source rev-parse HEAD)" = f1e3a2bf7a2f2cde936d1ed97f09a26853d20125
+          for patch in "$GITHUB_WORKSPACE"/Scripts/dependencies/patches/*.patch; do
+            git -C .ci-transport-source apply --check "$patch"
+            git -C .ci-transport-source apply "$patch"
+          done
+          python3 Scripts/dependencies/tests/test_gnutls_callbacks.py \
+            --source .ci-transport-source/libavformat/tls_gnutls.c --cc cc
+
+      - name: Build and run HTTP origin and cookie FATE regressions
+        run: |
+          transport_source="$GITHUB_WORKSPACE/.ci-transport-source"
+          transport_build="$RUNNER_TEMP/irplayer-ffmpeg-fate-http-origin"
+          mkdir -p "$transport_build"
+          cd "$transport_build"
+          "$transport_source/configure" \
+            --disable-everything --disable-autodetect --disable-x86asm \
+            --disable-programs --disable-doc \
+            --disable-avdevice --disable-avfilter --disable-swscale \
+            --disable-postproc --disable-swresample \
+            --enable-network --enable-protocol=http --enable-protocol=tcp
+          make -j2 V=1 fate-http-origin fate-http-cookie
+
   framework:
     name: Framework build and tests
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -25,7 +92,7 @@ jobs:
 
       - name: Upload framework diagnostics
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: framework-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -37,11 +104,11 @@ jobs:
 
   playback-ui:
     name: Eight-mode playback UI tests
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 45
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -53,7 +120,7 @@ jobs:
 
       - name: Upload playback diagnostics
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playback-ui-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -63,22 +130,87 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  package:
+    name: Swift package and SDK documentation
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build package graphs and SDK documentation
+        env:
+          IRPLAYER_RESULT_DIR: ${{ runner.temp }}/irplayer-package-results
+          IRPLAYER_DERIVED_DATA_DIR: ${{ runner.temp }}/irplayer-package-derived-data
+        run: Scripts/ci/run-acceptance.sh package
+
+      - name: Upload package diagnostics and SDK documentation
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: package-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/irplayer-package-results/*.log
+            ${{ runner.temp }}/irplayer-package-results/environment.txt
+            ${{ runner.temp }}/irplayer-package-derived-data/documentation/Build/Products/**/*.doccarchive
+          if-no-files-found: ignore
+          retention-days: 14
+
+  sanitizer:
+    name: Thread Sanitizer
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run instrumented framework tests
+        env:
+          IRPLAYER_RESULT_DIR: ${{ runner.temp }}/irplayer-sanitizer-results
+          IRPLAYER_DERIVED_DATA_DIR: ${{ runner.temp }}/irplayer-sanitizer-derived-data
+        run: Scripts/ci/run-acceptance.sh sanitizer
+
+      - name: Upload sanitizer diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sanitizer-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/irplayer-sanitizer-results/*.xcresult
+            ${{ runner.temp }}/irplayer-sanitizer-results/*.log
+            ${{ runner.temp }}/irplayer-sanitizer-results/environment.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
   release-acceptance:
     name: Release acceptance
     if: ${{ always() }}
     needs:
+      - workflow-validation
       - framework
       - playback-ui
+      - package
+      - sanitizer
     runs-on: ubuntu-latest
     steps:
       - name: Enforce every acceptance suite
         env:
+          WORKFLOW_RESULT: ${{ needs.workflow-validation.result }}
           FRAMEWORK_RESULT: ${{ needs.framework.result }}
           PLAYBACK_UI_RESULT: ${{ needs.playback-ui.result }}
+          PACKAGE_RESULT: ${{ needs.package.result }}
+          SANITIZER_RESULT: ${{ needs.sanitizer.result }}
         run: |
-          if [[ "$FRAMEWORK_RESULT" != "success" || "$PLAYBACK_UI_RESULT" != "success" ]]; then
+          if [[ "$WORKFLOW_RESULT" != "success" || "$FRAMEWORK_RESULT" != "success" || "$PLAYBACK_UI_RESULT" != "success" || "$PACKAGE_RESULT" != "success" || "$SANITIZER_RESULT" != "success" ]]; then
+            echo "Workflow validation: $WORKFLOW_RESULT"
             echo "Framework: $FRAMEWORK_RESULT"
             echo "Playback UI: $PLAYBACK_UI_RESULT"
+            echo "Package and documentation: $PACKAGE_RESULT"
+            echo "Thread Sanitizer: $SANITIZER_RESULT"
             exit 1
           fi
           echo "All release acceptance suites passed."

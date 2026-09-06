@@ -28,4 +28,8 @@ FFmpeg C wrapper target (`IRFFMpeg` SPM target).
 - `libavdevice` and `libavfilter` are present but not linked by default.
 - These are pre-built binaries — do not attempt to rebuild them in CI.
 - The `IR_USE_METAL` compile flag is set for this target.
-- Source: [ffmpeg-kit](https://github.com/arthenica/ffmpeg-kit).
+- Source: pinned FFmpeg n6.1.6 with the repository's GnuTLS 3.8.13,
+  Nettle/Hogweed 3.10.2, and GMP 6.3.0 recipe.
+- Preserve `Provenance/ffmpeg-n6.1.6-gnutls-sectrust` with the matching
+  binaries. It contains source/patch identities, per-slice configuration,
+  recipe-role attestations, artifact inventories, and license notices.

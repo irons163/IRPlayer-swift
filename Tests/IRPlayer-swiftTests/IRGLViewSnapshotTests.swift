@@ -967,19 +967,83 @@ private final class ViewRecordingTransformController: IRGLTransformController {
 }
 
 private final class ViewRenderRecorder: IRGLRenderInternal {
-    private(set) var renderCallCount = 0
-    private(set) var renderMultiCallCount = 0
-    private(set) var renderClearCallCount = 0
-    private(set) var renderFish2PanoCallCount = 0
-    private(set) var renderDistortionCallCount = 0
-    private(set) var renderFisheyeCallCount = 0
-    private(set) var renderFisheyeMultiCallCount = 0
-    private(set) var lastFish2PanoTextureCount = 0
-    private(set) var lastFish2PanoOutputSize = CGSize.zero
-    private(set) var lastMVPCount = 0
-    private(set) var lastViewportCount = 0
-    private(set) var lastFrame: IRFFVideoFrame?
-    var renderDistortionResult = true
+    private struct State {
+        var renderCallCount = 0
+        var renderMultiCallCount = 0
+        var renderClearCallCount = 0
+        var renderFish2PanoCallCount = 0
+        var renderDistortionCallCount = 0
+        var renderFisheyeCallCount = 0
+        var renderFisheyeMultiCallCount = 0
+        var lastFish2PanoTextureCount = 0
+        var lastFish2PanoOutputSize = CGSize.zero
+        var lastMVPCount = 0
+        var lastViewportCount = 0
+        var lastFrame: IRFFVideoFrame?
+        var renderDistortionResult = true
+    }
+
+    private let lock = NSLock()
+    private var state = State()
+
+    private func withState<T>(_ body: (inout State) -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body(&state)
+    }
+
+    var renderCallCount: Int {
+        withState { $0.renderCallCount }
+    }
+
+    var renderMultiCallCount: Int {
+        withState { $0.renderMultiCallCount }
+    }
+
+    var renderClearCallCount: Int {
+        withState { $0.renderClearCallCount }
+    }
+
+    var renderFish2PanoCallCount: Int {
+        withState { $0.renderFish2PanoCallCount }
+    }
+
+    var renderDistortionCallCount: Int {
+        withState { $0.renderDistortionCallCount }
+    }
+
+    var renderFisheyeCallCount: Int {
+        withState { $0.renderFisheyeCallCount }
+    }
+
+    var renderFisheyeMultiCallCount: Int {
+        withState { $0.renderFisheyeMultiCallCount }
+    }
+
+    var lastFish2PanoTextureCount: Int {
+        withState { $0.lastFish2PanoTextureCount }
+    }
+
+    var lastFish2PanoOutputSize: CGSize {
+        withState { $0.lastFish2PanoOutputSize }
+    }
+
+    var lastMVPCount: Int {
+        withState { $0.lastMVPCount }
+    }
+
+    var lastViewportCount: Int {
+        withState { $0.lastViewportCount }
+    }
+
+    var lastFrame: IRFFVideoFrame? {
+        withState { $0.lastFrame }
+    }
+
+    var renderDistortionResult: Bool {
+        get { withState { $0.renderDistortionResult } }
+        set { withState { $0.renderDistortionResult = newValue } }
+    }
 
     func render(frame: IRFFVideoFrame,
                 to drawable: CAMetalDrawable,
@@ -987,8 +1051,10 @@ private final class ViewRenderRecorder: IRGLRenderInternal {
                 drawableSize: CGSize,
                 zoomScale: Float,
                 translation: SIMD2<Float>) -> Bool {
-        renderCallCount += 1
-        lastFrame = frame
+        withState {
+            $0.renderCallCount += 1
+            $0.lastFrame = frame
+        }
         return true
     }
 
@@ -999,14 +1065,16 @@ private final class ViewRenderRecorder: IRGLRenderInternal {
                      contentModes: [IRGLRenderContentMode],
                      zoomScales: [Float],
                      translations: [SIMD2<Float>]) -> Bool {
-        renderMultiCallCount += 1
-        lastFrame = frame
-        lastViewportCount = viewports.count
+        withState {
+            $0.renderMultiCallCount += 1
+            $0.lastFrame = frame
+            $0.lastViewportCount = viewports.count
+        }
         return true
     }
 
     func renderClear(to drawable: CAMetalDrawable) {
-        renderClearCallCount += 1
+        withState { $0.renderClearCallCount += 1 }
     }
 
     func renderFish2Pano(frame: IRFFVideoFrame,
@@ -1019,10 +1087,12 @@ private final class ViewRenderRecorder: IRGLRenderInternal {
                          outputSize: CGSize,
                          zoomScale: Float,
                          translation: SIMD2<Float>) -> Bool {
-        renderFish2PanoCallCount += 1
-        lastFrame = frame
-        lastFish2PanoTextureCount = texUVTextures.count
-        lastFish2PanoOutputSize = outputSize
+        withState {
+            $0.renderFish2PanoCallCount += 1
+            $0.lastFrame = frame
+            $0.lastFish2PanoTextureCount = texUVTextures.count
+            $0.lastFish2PanoOutputSize = outputSize
+        }
         return true
     }
 
@@ -1032,9 +1102,11 @@ private final class ViewRenderRecorder: IRGLRenderInternal {
                           to drawable: CAMetalDrawable,
                           drawableSize: CGSize,
                           contentMode: IRGLRenderContentMode) -> Bool {
-        renderDistortionCallCount += 1
-        lastFrame = frame
-        return renderDistortionResult
+        withState {
+            $0.renderDistortionCallCount += 1
+            $0.lastFrame = frame
+            return $0.renderDistortionResult
+        }
     }
 
     func renderFisheye(frame: IRFFVideoFrame,
@@ -1044,9 +1116,11 @@ private final class ViewRenderRecorder: IRGLRenderInternal {
                        to drawable: CAMetalDrawable,
                        drawableSize: CGSize,
                        viewport: CGRect) -> Bool {
-        renderFisheyeCallCount += 1
-        lastFrame = frame
-        lastViewportCount = 1
+        withState {
+            $0.renderFisheyeCallCount += 1
+            $0.lastFrame = frame
+            $0.lastViewportCount = 1
+        }
         return true
     }
 
@@ -1057,10 +1131,12 @@ private final class ViewRenderRecorder: IRGLRenderInternal {
                             to drawable: CAMetalDrawable,
                             drawableSize: CGSize,
                             viewports: [CGRect]) -> Bool {
-        renderFisheyeMultiCallCount += 1
-        lastFrame = frame
-        lastMVPCount = mvpList.count
-        lastViewportCount = viewports.count
+        withState {
+            $0.renderFisheyeMultiCallCount += 1
+            $0.lastFrame = frame
+            $0.lastMVPCount = mvpList.count
+            $0.lastViewportCount = viewports.count
+        }
         return true
     }
 }

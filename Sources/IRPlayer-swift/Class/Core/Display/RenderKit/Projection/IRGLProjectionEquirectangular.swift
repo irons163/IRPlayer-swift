@@ -63,14 +63,6 @@ final class IRGLProjectionEquirectangular:
         )
     }
 
-    func updateVertex() {
-        // Metal consumes the exported immutable mesh.
-    }
-
-    func draw() {
-        // Rendering is owned by the Metal renderer.
-    }
-
     func exportMesh() -> (
         positions: [SIMD3<Float>],
         texcoords: [SIMD2<Float>],

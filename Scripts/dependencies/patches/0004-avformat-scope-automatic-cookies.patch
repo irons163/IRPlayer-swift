@@ -1,0 +1,588 @@
+From: IRPlayer maintainers <maintainers@irplayer.local>
+Date: Sun, 6 Sep 2026 00:00:00 +0800
+Subject: [PATCH] avformat/http: scope automatic cookies to their origin
+
+Keep origin metadata with cookies learned from Set-Cookie so redirects,
+reconnects, and nested protocol contexts cannot turn a host-only cookie into
+a global cookie. Validate Domain attributes at receipt and use RFC label and
+path boundaries when selecting outbound cookies. Also honor Secure and derive
+the RFC default Path. Explicit caller-supplied cookie strings retain their
+historical behavior when they have no automatic origin marker.
+
+diff --git a/libavformat/Makefile b/libavformat/Makefile
+index 335ddf6..addcaa9 100644
+--- a/libavformat/Makefile
++++ b/libavformat/Makefile
+@@ -752,6 +752,7 @@ TESTPROGS-$(CONFIG_FFRTMPCRYPT_PROTOCOL) += rtmpdh
+ TESTPROGS-$(CONFIG_MOV_MUXER)            += movenc
+ TESTPROGS-$(CONFIG_NETWORK)              += noproxy
+ TESTPROGS-$(CONFIG_HTTP_PROTOCOL)        += http_origin
++TESTPROGS-$(CONFIG_HTTP_PROTOCOL)        += http_cookie
+ TESTPROGS-$(CONFIG_SRTP)                 += srtp
+ TESTPROGS-$(CONFIG_IMF_DEMUXER)          += imf
+ 
+diff --git a/libavformat/http.c b/libavformat/http.c
+index 07a2135..68ec134 100644
+--- a/libavformat/http.c
++++ b/libavformat/http.c
+@@ -57,6 +57,11 @@
+ #define HTTP_MUTLI    2
+ #define MAX_EXPIRY    19
+ #define WHITESPACES " \n\t\r"
++/* Stored only on cookies learned from a response. Keeping the source host in
++ * the serialized jar preserves its scope when options are copied to nested
++ * HTTP contexts; caller-supplied cookie strings remain backward compatible. */
++#define COOKIE_HOST_ONLY_ATTR "__ffmpeg_host_only"
++#define COOKIE_DEFAULT_PATH_ATTR "__ffmpeg_default_path"
+ typedef enum {
+     LOWER_PROTO,
+     READ_HEADERS,
+@@ -310,6 +315,111 @@ int ff_http_origin_matches(const char *origin_url, const char *url)
+     return !av_strcasecmp(origin.host, target.host);
+ }
+ 
++static int cookie_domain_matches(const char *hostname, const char *domain)
++{
++    uint8_t address[16];
++    size_t hostname_len, domain_len;
++
++    if (!hostname || !domain)
++        return 0;
++    while (*domain == '.')
++        domain++;
++    hostname_len = strlen(hostname);
++    domain_len = strlen(domain);
++    if (!domain_len || domain_len > hostname_len)
++        return 0;
++    if (inet_pton(AF_INET, hostname, address) == 1 ||
++        inet_pton(AF_INET6, hostname, address) == 1)
++        return hostname_len == domain_len && !av_strcasecmp(hostname, domain);
++    if (av_strcasecmp(hostname + hostname_len - domain_len, domain))
++        return 0;
++    return hostname_len == domain_len ||
++           hostname[hostname_len - domain_len - 1] == '.';
++}
++
++static char *cookie_default_path(const char *url)
++{
++    URLComponents uc;
++    const char *last_slash;
++    size_t path_len;
++
++    if (ff_url_decompose(&uc, url, NULL) < 0)
++        return NULL;
++    path_len = uc.query - uc.path;
++    if (!path_len || uc.path[0] != '/')
++        return av_strdup("/");
++
++    last_slash = uc.path + path_len - 1;
++    while (last_slash > uc.path && *last_slash != '/')
++        last_slash--;
++    if (last_slash == uc.path)
++        return av_strdup("/");
++    return av_strndup(uc.path, last_slash - uc.path);
++}
++
++static char *cookie_encode_metadata(const char *value)
++{
++    static const char hex[] = "0123456789abcdef";
++    size_t len = strlen(value);
++    char *encoded = av_malloc(2 * len + 1);
++    size_t i;
++
++    if (!encoded)
++        return NULL;
++    for (i = 0; i < len; i++) {
++        encoded[2 * i]     = hex[(uint8_t)value[i] >> 4];
++        encoded[2 * i + 1] = hex[(uint8_t)value[i] & 0xf];
++    }
++    encoded[2 * len] = 0;
++    return encoded;
++}
++
++static int cookie_decode_metadata(const char *encoded, char **value)
++{
++    size_t len = strlen(encoded);
++    char *decoded;
++    size_t i;
++
++    if (len & 1)
++        return AVERROR_INVALIDDATA;
++    decoded = av_malloc(len / 2 + 1);
++    if (!decoded)
++        return AVERROR(ENOMEM);
++    for (i = 0; i < len; i += 2) {
++        int byte;
++        int high = av_toupper(encoded[i]);
++        int low  = av_toupper(encoded[i + 1]);
++
++        if (!av_isxdigit(high) || !av_isxdigit(low)) {
++            av_free(decoded);
++            return AVERROR_INVALIDDATA;
++        }
++        high = high >= 'A' && high <= 'F' ? high - 'A' + 10 : high - '0';
++        low  = low  >= 'A' && low  <= 'F' ? low  - 'A' + 10 : low  - '0';
++        byte = high << 4 | low;
++        if (!byte) {
++            av_free(decoded);
++            return AVERROR_INVALIDDATA;
++        }
++        decoded[i / 2] = byte;
++    }
++    decoded[len / 2] = 0;
++    *value = decoded;
++    return 0;
++}
++
++static int cookie_path_matches(const char *request_path, const char *cookie_path)
++{
++    size_t cookie_len = strlen(cookie_path);
++    size_t request_len = strcspn(request_path, "?#");
++
++    if (!cookie_len || cookie_path[0] != '/' || cookie_len > request_len ||
++        strncmp(request_path, cookie_path, cookie_len))
++        return 0;
++    return cookie_len == request_len || cookie_path[cookie_len - 1] == '/' ||
++           request_path[cookie_len] == '/';
++}
++
+ static int http_validate_transport_policy(URLContext *h, const char *url)
+ {
+     HTTPContext *s = h->priv_data;
+@@ -1183,7 +1293,7 @@ static int parse_set_cookie(const char *set_cookie, AVDictionary **dict)
+         next_param = NULL;
+         param += strspn(param, WHITESPACES);
+         if ((name = av_strtok(param, "=", &value))) {
+-            if (av_dict_set(dict, name, value, 0) < 0) {
++            if (av_dict_set(dict, name, value ? value : "", 0) < 0) {
+                 av_free(cstr);
+                 return -1;
+             }
+@@ -1194,11 +1304,15 @@ static int parse_set_cookie(const char *set_cookie, AVDictionary **dict)
+     return 0;
+ }
+ 
+-static int parse_cookie(HTTPContext *s, const char *p, AVDictionary **cookies)
++static int parse_cookie(const char *p, AVDictionary **cookies,
++                        const char *source_url)
+ {
+     AVDictionary *new_params = NULL;
+-    AVDictionaryEntry *e, *cookie_entry;
+-    char *eql, *name;
++    AVDictionaryEntry *e, *cookie_entry, *domain_entry, *path_entry;
++    HTTPOrigin source_origin;
++    char *default_path = NULL, *encoded_path = NULL;
++    char *eql, *name, *stored_cookie = NULL;
++    int ret;
+ 
+     // ensure the cookie is parsable
+     if (parse_set_cookie(p, &new_params))
+@@ -1244,16 +1358,71 @@ static int parse_cookie(HTTPContext *s, const char *p, AVDictionary **cookies)
+             }
+         }
+     }
++
++    if (source_url) {
++        if (av_dict_get(new_params, COOKIE_HOST_ONLY_ATTR, NULL, 0) ||
++            av_dict_get(new_params, COOKIE_DEFAULT_PATH_ATTR, NULL, 0)) {
++            av_dict_free(&new_params);
++            return 0;
++        }
++        ret = http_parse_origin(source_url, &source_origin);
++        if (ret < 0) {
++            av_dict_free(&new_params);
++            return ret;
++        }
++        domain_entry = av_dict_get(new_params, "domain", NULL, 0);
++        if (domain_entry && domain_entry->value) {
++            if (!cookie_domain_matches(source_origin.host,
++                                       domain_entry->value)) {
++                av_dict_free(&new_params);
++                return 0;
++            }
++        }
++        path_entry = av_dict_get(new_params, "path", NULL, 0);
++        if (!path_entry || !path_entry->value || path_entry->value[0] != '/') {
++            default_path = cookie_default_path(source_url);
++            if (!default_path) {
++                av_dict_free(&new_params);
++                return AVERROR(ENOMEM);
++            }
++            encoded_path = cookie_encode_metadata(default_path);
++            av_free(default_path);
++            if (!encoded_path) {
++                av_dict_free(&new_params);
++                return AVERROR(ENOMEM);
++            }
++        }
++        stored_cookie = av_asprintf("%s%s%s%s%s", p,
++                                    encoded_path ? "; " COOKIE_DEFAULT_PATH_ATTR "=" : "",
++                                    encoded_path ? encoded_path : "",
++                                    domain_entry ? "" : "; " COOKIE_HOST_ONLY_ATTR "=",
++                                    domain_entry ? "" : source_origin.host);
++        av_free(encoded_path);
++        if (!stored_cookie) {
++            av_dict_free(&new_params);
++            return AVERROR(ENOMEM);
++        }
++    }
+     av_dict_free(&new_params);
+ 
++    if (!stored_cookie && !(stored_cookie = av_strdup(p)))
++        return AVERROR(ENOMEM);
++
+     // duplicate the cookie name (dict will dupe the value)
+-    if (!(eql = strchr(p, '='))) return AVERROR(EINVAL);
+-    if (!(name = av_strndup(p, eql - p))) return AVERROR(ENOMEM);
++    if (!(eql = strchr(stored_cookie, '='))) {
++        av_free(stored_cookie);
++        return AVERROR(EINVAL);
++    }
++    if (!(name = av_strndup(stored_cookie, eql - stored_cookie))) {
++        av_free(stored_cookie);
++        return AVERROR(ENOMEM);
++    }
+ 
+     // add the cookie to the dictionary
+-    av_dict_set(cookies, name, eql, AV_DICT_DONT_STRDUP_KEY);
++    ret = av_dict_set(cookies, name, eql, AV_DICT_DONT_STRDUP_KEY);
++    av_free(stored_cookie);
+ 
+-    return 0;
++    return ret;
+ }
+ 
+ static int cookie_string(AVDictionary *dict, char **cookies)
+@@ -1448,7 +1617,7 @@ static int process_line(URLContext *h, char *line, int line_count)
+             av_free(s->mime_type);
+             s->mime_type = av_get_token((const char **)&p, ";");
+         } else if (!av_strcasecmp(tag, "Set-Cookie")) {
+-            if (parse_cookie(s, p, &s->cookie_dict))
++            if (parse_cookie(p, &s->cookie_dict, s->location))
+                 av_log(h, AV_LOG_WARNING, "Unable to parse '%s'\n", p);
+         } else if (!av_strcasecmp(tag, "Icy-MetaInt")) {
+             s->icy_metaint = strtoull(p, NULL, 10);
+@@ -1475,14 +1644,14 @@ static int process_line(URLContext *h, char *line, int line_count)
+  *
+  * @return a negative value if an error condition occurred, 0 otherwise
+  */
+-static int get_cookies(HTTPContext *s, char **cookies, const char *path,
+-                       const char *domain)
++static int get_cookies(HTTPContext *s, char **cookies, const char *path)
+ {
+     // cookie strings will look like Set-Cookie header field values.  Multiple
+     // Set-Cookie fields will result in multiple values delimited by a newline
+     int ret = 0;
+     char *cookie, *set_cookies, *next;
+     char *saveptr = NULL;
++    HTTPOrigin request_origin;
+ 
+     // destroy any cookies in the dictionary.
+     av_dict_free(&s->cookie_dict);
+@@ -1490,6 +1659,10 @@ static int get_cookies(HTTPContext *s, char **cookies, const char *path,
+     if (!s->cookies)
+         return 0;
+ 
++    ret = http_parse_origin(s->location, &request_origin);
++    if (ret < 0)
++        return ret;
++
+     next = set_cookies = av_strdup(s->cookies);
+     if (!next)
+         return AVERROR(ENOMEM);
+@@ -1498,10 +1671,11 @@ static int get_cookies(HTTPContext *s, char **cookies, const char *path,
+     while ((cookie = av_strtok(next, "\n", &saveptr)) && !ret) {
+         AVDictionary *cookie_params = NULL;
+         AVDictionaryEntry *cookie_entry, *e;
++        char *default_path = NULL;
+ 
+         next = NULL;
+         // store the cookie in a dict in case it is updated in the response
+-        if (parse_cookie(s, cookie, &s->cookie_dict))
++        if (parse_cookie(cookie, &s->cookie_dict, NULL))
+             av_log(s, AV_LOG_WARNING, "Unable to parse '%s'\n", cookie);
+ 
+         // continue on to the next cookie if this one cannot be parsed
+@@ -1522,22 +1696,35 @@ static int get_cookies(HTTPContext *s, char **cookies, const char *path,
+             }
+         }
+ 
+-        // if no domain in the cookie assume it appied to this request
+-        if ((e = av_dict_get(cookie_params, "domain", NULL, 0)) && e->value) {
+-            // find the offset comparison is on the min domain (b.com, not a.b.com)
+-            int domain_offset = strlen(domain) - strlen(e->value);
+-            if (domain_offset < 0)
+-                goto skip_cookie;
++        if (av_dict_get(cookie_params, "secure", NULL, 0) &&
++            !request_origin.is_https)
++            goto skip_cookie;
+ 
+-            // match the cookie domain
+-            if (av_strcasecmp(&domain[domain_offset], e->value))
++        e = av_dict_get(cookie_params, COOKIE_HOST_ONLY_ATTR, NULL, 0);
++        if (e && e->value) {
++            if (av_strcasecmp(request_origin.host, e->value))
+                 goto skip_cookie;
++        } else if ((e = av_dict_get(cookie_params, "domain", NULL, 0)) &&
++                   e->value &&
++                   !cookie_domain_matches(request_origin.host, e->value)) {
++            goto skip_cookie;
+         }
+ 
+-        // if a cookie path is provided, ensure the request path is within that path
+-        e = av_dict_get(cookie_params, "path", NULL, 0);
+-        if (e && av_strncasecmp(path, e->value, strlen(e->value)))
++        // Prefer the trusted default-path metadata added at receipt. An
++        // invalid Path attribute remains in the serialized cookie, but must
++        // not override the derived default when the jar is reparsed.
++        e = av_dict_get(cookie_params, COOKIE_DEFAULT_PATH_ATTR, NULL, 0);
++        if (e && e->value) {
++            if (cookie_decode_metadata(e->value, &default_path) < 0 ||
++                !cookie_path_matches(path, default_path)) {
++                av_free(default_path);
++                goto skip_cookie;
++            }
++            av_free(default_path);
++        } else if ((e = av_dict_get(cookie_params, "path", NULL, 0)) &&
++                   e->value && !cookie_path_matches(path, e->value)) {
+             goto skip_cookie;
++        }
+ 
+         // cookie parameters match, so copy the value
+         if (!*cookies) {
+@@ -1732,7 +1919,7 @@ static int http_connect(URLContext *h, const char *path, const char *local_path,
+         av_bprintf(&request, "Content-Type: %s\r\n", s->content_type);
+     if (!has_header(headers, "\r\nCookie: ") && s->cookies) {
+         char *cookies = NULL;
+-        if (!get_cookies(s, &cookies, path, hoststr) && cookies) {
++        if (!get_cookies(s, &cookies, local_path) && cookies) {
+             av_bprintf(&request, "Cookie: %s\r\n", cookies);
+             av_free(cookies);
+         }
+diff --git a/tests/fate/libavformat.mak b/tests/fate/libavformat.mak
+index a3979cb..1e3d231 100644
+--- a/tests/fate/libavformat.mak
++++ b/tests/fate/libavformat.mak
+@@ -11,6 +11,11 @@ fate-http-origin: libavformat/tests/http_origin$(EXESUF)
+ fate-http-origin: CMD = run libavformat/tests/http_origin$(EXESUF)
+ fate-http-origin: CMP = null
+ 
++FATE_LIBAVFORMAT-$(CONFIG_HTTP_PROTOCOL) += fate-http-cookie
++fate-http-cookie: libavformat/tests/http_cookie$(EXESUF)
++fate-http-cookie: CMD = run libavformat/tests/http_cookie$(EXESUF)
++fate-http-cookie: CMP = null
++
+ FATE_LIBAVFORMAT-$(CONFIG_FFRTMPCRYPT_PROTOCOL) += fate-rtmpdh
+ fate-rtmpdh: libavformat/tests/rtmpdh$(EXESUF)
+ fate-rtmpdh: CMD = run libavformat/tests/rtmpdh$(EXESUF)
+diff --git a/libavformat/tests/http_cookie.c b/libavformat/tests/http_cookie.c
+new file mode 100644
+index 0000000..7c052d3
+--- /dev/null
++++ b/libavformat/tests/http_cookie.c
+@@ -0,0 +1,204 @@
++/*
++ * HTTP cookie scope tests
++ *
++ * This file is part of FFmpeg.
++ */
++
++#include <stdio.h>
++
++#include "libavformat/http.c"
++
++typedef struct CookieDomainTest {
++    const char *hostname;
++    const char *domain;
++    int expected;
++} CookieDomainTest;
++
++static int expect_header(const char *name, const char *source_url,
++                         const char *set_cookie, const char *target_url,
++                         const char *expected)
++{
++    HTTPContext context = { 0 };
++    AVDictionary *jar_dict = NULL;
++    char *jar = NULL;
++    char *jar_copy = NULL;
++    char *header = NULL;
++    char target_path[MAX_URL_SIZE];
++    int ret;
++
++    ret = parse_cookie(set_cookie, &jar_dict, source_url);
++    if (ret < 0)
++        goto fail;
++    ret = cookie_string(jar_dict, &jar);
++    if (ret < 0)
++        goto fail;
++
++    /* Model the option-dictionary copy used by redirects and nested I/O. */
++    jar_copy = av_strdup(jar);
++    context.cookies = jar_copy;
++    context.location = av_strdup(target_url);
++    if (!context.location) {
++        ret = AVERROR(ENOMEM);
++        goto fail;
++    }
++    av_url_split(NULL, 0, NULL, 0, NULL, 0, NULL,
++                 target_path, sizeof(target_path), target_url);
++    ret = get_cookies(&context, &header, target_path);
++    if (ret < 0)
++        goto fail;
++    if ((!header) != (!expected) ||
++        (header && strcmp(header, expected))) {
++        fprintf(stderr, "%s: expected header '%s', got '%s' (jar '%s')\n",
++                name, expected ? expected : "(null)",
++                header ? header : "(null)", jar ? jar : "(null)");
++        ret = AVERROR_INVALIDDATA;
++    }
++
++fail:
++    av_dict_free(&jar_dict);
++    av_dict_free(&context.cookie_dict);
++    av_free(header);
++    av_free(context.location);
++    av_free(jar);
++    av_free(jar_copy);
++    return ret;
++}
++
++static int test_domain_matcher(void)
++{
++    static const CookieDomainTest tests[] = {
++        { "example.com", "example.com", 1 },
++        { "EXAMPLE.COM", ".example.com", 1 },
++        { "media.example.com", "example.com", 1 },
++        { "deep.media.example.com", ".example.com", 1 },
++        { "badexample.com", "example.com", 0 },
++        { "example.com.evil", "example.com", 0 },
++        { "127.0.0.1", "127.0.0.1", 1 },
++        { "127.0.0.1", "0.0.1", 0 },
++        { "2001:db8::1", "2001:db8::1", 1 },
++        { "2001:db8::1", "db8::1", 0 },
++        { "localhost", "", 0 },
++    };
++    int failed = 0;
++    int i;
++
++    for (i = 0; i < FF_ARRAY_ELEMS(tests); i++) {
++        int actual = cookie_domain_matches(tests[i].hostname, tests[i].domain);
++        if (actual != tests[i].expected) {
++            fprintf(stderr, "cookie domain mismatch: %s <> %s: "
++                    "expected %d, got %d\n", tests[i].hostname,
++                    tests[i].domain, tests[i].expected, actual);
++            failed = 1;
++        }
++    }
++    return failed;
++}
++
++int main(void)
++{
++    int failed = test_domain_matcher();
++    char *decoded = NULL;
++
++    if (cookie_decode_metadata("3:", &decoded) >= 0 || decoded) {
++        fprintf(stderr, "invalid hex cookie metadata was accepted\n");
++        av_freep(&decoded);
++        failed = 1;
++    }
++    if (cookie_decode_metadata("00", &decoded) >= 0 || decoded) {
++        fprintf(stderr, "NUL cookie metadata was accepted\n");
++        av_freep(&decoded);
++        failed = 1;
++    }
++
++    failed |= expect_header("host-only same host and different port",
++                            "https://localhost:1000/start",
++                            "sid=host; Path=/", "https://LOCALHOST:2000/final",
++                            "sid=host") < 0;
++    failed |= expect_header("host-only foreign host",
++                            "https://localhost/start", "sid=host; Path=/",
++                            "https://127.0.0.1/final", NULL) < 0;
++    failed |= expect_header("domain subdomain",
++                            "https://media.example.com/start",
++                            "sid=domain; Domain=example.com; Path=/",
++                            "https://cdn.example.com/final", "sid=domain") < 0;
++    failed |= expect_header("domain label boundary",
++                            "https://media.example.com/start",
++                            "sid=domain; Domain=example.com; Path=/",
++                            "https://badexample.com/final", NULL) < 0;
++    failed |= expect_header("default response path",
++                            "https://example.com/media/master.m3u8",
++                            "sid=path", "https://example.com/media/segment.ts",
++                            "sid=path") < 0;
++    failed |= expect_header("default response path isolation",
++                            "https://example.com/private/index.m3u8",
++                            "sid=path", "https://example.com/public/segment.ts",
++                            NULL) < 0;
++    failed |= expect_header("relative Path uses default",
++                            "https://example.com/media/master.m3u8",
++                            "sid=path; Path=relative",
++                            "https://example.com/media/segment.ts", "sid=path") < 0;
++    failed |= expect_header("empty Path uses default",
++                            "https://example.com/media/master.m3u8",
++                            "sid=path; Path=",
++                            "https://example.com/media/segment.ts", "sid=path") < 0;
++    failed |= expect_header("encoded default path stays functional",
++                            "https://example.com/private;token/dir/master.m3u8",
++                            "sid=path",
++                            "https://example.com/private;token/dir/segment.ts",
++                            "sid=path") < 0;
++    failed |= expect_header("default path cannot inject Domain",
++                            "https://media.example.com/private;Domain=evil.example/start",
++                            "sid=path; Domain=example.com",
++                            "https://evil.example/private", NULL) < 0;
++    failed |= expect_header("default path cannot inject host-only metadata",
++                            "https://media.example.com/private;__ffmpeg_host_only=evil.example/start",
++                            "sid=path; Domain=example.com",
++                            "https://evil.example/private", NULL) < 0;
++    failed |= expect_header("path label boundary",
++                            "https://example.com/start", "sid=path; Path=/private",
++                            "https://example.com/private-other", NULL) < 0;
++    failed |= expect_header("path child",
++                            "https://example.com/start", "sid=path; Path=/private",
++                            "https://example.com/private/child", "sid=path") < 0;
++    failed |= expect_header("path is case sensitive",
++                            "https://example.com/start", "sid=path; Path=/Private",
++                            "https://example.com/private/child", NULL) < 0;
++    failed |= expect_header("Secure over HTTPS",
++                            "https://example.com/start", "sid=secure; Secure; Path=/",
++                            "https://example.com/final", "sid=secure") < 0;
++    failed |= expect_header("Secure blocked over HTTP",
++                            "https://example.com/start", "sid=secure; Secure; Path=/",
++                            "http://example.com/final", NULL) < 0;
++    failed |= expect_header("IPv4 host-only exact",
++                            "https://127.0.0.1/start", "sid=ipv4; Path=/",
++                            "https://127.0.0.1:9443/final", "sid=ipv4") < 0;
++    failed |= expect_header("IPv4 host-only foreign",
++                            "https://127.0.0.1/start", "sid=ipv4; Path=/",
++                            "https://127.0.0.2/final", NULL) < 0;
++    failed |= expect_header("IPv6 host-only exact",
++                            "https://[2001:db8::1]/start", "sid=ipv6; Path=/",
++                            "https://[2001:DB8::1]:9443/final", "sid=ipv6") < 0;
++    failed |= expect_header("IPv6 host-only foreign",
++                            "https://[2001:db8::1]/start", "sid=ipv6; Path=/",
++                            "https://[2001:db8::2]/final", NULL) < 0;
++    failed |= expect_header("invalid response Domain rejected",
++                            "https://media.example.com/start",
++                            "sid=bad; Domain=evil.example; Path=/",
++                            "https://evil.example/final", NULL) < 0;
++    failed |= expect_header("forged internal scope rejected",
++                            "https://localhost/start",
++                            "sid=bad; __ffmpeg_host_only=127.0.0.1; Path=/",
++                            "https://127.0.0.1/final", NULL) < 0;
++    failed |= expect_header("duplicate internal scope rejected",
++                            "https://localhost/start",
++                            "sid=bad; __ffmpeg_host_only=localhost; "
++                            "__ffmpeg_host_only=127.0.0.1; Path=/",
++                            "https://localhost/final", NULL) < 0;
++
++    /* A caller-supplied cookie has no response origin metadata. Keep the
++     * historical global behavior for API compatibility. */
++    failed |= expect_header("explicit cookies compatibility", NULL,
++                            "sid=explicit; Path=/",
++                            "https://foreign.example/final", "sid=explicit") < 0;
++    return failed;
++}
+

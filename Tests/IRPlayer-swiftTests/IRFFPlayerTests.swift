@@ -381,7 +381,8 @@ final class IRFFPlayerTests: XCTestCase {
         XCTAssertEqual(ffPlayer.state, .buffering)
 
         delegate.decoderDidPrepareToDecodeFrames(decoder)
-        XCTAssertEqual(ffPlayer.state, .readyToPlay)
+        // A play request remains buffering until playable data arrives.
+        XCTAssertEqual(ffPlayer.state, .buffering)
 
         delegate.decoder(
             decoder,

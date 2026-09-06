@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out complete history
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -47,7 +47,7 @@ jobs:
       contents: write
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -57,10 +57,15 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           version="${RELEASE_TAG#v}"
+          notes_file="docs/releases/$version.md"
+          if [[ ! -s "$notes_file" ]]; then
+            echo "Reviewed release notes are missing: $notes_file" >&2
+            exit 1
+          fi
           release_args=(
             release create "$RELEASE_TAG"
             --verify-tag
-            --generate-notes
+            --notes-file "$notes_file"
             --title "IRPlayer $version"
           )
           if [[ "$version" == *-* ]]; then

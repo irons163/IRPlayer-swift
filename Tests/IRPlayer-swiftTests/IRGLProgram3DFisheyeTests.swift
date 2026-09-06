@@ -59,7 +59,4 @@ private final class RecordingProjection: IRGLProjection {
     func update(with parameter: IRMediaParameter) {
         updatedParameter = parameter
     }
-
-    func updateVertex() {}
-    func draw() {}
 }

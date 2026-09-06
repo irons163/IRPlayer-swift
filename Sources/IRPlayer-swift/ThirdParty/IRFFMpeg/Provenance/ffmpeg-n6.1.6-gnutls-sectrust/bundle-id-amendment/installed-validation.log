@@ -1,0 +1,44 @@
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavcodec path=libavcodec.xcframework/ios-arm64/libavcodec.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavcodec path=libavcodec.xcframework/ios-arm64_x86_64-maccatalyst/libavcodec.framework/Versions/A/Resources/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavcodec path=libavcodec.xcframework/ios-arm64_x86_64-simulator/libavcodec.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavdevice path=libavdevice.xcframework/ios-arm64/libavdevice.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavdevice path=libavdevice.xcframework/ios-arm64_x86_64-maccatalyst/libavdevice.framework/Versions/A/Resources/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavdevice path=libavdevice.xcframework/ios-arm64_x86_64-simulator/libavdevice.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavfilter path=libavfilter.xcframework/ios-arm64/libavfilter.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavfilter path=libavfilter.xcframework/ios-arm64_x86_64-maccatalyst/libavfilter.framework/Versions/A/Resources/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavfilter path=libavfilter.xcframework/ios-arm64_x86_64-simulator/libavfilter.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavformat path=libavformat.xcframework/ios-arm64/libavformat.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavformat path=libavformat.xcframework/ios-arm64_x86_64-maccatalyst/libavformat.framework/Versions/A/Resources/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavformat path=libavformat.xcframework/ios-arm64_x86_64-simulator/libavformat.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavutil path=libavutil.xcframework/ios-arm64/libavutil.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavutil path=libavutil.xcframework/ios-arm64_x86_64-maccatalyst/libavutil.framework/Versions/A/Resources/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libavutil path=libavutil.xcframework/ios-arm64_x86_64-simulator/libavutil.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libswresample path=libswresample.xcframework/ios-arm64/libswresample.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libswresample path=libswresample.xcframework/ios-arm64_x86_64-maccatalyst/libswresample.framework/Versions/A/Resources/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libswresample path=libswresample.xcframework/ios-arm64_x86_64-simulator/libswresample.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libswscale path=libswscale.xcframework/ios-arm64/libswscale.framework/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libswscale path=libswscale.xcframework/ios-arm64_x86_64-maccatalyst/libswscale.framework/Versions/A/Resources/Info.plist
+bundle_id=org.irplayer.ffmpeg.n6-1-6.libswscale path=libswscale.xcframework/ios-arm64_x86_64-simulator/libswscale.framework/Info.plist
+architectures=arm64 path=libavcodec.xcframework/ios-arm64/libavcodec.framework
+architectures=x86_64 arm64 path=libavcodec.xcframework/ios-arm64_x86_64-maccatalyst/libavcodec.framework
+architectures=x86_64 arm64 path=libavcodec.xcframework/ios-arm64_x86_64-simulator/libavcodec.framework
+architectures=arm64 path=libavdevice.xcframework/ios-arm64/libavdevice.framework
+architectures=x86_64 arm64 path=libavdevice.xcframework/ios-arm64_x86_64-maccatalyst/libavdevice.framework
+architectures=x86_64 arm64 path=libavdevice.xcframework/ios-arm64_x86_64-simulator/libavdevice.framework
+architectures=arm64 path=libavfilter.xcframework/ios-arm64/libavfilter.framework
+architectures=x86_64 arm64 path=libavfilter.xcframework/ios-arm64_x86_64-maccatalyst/libavfilter.framework
+architectures=x86_64 arm64 path=libavfilter.xcframework/ios-arm64_x86_64-simulator/libavfilter.framework
+architectures=arm64 path=libavformat.xcframework/ios-arm64/libavformat.framework
+architectures=x86_64 arm64 path=libavformat.xcframework/ios-arm64_x86_64-maccatalyst/libavformat.framework
+architectures=x86_64 arm64 path=libavformat.xcframework/ios-arm64_x86_64-simulator/libavformat.framework
+architectures=arm64 path=libavutil.xcframework/ios-arm64/libavutil.framework
+architectures=x86_64 arm64 path=libavutil.xcframework/ios-arm64_x86_64-maccatalyst/libavutil.framework
+architectures=x86_64 arm64 path=libavutil.xcframework/ios-arm64_x86_64-simulator/libavutil.framework
+architectures=arm64 path=libswresample.xcframework/ios-arm64/libswresample.framework
+architectures=x86_64 arm64 path=libswresample.xcframework/ios-arm64_x86_64-maccatalyst/libswresample.framework
+architectures=x86_64 arm64 path=libswresample.xcframework/ios-arm64_x86_64-simulator/libswresample.framework
+architectures=arm64 path=libswscale.xcframework/ios-arm64/libswscale.framework
+architectures=x86_64 arm64 path=libswscale.xcframework/ios-arm64_x86_64-maccatalyst/libswscale.framework
+architectures=x86_64 arm64 path=libswscale.xcframework/ios-arm64_x86_64-simulator/libswscale.framework
+frameworks=21
+exit=0

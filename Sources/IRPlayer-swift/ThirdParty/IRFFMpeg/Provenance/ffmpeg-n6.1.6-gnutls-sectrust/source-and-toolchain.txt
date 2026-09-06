@@ -1,0 +1,70 @@
+ffmpeg_tag=n6.1.6
+ffmpeg_commit=f1e3a2bf7a2f2cde936d1ed97f09a26853d20125
+ffmpeg_tree=9aaca04fcc4bb2a56d3a06bab6d262d587956dc2
+ffmpeg_remote=https://github.com/FFmpeg/FFmpeg.git
+ffmpeg_local_tag_verification=not-run-gpg-unavailable
+gmp_version=6.3.0
+gmp_url=https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz
+gmp_sha256=a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898
+gmp_signature_sha256=94def8c1a731854de684689126046ec93589147abd4cd0025f12d741d323aa82
+gmp_signature_url=https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz.sig
+gmp_signature_verification=external-record-passed:docs/security/source-verification.md
+gmp_verified_signer_fingerprint=343C2FF0FBEE5EC2EDBEF399F3599FF828C67298
+gmp_verified_signature_creation=2023-07-30T12:18:33Z
+gmp_verified_signature_hash=SHA-512
+gmp_verified_signer_key_sha256=50561c50f40cd9746af214c995fb219bbe7f3b9c5f038b918f5df543bb3f846f
+nettle_version=3.10.2
+nettle_url=https://ftp.gnu.org/gnu/nettle/nettle-3.10.2.tar.gz
+nettle_sha256=fe9ff51cb1f2abb5e65a6b8c10a92da0ab5ab6eaf26e7fc2b675c45f1fb519b5
+nettle_signature_sha256=9cc1319ede378148f4c729ad889e3c0bd461d974ea590916f3480b93257a1d0b
+nettle_signature_url=https://ftp.gnu.org/gnu/nettle/nettle-3.10.2.tar.gz.sig
+nettle_signature_verification=external-record-passed:docs/security/nettle-source-verification.md
+nettle_verified_signer_fingerprint=343C2FF0FBEE5EC2EDBEF399F3599FF828C67298
+nettle_verified_signature_creation=2025-06-26T18:41:09Z
+nettle_verified_signature_hash=SHA-512
+nettle_verified_official_keyring_sha256=1235812a12ce07515303f9ebb138225e4021342832c1465040fee2e849524888
+gnutls_version=3.8.13
+gnutls_url=https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.13.tar.xz
+gnutls_sha256=ffed8ec1bf09c2426d4f14aae377de4753b53e537d685e604e99a8b16ca9c97e
+gnutls_signature_sha256=fbe8e5a702febffba6df45bbcfc0e6f46300e68fb380b0757f3ad0c3544abada
+gnutls_signature_url=https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.13.tar.xz.sig
+gnutls_signature_verification=external-record-passed:docs/security/source-verification.md
+gnutls_verified_signer_fingerprint=5D46CB0F763405A7053556F47A75A648B3F9220C
+gnutls_verified_signature_creation=2026-04-29T15:18:40Z
+gnutls_verified_signature_hash=SHA-512
+gnutls_verified_official_keyring_sha256=a47ae67e65375cedf0e0af830db4f29b29365283c1c3661a47d3d67601b9eada
+gnutls_bundled_libtasn1_version=4.20.0
+gnutls_bundled_unistring=yes
+nasm_version=2.16.03
+nasm_url=https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz
+nasm_sha256=1412a1c760bbd05db026b6c0d1657affd6631cd0a63cddb6f73cc6d4aa616148
+nasm_release_git_id=b9b8718a0878523d5c45f0ab583261a3ab835ae6
+nasm_detached_signature=not-published-by-release-directory
+nasm_verification=official-release-url-and-pinned-sha256-plus-git-id
+patch_manifest_sha256=b4483dd4e56d70bbfd432621a9613616316c59941aa2c1b600abf1fda1b0398d
+source_date_epoch=1781984717
+artifact_role=GnuTLS-SecTrust-candidate-not-release
+minimum_ios_version=15.0
+expected_slice_inventory=ios-device-arm64,ios-simulator-arm64,ios-simulator-x86_64,maccatalyst-arm64,maccatalyst-x86_64
+expected_library_inventory=libavutil,libswresample,libswscale,libavcodec,libavformat,libavfilter,libavdevice
+expected_transport_configuration=gnutls-enabled,securetransport-disabled,openssl-disabled,mbedtls-disabled,libtls-disabled
+expected_input_capabilities=http,https,hls,rtsp,rtmp,rtmpe,ffrtmpcrypt,file
+expected_platform_capabilities=AudioToolbox,VideoToolbox,AVFoundation,Security,CoreFoundation
+
+[xcodebuild -version]
+Xcode 26.4
+Build version 17E192
+
+[clang]
+Apple clang version 21.0.0 (clang-2100.0.123.102)
+Target: arm64-apple-darwin25.4.0
+Thread model: posix
+InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
+
+[git]
+git version 2.50.1 (Apple Git-155)
+
+[SDK paths]
+iphoneos=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk
+iphonesimulator=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.4.sdk
+macosx=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.4.sdk

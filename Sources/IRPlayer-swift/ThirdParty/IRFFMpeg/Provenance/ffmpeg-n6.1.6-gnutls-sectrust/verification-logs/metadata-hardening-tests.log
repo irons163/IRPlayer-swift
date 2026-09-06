@@ -1,0 +1,15 @@
+test_added_link_fails (__main__.PackageIntegrityTests.test_added_link_fails) ... ok
+test_added_regular_file_fails (__main__.PackageIntegrityTests.test_added_regular_file_fails) ... ok
+test_dangling_manifest_link_is_not_followed (__main__.PackageIntegrityTests.test_dangling_manifest_link_is_not_followed) ... ok
+test_deleted_link_fails (__main__.PackageIntegrityTests.test_deleted_link_fails) ... ok
+test_existing_manifest_cannot_be_silently_replaced (__main__.PackageIntegrityTests.test_existing_manifest_cannot_be_silently_replaced) ... ok
+test_newline_in_link_path_and_target_is_unambiguous (__main__.PackageIntegrityTests.test_newline_in_link_path_and_target_is_unambiguous) ... ok
+test_regular_file_tampering_fails (__main__.PackageIntegrityTests.test_regular_file_tampering_fails) ... ok
+test_retargeted_link_fails_even_when_target_bytes_are_equal (__main__.PackageIntegrityTests.test_retargeted_link_fails_even_when_target_bytes_are_equal) ... ok
+test_symlink_manifest_is_bound_by_artifact_checksum (__main__.PackageIntegrityTests.test_symlink_manifest_is_bound_by_artifact_checksum) ... ok
+test_valid_package_and_portable_license_checksums (__main__.PackageIntegrityTests.test_valid_package_and_portable_license_checksums) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 2.228s
+
+OK

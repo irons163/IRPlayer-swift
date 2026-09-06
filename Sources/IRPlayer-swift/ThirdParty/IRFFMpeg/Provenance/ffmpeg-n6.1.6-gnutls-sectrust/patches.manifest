@@ -1,0 +1,12 @@
+patch_application_order=lexicographic-path
+patch_mode=auto
+path=Scripts/dependencies/patches/0001-avformat-tls-verify-peer-certificates-by-default.patch
+sha256=e94a33e4ffc3a2f2f390486dbc5a08d9e815c18c58c3d838984a32167fe39f76
+path=Scripts/dependencies/patches/0002-avformat-scope-headers-and-preserve-HTTPS-transport.patch
+sha256=44313b8e00237a052701b140dc466512202e687c5ab8b7e06af3c48d4dbb9b68
+path=Scripts/dependencies/patches/0003-avformat-gnutls-verify-Apple-system-trust.patch
+sha256=f90de3af66db36820a24b13b680bbb90df6abd397b0e6a0a2337d752d0d7fb3a
+path=Scripts/dependencies/patches/0004-avformat-scope-automatic-cookies.patch
+sha256=da65f1a2572800f01eefe1392cba2bceafed63198d31bf8c6077445be3710f2c
+path=Scripts/dependencies/patches/0005-avcodec-videotoolbox-use-Metal-key-on-Catalyst.patch
+sha256=0582b85a1bd9a945f297dd11c82e24df6ed4eb20c9e9ebc340ab1e6096efcaf0

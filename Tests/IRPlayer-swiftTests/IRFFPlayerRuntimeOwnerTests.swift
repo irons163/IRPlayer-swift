@@ -112,6 +112,38 @@ final class IRFFPlayerStateMachineOwnerTests: XCTestCase {
         XCTAssertTrue(machine.hasPreparedOnce)
     }
 
+    func testPreparedEventPreservesRequestedPlaybackBeforeAndAfterUnbufferedCallback() {
+        var machine = IRFFPlayerStateMachine()
+        _ = machine.transition(to: .buffering)
+        _ = machine.beginPlay()
+
+        XCTAssertNil(machine.applyPrepared())
+        XCTAssertEqual(machine.state, .buffering)
+        XCTAssertTrue(machine.playRequested)
+
+        XCTAssertEqual(
+            machine.applyBuffering(false),
+            .init(previous: .buffering, current: .playing)
+        )
+        XCTAssertNil(machine.applyPrepared())
+        XCTAssertEqual(machine.state, .playing)
+    }
+
+    func testPreparedEventPreservesPausedAndTerminalStates() {
+        for preservedState: IRPlayerState in [
+            .suspend,
+            .playing,
+            .finished,
+            .failed
+        ] {
+            var machine = IRFFPlayerStateMachine()
+            _ = machine.transition(to: preservedState)
+
+            XCTAssertNil(machine.applyPrepared())
+            XCTAssertEqual(machine.state, preservedState)
+        }
+    }
+
     func testResetClearsAllOwnedPlaybackState() {
         var machine = IRFFPlayerStateMachine()
         _ = machine.beginPlay()
@@ -1397,16 +1429,16 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
 
         let frame = IRFFAudioFrame()
         runtime.currentAudioFrame = frame
-        var results: [Bool] = []
-        runtime.seek(to: 2) { results.append($0) }
+        let results = FFPlayerBoolRecorder()
+        runtime.seek(to: 2, completion: results.append)
         XCTAssertFalse(manager.playing)
         XCTAssertNil(runtime.currentAudioFrame)
 
-        runtime.seek(to: 4) { results.append($0) }
+        runtime.seek(to: 4, completion: results.append)
         decoder.finishSeek(at: 0, result: true)
         XCTAssertTrue(
             waitUntil(timeout: 1) {
-                results.count == 1
+                results.values.count == 1
             }
         )
         XCTAssertFalse(manager.playing)
@@ -1415,11 +1447,11 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
         decoder.finishSeek(at: 1, result: true)
         XCTAssertTrue(
             waitUntil(timeout: 1) {
-                manager.playing && results.count == 2
+                manager.playing && results.values.count == 2
             }
         )
         XCTAssertEqual(driver.startCount, initialStartCount + 1)
-        XCTAssertEqual(results, [true, true])
+        XCTAssertEqual(results.values, [true, true])
     }
 
     func testCloseIsSilentAndRejectsAllLaterCommandsAndEvents() throws {
@@ -1558,6 +1590,105 @@ final class IRFFPlayerRuntimeOwnerTests: XCTestCase {
         XCTAssertTrue(runtime.playRequested)
         XCTAssertEqual(runtime.state, .playing)
         XCTAssertFalse(host.states.contains(.readyToPlay))
+    }
+
+    func testPreparedAfterUnbufferedCallbackDoesNotDowngradePlayingThroughDelegateBridge()
+        throws
+    {
+        let host = FFPlayerRuntimeHostSpy()
+        let runtime = IRFFPlayerRuntime(host: host, audioManager: nil)
+        let decoder = ControlledFFPlayerDecoder(duration: 10)
+        XCTAssertNotNil(runtime.adopt(decoder))
+        let bridge = try XCTUnwrap(decoder.delegate)
+
+        bridge.decoderWillOpenInputStream(decoder)
+        runtime.executor.sync {}
+        bridge.decoder(
+            decoder,
+            didChangeValueOfBuffering: false,
+            generation: decoder.decodeGeneration
+        )
+        runtime.executor.sync {}
+        XCTAssertEqual(runtime.state, .readyToPlay)
+
+        runtime.play()
+        XCTAssertEqual(runtime.state, .playing)
+
+        bridge.decoderDidPrepareToDecodeFrames(decoder)
+        runtime.executor.sync {}
+
+        XCTAssertEqual(runtime.state, .playing)
+        XCTAssertEqual(
+            host.states,
+            [.buffering, .readyToPlay, .playing]
+        )
+    }
+
+    func testPreparedBeforeUnbufferedCallbackPreservesPlayIntentThroughDelegateBridge()
+        throws
+    {
+        let host = FFPlayerRuntimeHostSpy()
+        let runtime = IRFFPlayerRuntime(host: host, audioManager: nil)
+        let decoder = ControlledFFPlayerDecoder(duration: 10)
+        XCTAssertNotNil(runtime.adopt(decoder))
+        let bridge = try XCTUnwrap(decoder.delegate)
+
+        bridge.decoderWillOpenInputStream(decoder)
+        runtime.executor.sync {}
+        runtime.play()
+        XCTAssertTrue(runtime.playRequested)
+        XCTAssertEqual(runtime.state, .buffering)
+
+        bridge.decoderDidPrepareToDecodeFrames(decoder)
+        runtime.executor.sync {}
+        XCTAssertEqual(runtime.state, .buffering)
+        XCTAssertFalse(host.states.contains(.readyToPlay))
+
+        bridge.decoder(
+            decoder,
+            didChangeValueOfBuffering: false,
+            generation: decoder.decodeGeneration
+        )
+        runtime.executor.sync {}
+
+        XCTAssertEqual(runtime.state, .playing)
+        XCTAssertEqual(host.states, [.buffering, .playing])
+    }
+
+    func testPreparedAfterPausePreservesSuspendThroughDelegateBridge() throws {
+        let host = FFPlayerRuntimeHostSpy()
+        let runtime = IRFFPlayerRuntime(host: host, audioManager: nil)
+        let decoder = ControlledFFPlayerDecoder(duration: 10)
+        XCTAssertNotNil(runtime.adopt(decoder))
+        let bridge = try XCTUnwrap(decoder.delegate)
+
+        bridge.decoderWillOpenInputStream(decoder)
+        runtime.executor.sync {}
+        runtime.pause()
+        XCTAssertEqual(runtime.state, .suspend)
+
+        bridge.decoderDidPrepareToDecodeFrames(decoder)
+        runtime.executor.sync {}
+
+        XCTAssertEqual(runtime.state, .suspend)
+        XCTAssertEqual(host.states, [.buffering, .suspend])
+    }
+
+    func testPreparedPreservesTerminalStateThroughDelegateBridge() throws {
+        for terminalState: IRPlayerState in [.finished, .failed] {
+            let host = FFPlayerRuntimeHostSpy()
+            let runtime = IRFFPlayerRuntime(host: host, audioManager: nil)
+            let decoder = ControlledFFPlayerDecoder(duration: 10)
+            XCTAssertNotNil(runtime.adopt(decoder))
+            let bridge = try XCTUnwrap(decoder.delegate)
+
+            runtime.state = terminalState
+            bridge.decoderDidPrepareToDecodeFrames(decoder)
+            runtime.executor.sync {}
+
+            XCTAssertEqual(runtime.state, terminalState)
+            XCTAssertEqual(host.states, [terminalState])
+        }
     }
 
     func testReentrantPauseDuringResumeWinsPlaybackCommand() {

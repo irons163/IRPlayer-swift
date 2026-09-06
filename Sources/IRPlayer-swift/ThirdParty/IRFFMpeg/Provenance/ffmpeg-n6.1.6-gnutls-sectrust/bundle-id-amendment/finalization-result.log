@@ -1,0 +1,7 @@
+mode=metadata-signature-only-finalization
+recipe_sha256=d06ae2b3eab95aa4c5e821905a7d511833551efdcc141e79b57a5a166268bb44
+artifact_manifest_sha256=77ae5f243a7b979d460e4a9454ddec7d433b708f603b9a9b77de3fc1b5485de8
+artifact_regular_files=620
+artifact_symlinks=28
+license_records=18
+exit=0

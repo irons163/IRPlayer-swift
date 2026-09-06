@@ -5,23 +5,9 @@
 //  Metal-only implementation (OpenGL-free)
 //
 
-import Foundation
+final class IRGLProjectionOrthographic: IRGLProjection {
+    init(textureWidth _: Float, height _: Float) {}
 
-class IRGLProjectionOrthographic: IRGLProjection {
-
-    init(textureWidth w: Float, height h: Float) {
-        // No OpenGL buffer setup needed for Metal path.
-    }
-
-    func update(with parameter: IRMediaParameter) {
-        // No-op
-    }
-
-    func updateVertex() {
-        // No-op
-    }
-
-    func draw() {
-        // No-op
-    }
+    // Flat quads are supplied by the Metal renderer, independent of media size.
+    func update(with _: IRMediaParameter) {}
 }

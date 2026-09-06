@@ -68,6 +68,9 @@ Carthage/Build/
 
 # Accio dependency management
 Dependencies/
+# Keep reproducible dependency recipes and security patches in source control.
+!/Scripts/dependencies/
+__pycache__/
 .accio/
 
 # fastlane

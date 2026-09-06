@@ -241,17 +241,6 @@ enum IRPlayerNotificationPayload {
     }
 }
 
-// MARK: - Player State Enum
-//@objc public enum IRPlayerState: Int {
-//    case none = 0          // none
-//    case buffering = 1     // buffering
-//    case readyToPlay = 2   // ready to play
-//    case playing = 3       // playing
-//    case suspend = 4       // pause
-//    case finished = 5      // finished
-//    case failed = 6        // failed
-//}
-
 // MARK: - IRPlayer Action Models
 
 public class IRModel: NSObject {

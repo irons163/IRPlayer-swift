@@ -522,7 +522,7 @@ final class IRFFPlayerRuntime: @unchecked Sendable {
             )
         case .prepared:
             applyStateTransitionLocked(
-                stateMachine.transition(to: .readyToPlay)
+                stateMachine.applyPrepared()
             )
         case .endOfFile:
             setPlayableTimeLocked(currentDurationLocked())

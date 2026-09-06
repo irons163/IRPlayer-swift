@@ -1,0 +1,20 @@
+check=original-build-input-and-output-fingerprints
+2026-09-06 13:19:02.504 system_profiler[6762:3057349] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=ios-device-arm64
+2026-09-06 13:19:06.965 system_profiler[7095:3057938] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=ios-simulator-arm64
+2026-09-06 13:19:08.530 system_profiler[7431:3058490] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=ios-simulator-x86_64
+2026-09-06 13:19:09.934 system_profiler[7766:3059059] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=maccatalyst-arm64
+2026-09-06 13:19:11.506 system_profiler[8252:3059855] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=maccatalyst-x86_64
+check=recorded-stage-dylib-sha256sums
+validated_stage_dylibs=ios-device-arm64
+validated_stage_dylibs=ios-simulator-arm64
+validated_stage_dylibs=ios-simulator-x86_64
+validated_stage_dylibs=maccatalyst-arm64
+validated_stage_dylibs=maccatalyst-x86_64
+check=corrected-package-verifier-and-existing-artifact-checksums
+validated_corrected_package_verifier=all-three-families
+reverification=passed

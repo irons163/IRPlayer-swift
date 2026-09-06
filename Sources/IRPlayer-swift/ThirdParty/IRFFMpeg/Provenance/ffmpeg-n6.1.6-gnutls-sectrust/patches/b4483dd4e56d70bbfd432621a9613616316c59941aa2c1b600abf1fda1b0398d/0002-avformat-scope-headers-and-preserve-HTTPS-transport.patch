@@ -1,0 +1,643 @@
+From 3ea3984be4ba3d1578a61b996b1ee817ef433510 Mon Sep 17 00:00:00 2001
+From: Phil <irons7654321@gmail.com>
+Date: Sun, 6 Sep 2026 10:21:44 +0800
+Subject: [PATCH] avformat: scope headers and preserve HTTPS transport
+
+---
+ libavformat/Makefile            |   1 +
+ libavformat/aviobuf.c           |   4 +-
+ libavformat/hls.c               |  20 ++-
+ libavformat/http.c              | 292 ++++++++++++++++++++++++++++----
+ libavformat/http.h              |  13 ++
+ libavformat/tests/http_origin.c |  58 +++++++
+ tests/fate/libavformat.mak      |   5 +
+ 7 files changed, 359 insertions(+), 34 deletions(-)
+ create mode 100644 libavformat/tests/http_origin.c
+
+diff --git a/libavformat/Makefile b/libavformat/Makefile
+index 329055c..335ddf6 100644
+--- a/libavformat/Makefile
++++ b/libavformat/Makefile
+@@ -751,6 +751,7 @@ TESTPROGS-$(CONFIG_FIFO_MUXER)           += $(FIFO-MUXER-TESTPROGS-yes)
+ TESTPROGS-$(CONFIG_FFRTMPCRYPT_PROTOCOL) += rtmpdh
+ TESTPROGS-$(CONFIG_MOV_MUXER)            += movenc
+ TESTPROGS-$(CONFIG_NETWORK)              += noproxy
++TESTPROGS-$(CONFIG_HTTP_PROTOCOL)        += http_origin
+ TESTPROGS-$(CONFIG_SRTP)                 += srtp
+ TESTPROGS-$(CONFIG_IMF_DEMUXER)          += imf
+ 
+diff --git a/libavformat/aviobuf.c b/libavformat/aviobuf.c
+index 32757f0..53bcb55 100644
+--- a/libavformat/aviobuf.c
++++ b/libavformat/aviobuf.c
+@@ -1039,7 +1039,9 @@ URLContext* ffio_geturlcontext(AVIOContext *s)
+ int ffio_copy_url_options(AVIOContext* pb, AVDictionary** avio_opts)
+ {
+     const char *opts[] = {
+-        "headers", "user_agent", "cookies", "http_proxy", "referer", "rw_timeout", "icy", NULL };
++        "headers", "_http_headers_origin", "_http_require_https",
++        "user_agent", "cookies", "http_proxy", "referer", "rw_timeout", "icy",
++        "ca_file", "protocol_whitelist", "protocol_blacklist", NULL };
+     const char **opt = opts;
+     uint8_t *buf = NULL;
+     int ret = 0;
+diff --git a/libavformat/hls.c b/libavformat/hls.c
+index f98cc67..73ffa8c 100644
+--- a/libavformat/hls.c
++++ b/libavformat/hls.c
+@@ -628,7 +628,8 @@ static int ensure_playlist(HLSContext *c, struct playlist **pls, const char *url
+ }
+ 
+ static int open_url_keepalive(AVFormatContext *s, AVIOContext **pb,
+-                              const char *url, AVDictionary **options)
++                              const char *url, AVDictionary **options,
++                              int *policy_denied)
+ {
+ #if !CONFIG_HTTP_PROTOCOL
+     return AVERROR_PROTOCOL_NOT_FOUND;
+@@ -636,8 +637,12 @@ static int open_url_keepalive(AVFormatContext *s, AVIOContext **pb,
+     int ret;
+     URLContext *uc = ffio_geturlcontext(*pb);
+     av_assert0(uc);
++    if (policy_denied)
++        *policy_denied = 0;
+     (*pb)->eof_reached = 0;
+     ret = ff_http_do_new_request2(uc, url, options);
++    if (policy_denied)
++        *policy_denied = ff_http_transport_policy_denied(uc);
+     if (ret < 0) {
+         ff_format_io_close(s, pb);
+     }
+@@ -653,6 +658,7 @@ static int open_url(AVFormatContext *s, AVIOContext **pb, const char *url,
+     const char *proto_name = NULL;
+     int ret;
+     int is_http = 0;
++    int policy_denied = 0;
+ 
+     if (av_strstart(url, "crypto", NULL)) {
+         if (url[6] == '+' || url[6] == ':')
+@@ -697,11 +703,15 @@ static int open_url(AVFormatContext *s, AVIOContext **pb, const char *url,
+     av_dict_copy(&tmp, opts2, 0);
+ 
+     if (is_http && c->http_persistent && *pb) {
+-        ret = open_url_keepalive(c->ctx, pb, url, &tmp);
++        ret = open_url_keepalive(c->ctx, pb, url, &tmp, &policy_denied);
+         if (ret == AVERROR_EXIT) {
+             av_dict_free(&tmp);
+             return ret;
+         } else if (ret < 0) {
++            if (policy_denied) {
++                av_dict_free(&tmp);
++                return ret;
++            }
+             if (ret != AVERROR_EOF)
+                 av_log(s, AV_LOG_WARNING,
+                     "keepalive request failed for '%s' with error: '%s' when opening url, retrying with new connection\n",
+@@ -784,6 +794,7 @@ static int parse_playlist(HLSContext *c, const char *url,
+     enum KeyType key_type = KEY_NONE;
+     uint8_t iv[16] = "";
+     int has_iv = 0;
++    int policy_denied = 0;
+     char key[MAX_URL_SIZE] = "";
+     char line[MAX_URL_SIZE];
+     const char *ptr;
+@@ -801,10 +812,13 @@ static int parse_playlist(HLSContext *c, const char *url,
+ 
+     if (is_http && !in && c->http_persistent && c->playlist_pb) {
+         in = c->playlist_pb;
+-        ret = open_url_keepalive(c->ctx, &c->playlist_pb, url, NULL);
++        ret = open_url_keepalive(c->ctx, &c->playlist_pb, url, NULL,
++                                 &policy_denied);
+         if (ret == AVERROR_EXIT) {
+             return ret;
+         } else if (ret < 0) {
++            if (policy_denied)
++                return ret;
+             if (ret != AVERROR_EOF)
+                 av_log(c->ctx, AV_LOG_WARNING,
+                     "keepalive request failed for '%s' with error: '%s' when parsing playlist\n",
+diff --git a/libavformat/http.c b/libavformat/http.c
+index eeb9427..07a2135 100644
+--- a/libavformat/http.c
++++ b/libavformat/http.c
+@@ -80,6 +80,12 @@ typedef struct HTTPContext {
+     HTTPAuthState proxy_auth_state;
+     char *http_proxy;
+     char *headers;
++    char *ca_file;
++    /* Immutable root origin for raw custom headers. */
++    char *headers_origin;
++    /* Set for an HTTPS root so nested I/O cannot downgrade transport. */
++    int require_https;
++    int transport_policy_denied;
+     char *mime_type;
+     char *http_version;
+     char *user_agent;
+@@ -150,6 +156,10 @@ static const AVOption options[] = {
+     { "chunked_post", "use chunked transfer-encoding for posts", OFFSET(chunked_post), AV_OPT_TYPE_BOOL, { .i64 = 1 }, 0, 1, E },
+     { "http_proxy", "set HTTP proxy to tunnel through", OFFSET(http_proxy), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, D | E },
+     { "headers", "set custom HTTP headers, can override built in default headers", OFFSET(headers), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, D | E },
++    { "ca_file", "Certificate Authority database file for HTTPS", OFFSET(ca_file), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, D },
++    { "cafile", "Certificate Authority database file for HTTPS", OFFSET(ca_file), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, D },
++    { "_http_headers_origin", "internal origin for custom HTTP headers", OFFSET(headers_origin), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, D },
++    { "_http_require_https", "internal HTTPS transport requirement", OFFSET(require_https), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, D },
+     { "content_type", "set a specific content type for the POST messages", OFFSET(content_type), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, D | E },
+     { "user_agent", "override User-Agent header", OFFSET(user_agent), AV_OPT_TYPE_STRING, { .str = DEFAULT_USER_AGENT }, 0, 0, D },
+     { "referer", "override referer header", OFFSET(referer), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, D },
+@@ -200,6 +210,203 @@ void ff_http_init_auth_state(URLContext *dest, const URLContext *src)
+            sizeof(HTTPAuthState));
+ }
+ 
++typedef struct HTTPOrigin {
++    int is_https;
++    int port;
++    int is_ipv6;
++    char host[1024];
++    uint8_t ipv6[16];
++} HTTPOrigin;
++
++static int http_parse_origin(const char *url, HTTPOrigin *origin)
++{
++    URLComponents uc;
++    const char *p;
++    size_t host_len, scheme_len;
++    int ret;
++
++    memset(origin, 0, sizeof(*origin));
++    ret = ff_url_decompose(&uc, url, NULL);
++    if (ret < 0)
++        return ret;
++
++    if (uc.end - uc.authority < 2 || uc.authority[0] != '/' ||
++        uc.authority[1] != '/')
++        return AVERROR(EINVAL);
++
++    scheme_len = uc.authority - uc.scheme - 1;
++    if (scheme_len == 4 && !av_strncasecmp(uc.scheme, "http", 4)) {
++        origin->is_https = 0;
++        origin->port = 80;
++    } else if (scheme_len == 5 && !av_strncasecmp(uc.scheme, "https", 5)) {
++        origin->is_https = 1;
++        origin->port = 443;
++    } else {
++        return AVERROR(EINVAL);
++    }
++
++    host_len = uc.port - uc.host;
++    if (!host_len || host_len >= sizeof(origin->host))
++        return AVERROR(EINVAL);
++
++    if (uc.host[0] == '[') {
++        if (host_len < 3 || uc.host[host_len - 1] != ']')
++            return AVERROR(EINVAL);
++        host_len -= 2;
++        if (host_len >= sizeof(origin->host))
++            return AVERROR(EINVAL);
++        memcpy(origin->host, uc.host + 1, host_len);
++        origin->host[host_len] = 0;
++        if (inet_pton(AF_INET6, origin->host, origin->ipv6) != 1)
++            return AVERROR(EINVAL);
++        origin->is_ipv6 = 1;
++    } else {
++        if (memchr(uc.host, '[', host_len) || memchr(uc.host, ']', host_len))
++            return AVERROR(EINVAL);
++        memcpy(origin->host, uc.host, host_len);
++        origin->host[host_len] = 0;
++    }
++
++    if (URL_COMPONENT_HAVE(uc, port)) {
++        int port = 0;
++
++        if (*uc.port != ':')
++            return AVERROR(EINVAL);
++        for (p = uc.port + 1; p < uc.path; p++) {
++            int digit;
++
++            if (*p < '0' || *p > '9')
++                return AVERROR(EINVAL);
++            digit = *p - '0';
++            if (port > (65535 - digit) / 10)
++                return AVERROR(EINVAL);
++            port = 10 * port + digit;
++        }
++        if (!port)
++            return AVERROR(EINVAL);
++        origin->port = port;
++    }
++
++    return 0;
++}
++
++int ff_http_origin_matches(const char *origin_url, const char *url)
++{
++    HTTPOrigin origin, target;
++    int ret;
++
++    ret = http_parse_origin(origin_url, &origin);
++    if (ret < 0)
++        return ret;
++    ret = http_parse_origin(url, &target);
++    if (ret < 0)
++        return ret;
++
++    if (origin.is_https != target.is_https || origin.port != target.port ||
++        origin.is_ipv6 != target.is_ipv6)
++        return 0;
++    if (origin.is_ipv6)
++        return !memcmp(origin.ipv6, target.ipv6, sizeof(origin.ipv6));
++    return !av_strcasecmp(origin.host, target.host);
++}
++
++static int http_validate_transport_policy(URLContext *h, const char *url)
++{
++    HTTPContext *s = h->priv_data;
++    HTTPOrigin target;
++    int ret;
++
++    if (!s->headers_origin && !s->require_https)
++        return 0;
++
++    ret = http_parse_origin(url, &target);
++    if (ret < 0) {
++        av_log(h, AV_LOG_ERROR,
++               "Invalid URL while applying HTTP transport policy\n");
++        return ret;
++    }
++    if (s->require_https && !target.is_https) {
++        s->transport_policy_denied = 1;
++        av_log(h, AV_LOG_ERROR,
++               "Refusing HTTP request because the root URL requires HTTPS\n");
++        return AVERROR(EPERM);
++    }
++    return 0;
++}
++
++static int http_init_transport_policy(URLContext *h, const char *uri)
++{
++    HTTPContext *s = h->priv_data;
++    HTTPOrigin origin;
++    int ret;
++
++    if (h->prot && !strcmp(h->prot->name, "https"))
++        s->require_https = 1;
++
++    if (s->headers && !s->headers_origin) {
++        s->headers_origin = av_strdup(uri);
++        if (!s->headers_origin)
++            return AVERROR(ENOMEM);
++    }
++
++    if (s->headers_origin) {
++        ret = http_parse_origin(s->headers_origin, &origin);
++        if (ret < 0)
++            return ret;
++        if (origin.is_https)
++            s->require_https = 1;
++    }
++
++    return http_validate_transport_policy(h, uri);
++}
++
++static int http_get_effective_headers(URLContext *h, const char **headers)
++{
++    HTTPContext *s = h->priv_data;
++    int ret;
++
++    *headers = s->headers;
++    if (!s->headers)
++        return 0;
++    if (!s->headers_origin) {
++        av_log(h, AV_LOG_ERROR,
++               "Refusing custom HTTP headers without a root origin\n");
++        return AVERROR(EINVAL);
++    }
++
++    ret = ff_http_origin_matches(s->headers_origin, s->location);
++    if (ret < 0) {
++        av_log(h, AV_LOG_ERROR,
++               "Invalid URL while applying custom HTTP header policy\n");
++        return ret;
++    }
++    if (!ret) {
++        av_log(h, AV_LOG_VERBOSE,
++               "Suppressing custom HTTP headers for cross-origin request\n");
++        *headers = NULL;
++    }
++    return 0;
++}
++
++static int http_set_request_options(HTTPContext *s, AVDictionary **opts)
++{
++    char *headers_origin = s->headers_origin;
++    int require_https;
++    int ret;
++
++    require_https = s->require_https;
++    if (headers_origin)
++        s->headers_origin = NULL;
++    ret = av_opt_set_dict(s, opts);
++    if (headers_origin) {
++        av_freep(&s->headers_origin);
++        s->headers_origin = headers_origin;
++    }
++    if (require_https)
++        s->require_https = 1;
++    return ret;
++}
++
+ static int http_open_cnx_internal(URLContext *h, AVDictionary **options)
+ {
+     const char *path, *proxy_path, *lower_proto = "tcp", *local_path;
+@@ -212,6 +419,10 @@ static int http_open_cnx_internal(URLContext *h, AVDictionary **options)
+     int port, use_proxy, err = 0;
+     HTTPContext *s = h->priv_data;
+ 
++    err = http_validate_transport_policy(h, s->location);
++    if (err < 0)
++        return err;
++
+     av_url_split(proto, sizeof(proto), auth, sizeof(auth),
+                  hostname, sizeof(hostname), &port,
+                  path1, sizeof(path1), s->location);
+@@ -431,6 +642,10 @@ redo:
+         if (redirects++ >= s->max_redirects)
+             return AVERROR(EIO);
+ 
++        ret = http_validate_transport_policy(h, s->new_location);
++        if (ret < 0)
++            goto fail;
++
+         if (!s->expires) {
+             s->expires = (s->http_code == 301 || s->http_code == 308) ? INT64_MAX : -1;
+         }
+@@ -468,26 +683,24 @@ int ff_http_do_new_request2(URLContext *h, const char *uri, AVDictionary **opts)
+     HTTPContext *s = h->priv_data;
+     AVDictionary *options = NULL;
+     int ret;
+-    char hostname1[1024], hostname2[1024], proto1[10], proto2[10];
+-    int port1, port2;
+ 
+     if (!h->prot ||
+         !(!strcmp(h->prot->name, "http") ||
+           !strcmp(h->prot->name, "https")))
+         return AVERROR(EINVAL);
+ 
+-    av_url_split(proto1, sizeof(proto1), NULL, 0,
+-                 hostname1, sizeof(hostname1), &port1,
+-                 NULL, 0, s->location);
+-    av_url_split(proto2, sizeof(proto2), NULL, 0,
+-                 hostname2, sizeof(hostname2), &port2,
+-                 NULL, 0, uri);
+-    if (port1 != port2 || strncmp(hostname1, hostname2, sizeof(hostname2)) != 0) {
+-        av_log(h, AV_LOG_ERROR, "Cannot reuse HTTP connection for different host: %s:%d != %s:%d\n",
+-            hostname1, port1,
+-            hostname2, port2
+-        );
+-        return AVERROR(EINVAL);
++    s->transport_policy_denied = 0;
++    if ((ret = http_set_request_options(s, opts)) < 0)
++        return ret;
++    if ((ret = http_validate_transport_policy(h, uri)) < 0)
++        return ret;
++
++    ret = ff_http_origin_matches(s->location, uri);
++    if (ret <= 0) {
++        if (ret == 0)
++            av_log(h, AV_LOG_ERROR,
++                   "Cannot reuse HTTP connection for a different origin\n");
++        return ret < 0 ? ret : AVERROR(EINVAL);
+     }
+ 
+     if (!s->end_chunked_post) {
+@@ -514,15 +727,20 @@ int ff_http_do_new_request2(URLContext *h, const char *uri, AVDictionary **opts)
+     if (!s->uri)
+         return AVERROR(ENOMEM);
+ 
+-    if ((ret = av_opt_set_dict(s, opts)) < 0)
+-        return ret;
+-
+     av_log(s, AV_LOG_INFO, "Opening \'%s\' for %s\n", uri, h->flags & AVIO_FLAG_WRITE ? "writing" : "reading");
+     ret = http_open_cnx(h, &options);
+     av_dict_free(&options);
+     return ret;
+ }
+ 
++int ff_http_transport_policy_denied(URLContext *h)
++{
++    if (!h || !h->prot ||
++        (strcmp(h->prot->name, "http") && strcmp(h->prot->name, "https")))
++        return 0;
++    return ((HTTPContext *)h->priv_data)->transport_policy_denied;
++}
++
+ int ff_http_averror(int status_code, int default_averror)
+ {
+     switch (status_code) {
+@@ -711,6 +929,11 @@ static int http_open(URLContext *h, const char *uri, int flags,
+ 
+     if (options)
+         av_dict_copy(&s->chained_options, *options, 0);
++    if (s->ca_file) {
++        ret = av_dict_set(&s->chained_options, "ca_file", s->ca_file, 0);
++        if (ret < 0)
++            goto bail_out;
++    }
+ 
+     if (s->headers) {
+         int len = strlen(s->headers);
+@@ -726,6 +949,10 @@ static int http_open(URLContext *h, const char *uri, int flags,
+         }
+     }
+ 
++    ret = http_init_transport_policy(h, uri);
++    if (ret < 0)
++        goto bail_out;
++
+     if (s->listen) {
+         return http_listen(h, uri, flags, options);
+     }
+@@ -1420,8 +1647,13 @@ static int http_connect(URLContext *h, const char *path, const char *local_path,
+     char *authstr = NULL, *proxyauthstr = NULL;
+     uint64_t off = s->off;
+     const char *method;
++    const char *headers;
+     int send_expect_100 = 0;
+ 
++    err = http_get_effective_headers(h, &headers);
++    if (err < 0)
++        return err;
++
+     av_bprint_init_for_buffer(&request, s->buffer, sizeof(s->buffer));
+ 
+     /* send http header */
+@@ -1467,50 +1699,50 @@ static int http_connect(URLContext *h, const char *path, const char *local_path,
+     if (post && s->chunked_post)
+         av_bprintf(&request, "Transfer-Encoding: chunked\r\n");
+     /* set default headers if needed */
+-    if (!has_header(s->headers, "\r\nUser-Agent: "))
++    if (!has_header(headers, "\r\nUser-Agent: "))
+         av_bprintf(&request, "User-Agent: %s\r\n", s->user_agent);
+     if (s->referer) {
+         /* set default headers if needed */
+-        if (!has_header(s->headers, "\r\nReferer: "))
++        if (!has_header(headers, "\r\nReferer: "))
+             av_bprintf(&request, "Referer: %s\r\n", s->referer);
+     }
+-    if (!has_header(s->headers, "\r\nAccept: "))
++    if (!has_header(headers, "\r\nAccept: "))
+         av_bprintf(&request, "Accept: */*\r\n");
+     // Note: we send the Range header on purpose, even when we're probing,
+     // since it allows us to detect more reliably if a (non-conforming)
+     // server supports seeking by analysing the reply headers.
+-    if (!has_header(s->headers, "\r\nRange: ") && !post && (s->off > 0 || s->end_off || s->seekable != 0)) {
++    if (!has_header(headers, "\r\nRange: ") && !post && (s->off > 0 || s->end_off || s->seekable != 0)) {
+         av_bprintf(&request, "Range: bytes=%"PRIu64"-", s->off);
+         if (s->end_off)
+             av_bprintf(&request, "%"PRId64, s->end_off - 1);
+         av_bprintf(&request, "\r\n");
+     }
+-    if (send_expect_100 && !has_header(s->headers, "\r\nExpect: "))
++    if (send_expect_100 && !has_header(headers, "\r\nExpect: "))
+         av_bprintf(&request, "Expect: 100-continue\r\n");
+ 
+-    if (!has_header(s->headers, "\r\nConnection: "))
++    if (!has_header(headers, "\r\nConnection: "))
+         av_bprintf(&request, "Connection: %s\r\n", s->multiple_requests ? "keep-alive" : "close");
+ 
+-    if (!has_header(s->headers, "\r\nHost: "))
++    if (!has_header(headers, "\r\nHost: "))
+         av_bprintf(&request, "Host: %s\r\n", hoststr);
+-    if (!has_header(s->headers, "\r\nContent-Length: ") && s->post_data)
++    if (!has_header(headers, "\r\nContent-Length: ") && s->post_data)
+         av_bprintf(&request, "Content-Length: %d\r\n", s->post_datalen);
+ 
+-    if (!has_header(s->headers, "\r\nContent-Type: ") && s->content_type)
++    if (!has_header(headers, "\r\nContent-Type: ") && s->content_type)
+         av_bprintf(&request, "Content-Type: %s\r\n", s->content_type);
+-    if (!has_header(s->headers, "\r\nCookie: ") && s->cookies) {
++    if (!has_header(headers, "\r\nCookie: ") && s->cookies) {
+         char *cookies = NULL;
+         if (!get_cookies(s, &cookies, path, hoststr) && cookies) {
+             av_bprintf(&request, "Cookie: %s\r\n", cookies);
+             av_free(cookies);
+         }
+     }
+-    if (!has_header(s->headers, "\r\nIcy-MetaData: ") && s->icy)
++    if (!has_header(headers, "\r\nIcy-MetaData: ") && s->icy)
+         av_bprintf(&request, "Icy-MetaData: 1\r\n");
+ 
+     /* now add in custom headers */
+-    if (s->headers)
+-        av_bprintf(&request, "%s", s->headers);
++    if (headers)
++        av_bprintf(&request, "%s", headers);
+ 
+     if (authstr)
+         av_bprintf(&request, "%s", authstr);
+diff --git a/libavformat/http.h b/libavformat/http.h
+index 5f650ef..54d315e 100644
+--- a/libavformat/http.h
++++ b/libavformat/http.h
+@@ -60,6 +60,19 @@ int ff_http_do_new_request(URLContext *h, const char *uri);
+  */
+ int ff_http_do_new_request2(URLContext *h, const char *uri, AVDictionary **options);
+ 
++/**
++ * Compare two HTTP(S) origins using a canonical scheme, host, and port.
++ *
++ * @return 1 if the origins match, 0 if they differ, or a negative error code
++ *         if either URL is not a valid HTTP(S) origin.
++ */
++int ff_http_origin_matches(const char *origin_url, const char *url);
++
++/**
++ * Return whether the last reusable HTTP request was denied by transport policy.
++ */
++int ff_http_transport_policy_denied(URLContext *h);
++
+ int ff_http_averror(int status_code, int default_averror);
+ 
+ #endif /* AVFORMAT_HTTP_H */
+diff --git a/libavformat/tests/http_origin.c b/libavformat/tests/http_origin.c
+new file mode 100644
+index 0000000..11fcbd4
+--- /dev/null
++++ b/libavformat/tests/http_origin.c
+@@ -0,0 +1,58 @@
++/*
++ * HTTP origin policy tests
++ *
++ * This file is part of FFmpeg.
++ */
++
++#include <stdio.h>
++
++#include "libavformat/http.h"
++#include "libavutil/common.h"
++#include "libavutil/error.h"
++
++typedef struct OriginTest {
++    const char *origin;
++    const char *url;
++    int expected;
++} OriginTest;
++
++static int check(const OriginTest *test)
++{
++    int actual = ff_http_origin_matches(test->origin, test->url);
++
++    if (actual != test->expected) {
++        fprintf(stderr, "origin mismatch: %s <> %s: expected %d, got %d\n",
++                test->origin, test->url, test->expected, actual);
++        return 1;
++    }
++    return 0;
++}
++
++int main(void)
++{
++    static const OriginTest tests[] = {
++        { "HTTPS://Example.COM:443/root", "https://example.com/next", 1 },
++        { "http://example.test/root", "HTTP://EXAMPLE.TEST:80/next", 1 },
++        { "https://user:pass@EXAMPLE.test:443/root", "https://example.test/next", 1 },
++        { "https://[2001:db8::1]/root", "HTTPS://[2001:0DB8:0:0:0:0:0:1]:443/next", 1 },
++        { "https://[::1]:444/root", "https://[::1]:443/next", 0 },
++        { "https://example.test/root", "http://example.test/next", 0 },
++        { "http://example.test:443/root", "https://example.test:443/next", 0 },
++        { "https://example.test/root", "https://other.test/next", 0 },
++        { "https://example.test:444/root", "https://example.test/next", 0 },
++        { "https:/missing-authority", "https://example.test/next", AVERROR(EINVAL) },
++        { "https://[::1", "https://[::1]/next", AVERROR(EINVAL) },
++        { "https://[not-an-ipv6]/root", "https://[::1]/next", AVERROR(EINVAL) },
++        { "https://example.test:0/root", "https://example.test/next", AVERROR(EINVAL) },
++        { "https://example.test:65536/root", "https://example.test/next", AVERROR(EINVAL) },
++        { "https://example.test:abc/root", "https://example.test/next", AVERROR(EINVAL) },
++        { "https://example.test/root", "https://example.test:/next", AVERROR(EINVAL) },
++    };
++    int failed = 0;
++    int i;
++
++    for (i = 0; i < FF_ARRAY_ELEMS(tests); i++)
++        failed |= check(&tests[i]);
++
++    return failed;
++}
+diff --git a/tests/fate/libavformat.mak b/tests/fate/libavformat.mak
+index d2acb4c..a3979cb 100644
+--- a/tests/fate/libavformat.mak
++++ b/tests/fate/libavformat.mak
+@@ -6,6 +6,11 @@ FATE_LIBAVFORMAT-$(CONFIG_NETWORK) += fate-noproxy
+ fate-noproxy: libavformat/tests/noproxy$(EXESUF)
+ fate-noproxy: CMD = run libavformat/tests/noproxy$(EXESUF)
+ 
++FATE_LIBAVFORMAT-$(CONFIG_HTTP_PROTOCOL) += fate-http-origin
++fate-http-origin: libavformat/tests/http_origin$(EXESUF)
++fate-http-origin: CMD = run libavformat/tests/http_origin$(EXESUF)
++fate-http-origin: CMP = null
++
+ FATE_LIBAVFORMAT-$(CONFIG_FFRTMPCRYPT_PROTOCOL) += fate-rtmpdh
+ fate-rtmpdh: libavformat/tests/rtmpdh$(EXESUF)
+ fate-rtmpdh: CMD = run libavformat/tests/rtmpdh$(EXESUF)
+-- 
+2.50.1 (Apple Git-155)
+

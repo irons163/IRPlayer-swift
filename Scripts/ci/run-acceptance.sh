@@ -4,9 +4,9 @@ set -euo pipefail
 
 mode="${1:-all}"
 case "$mode" in
-    framework | ui | all) ;;
+    framework | transport | ui | package | sanitizer | all) ;;
     *)
-        echo "Usage: $0 [framework|ui|all]" >&2
+        echo "Usage: $0 [framework|transport|ui|package|sanitizer|all]" >&2
         exit 2
         ;;
 esac
@@ -48,6 +48,24 @@ prepare_simulator() {
     xcrun simctl bootstatus "$simulator_id" -b
 }
 
+run_transport_acceptance() {
+    local probe_directory="$repository_root/Scripts/dependencies/tests/ios_tls_probe"
+    local packaged_libraries="$repository_root/Sources/IRPlayer-swift/ThirdParty/IRFFMpeg/Libs"
+    local regression
+    prepare_simulator
+    # Validate the binaries actually shipped by the SDK, never a temporary
+    # build stage supplied through the developer's environment.
+    python3 "$probe_directory/run_tls13_regression.py" \
+        --stage "$packaged_libraries" --device "$simulator_id" \
+        --verification default \
+        2>&1 | tee "$result_directory/transport-tls13.log"
+    for regression in http hls reconnect deadline cookie; do
+        python3 "$probe_directory/run_${regression}_regression.py" \
+            --stage "$packaged_libraries" --device "$simulator_id" \
+            2>&1 | tee "$result_directory/transport-${regression}.log"
+    done
+}
+
 run_framework_acceptance() {
     local device_build_log="$result_directory/framework-device-build.log"
     local test_log="$result_directory/framework-tests.log"
@@ -79,6 +97,7 @@ run_framework_acceptance() {
         -derivedDataPath "$derived_data_directory/framework-tests" \
         -resultBundlePath "$result_bundle" \
         -parallel-testing-enabled NO
+    run_transport_acceptance
 }
 
 run_ui_acceptance() {
@@ -102,16 +121,68 @@ run_ui_acceptance() {
         -only-testing:SPMDemoUITests/SPMDemoUITests
 }
 
+run_package_acceptance() {
+    swift build \
+        --scratch-path "$derived_data_directory/package-device" \
+        --triple arm64-apple-ios15.0 \
+        --sdk "$(xcrun --sdk iphoneos --show-sdk-path)" \
+        2>&1 | tee "$result_directory/package-device-build.log"
+
+    swift build --build-tests \
+        --scratch-path "$derived_data_directory/package-simulator" \
+        --triple arm64-apple-ios15.0-simulator \
+        --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+        2>&1 | tee "$result_directory/package-test-build.log"
+
+    run_xcodebuild "$result_directory/sdk-documentation.log" \
+        docbuild \
+        -project IRPlayer-swift.xcodeproj \
+        -scheme IRPlayer-swift \
+        -destination "generic/platform=iOS" \
+        -derivedDataPath "$derived_data_directory/documentation" \
+        CODE_SIGNING_ALLOWED=NO \
+        OTHER_DOCC_FLAGS="--warnings-as-errors"
+}
+
+run_sanitizer_acceptance() {
+    local result_bundle="$result_directory/framework-tsan.xcresult"
+    if [[ -e "$result_bundle" ]]; then
+        echo "Result bundle already exists: $result_bundle" >&2
+        exit 1
+    fi
+    prepare_simulator
+    run_xcodebuild "$result_directory/framework-tsan.log" \
+        test \
+        -project IRPlayer-swift.xcodeproj \
+        -scheme IRPlayer-swift \
+        -destination "platform=iOS Simulator,id=$simulator_id" \
+        -derivedDataPath "$derived_data_directory/framework-tsan" \
+        -resultBundlePath "$result_bundle" \
+        -parallel-testing-enabled NO \
+        -enableThreadSanitizer YES
+}
+
 case "$mode" in
     framework)
         run_framework_acceptance
         ;;
+    transport)
+        run_transport_acceptance
+        ;;
     ui)
         run_ui_acceptance
+        ;;
+    package)
+        run_package_acceptance
+        ;;
+    sanitizer)
+        run_sanitizer_acceptance
         ;;
     all)
         run_framework_acceptance
         run_ui_acceptance
+        run_package_acceptance
+        run_sanitizer_acceptance
         ;;
 esac
 

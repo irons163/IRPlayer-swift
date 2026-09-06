@@ -156,28 +156,6 @@ final class IRGLProjectionVRTests: XCTestCase {
         XCTAssertEqual(first.generation, second.generation)
         XCTAssertEqual(first.mesh, second.mesh)
     }
-
-    func testProjectionNoOpUpdateDrawMethodsRemainCallable() {
-        let mediaParameter = IRMediaParameter(width: 640, height: 480)
-        let vrProjection = IRGLProjectionVR(
-            textureWidth: 640,
-            height: 480
-        )
-        let orthographicProjection = IRGLProjectionOrthographic(
-            textureWidth: 640,
-            height: 480
-        )
-
-        vrProjection.update(with: mediaParameter)
-        vrProjection.updateVertex()
-        vrProjection.draw()
-        orthographicProjection.update(with: mediaParameter)
-        orthographicProjection.updateVertex()
-        orthographicProjection.draw()
-
-        XCTAssertEqual(vrProjection.vertex_count, 20_301)
-        XCTAssertEqual(vrProjection.index_count, 120_000)
-    }
 }
 
 private final class LockedVRProjectionTestValue<Value>:

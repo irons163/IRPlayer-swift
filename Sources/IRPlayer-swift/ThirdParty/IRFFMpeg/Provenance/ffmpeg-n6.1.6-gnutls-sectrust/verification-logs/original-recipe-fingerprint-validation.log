@@ -1,0 +1,10 @@
+2026-09-06 13:07:51.350 system_profiler[88398:3012559] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=ios-device-arm64
+2026-09-06 13:07:53.939 system_profiler[88729:3013149] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=ios-simulator-arm64
+2026-09-06 13:07:55.315 system_profiler[89064:3013686] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=ios-simulator-x86_64
+2026-09-06 13:07:57.030 system_profiler[89397:3014199] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=maccatalyst-arm64
+2026-09-06 13:07:58.322 system_profiler[89732:3014707] hw.cpufamily: 0x6f5129ac
+validated_original_build_inputs_and_outputs=maccatalyst-x86_64

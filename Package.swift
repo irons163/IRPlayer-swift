@@ -79,6 +79,9 @@ let package = Package(
             ],
             path: "Sources/IRPlayer-swift/ThirdParty/IRFFMpeg",
             exclude: [
+                "AGENTS.md",
+                "README.md",
+                "Provenance",
                 "Libs/libavdevice.xcframework",
                 "Libs/libavfilter.xcframework"
             ],

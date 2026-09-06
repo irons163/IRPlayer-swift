@@ -415,17 +415,6 @@ final class IRGLProjectionEquirectangularTests: XCTestCase {
         XCTAssertEqual(secondMesh.indices, firstMesh.indices)
     }
 
-    func testNoOpRendererHooksPreservePublishedGeneration() throws {
-        let projection = makeProjection()
-        let diagnostics = projection.diagnostics
-
-        projection.updateVertex()
-        projection.draw()
-
-        XCTAssertEqual(projection.diagnostics, diagnostics)
-        XCTAssertNotNil(projection.exportMesh())
-    }
-
     func testIndependentProjectionsDoNotShareMutableGeneration() {
         let first = makeProjection()
         let second = makeProjection()

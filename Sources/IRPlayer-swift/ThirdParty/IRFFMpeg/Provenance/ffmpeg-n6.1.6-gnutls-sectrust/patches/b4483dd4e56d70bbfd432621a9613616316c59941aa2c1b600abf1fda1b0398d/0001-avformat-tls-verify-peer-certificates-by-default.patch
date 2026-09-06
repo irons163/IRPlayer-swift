@@ -1,0 +1,25 @@
+From 01ff2a0fe8db457f8d3fe4cd522b14354863b32e Mon Sep 17 00:00:00 2001
+From: Phil <irons7654321@gmail.com>
+Date: Sun, 6 Sep 2026 10:03:52 +0800
+Subject: [PATCH] avformat/tls: verify peer certificates by default
+
+---
+ libavformat/tls.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libavformat/tls.h b/libavformat/tls.h
+index 6c6aa01..1d6cfd1 100644
+--- a/libavformat/tls.h
++++ b/libavformat/tls.h
+@@ -46,7 +46,7 @@ typedef struct TLSShared {
+ #define TLS_COMMON_OPTIONS(pstruct, options_field) \
+     {"ca_file",    "Certificate Authority database file", offsetof(pstruct, options_field . ca_file),   AV_OPT_TYPE_STRING, .flags = TLS_OPTFL }, \
+     {"cafile",     "Certificate Authority database file", offsetof(pstruct, options_field . ca_file),   AV_OPT_TYPE_STRING, .flags = TLS_OPTFL }, \
+-    {"tls_verify", "Verify the peer certificate",         offsetof(pstruct, options_field . verify),    AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 1, .flags = TLS_OPTFL }, \
++    {"tls_verify", "Verify the peer certificate",         offsetof(pstruct, options_field . verify),    AV_OPT_TYPE_INT, { .i64 = 1 }, 0, 1, .flags = TLS_OPTFL }, \
+     {"cert_file",  "Certificate file",                    offsetof(pstruct, options_field . cert_file), AV_OPT_TYPE_STRING, .flags = TLS_OPTFL }, \
+     {"key_file",   "Private key file",                    offsetof(pstruct, options_field . key_file),  AV_OPT_TYPE_STRING, .flags = TLS_OPTFL }, \
+     {"listen",     "Listen for incoming connections",     offsetof(pstruct, options_field . listen),    AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 1, .flags = TLS_OPTFL }, \
+-- 
+2.50.1 (Apple Git-155)
+

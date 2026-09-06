@@ -112,6 +112,11 @@ applies each accepted transition once:
 
 Repeated states have no side effects.
 
+Preparation is informational once playback intent or a later playback state
+exists. A delayed prepared callback may publish `readyToPlay` only from an
+idle/opening state with no play request; it must not demote playing, override
+pause, revive terminal states, or end buffering before an unbuffered callback.
+
 ## Decoder Session
 
 `IRFFPlayerDecoderSession` has phases:

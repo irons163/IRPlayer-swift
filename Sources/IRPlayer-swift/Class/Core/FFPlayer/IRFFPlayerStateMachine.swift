@@ -54,6 +54,16 @@ struct IRFFPlayerStateMachine {
         return transition(to: decision.nextState)
     }
 
+    mutating func applyPrepared() -> Transition? {
+        // Preparation can arrive after a play/pause command or an unbuffered
+        // callback. It must not overwrite that newer playback state or intent.
+        guard !playRequested,
+              state == .none || state == .buffering else {
+            return nil
+        }
+        return transition(to: .readyToPlay)
+    }
+
     mutating func reset() -> Transition? {
         playRequested = false
         hasPreparedOnce = false
