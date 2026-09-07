@@ -46,7 +46,10 @@ Design: [secure transport](../specs/2026-09-06-secure-ffmpeg-transport-design.md
   - User authorized the upgrade. Corrected bundle IDs after app-embedding
     validation rejected underscores; keep metadata/signature amendments distinct
     from the original binary compilation. Full acceptance remains the next gate.
-- [ ] Run all acceptance modes and verify current candidate CI.
+- [x] Run all acceptance modes and verify current candidate CI.
+  - Local upgraded modes passed; remote run 34068380086 at exact commit
+    25725b3260872c31489e5ecbc8e9614948b30665 passes every job and aggregate.
+    See the release audit for failed prior runs and their corrections.
 - [ ] Verify physical-device trust/playback or record the precise outstanding
   device requirement without claiming simulator evidence proves it.
 - [ ] Resolve new release version, metadata and notes; preserve the published
