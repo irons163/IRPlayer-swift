@@ -107,10 +107,13 @@ IRPLAYER_SIMULATOR_ID="<simulator-udid>" Scripts/ci/run-acceptance.sh all
 - every push to `main` or a `codex/**` branch;
 - manual runs from the Actions page.
 
-After the first successful run, configure the `main` branch ruleset to require
-the final check whose name ends in `Release acceptance`. Also require branches
-to be up to date before merging. This makes the workflow an enforced merge
-gate instead of an informational check.
+The active `Main requires release acceptance` ruleset (ID `22457459`) targets
+`main` and requires `Acceptance / Release acceptance` from the GitHub Actions
+integration (ID `15368`). Branches must be up to date before merging; force
+pushes and branch deletion are blocked, with no bypass actors configured.
+The effective branch-rules API was verified after enabling the ruleset with
+the user's authorization. This enforces the workflow at the merge boundary;
+it does not publish a release or require a new version tag.
 
 ## Continuous delivery
 
